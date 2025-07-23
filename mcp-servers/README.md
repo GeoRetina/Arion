@@ -12,7 +12,9 @@ mcp-servers/
 │   │   ├── spectral_indices.py     # NDVI, NDWI, EVI, SAVI calculations
 │   │   └── spatial_analysis.py     # Focal operations, smoothing, edge detection
 │   └── vector/
-│       └── vector_analysis.py      # Vector data analysis tools
+│       ├── vector_metadata.py      # Metadata, attributes, geometry validity
+│       ├── spatial_operations.py   # Buffers, dissolve, spatial joins
+│       └── geometry_analysis.py    # Area, perimeter, centroids, measurements
 ├── file-operations/
 │   └── file_system.py              # File system operations
 ├── web-scraping/
@@ -31,7 +33,9 @@ mcp-servers/
 - **Spatial Analysis**: Focal statistics (mean, max, min, std), Gaussian smoothing, median filtering, edge detection
 
 #### Vector Tools
-- **Vector Analysis**: Vector data processing, spatial joins, geometry operations, area/perimeter calculations
+- **Metadata Tools**: Vector dataset information, attribute statistics, geometry validity analysis
+- **Spatial Operations**: Buffer analysis, dissolve operations, spatial joins, proximity analysis
+- **Geometry Analysis**: Area/perimeter calculations, length measurements, centroid analysis, bounding boxes, point pattern analysis
 
 ### File Operations
 - **File System**: Read-only filesystem operations, directory listing, file finding
