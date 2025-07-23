@@ -105,7 +105,7 @@ For questions: `support@georetina.com`
 
 **💡 Free for academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
 
-Arion is licensed under a **custom Academic-Only License**, which means:
+Arion is licensed under a **custom Non-Commercial Educational and Charitable License**, which means:
 
 ### ✅ **Free Use** (No license required)
 
