@@ -1,0 +1,360 @@
+@import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+@import './base.css';
+
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+body {
+  margin: 0;
+}
+
+code {
+  font-weight: 600;
+  padding: 3px 5px;
+  background-color: var(--color-background-mute);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
+  font-size: 85%;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+.logo {
+  margin-bottom: 20px;
+  -webkit-user-drag: none;
+  height: 128px;
+  width: 128px;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 1.2em #6988e6aa);
+}
+
+.creator {
+  font-size: 14px;
+  line-height: 16px;
+  color: var(--ev-c-text-2);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.text {
+  font-size: 28px;
+  color: var(--ev-c-text-1);
+  font-weight: 700;
+  line-height: 32px;
+  text-align: center;
+  margin: 0 10px;
+  padding: 16px 0;
+}
+
+.tip {
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--ev-c-text-2);
+  font-weight: 600;
+}
+
+.react {
+  background: -webkit-linear-gradient(315deg, #087ea4 55%, #7c93ee);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+.ts {
+  background: -webkit-linear-gradient(315deg, #3178c6 45%, #f0dc4e);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  padding-top: 32px;
+  margin: -6px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.action {
+  flex-shrink: 0;
+  padding: 6px;
+}
+
+.action a {
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  border: 1px solid transparent;
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: 20px;
+  padding: 0 20px;
+  line-height: 38px;
+  font-size: 14px;
+  border-color: var(--ev-button-alt-border);
+  color: var(--ev-button-alt-text);
+  background-color: var(--ev-button-alt-bg);
+}
+
+.action a:hover {
+  border-color: var(--ev-button-alt-hover-border);
+  color: var(--ev-button-alt-hover-text);
+  background-color: var(--ev-button-alt-hover-bg);
+}
+
+.versions {
+  position: absolute;
+  bottom: 30px;
+  margin: 0 auto;
+  padding: 15px 0;
+  font-family: 'Menlo', 'Lucida Console', monospace;
+  display: inline-flex;
+  overflow: hidden;
+  align-items: center;
+  border-radius: 22px;
+  background-color: #202127;
+  backdrop-filter: blur(24px);
+}
+
+.versions li {
+  display: block;
+  float: left;
+  border-right: 1px solid var(--ev-c-gray-1);
+  padding: 0 20px;
+  font-size: 14px;
+  line-height: 14px;
+  opacity: 0.8;
+  &:last-child {
+    border: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .text {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 620px) {
+  .versions {
+    display: none;
+  }
+}
+
+@media (max-width: 350px) {
+  .tip,
+  .actions {
+    display: none;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chat-input-background: var(--chat-input-background);
+}
+
+:root {
+  --radius: 0.625rem;
+  --border-width: 1px;
+  --background: oklch(0.98 0.005 230); /* Cleaner, slightly off-white */
+  --foreground: oklch(0.12 0.01 230); /* Darker foreground for better contrast */
+  --card: oklch(1 0 0); /* Pure white for cards to pop a bit more */
+  --card-foreground: oklch(0.12 0.01 230); /* Consistent with main foreground */
+  --popover: oklch(1 0 0); /* Pure white for popovers */
+  --popover-foreground: oklch(0.12 0.01 230); /* Consistent with main foreground */
+  --primary: oklch(0.58 0.16 255); /* Slightly adjusted modern blue */
+  --primary-foreground: oklch(0.99 0 0); /* White foreground for primary */
+  --secondary: oklch(0.95 0.01 230); /* Lighter secondary */
+  --secondary-foreground: oklch(0.25 0.01 230); /* Darker secondary foreground */
+  --muted: oklch(0.95 0.01 230); /* Consistent with secondary */
+  --muted-foreground: oklch(0.5 0.01 230); /* Softer muted foreground */
+  --accent: oklch(0.6 0.18 280); /* Modern, slightly desaturated purple */
+  --accent-foreground: oklch(0.99 0 0); /* White foreground for accent */
+  --destructive: oklch(0.55 0.22 25); /* Clear destructive red */
+  --border: oklch(0.9 0.005 230); /* Softer, lighter border */
+  --input: oklch(0.9 0.005 230); /* Consistent with border */
+  --ring: oklch(0.58 0.16 255 / 0.5); /* Ring matching new primary */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-6: oklch(0.65 0.15 280); /* Example: A medium purple */
+  --chart-7: oklch(0.75 0.16 150); /* Example: A seafoam green */
+  --chart-8: oklch(0.7 0.2 55); /* Example: A golden yellow */
+  --chart-9: oklch(0.55 0.18 330); /* Example: A magenta/pink */
+  --chart-10: oklch(0.8 0.1 190); /* Example: A sky blue */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.605 0.174 262.3); /* Accent Blue (78, 134, 249) - Same as dark theme */
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(
+    0.617 0.218 291.1
+  ); /* Accent Purple (157, 113, 249) - Same as dark theme */
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.605 0.174 262.3 / 0.5); /* Blue ring to match primary */
+  --chat-input-background: oklch(0.97 0 0);
+  --shadow-color-rgb: 0 0 0; /* Default black shadow for light mode */
+  --shadow-color-opacity: 0.1;
+}
+
+.dark {
+  --border-width: 1px;
+  --background: oklch(0.26 0.012 230); /* Nebula Night: Sidebar - slightly darker */
+  --foreground: oklch(0.984 0 0); /* Foreground Base1 (remains light) */
+  --card: oklch(0.31 0.01 240); /* Nebula Night: Chat Area */
+  --card-foreground: oklch(0.984 0 0);
+  --popover: oklch(0.31 0.01 240); /* Nebula Night: Popover (matches card) */
+  --popover-foreground: oklch(0.984 0 0);
+  --primary: oklch(0.605 0.174 262.3); /* Accent Blue (current) */
+  --primary-foreground: oklch(0.984 0 0);
+  --secondary: oklch(0.62 0.075 190); /* Nebula Night: Accent Turquoise/Cool Blue - Darker */
+  --secondary-foreground: oklch(
+    0.206 0.019 254.7
+  ); /* Consider adjusting if --secondary changes drastically */
+  --muted: oklch(0.36 0.01 230); /* Nebula Night: Muted backgrounds */
+  --muted-foreground: oklch(0.75 0.005 230); /* Nebula Night: Muted text */
+  --accent: oklch(0.617 0.218 291.1); /* Accent Purple (current) */
+  --accent-foreground: oklch(0.984 0 0);
+  --destructive: oklch(0.631 0.218 27.8); /* Accent Red (current) */
+  --border: oklch(0.5 0.01 240); /* Nebula Night: Borders */
+  --input: oklch(0.52 0.015 245); /* Nebula Night: Input/Select borders */
+  --ring: oklch(0.605 0.174 262.3 / 0.5); /* Current ring, might need review later */
+  --text-accent-orange: oklch(0.718 0.188 65.4); /* Current text accent */
+  /* Chart palette - current, would be next to review for theme harmony */
+  --chart-1: oklch(0.718 0.188 65.4);
+  --chart-2: oklch(0.617 0.218 291.1);
+  --chart-3: oklch(0.659 0.128 133.2);
+  --chart-4: oklch(0.654 0.122 213.3);
+  --chart-5: oklch(0.655 0.238 351.7);
+  --chart-6: oklch(0.65 0.15 280 / 0.9);
+  --chart-7: oklch(0.75 0.16 150 / 0.9);
+  --chart-8: oklch(0.78 0.22 55 / 0.9);
+  --chart-9: oklch(0.6 0.2 330 / 0.9);
+  --chart-10: oklch(0.8 0.12 190 / 0.9);
+  /* Specific UI element backgrounds */
+  --sidebar: oklch(
+    0.2 0.001 220
+  ); /* THIS IS NO LONGER DIRECTLY USED BY SIDEBAR COMPONENT (uses --background) */
+  --sidebar-foreground: oklch(0.984 0 0);
+  --sidebar-primary: oklch(0.725 0.092 181.4);
+  --sidebar-primary-foreground: oklch(0.206 0.019 254.7);
+  --sidebar-accent: oklch(0.617 0.218 291.1);
+  --sidebar-accent-foreground: oklch(0.984 0 0);
+  --sidebar-border: oklch(
+    0.24 0.001 220
+  ); /* THIS IS NO LONGER DIRECTLY USED BY SIDEBAR COMPONENT (uses --border) */
+  --sidebar-ring: oklch(0.725 0.092 181.4 / 0.5);
+  --chat-input-background: oklch(0.37 0.01 250); /* Nebula Night: ChatInputBox - even lighter */
+  --chart-background: oklch(0.29 0.018 260); /* Nebula Night: Chart background */
+  --user-message-background: oklch(0.38 0.012 235); /* Nebula Night: User messages */
+  /* Shadow variables for dark mode */
+  --shadow-color-rgb: 190 210 250; /* Nebula Night: Ethereal blue/lavender shadow */
+  --shadow-color-opacity: 0.1;
+  --input-surface-background: oklch(
+    0.36 0.015 245
+  ); /* Nebula Night: Background for select/input surfaces */
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* Set global border width */
+  .border {
+    border-width: var(--border-width);
+  }
+
+  /* Fix for button outlines in dark mode - targeted specifically to button elements */
+  .dark button.border-input,
+  .dark button.dark\:border-input {
+    border-color: var(--border) !important;
+  }
+
+  /* Target only outline variant buttons in shadcn */
+  .dark button[class*='variant-outline'],
+  .dark [role='button'][class*='variant-outline'] {
+    border-color: var(--border) !important;
+  }
+}
+
+/* Custom Caret Styles */
+.custom-caret-blink {
+  /* Base styling like width, background-color will be applied inline via style prop */
+  /* animation-duration: 1.2s; /* Adjust duration as needed */
+  /* animation-timing-function: ease-in-out; */
+  /* animation-iteration-count: infinite; */
+  animation: smooth-caret-fade-blink 1.2s infinite ease-in-out;
+}
+
+@keyframes smooth-caret-fade-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.1;
+  } /* Fades to 10% opacity for a smoother blink */
+}
+/* End Custom Caret Styles */
