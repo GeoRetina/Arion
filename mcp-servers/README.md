@@ -53,7 +53,7 @@ Each MCP server can be run independently:
 ```bash
 # Run a specific server
 python mcp-servers/geospatial-analysis/raster/raster_metadata.py
-python mcp-servers/geospatial-analysis/raster/spectral_indices.py
+python mcp-servers/geospatial-analysis/vector/vector_metadata.py
 python mcp-servers/web-scraping/web_scraper.py
 ```
 
@@ -66,7 +66,7 @@ Install required dependencies for each server:
 pip install "fastmcp>=2.3.3" rasterio numpy pyproj scipy
 
 # Geospatial analysis (vector)
-pip install "fastmcp>=2.3.3" geopandas shapely pyproj
+pip install "fastmcp>=2.3.3" geopandas shapely pyproj pandas
 
 # File operations
 pip install fastmcp
