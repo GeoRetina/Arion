@@ -1,6 +1,15 @@
 # Arion: Cross-Platform Desktop App for Geospatial AI Analysis
 
-> **Note:** Binary builds for Windows, macOS, and Linux will be available soon. Stay tuned!
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" style="background-color: #E3F2FD; border: 2px solid #2196F3; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #1976D2; margin: 0 0 10px 0;">📦 Binary Releases Coming Soon!</h3>
+        <p style="color: #424242; font-size: 16px; margin: 0;">Binary builds for <strong>Windows</strong>, <strong>macOS</strong>, and <strong>Linux</strong> will be available soon. Stay tuned!</p>
+      </td>
+    </tr>
+  </table>
+</div>
 
 Arion is a **cross-platform desktop application** designed for advanced geospatial analysis and agentic workflows. Built with Electron, React (TypeScript), and Vite, Arion runs natively on **Windows, macOS, and Linux**, empowering users to leverage local and cloud-based Large Language Models (LLMs), integrate custom Model Context Protocol (MCP) servers, and utilize a plugin system for extended capabilities.
 
