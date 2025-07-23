@@ -112,7 +112,7 @@ For questions: `support@georetina.com`
 
 ## License
 
-**💡 Free for personal & academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
+**💡 Free for personal & academic use**
 
 Arion is **source-available** under the **PolyForm Noncommercial License 1.0.0**, which means:
 
@@ -129,5 +129,7 @@ Arion is **source-available** under the **PolyForm Noncommercial License 1.0.0**
 - **SaaS offerings** or hosted services
 - **Consulting work** using Arion for clients
 - **Internal use** by for-profit companies
+
+For commercial licensing inquiries, contact: `support@georetina.com`
 
 **Full license text:** See [LICENSE](./LICENSE) file
