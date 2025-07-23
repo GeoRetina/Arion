@@ -123,19 +123,11 @@ Arion is **source-available** under the **PolyForm Noncommercial License 1.0.0**
 - **Charitable organizations** and environmental protection organizations
 - **Internal evaluation** by commercial entities
 
-### 💼 **Commercial Use** (License required)
+### 💼 **Commercial Use** (Separate license required)
 
 - **Production deployments** in commercial organizations
 - **SaaS offerings** or hosted services
 - **Consulting work** using Arion for clients
 - **Internal use** by for-profit companies
-
-### How to Get a Commercial License
-
-If you need to use Arion commercially, please contact us at `support@georetina.com` for:
-
-- **Flexible pricing** based on your use case
-- **Priority support** and updates
-- **Custom licensing terms** for enterprise deployments
 
 **Full license text:** See [LICENSE](./LICENSE) file
