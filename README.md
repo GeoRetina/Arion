@@ -103,26 +103,35 @@ For questions: `support@georetina.com`
 
 ## License
 
-**💡 Free for personal & academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
+**💡 Free for academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
 
-Arion is licensed under the **PolyForm Noncommercial License 1.0.0**, which means:
+Arion is licensed under a **custom Academic-Only License**, which means:
 
 ### ✅ **Free Use** (No license required)
 
-- **Personal projects** and hobby development
-- **Academic research** at educational institutions
-- **Internal evaluation** by commercial entities
+- **Academic institutions** (universities, colleges, schools) for research, teaching, and educational purposes
+- **Personal academic use** for study, research, hobby projects, or educational purposes
+- **Charitable organizations** (registered non-profits) for their charitable mission and activities
+- **Environmental organizations** (non-profit) for their environmental protection mission and activities
+- **Open source contributions** back to this project
+
+### ❌ **Prohibited Use**
+
+- **Commercial organizations** or for-profit companies
+- **Government institutions**, agencies, or contractors
+- **Military organizations** or defense purposes
+- Any use where **money changes hands**
 
 ### 💼 **Commercial Use** (License required)
 
-- Any use where **money changes hands**
 - **Production deployments** in commercial organizations
 - **SaaS offerings** or hosted services
 - **Consulting work** using Arion for clients
+- **Internal use** by for-profit companies
 
 ### How to Get a Commercial License
 
-If you're using Arion commercially, please contact us at `support@georetina.com` for:
+If you need to use Arion commercially, please contact us at `support@georetina.com` for:
 
 - **Flexible pricing** based on your use case
 - **Priority support** and updates
@@ -131,6 +140,8 @@ If you're using Arion commercially, please contact us at `support@georetina.com`
 ### FAQ
 
 - **University lab or student project?** You're good to go! 🎓
+- **Government agency or contractor?** Sorry, not permitted under this license
+- **Personal hobby project?** Perfect!
 - **Open source contribution?** We welcome PRs under the same license
 - **Evaluation for purchase?** 30-day evaluation is included for commercial entities
 - **Questions about your use case?** Drop us a line - we're here to help!
