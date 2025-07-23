@@ -124,13 +124,6 @@ Arion is licensed under a **custom Non-Commercial Educational and Charitable Lic
 - **Environmental organizations** (non-profit) for their environmental protection mission and activities
 - **Open source contributions** back to this project
 
-### ❌ **Prohibited Use**
-
-- **Commercial organizations** or for-profit companies
-- **Government institutions**, agencies, or contractors
-- **Military organizations** or defense purposes
-- Any use where **money changes hands**
-
 ### 💼 **Commercial Use** (License required)
 
 - **Production deployments** in commercial organizations
@@ -146,17 +139,4 @@ If you need to use Arion commercially, please contact us at `support@georetina.c
 - **Priority support** and updates
 - **Custom licensing terms** for enterprise deployments
 
-### FAQ
-
-- **University lab or student project?** You're good to go! 🎓
-- **Government agency or contractor?** Sorry, not permitted under this license
-- **Personal hobby project?** Perfect!
-- **Open source contribution?** We welcome PRs under the same license
-- **Evaluation for purchase?** 30-day evaluation is included for commercial entities
-- **Questions about your use case?** Drop us a line - we're here to help!
-
 **Full license text:** See [LICENSE](./LICENSE) file
-
----
-
-_"Arion" is a trademark of GeoRetina Inc. Derivative works must use a different name._
