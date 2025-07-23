@@ -6,6 +6,16 @@ Arion is a **cross-platform desktop application** designed for advanced geospati
   <img src="resources/icon.png" alt="Arion Logo" width="256" height="256" style="border-radius: 20px;">
 </div>
 
+## 🎥 Demo Video
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=dI0FVaPBHtk">
+    <img src="https://img.youtube.com/vi/dI0FVaPBHtk/maxresdefault.jpg" alt="Arion Demo Video" width="560" height="315" style="border-radius: 10px;">
+  </a>
+  <br>
+  <em>Click to watch the Arion introduction video</em>
+</div>
+
 ## Core Features
 
 - **Interactive Chat Interface:** Communicate with LLMs for geospatial queries, analysis, and task automation. Supports various providers (OpenAI, Google Gemini, Azure, Anthropic, Ollama) via the Vercel AI SDK.
