@@ -1,5 +1,7 @@
 # Arion: Cross-Platform Desktop App for Geospatial AI Analysis
 
+> **Note:** Binary builds for Windows, macOS, and Linux will be available soon. Stay tuned!
+
 Arion is a **cross-platform desktop application** designed for advanced geospatial analysis and agentic workflows. Built with Electron, React (TypeScript), and Vite, Arion runs natively on **Windows, macOS, and Linux**, empowering users to leverage local and cloud-based Large Language Models (LLMs), integrate custom Model Context Protocol (MCP) servers, and utilize a plugin system for extended capabilities.
 
 <div align="center">
@@ -91,7 +93,7 @@ npm run build:linux
 We welcome contributions from the community! Please see our [Contributing Guide](./CONTRIBUTING.md) for details on:
 
 - 🚀 **Getting started** with development
-- 📋 **Types of contributions** we're looking for  
+- 📋 **Types of contributions** we're looking for
 - 🛠️ **Development guidelines** and coding standards
 - 📝 **Licensing terms** for contributors
 
@@ -106,23 +108,28 @@ For questions: `support@georetina.com`
 Arion is licensed under the **PolyForm Noncommercial License 1.0.0**, which means:
 
 ### ✅ **Free Use** (No license required)
+
 - **Personal projects** and hobby development
 - **Academic research** at educational institutions
 - **Internal evaluation** by commercial entities
 
 ### 💼 **Commercial Use** (License required)
+
 - Any use where **money changes hands**
 - **Production deployments** in commercial organizations
 - **SaaS offerings** or hosted services
 - **Consulting work** using Arion for clients
 
 ### How to Get a Commercial License
+
 If you're using Arion commercially, please contact us at `support@georetina.com` for:
+
 - **Flexible pricing** based on your use case
 - **Priority support** and updates
 - **Custom licensing terms** for enterprise deployments
 
 ### FAQ
+
 - **University lab or student project?** You're good to go! 🎓
 - **Open source contribution?** We welcome PRs under the same license
 - **Evaluation for purchase?** 30-day evaluation is included for commercial entities
@@ -132,4 +139,4 @@ If you're using Arion commercially, please contact us at `support@georetina.com`
 
 ---
 
-*"Arion" is a trademark of GeoRetina Inc. Derivative works must use a different name.*
+_"Arion" is a trademark of GeoRetina Inc. Derivative works must use a different name._
