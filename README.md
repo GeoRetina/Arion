@@ -112,17 +112,16 @@ For questions: `support@georetina.com`
 
 ## License
 
-**💡 Free for academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
+**💡 Free for personal & academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
 
-Arion is licensed under a **custom Non-Commercial Educational and Charitable License**, which means:
+Arion is **source-available** under the **PolyForm Noncommercial License 1.0.0**, which means:
 
 ### ✅ **Free Use** (No license required)
 
-- **Academic institutions** (universities, colleges, schools) for research, teaching, and educational purposes
-- **Personal academic use** for study, research, hobby projects, or educational purposes
-- **Charitable organizations** (registered non-profits) for their charitable mission and activities
-- **Environmental organizations** (non-profit) for their environmental protection mission and activities
-- **Open source contributions** back to this project
+- **Personal projects** and hobby development
+- **Academic research** at educational institutions (including government-funded research)
+- **Charitable organizations** and environmental protection organizations
+- **Internal evaluation** by commercial entities
 
 ### 💼 **Commercial Use** (License required)
 
