@@ -1,6 +1,6 @@
-# Arion: Geospatial AI Assistant
+# Arion: Cross-Platform Desktop App for Geospatial AI Analysis
 
-Arion is a modular and extensible desktop application designed for advanced geospatial analysis and agentic workflows. Built with Electron, React (TypeScript), and Vite, Arion empowers users to leverage local and cloud-based Large Language Models (LLMs), integrate custom Model Context Protocol (MCP) servers, and utilize a plugin system for extended capabilities.
+Arion is a **cross-platform desktop application** designed for advanced geospatial analysis and agentic workflows. Built with Electron, React (TypeScript), and Vite, Arion runs natively on **Windows, macOS, and Linux**, empowering users to leverage local and cloud-based Large Language Models (LLMs), integrate custom Model Context Protocol (MCP) servers, and utilize a plugin system for extended capabilities.
 
 ## Core Features
 
