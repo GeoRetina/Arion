@@ -6,7 +6,6 @@ out
 *.log*
 .env
 .env.local
-.cursor
 
 
 
