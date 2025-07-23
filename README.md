@@ -74,8 +74,48 @@ npm run build:linux
 
 ## Contributing
 
-(Placeholder for contribution guidelines - to be updated)
+We welcome contributions from the community! Please see our [Contributing Guide](./CONTRIBUTING.md) for details on:
+
+- 🚀 **Getting started** with development
+- 📋 **Types of contributions** we're looking for  
+- 🛠️ **Development guidelines** and coding standards
+- 📝 **Licensing terms** for contributors
+
+**Quick start:** Fork the [repository](https://github.com/georetina/arion), make your changes, and submit a pull request.
+
+For questions: `support@georetina.com`
 
 ## License
 
-(Placeholder for license information - to be updated)
+**💡 Free for personal & academic use 🚀 Commercial? [Get a license →](mailto:support@georetina.com)**
+
+Arion is licensed under the **PolyForm Noncommercial License 1.0.0**, which means:
+
+### ✅ **Free Use** (No license required)
+- **Personal projects** and hobby development
+- **Academic research** at educational institutions
+- **Internal evaluation** by commercial entities
+
+### 💼 **Commercial Use** (License required)
+- Any use where **money changes hands**
+- **Production deployments** in commercial organizations
+- **SaaS offerings** or hosted services
+- **Consulting work** using Arion for clients
+
+### How to Get a Commercial License
+If you're using Arion commercially, please contact us at `support@georetina.com` for:
+- **Flexible pricing** based on your use case
+- **Priority support** and updates
+- **Custom licensing terms** for enterprise deployments
+
+### FAQ
+- **University lab or student project?** You're good to go! 🎓
+- **Open source contribution?** We welcome PRs under the same license
+- **Evaluation for purchase?** 30-day evaluation is included for commercial entities
+- **Questions about your use case?** Drop us a line - we're here to help!
+
+**Full license text:** See [LICENSE](./LICENSE) file
+
+---
+
+*"Arion" is a trademark of GeoRetina Inc. Derivative works must use a different name.*
