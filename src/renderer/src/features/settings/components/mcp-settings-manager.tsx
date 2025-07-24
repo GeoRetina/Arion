@@ -6,9 +6,8 @@ import { Label } from '@/components/ui/label' // Assuming you have a Label compo
 import { Checkbox } from '@/components/ui/checkbox' // Assuming you have a Checkbox component
 import { Textarea } from '@/components/ui/textarea' // Correcting import path for Textarea
 import { ScrollArea } from '@/components/ui/scroll-area' // Added import
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { HelpCircle } from 'lucide-react'
+import { HelpTooltip } from '@/components/ui/help-tooltip'
 
 // Default empty state for a new/editing config
 const initialFormState: Omit<McpServerConfig, 'id'> = {
@@ -287,26 +286,21 @@ export function McpSettingsManager(): React.JSX.Element {
                 <Label htmlFor="connectionType">
                   Connection Type
                 </Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-sm">
-                    <div className="space-y-2">
-                      <p className="font-medium">Connection Methods:</p>
-                      <div className="text-xs space-y-2">
-                        <div>
-                          <p><strong>Local Process (stdio):</strong></p>
-                          <p>For Python scripts, executables, or local MCP servers that run as separate processes</p>
-                        </div>
-                        <div>
-                          <p><strong>Remote Server (HTTP):</strong></p>
-                          <p>For web-based MCP servers accessible via HTTP endpoints</p>
-                        </div>
+                <HelpTooltip>
+                  <div className="space-y-2">
+                    <p className="font-medium">Connection Methods:</p>
+                    <div className="text-xs space-y-2">
+                      <div>
+                        <p><strong>Local Process (stdio):</strong></p>
+                        <p>For Python scripts, executables, or local MCP servers that run as separate processes</p>
+                      </div>
+                      <div>
+                        <p><strong>Remote Server (HTTP):</strong></p>
+                        <p>For web-based MCP servers accessible via HTTP endpoints</p>
                       </div>
                     </div>
-                  </TooltipContent>
-                </Tooltip>
+                  </div>
+                </HelpTooltip>
               </div>
               <Select
                 value={connectionType}
@@ -332,21 +326,16 @@ export function McpSettingsManager(): React.JSX.Element {
                 <Label htmlFor="command">
                   Executable Path
                 </Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-sm">
-                    <div className="space-y-2">
-                      <p className="font-medium">Examples:</p>
-                      <div className="text-xs space-y-1">
-                        <p><strong>Python:</strong> /usr/bin/python or C:\Python39\python.exe</p>
-                        <p><strong>Binary:</strong> /usr/local/bin/gdal_mcp_server</p>
-                        <p><strong>Windows:</strong> C:\mcp\server.exe</p>
-                      </div>
+                <HelpTooltip>
+                  <div className="space-y-2">
+                    <p className="font-medium">Examples:</p>
+                    <div className="text-xs space-y-1">
+                      <p><strong>Python:</strong> /usr/bin/python or C:\Python39\python.exe</p>
+                      <p><strong>Binary:</strong> /usr/local/bin/gdal_mcp_server</p>
+                      <p><strong>Windows:</strong> C:\mcp\server.exe</p>
                     </div>
-                  </TooltipContent>
-                </Tooltip>
+                  </div>
+                </HelpTooltip>
               </div>
               <Input
                 id="command"
@@ -365,21 +354,16 @@ export function McpSettingsManager(): React.JSX.Element {
                 <Label htmlFor="argsString">
                   Command Arguments
                 </Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-sm">
-                    <div className="space-y-2">
-                      <p className="font-medium">Examples:</p>
-                      <div className="text-xs space-y-1">
-                        <p><strong>Python script:</strong> server.py --port 8080</p>
-                        <p><strong>With options:</strong> --verbose --config /path/config.json</p>
-                        <p><strong>Multiple args:</strong> script.py, --host, localhost, --debug</p>
-                      </div>
+                <HelpTooltip>
+                  <div className="space-y-2">
+                    <p className="font-medium">Examples:</p>
+                    <div className="text-xs space-y-1">
+                      <p><strong>Python script:</strong> server.py --port 8080</p>
+                      <p><strong>With options:</strong> --verbose --config /path/config.json</p>
+                      <p><strong>Multiple args:</strong> script.py, --host, localhost, --debug</p>
                     </div>
-                  </TooltipContent>
-                </Tooltip>
+                  </div>
+                </HelpTooltip>
               </div>
               <Input
                 id="argsString"
@@ -402,21 +386,16 @@ export function McpSettingsManager(): React.JSX.Element {
                 <Label htmlFor="url">
                   Server URL
                 </Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-sm">
-                    <div className="space-y-2">
-                      <p className="font-medium">Examples:</p>
-                      <div className="text-xs space-y-1">
-                        <p><strong>Local:</strong> http://localhost:8000/mcp</p>
-                        <p><strong>Custom port:</strong> http://127.0.0.1:3000/api/mcp</p>
-                        <p><strong>Remote:</strong> https://api.example.com/mcp</p>
-                      </div>
+                <HelpTooltip>
+                  <div className="space-y-2">
+                    <p className="font-medium">Examples:</p>
+                    <div className="text-xs space-y-1">
+                      <p><strong>Local:</strong> http://localhost:8000/mcp</p>
+                      <p><strong>Custom port:</strong> http://127.0.0.1:3000/api/mcp</p>
+                      <p><strong>Remote:</strong> https://api.example.com/mcp</p>
                     </div>
-                  </TooltipContent>
-                </Tooltip>
+                  </div>
+                </HelpTooltip>
               </div>
               <Input
                 id="url"
