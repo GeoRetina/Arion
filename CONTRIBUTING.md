@@ -5,7 +5,7 @@ Thank you for your interest in contributing to Arion! We welcome contributions f
 ## 🚀 Quick Start
 
 1. **Fork** the [georetina/arion](https://github.com/georetina/arion) repository
-2. **Clone** your fork: `git clone https://github.com/your-username/arion.git`
+2. **Clone** your fork: `git clone https://github.com/georetina/arion.git`
 3. **Install** dependencies: `npm install`
 4. **Run** in development mode: `npm run dev`
 5. **Create** a feature branch: `git checkout -b feature/amazing-feature`
