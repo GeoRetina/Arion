@@ -175,7 +175,7 @@ export default function ChatInterface(): React.JSX.Element {
         (storeMsg) => storeMsg.id === latestSdkMessage.id
       )
       if (!isAlreadySaved) {
-        let currentChatId = useChatHistoryStore.getState().currentChatId // Get latest from store
+        const currentChatId = useChatHistoryStore.getState().currentChatId // Get latest from store
         const handleUserMessageSave = async () => {
           // ONLY save if a chat session is already established in the DB
           if (currentChatId) {

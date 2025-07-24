@@ -548,7 +548,6 @@ export class ChatService {
         throw new Error('Could not get reader from data stream response.')
       }
 
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
