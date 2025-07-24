@@ -6,6 +6,9 @@ import { Label } from '@/components/ui/label' // Assuming you have a Label compo
 import { Checkbox } from '@/components/ui/checkbox' // Assuming you have a Checkbox component
 import { Textarea } from '@/components/ui/textarea' // Correcting import path for Textarea
 import { ScrollArea } from '@/components/ui/scroll-area' // Added import
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { HelpCircle } from 'lucide-react'
 
 // Default empty state for a new/editing config
 const initialFormState: Omit<McpServerConfig, 'id'> = {
@@ -27,6 +30,7 @@ export function McpSettingsManager(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [inputMode, setInputMode] = useState<'form' | 'json'>('form')
   const [jsonString, setJsonString] = useState(() => JSON.stringify(initialFormState, null, 2))
+  const [connectionType, setConnectionType] = useState<'stdio' | 'http'>('stdio')
 
   const loadConfigs = async () => {
     setIsLoading(true)
@@ -190,6 +194,7 @@ export function McpSettingsManager(): React.JSX.Element {
     setEditedServerId(config.id)
     setJsonString(JSON.stringify(config, null, 2))
     setInputMode('form')
+    setConnectionType(config.url ? 'http' : 'stdio')
     setError(null)
   }
 
@@ -199,6 +204,7 @@ export function McpSettingsManager(): React.JSX.Element {
     setEditedServerId(null)
     setJsonString(JSON.stringify(initialFormState, null, 2))
     setInputMode('form')
+    setConnectionType('stdio')
     setError(null)
   }
 
@@ -242,6 +248,7 @@ export function McpSettingsManager(): React.JSX.Element {
     setIsEditingExistingServer(false)
     setEditedServerId(null)
     setJsonString(JSON.stringify(initialFormState, null, 2))
+    setConnectionType('stdio')
     setError(null)
     // Consider resetting inputMode to 'form' or leave as is.
     // Leaving as is allows canceling from JSON view without forcing back to form.
@@ -274,34 +281,143 @@ export function McpSettingsManager(): React.JSX.Element {
                 placeholder="My Local GDAL Server"
               />
             </div>
+            
             <div>
-              <Label htmlFor="command" className="mb-1 block">
-                Command (for stdio)
-              </Label>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="connectionType">
+                  Connection Type
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <div className="space-y-2">
+                      <p className="font-medium">Connection Methods:</p>
+                      <div className="text-xs space-y-2">
+                        <div>
+                          <p><strong>Local Process (stdio):</strong></p>
+                          <p>For Python scripts, executables, or local MCP servers that run as separate processes</p>
+                        </div>
+                        <div>
+                          <p><strong>Remote Server (HTTP):</strong></p>
+                          <p>For web-based MCP servers accessible via HTTP endpoints</p>
+                        </div>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Select
+                value={connectionType}
+                onValueChange={(value: 'stdio' | 'http') => setConnectionType(value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select connection type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="stdio">Local Process (stdio)</SelectItem>
+                  <SelectItem value="http">Remote Server (HTTP)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose how to connect to your MCP server
+              </p>
+            </div>
+            
+            {connectionType === 'stdio' && (
+            <>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="command">
+                  Executable Path
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <div className="space-y-2">
+                      <p className="font-medium">Examples:</p>
+                      <div className="text-xs space-y-1">
+                        <p><strong>Python:</strong> /usr/bin/python or C:\Python39\python.exe</p>
+                        <p><strong>Binary:</strong> /usr/local/bin/gdal_mcp_server</p>
+                        <p><strong>Windows:</strong> C:\mcp\server.exe</p>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="command"
                 name="command"
                 value={editingConfig.command || ''}
                 onChange={handleInputChange}
-                placeholder="e.g., /usr/local/bin/gdal_mcp_server or C:\\mcp\gdal_server.exe"
+                placeholder="e.g., /usr/bin/python, /usr/local/bin/gdal_mcp_server, or C:\\Python39\\python.exe"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Full path to the MCP server executable file. Use this for local servers that run as
+                separate processes.
+              </p>
             </div>
             <div>
-              <Label htmlFor="argsString" className="mb-1 block">
-                Arguments (for stdio, comma or newline separated)
-              </Label>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="argsString">
+                  Command Arguments
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <div className="space-y-2">
+                      <p className="font-medium">Examples:</p>
+                      <div className="text-xs space-y-1">
+                        <p><strong>Python script:</strong> server.py --port 8080</p>
+                        <p><strong>With options:</strong> --verbose --config /path/config.json</p>
+                        <p><strong>Multiple args:</strong> script.py, --host, localhost, --debug</p>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="argsString"
                 name="argsString"
                 value={currentArgsString}
                 onChange={handleInputChange}
-                placeholder="--port, 8080, --verbose"
+                placeholder="server.py, --port, 8080, --verbose"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Command-line arguments to pass to the executable. Separate multiple arguments with
+                commas or new lines.
+              </p>
             </div>
+            </>
+            )}
+            
+            {connectionType === 'http' && (
             <div>
-              <Label htmlFor="url" className="mb-1 block">
-                URL (for HTTP/SSE)
-              </Label>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="url">
+                  Server URL
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm">
+                    <div className="space-y-2">
+                      <p className="font-medium">Examples:</p>
+                      <div className="text-xs space-y-1">
+                        <p><strong>Local:</strong> http://localhost:8000/mcp</p>
+                        <p><strong>Custom port:</strong> http://127.0.0.1:3000/api/mcp</p>
+                        <p><strong>Remote:</strong> https://api.example.com/mcp</p>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="url"
                 name="url"
@@ -309,7 +425,13 @@ export function McpSettingsManager(): React.JSX.Element {
                 onChange={handleInputChange}
                 placeholder="e.g., http://localhost:8000/mcp"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                HTTP endpoint for remote MCP servers. Use this instead of executable path for
+                web-based servers.
+              </p>
             </div>
+            )}
+            
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="enabled"
