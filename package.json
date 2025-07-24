@@ -1,7 +1,7 @@
 {
   "name": "arion",
-  "version": "0.1.1",
-  "description": "An Electron application with React and TypeScript",
+  "version": "0.1.2",
+  "description": "Arion is an AI agentic desktop application for geospatial analysis.",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",
