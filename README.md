@@ -1,5 +1,19 @@
 # Arion: Cross-Platform Desktop App for Geospatial AI Analysis
 
+<div align="center" style="margin-bottom: 16px;">
+  <table>
+    <tr>
+      <td align="center" style="background-color: #FFF3CD; border: 2px solid #FFC107; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #856404; margin: 0 0 10px 0;">⚠️ Early Release Notice</h3>
+        <p style="color: #856404; font-size: 16px; margin: 0;">
+          Some features are currently missing and will be gradually added over the next few days as we complete code clean-up.<br/>
+          You may experience some bugs or incomplete functionality during this period. Thank you for your patience!
+        </p>
+      </td>
+    </tr>
+  </table>
+</div>
+
 <div align="center">
   <table>
     <tr>
