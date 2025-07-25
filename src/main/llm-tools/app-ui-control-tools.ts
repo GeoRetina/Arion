@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const openMapSidebarToolName = 'openMapSidebar'
+export const openMapSidebarToolName = 'open_map_sidebar'
 
 // Define the parameters schema for the tool, even if empty
 // For this tool, no parameters are needed to open the sidebar.
