@@ -6,6 +6,7 @@ out
 *.log*
 .env
 .env.local
+venv/
 
 
 
