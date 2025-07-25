@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { PanelRightClose } from 'lucide-react'
 import { MapDisplay } from './map-display'
@@ -33,7 +33,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       className="h-full w-full flex flex-col bg-card/70 backdrop-blur-sm border-l border-border/50"
     >
       {/* Header with collapse button */}
-      <div className="p-3 border-b border-border/30 flex justify-start items-center z-10 bg-card/95 backdrop-blur-sm">
+      <div className="p-3 flex justify-start items-center z-10 bg-card/95 backdrop-blur-sm">
         <Button
           variant="ghost"
           size="icon"
@@ -46,8 +46,10 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       </div>
 
       {/* Map container */}
-      <div className="flex-grow h-[calc(100%-48px)] w-full">
-        <MapDisplay isVisible={isMapSidebarExpanded} />
+      <div className="flex-grow h-[calc(100%-48px)] w-full p-3 pt-0">
+        <div className="h-full w-full rounded-md overflow-hidden">
+          <MapDisplay isVisible={isMapSidebarExpanded} />
+        </div>
       </div>
     </div>
   )
