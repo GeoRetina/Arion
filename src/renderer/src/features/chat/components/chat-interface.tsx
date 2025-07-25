@@ -32,6 +32,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle } from 'lucide-react'
+import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
+import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
 
 // Create a better streamable fetch function for useChat that uses real-time streaming
 const createStreamingFetch = () => {
@@ -104,10 +106,43 @@ export default function ChatInterface(): React.JSX.Element {
   const [isMapSidebarExpanded, setIsMapSidebarExpanded] = useState(false)
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  
+  // MCP permission dialog state
+  const { 
+    pendingPermission, 
+    resolvePendingPermission, 
+    hasPermission, 
+    requestPermission,
+    setPendingPermission 
+  } = useMcpPermissionStore()
 
   const toggleMapSidebar = () => {
     setIsMapSidebarExpanded(!isMapSidebarExpanded)
   }
+
+  // Handle MCP permission dialog requests from main process
+  const handleMcpPermissionRequest = async (request: any) => {
+    // Check if we already have permission for this tool in this chat
+    const existingPermission = hasPermission(request.chatId, request.toolName)
+    if (existingPermission !== null) {
+      // Send response back to main process
+      if (window.ctg?.mcp?.permissionResponse) {
+        window.ctg.mcp.permissionResponse(request.requestId, existingPermission)
+      }
+      return
+    }
+
+    // Set pending permission to trigger the dialog UI
+    setPendingPermission(request)
+  }
+
+  // Register the MCP permission dialog handler
+  useEffect(() => {
+    if (window.ctg?.mcp?.onShowPermissionDialog) {
+      const unsubscribe = window.ctg.mcp.onShowPermissionDialog(handleMcpPermissionRequest)
+      return () => unsubscribe()
+    }
+  }, [hasPermission, setPendingPermission])
 
   const {
     stableChatIdForUseChat,
@@ -594,6 +629,16 @@ export default function ChatInterface(): React.JSX.Element {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* MCP Permission Dialog */}
+      {pendingPermission && (
+        <McpPermissionDialog
+          isOpen={true}
+          toolName={pendingPermission.toolName}
+          serverId={pendingPermission.serverId}
+          onPermissionResponse={resolvePendingPermission}
+        />
+      )}
     </div>
   )
 }

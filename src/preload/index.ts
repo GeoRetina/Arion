@@ -33,7 +33,9 @@ import {
   type KnowledgeBaseApi,
   type KBAddDocumentPayload,
   type KBAddDocumentResult,
-  type ExposedShellApi
+  type ExposedShellApi,
+  type McpPermissionApi,
+  type McpPermissionRequest
 } from '../shared/ipc-types' // Corrected relative path
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react Message
@@ -355,6 +357,22 @@ const ctgApi = {
     openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IpcChannels.shellOpenPath, filePath)
   } as ExposedShellApi,
+  mcp: {
+    requestPermission: (request: McpPermissionRequest): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.mcpRequestPermission, request),
+    showPermissionDialog: (request: McpPermissionRequest): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.mcpShowPermissionDialog, request),
+    permissionResponse: (requestId: string, granted: boolean): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.mcpPermissionResponse, requestId, granted),
+    onShowPermissionDialog: (callback: (payload: McpPermissionRequest) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: McpPermissionRequest) =>
+        callback(payload)
+      ipcRenderer.on('ctg:mcp:showPermissionDialog', handler)
+      return () => {
+        ipcRenderer.removeListener('ctg:mcp:showPermissionDialog', handler)
+      }
+    }
+  } as McpPermissionApi,
   map: {
     onAddFeature: (callback: (payload: AddMapFeaturePayload) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: AddMapFeaturePayload) =>

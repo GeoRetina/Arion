@@ -107,8 +107,13 @@ export class ChatService {
   }
 
   // Legacy method that collects all chunks and returns them at once
-  async handleSendMessageStream(body: ChatRequestBody): Promise<Uint8Array[]> {
+  async handleSendMessageStream(body: ChatRequestBody & { id?: string }): Promise<Uint8Array[]> {
     const { messages: rendererMessages } = body
+    
+    // Set the chat ID in the LlmToolService for permission tracking
+    if (body.id) {
+      this.llmToolService.setCurrentChatId(body.id)
+    }
     const streamChunks: Uint8Array[] = []
     const textEncoder = new TextEncoder()
 
@@ -357,10 +362,15 @@ export class ChatService {
 
   // NEW METHOD: Real-time streaming that sends chunks as they arrive
   async handleStreamingMessage(
-    body: ChatRequestBody,
+    body: ChatRequestBody & { id?: string },
     callbacks: StreamingCallbacks
   ): Promise<void> {
     const { messages: rendererMessages } = body
+    
+    // Set the chat ID in the LlmToolService for permission tracking
+    if (body.id) {
+      this.llmToolService.setCurrentChatId(body.id)
+    }
 
     try {
       const { processedMessages, finalSystemPrompt } =

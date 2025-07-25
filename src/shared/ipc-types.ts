@@ -133,7 +133,12 @@ export const IpcChannels = {
   dbDeletePlugin: 'ctg:db:deletePlugin',
 
   // Shell operations
-  shellOpenPath: 'ctg:shell:openPath'
+  shellOpenPath: 'ctg:shell:openPath',
+  
+  // MCP Permission System
+  mcpRequestPermission: 'ctg:mcp:requestPermission',
+  mcpShowPermissionDialog: 'ctg:mcp:showPermissionDialog',
+  mcpPermissionResponse: 'ctg:mcp:permissionResponse'
 } as const
 
 // Generic IPC Response wrapper
@@ -156,6 +161,14 @@ export interface PluginConfig {
   settings?: string | null // JSON string for plugin-specific settings
   created_at: string
   updated_at: string
+}
+
+// MCP Permission System Types
+export interface McpPermissionRequest {
+  chatId: string
+  toolName: string
+  serverId: string
+  requestId?: string // Added by main process
 }
 
 // Type for the API exposed by preload script
@@ -392,6 +405,14 @@ export interface ExposedShellApi {
   openPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
 }
 
+// --- MCP Permission API ---
+export interface McpPermissionApi {
+  requestPermission: (request: McpPermissionRequest) => Promise<boolean>
+  showPermissionDialog: (request: McpPermissionRequest) => Promise<boolean>
+  permissionResponse: (requestId: string, granted: boolean) => Promise<void>
+  onShowPermissionDialog: (callback: (payload: McpPermissionRequest) => void) => () => void
+}
+
 // This will be used in preload to type contextBridge
 declare global {
   interface Window {
@@ -403,6 +424,7 @@ declare global {
       ui?: ExposedUiApi
       knowledgeBase: KnowledgeBaseApi
       shell: ExposedShellApi // Added shell API
+      mcp: McpPermissionApi // Added MCP permission API
       getAppVersion: () => Promise<string>
     }
   }

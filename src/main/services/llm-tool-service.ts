@@ -55,11 +55,13 @@ import type { KnowledgeBaseService } from './knowledge-base-service'
 import { MAX_RAG_RESULTS } from '../constants/llm-constants'
 import type { MCPClientService, DiscoveredMcpTool } from './mcp-client-service'
 import { convertImageFileToDataUri } from '../lib/image-processing'
+import type { McpPermissionService } from './mcp-permission-service'
 
 // Define a type for the tool execution functions
 interface ToolExecutorParams {
   args: any // Parsed arguments for the tool
   sourceIdPrefix?: string // Optional prefix for generating unique source IDs for map features
+  chatId?: string // Chat ID for permission tracking
 }
 type ToolExecutor = (params: ToolExecutorParams) => Promise<any> // Returns data to be sent back to LLM
 
@@ -83,10 +85,13 @@ export class LlmToolService {
   private knowledgeBaseService: KnowledgeBaseService | null = null
   private mcpClientService: MCPClientService | null = null
   private isInitialized = false // Track initialization
+  private currentChatId: string | null = null // Track current chat ID for permission checking
+  private mcpPermissionService: McpPermissionService | null = null
 
-  constructor(knowledgeBaseService?: KnowledgeBaseService, mcpClientService?: MCPClientService) {
+  constructor(knowledgeBaseService?: KnowledgeBaseService, mcpClientService?: MCPClientService, mcpPermissionService?: McpPermissionService) {
     this.knowledgeBaseService = knowledgeBaseService || null
     this.mcpClientService = mcpClientService || null
+    this.mcpPermissionService = mcpPermissionService || null
     // Register built-in tools synchronously in constructor
     this.registerBuiltInTools()
     console.log('[LlmToolService] Constructed and built-in tools registered.')
@@ -115,7 +120,41 @@ export class LlmToolService {
 
   public setMainWindow(window: BrowserWindow) {
     this.mainWindow = window
+    if (this.mcpPermissionService) {
+      this.mcpPermissionService.setMainWindow(window)
+    }
     console.log('[LlmToolService] Main window has been set.')
+  }
+
+  public setCurrentChatId(chatId: string | null) {
+    this.currentChatId = chatId
+    console.log(`[LlmToolService] Current chat ID set to: ${chatId}`)
+  }
+
+  private async checkMcpToolPermission(toolName: string, serverId: string): Promise<boolean> {
+    if (!this.currentChatId) {
+      console.warn('[LlmToolService] No current chat ID set, allowing MCP tool execution')
+      return true
+    }
+
+    if (!this.mcpPermissionService) {
+      console.warn('[LlmToolService] No MCP permission service available, allowing MCP tool execution')
+      return true
+    }
+
+    try {
+      const result = await this.mcpPermissionService.requestPermission(
+        this.currentChatId,
+        toolName,
+        serverId
+      )
+      
+      console.log(`[LlmToolService] Permission request result for ${toolName}: ${result}`)
+      return result
+    } catch (error) {
+      console.error('[LlmToolService] Error requesting MCP tool permission:', error)
+      return false
+    }
   }
 
   private registerBuiltInTools() {
@@ -639,6 +678,14 @@ ${chunk.content}`
             `[LlmToolService] Executing assimilated MCP tool "${mcpTool.name}" (from server ${mcpTool.serverId}) with args:`,
             args
           )
+          
+          // Check permission for MCP tools
+          const hasPermission = await this.checkMcpToolPermission(mcpTool.name, mcpTool.serverId)
+          if (!hasPermission) {
+            console.log(`[LlmToolService] Permission denied for MCP tool "${mcpTool.name}"`)
+            throw new Error(`Permission denied for MCP tool "${mcpTool.name}". User must grant permission to use this tool.`)
+          }
+          
           if (!this.mcpClientService) {
             console.error(
               `[LlmToolService] MCPClientService became unavailable after tool "${mcpTool.name}" was registered.`
@@ -678,7 +725,7 @@ ${chunk.content}`
       JSON.stringify(args, null, 2)
     )
     try {
-      const result = await toolEntry.execute({ args })
+      const result = await toolEntry.execute({ args, chatId: this.currentChatId || undefined })
       console.log(
         `[LlmToolService] Tool "${toolName}" executed successfully. Result:`,
         JSON.stringify(result, null, 2)

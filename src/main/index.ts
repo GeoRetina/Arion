@@ -9,6 +9,7 @@ import { MCPClientService } from './services/mcp-client-service'
 import { AgentRunnerService } from './services/agent-runner-service'
 import { LlmToolService } from './services/llm-tool-service'
 import { KnowledgeBaseService } from './services/knowledge-base-service'
+import { McpPermissionService } from './services/mcp-permission-service'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -16,6 +17,7 @@ import { registerChatIpcHandlers } from './ipc/chat-handlers'
 import { registerSettingsIpcHandlers } from './ipc/settings-handlers'
 import { registerKnowledgeBaseIpcHandlers } from './ipc/knowledge-base-handlers'
 import { registerShellHandlers } from './ipc/shell-handlers'
+import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
 
 // Keep a reference to the service instance
 let settingsServiceInstance: SettingsService
@@ -24,6 +26,7 @@ let mcpClientServiceInstance: MCPClientService
 let agentRunnerServiceInstance: AgentRunnerService
 let llmToolServiceInstance: LlmToolService
 let knowledgeBaseServiceInstance: KnowledgeBaseService
+let mcpPermissionServiceInstance: McpPermissionService
 
 function createWindow(): void {
   console.log('[Main Process] __dirname:', __dirname)
@@ -107,9 +110,11 @@ app.whenReady().then(async () => {
   settingsServiceInstance = new SettingsService()
   mcpClientServiceInstance = new MCPClientService(settingsServiceInstance)
   knowledgeBaseServiceInstance = new KnowledgeBaseService(settingsServiceInstance)
+  mcpPermissionServiceInstance = new McpPermissionService()
   llmToolServiceInstance = new LlmToolService(
     knowledgeBaseServiceInstance,
-    mcpClientServiceInstance
+    mcpClientServiceInstance,
+    mcpPermissionServiceInstance
   )
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
   // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
@@ -150,6 +155,7 @@ app.whenReady().then(async () => {
   registerDbIpcHandlers(ipcMain)
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)
   registerShellHandlers(ipcMain)
+  registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
   // --- End IPC Handler Registration ---
 
   // --- Custom IPC Handlers ---
@@ -177,6 +183,10 @@ app.whenReady().then(async () => {
     if (knowledgeBaseServiceInstance) {
       console.log('[Main Process] Closing KnowledgeBaseService...')
       await knowledgeBaseServiceInstance.close()
+    }
+    if (mcpPermissionServiceInstance) {
+      console.log('[Main Process] Cleaning up McpPermissionService...')
+      mcpPermissionServiceInstance.cleanup()
     }
     console.log('[Main Process] All services shut down where applicable in main index.')
   })
