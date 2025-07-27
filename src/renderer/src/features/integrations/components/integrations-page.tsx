@@ -12,28 +12,31 @@ import {
   AlertCircle,
   Layers // Added for Google Earth Engine
 } from 'lucide-react'
+import { integrationRegistry } from '../integrations'
+import type { IntegrationConfig } from '../types/integration'
 
 const IntegrationsPage: React.FC = () => {
-  const [integrations, setIntegrations] = useState([
-    // Removed MapBox API and AWS S3
-    {
-      id: 'integration-3',
-      name: 'PostgreSQL/PostGIS',
-      description: 'Connect to spatial databases for advanced GIS operations',
-      type: 'database',
-      status: 'disconnected',
-      lastUsed: 'Never'
-    },
-    // Removed OpenWeatherMap
-    {
-      id: 'integration-5', // New ID
-      name: 'Google Earth Engine',
-      description: 'Access and analyze satellite imagery and geospatial datasets',
-      type: 'cloud-platform', // New type for GEE
-      status: 'not-configured', // Example status
-      lastUsed: 'Never'
+  const [integrationConfigs, setIntegrationConfigs] = useState<IntegrationConfig[]>(integrationRegistry)
+
+  const handleIntegrationAction = (integrationId: string, action: 'connect' | 'disconnect' | 'configure' | 'test') => {
+    const config = integrationConfigs.find(c => c.integration.id === integrationId)
+    if (!config) return
+
+    switch (action) {
+      case 'connect':
+        config.onConnect?.()
+        break
+      case 'disconnect':
+        config.onDisconnect?.()
+        break
+      case 'configure':
+        config.onConfigure?.()
+        break
+      case 'test':
+        config.onTest?.()
+        break
     }
-  ])
+  }
 
   const getIntegrationIcon = (type: string) => {
     switch (type) {
@@ -57,6 +60,8 @@ const IntegrationsPage: React.FC = () => {
       case 'disconnected':
       case 'not-configured': // Added case for not-configured
         return 'bg-gray-400 text-gray-400'
+      case 'coming-soon':
+        return 'bg-blue-400 text-blue-400'
       case 'error':
         return 'bg-red-500 text-red-500'
       default:
@@ -87,53 +92,78 @@ const IntegrationsPage: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {integrations.map((integration) => (
-                <Card key={integration.id} className="overflow-hidden">
-                  <CardHeader className="pb-2 pt-4 px-5">
-                    <div className="flex gap-3 items-start">
-                      {getIntegrationIcon(integration.type)}
-                      <div>
-                        <CardTitle className="text-base">{integration.name}</CardTitle>
-                        <CardDescription className="line-clamp-2">
-                          {integration.description}
-                        </CardDescription>
+              {integrationConfigs.map((config) => {
+                const integration = config.integration
+                return (
+                  <Card key={integration.id} className="overflow-hidden">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <div className="flex gap-3 items-start">
+                        {getIntegrationIcon(integration.type)}
+                        <div>
+                          <CardTitle className="text-base">{integration.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">
+                            {integration.description}
+                          </CardDescription>
+                        </div>
                       </div>
+                    </CardHeader>
+                    <CardContent className="px-5 py-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div
+                          className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
+                        ></div>
+                        <span className="text-sm capitalize">
+                          {integration.status.replace('-', ' ')}
+                          {integration.status === 'error' && (
+                            <span className="text-xs ml-1 text-red-500 inline-flex items-center">
+                              <AlertCircle className="h-3 w-3 mr-1" /> Authentication failed
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Last used: {integration.lastUsed}
+                      </div>
+                    </CardContent>
+                    <div className="px-5 py-3 border-t border-border/40 flex justify-between items-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs"
+                        disabled={integration.status === 'coming-soon'}
+                        onClick={() => {
+                          if (integration.status === 'connected') {
+                            handleIntegrationAction(integration.id, 'disconnect')
+                          } else if (integration.status === 'not-configured' || integration.status === 'disconnected') {
+                            handleIntegrationAction(integration.id, 'connect')
+                          } else if (integration.status === 'error') {
+                            handleIntegrationAction(integration.id, 'test')
+                          }
+                        }}
+                      >
+                        {integration.status === 'connected'
+                          ? 'Disconnect'
+                          : integration.status === 'not-configured' ||
+                              integration.status === 'disconnected'
+                            ? 'Setup / Connect'
+                            : integration.status === 'coming-soon'
+                              ? 'Coming Soon'
+                              : 'Retry'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center gap-1 text-xs"
+                        onClick={() => handleIntegrationAction(integration.id, 'configure')}
+                        disabled={integration.status === 'coming-soon'}
+                      >
+                        <span>{integration.status === 'connected' ? 'Configure' : 'Details'}</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
                     </div>
-                  </CardHeader>
-                  <CardContent className="px-5 py-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div
-                        className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
-                      ></div>
-                      <span className="text-sm capitalize">
-                        {integration.status.replace('-', ' ')}
-                        {integration.status === 'error' && (
-                          <span className="text-xs ml-1 text-red-500 inline-flex items-center">
-                            <AlertCircle className="h-3 w-3 mr-1" /> Authentication failed
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Last used: {integration.lastUsed}
-                    </div>
-                  </CardContent>
-                  <div className="px-5 py-3 border-t border-border/40 flex justify-between items-center">
-                    <Button variant="ghost" size="sm" className="text-xs">
-                      {integration.status === 'connected'
-                        ? 'Disconnect'
-                        : integration.status === 'not-configured' ||
-                            integration.status === 'disconnected'
-                          ? 'Setup / Connect'
-                          : 'Retry'}
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-1 text-xs">
-                      <span>{integration.status === 'connected' ? 'Configure' : 'Details'}</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           </div>
 
