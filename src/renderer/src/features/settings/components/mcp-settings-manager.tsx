@@ -480,70 +480,86 @@ export function McpSettingsManager(): React.JSX.Element {
 
       {isLoading && !configs.length && !editingConfig && <p>Loading configurations...</p>}
 
-      <div className="mt-6 space-y-3">
-        {configs.length === 0 && !isLoading && !error && !editingConfig && (
-          <p>No MCP server configurations found.</p>
-        )}
-        {configs.map((config) =>
-          editedServerId === config.id && editingConfig && isEditingExistingServer ? (
-            <div key={`${config.id}-edit-form`} className="my-3">
-              {renderConfigForm()}
-            </div>
-          ) : (
-            <div
-              key={config.id}
-              className="p-3 border rounded-md flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
-            >
-              <div className="flex-grow">
-                <p className="font-medium">
-                  {config.name}{' '}
-                  <span
-                    className={`text-sm ${
-                      config.enabled ? 'text-green-600' : 'text-muted-foreground'
-                    }`}
+      <ScrollArea className="mt-6 max-h-[60vh] pr-4">
+        <div className="space-y-3">
+          {configs.length === 0 && !isLoading && !error && !editingConfig && (
+            <p>No MCP server configurations found.</p>
+          )}
+          {configs.map((config) =>
+            editedServerId === config.id && editingConfig && isEditingExistingServer ? (
+              <div key={`${config.id}-edit-form`} className="my-3">
+                {renderConfigForm()}
+              </div>
+            ) : (
+              <div
+                key={config.id}
+                className="p-3 border rounded-md flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
+              >
+                <div className="flex-grow">
+                  <p className="font-medium">
+                    {config.name}{' '}
+                    <span
+                      className={`text-sm ${
+                        config.enabled ? 'text-green-600' : 'text-muted-foreground'
+                      }`}
+                    >
+                      ({config.enabled ? 'Enabled' : 'Disabled'})
+                    </span>
+                  </p>
+                  {config.command && (
+                    <p 
+                      className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
+                      title={`${config.command} ${config.args?.join(' ') || ''}`}
+                    >
+                      <span className="font-semibold">Command:</span> {config.command} {config.args?.join(' ')}
+                    </p>
+                  )}
+                  {config.url && (
+                    <p 
+                      className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
+                      title={config.url}
+                    >
+                      <span className="font-semibold">URL:</span> {config.url}
+                    </p>
+                  )}
+                  {config.command && config.args && config.args.length > 0 && (
+                    <p 
+                      className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-1"
+                      title={config.args[0]}
+                    >
+                      <span className="font-semibold">Server Path:</span> {config.args[0]}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col space-y-2 sm:flex-row sm:flex-wrap sm:gap-2 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(config)}
+                    disabled={
+                      isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
+                    }
+                    className="w-full sm:w-auto"
                   >
-                    ({config.enabled ? 'Enabled' : 'Disabled'})
-                  </span>
-                </p>
-                {config.command && (
-                  <p className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md">
-                    Command: {config.command} {config.args?.join(' ')}
-                  </p>
-                )}
-                {config.url && (
-                  <p className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md">
-                    URL: {config.url}
-                  </p>
-                )}
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(config.id)}
+                    disabled={
+                      isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
+                    }
+                    className="w-full sm:w-auto"
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-col space-y-2 sm:flex-row sm:flex-wrap sm:gap-2 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(config)}
-                  disabled={
-                    isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
-                  }
-                  className="w-full sm:w-auto"
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(config.id)}
-                  disabled={
-                    isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
-                  }
-                  className="w-full sm:w-auto"
-                >
-                  Delete
-                </Button>
-              </div>
-            </div>
-          )
-        )}
-      </div>
+            )
+          )}
+        </div>
+      </ScrollArea>
     </div>
   )
 }

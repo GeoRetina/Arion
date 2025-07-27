@@ -7,33 +7,95 @@ import {
   Cloud,
   Database,
   Key,
-  Plus,
   ExternalLink,
   AlertCircle,
   Layers // Added for Google Earth Engine
 } from 'lucide-react'
+import { integrationRegistry } from '../integrations'
+import type { IntegrationConfig } from '../types/integration'
+import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
+import { PostgreSQLConfig } from '../../../shared/ipc-types'
 
 const IntegrationsPage: React.FC = () => {
-  const [integrations, setIntegrations] = useState([
-    // Removed MapBox API and AWS S3
-    {
-      id: 'integration-3',
-      name: 'PostgreSQL/PostGIS',
-      description: 'Connect to spatial databases for advanced GIS operations',
-      type: 'database',
-      status: 'disconnected',
-      lastUsed: 'Never'
-    },
-    // Removed OpenWeatherMap
-    {
-      id: 'integration-5', // New ID
-      name: 'Google Earth Engine',
-      description: 'Access and analyze satellite imagery and geospatial datasets',
-      type: 'cloud-platform', // New type for GEE
-      status: 'not-configured', // Example status
-      lastUsed: 'Never'
+  const [integrationConfigs, setIntegrationConfigs] = useState<IntegrationConfig[]>(integrationRegistry)
+  const [isPostgreSQLConfigOpen, setIsPostgreSQLConfigOpen] = useState(false)
+  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationConfig | null>(null)
+
+  const handleIntegrationAction = (integrationId: string, action: 'connect' | 'disconnect' | 'configure' | 'test') => {
+    const config = integrationConfigs.find(c => c.integration.id === integrationId)
+    if (!config) return
+
+    switch (action) {
+      case 'connect':
+        if (integrationId === 'postgresql-postgis') {
+          handlePostgreSQLConnect(config)
+        } else {
+          config.onConnect?.()
+        }
+        break
+      case 'disconnect':
+        if (integrationId === 'postgresql-postgis') {
+          handlePostgreSQLDisconnect(config)
+        } else {
+          config.onDisconnect?.()
+        }
+        break
+      case 'configure':
+        if (integrationId === 'postgresql-postgis') {
+          setSelectedIntegration(config)
+          setIsPostgreSQLConfigOpen(true)
+        } else {
+          config.onConfigure?.()
+        }
+        break
+      case 'test':
+        config.onTest?.()
+        break
     }
-  ])
+  }
+
+  const handlePostgreSQLConnect = async (config: IntegrationConfig) => {
+    try {
+      await config.onConnect?.()
+      // Refresh the integration configs to update the UI
+      setIntegrationConfigs(prev => prev.map(c => c.integration.id === config.integration.id ? config : c))
+    } catch (error) {
+      console.error('Failed to connect to PostgreSQL:', error)
+      // Handle error - could show a toast notification
+    }
+  }
+
+  const handlePostgreSQLDisconnect = async (config: IntegrationConfig) => {
+    try {
+      await config.onDisconnect?.()
+      // Refresh the integration configs to update the UI
+      setIntegrationConfigs(prev => prev.map(c => c.integration.id === config.integration.id ? config : c))
+    } catch (error) {
+      console.error('Failed to disconnect from PostgreSQL:', error)
+      // Handle error - could show a toast notification
+    }
+  }
+
+  const handlePostgreSQLSave = (newConfig: PostgreSQLConfig) => {
+    if (selectedIntegration) {
+      // Update the integration's connection settings
+      selectedIntegration.integration.connectionSettings = newConfig
+      
+      // Update the integration configs
+      setIntegrationConfigs(prev => prev.map(c => 
+        c.integration.id === selectedIntegration.integration.id 
+          ? selectedIntegration 
+          : c
+      ))
+      
+      // Update the integration status
+      selectedIntegration.integration.status = 'not-configured'
+    }
+  }
+
+  const handlePostgreSQLTest = async (config: PostgreSQLConfig) => {
+    return await window.ctg.postgresql.testConnection(config)
+  }
 
   const getIntegrationIcon = (type: string) => {
     switch (type) {
@@ -57,6 +119,8 @@ const IntegrationsPage: React.FC = () => {
       case 'disconnected':
       case 'not-configured': // Added case for not-configured
         return 'bg-gray-400 text-gray-400'
+      case 'coming-soon':
+        return 'bg-blue-400 text-blue-400'
       case 'error':
         return 'bg-red-500 text-red-500'
       default:
@@ -79,67 +143,100 @@ const IntegrationsPage: React.FC = () => {
 
           {/* Active Integrations */}
           <div className="w-full flex flex-col gap-4">
-            <div className="flex items-center">
-              <Button size="sm" className="flex items-center gap-1">
-                <Plus className="h-4 w-4" />
-                <span>Add New</span>
-              </Button>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {integrations.map((integration) => (
-                <Card key={integration.id} className="overflow-hidden">
-                  <CardHeader className="pb-2 pt-4 px-5">
-                    <div className="flex gap-3 items-start">
-                      {getIntegrationIcon(integration.type)}
-                      <div>
-                        <CardTitle className="text-base">{integration.name}</CardTitle>
-                        <CardDescription className="line-clamp-2">
-                          {integration.description}
-                        </CardDescription>
+              {integrationConfigs.map((config) => {
+                const integration = config.integration
+                return (
+                  <Card key={integration.id} className="overflow-hidden">
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <div className="flex gap-3 items-start">
+                        {getIntegrationIcon(integration.type)}
+                        <div>
+                          <CardTitle className="text-base">{integration.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">
+                            {integration.description}
+                          </CardDescription>
+                        </div>
                       </div>
+                    </CardHeader>
+                    <CardContent className="px-5 py-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div
+                          className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
+                        ></div>
+                        <span className="text-sm capitalize">
+                          {integration.status.replace('-', ' ')}
+                          {integration.status === 'error' && (
+                            <span className="text-xs ml-1 text-red-500 inline-flex items-center">
+                              <AlertCircle className="h-3 w-3 mr-1" /> Authentication failed
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Last used: {integration.lastUsed}
+                      </div>
+                    </CardContent>
+                    <div className="px-5 py-3 border-t border-border/40 flex justify-between items-center">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs"
+                        disabled={integration.status === 'coming-soon'}
+                        onClick={() => {
+                          if (integration.status === 'connected') {
+                            handleIntegrationAction(integration.id, 'disconnect')
+                          } else if (integration.status === 'not-configured' || integration.status === 'disconnected') {
+                            handleIntegrationAction(integration.id, 'connect')
+                          } else if (integration.status === 'error') {
+                            handleIntegrationAction(integration.id, 'test')
+                          }
+                        }}
+                      >
+                        {integration.status === 'connected'
+                          ? 'Disconnect'
+                          : integration.status === 'not-configured' ||
+                              integration.status === 'disconnected'
+                            ? 'Setup / Connect'
+                            : integration.status === 'coming-soon'
+                              ? 'Coming Soon'
+                              : 'Retry'}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center gap-1 text-xs"
+                        onClick={() => handleIntegrationAction(integration.id, 'configure')}
+                        disabled={integration.status === 'coming-soon'}
+                      >
+                        <span>Configure</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
                     </div>
-                  </CardHeader>
-                  <CardContent className="px-5 py-3">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div
-                        className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
-                      ></div>
-                      <span className="text-sm capitalize">
-                        {integration.status.replace('-', ' ')}
-                        {integration.status === 'error' && (
-                          <span className="text-xs ml-1 text-red-500 inline-flex items-center">
-                            <AlertCircle className="h-3 w-3 mr-1" /> Authentication failed
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Last used: {integration.lastUsed}
-                    </div>
-                  </CardContent>
-                  <div className="px-5 py-3 border-t border-border/40 flex justify-between items-center">
-                    <Button variant="ghost" size="sm" className="text-xs">
-                      {integration.status === 'connected'
-                        ? 'Disconnect'
-                        : integration.status === 'not-configured' ||
-                            integration.status === 'disconnected'
-                          ? 'Setup / Connect'
-                          : 'Retry'}
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-1 text-xs">
-                      <span>{integration.status === 'connected' ? 'Configure' : 'Details'}</span>
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           </div>
 
           {/* Documentation section REMOVED */}
         </div>
       </div>
+      
+      {/* PostgreSQL Configuration Dialog */}
+      {selectedIntegration && selectedIntegration.integration.id === 'postgresql-postgis' && (
+        <PostgreSQLConfigDialog
+          isOpen={isPostgreSQLConfigOpen}
+          onClose={() => {
+            setIsPostgreSQLConfigOpen(false)
+            setSelectedIntegration(null)
+          }}
+          onSave={handlePostgreSQLSave}
+          onTest={handlePostgreSQLTest}
+          initialConfig={selectedIntegration.integration.connectionSettings as PostgreSQLConfig}
+          title="PostgreSQL/PostGIS Configuration"
+        />
+      )}
     </ScrollArea>
   )
 }

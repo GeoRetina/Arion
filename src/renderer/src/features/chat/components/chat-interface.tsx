@@ -21,7 +21,7 @@ import {
   getFormattedProviderName,
   FormattableProviderConfig
 } from '@/constants/llm-providers'
-import type { SetMapSidebarVisibilityPayload } from '../../../../../shared/ipc-types'
+import type { SetMapSidebarVisibilityPayload, McpServerConfig } from '../../../../../shared/ipc-types'
 import {
   Dialog,
   DialogContent,
@@ -106,6 +106,7 @@ export default function ChatInterface(): React.JSX.Element {
   const [isMapSidebarExpanded, setIsMapSidebarExpanded] = useState(false)
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [mcpServerConfigs, setMcpServerConfigs] = useState<McpServerConfig[]>([])
   
   // MCP permission dialog state
   const { 
@@ -118,6 +119,39 @@ export default function ChatInterface(): React.JSX.Element {
 
   const toggleMapSidebar = () => {
     setIsMapSidebarExpanded(!isMapSidebarExpanded)
+  }
+
+  // Fetch MCP server configurations on component mount
+  useEffect(() => {
+    const fetchMcpConfigs = async () => {
+      try {
+        const configs = await window.ctg.settings.getMcpServerConfigs()
+        setMcpServerConfigs(configs)
+      } catch (error) {
+        console.error('Failed to fetch MCP server configurations:', error)
+      }
+    }
+    
+    fetchMcpConfigs()
+  }, [])
+
+  // Get server path for a given serverId
+  const getServerPath = (serverId: string): string | undefined => {
+    const serverConfig = mcpServerConfigs.find(config => config.id === serverId)
+    if (!serverConfig) return undefined
+    
+    // For HTTP/SSE servers, return the URL
+    if (serverConfig.url) {
+      return serverConfig.url
+    }
+    
+    // For stdio servers, return the first argument (typically the script path)
+    if (serverConfig.args && serverConfig.args.length > 0) {
+      return serverConfig.args[0]
+    }
+    
+    // Fallback to command if no args (shouldn't happen in practice)
+    return serverConfig.command
   }
 
   // Handle MCP permission dialog requests from main process
@@ -635,7 +669,7 @@ export default function ChatInterface(): React.JSX.Element {
         <McpPermissionDialog
           isOpen={true}
           toolName={pendingPermission.toolName}
-          serverId={pendingPermission.serverId}
+          serverPath={getServerPath(pendingPermission.serverId)}
           onPermissionResponse={resolvePendingPermission}
         />
       )}

@@ -138,7 +138,16 @@ export const IpcChannels = {
   // MCP Permission System
   mcpRequestPermission: 'ctg:mcp:requestPermission',
   mcpShowPermissionDialog: 'ctg:mcp:showPermissionDialog',
-  mcpPermissionResponse: 'ctg:mcp:permissionResponse'
+  mcpPermissionResponse: 'ctg:mcp:permissionResponse',
+  
+  // PostgreSQL Integration IPC Channels
+  postgresqlTestConnection: 'ctg:postgresql:testConnection',
+  postgresqlCreateConnection: 'ctg:postgresql:createConnection',
+  postgresqlCloseConnection: 'ctg:postgresql:closeConnection',
+  postgresqlExecuteQuery: 'ctg:postgresql:executeQuery',
+  postgresqlExecuteTransaction: 'ctg:postgresql:executeTransaction',
+  postgresqlGetActiveConnections: 'ctg:postgresql:getActiveConnections',
+  postgresqlGetConnectionInfo: 'ctg:postgresql:getConnectionInfo'
 } as const
 
 // Generic IPC Response wrapper
@@ -425,6 +434,7 @@ declare global {
       knowledgeBase: KnowledgeBaseApi
       shell: ExposedShellApi // Added shell API
       mcp: McpPermissionApi // Added MCP permission API
+      postgresql: PostgreSQLApi // Added PostgreSQL API
       getAppVersion: () => Promise<string>
     }
   }
@@ -458,4 +468,54 @@ export interface AddGeoreferencedImageLayerPayload {
   layerId?: string
   fitBounds?: boolean
   opacity?: number
+}
+
+// --- PostgreSQL Integration Types ---
+export interface PostgreSQLConfig {
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+  ssl: boolean
+}
+
+export interface PostgreSQLConnectionResult {
+  success: boolean
+  version?: string
+  postgisVersion?: string | null
+  message: string
+}
+
+export interface PostgreSQLFieldInfo {
+  name: string
+  dataTypeID: number
+  dataTypeSize: number
+  dataTypeModifier: number
+  format: string
+}
+
+export interface PostgreSQLQueryResult {
+  success: boolean
+  rows?: any[]
+  rowCount?: number
+  fields?: PostgreSQLFieldInfo[]
+  executionTime?: number
+  message: string
+}
+
+export interface PostgreSQLConnectionInfo {
+  connected: boolean
+  config?: PostgreSQLConfig
+}
+
+// PostgreSQL API for preload script
+export interface PostgreSQLApi {
+  testConnection: (config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
+  createConnection: (id: string, config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
+  closeConnection: (id: string) => Promise<void>
+  executeQuery: (id: string, query: string, params?: any[]) => Promise<PostgreSQLQueryResult>
+  executeTransaction: (id: string, queries: string[]) => Promise<PostgreSQLQueryResult>
+  getActiveConnections: () => Promise<string[]>
+  getConnectionInfo: (id: string) => Promise<PostgreSQLConnectionInfo>
 }

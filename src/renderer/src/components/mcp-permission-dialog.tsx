@@ -16,14 +16,14 @@ import { AlertTriangle } from 'lucide-react'
 interface McpPermissionDialogProps {
   isOpen: boolean
   toolName: string
-  serverId: string
+  serverPath?: string
   onPermissionResponse: (granted: boolean, rememberChoice: boolean) => void
 }
 
 export const McpPermissionDialog: React.FC<McpPermissionDialogProps> = ({
   isOpen,
   toolName,
-  serverId,
+  serverPath,
   onPermissionResponse
 }) => {
   const [rememberChoice, setRememberChoice] = useState(false)
@@ -40,7 +40,7 @@ export const McpPermissionDialog: React.FC<McpPermissionDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md px-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
@@ -48,14 +48,23 @@ export const McpPermissionDialog: React.FC<McpPermissionDialogProps> = ({
           </DialogTitle>
           <DialogDescription className="space-y-2">
             <div className="rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3 mt-3">
-              <p className="text-sm">
+              <p className="text-sm text-foreground">
                 The AI assistant wants to use the MCP tool{' '}
-                <code className="bg-muted px-1 py-0.5 rounded text-xs font-medium">
+                <code className="bg-muted px-1 py-0.5 rounded text-sm font-semibold break-all text-foreground">
                   {toolName}
                 </code>{' '}
                 from an external server.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              {serverPath && (
+                <p className="text-sm text-foreground mt-2 py-2">
+                  <span className="font-medium">Server path:</span>
+                  <br />
+                  <code className="bg-muted px-1 py-0.5 rounded text-sm font-semibold break-all text-foreground">
+                    {serverPath}
+                  </code>
+                </p>
+              )}
+              <p className="text-sm text-foreground mt-1">
                 This tool can perform actions on your system or access external resources. Take your time to review this request.
               </p>
             </div>
