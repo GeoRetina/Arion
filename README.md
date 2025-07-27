@@ -1,4 +1,4 @@
-# Arion: Cross-Platform Desktop App for Geospatial AI Analysis
+# Arion: Cross‑Platform Desktop App for Agentic Geospatial AI Analysis
 
 <div align="center" style="margin-bottom: 16px;">
   <table>
