@@ -35,7 +35,12 @@ import {
   type KBAddDocumentResult,
   type ExposedShellApi,
   type McpPermissionApi,
-  type McpPermissionRequest
+  type McpPermissionRequest,
+  type PostgreSQLApi,
+  type PostgreSQLConfig,
+  type PostgreSQLConnectionResult,
+  type PostgreSQLQueryResult,
+  type PostgreSQLConnectionInfo
 } from '../shared/ipc-types' // Corrected relative path
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react Message
@@ -431,6 +436,22 @@ const ctgApi = {
       }
     }
   },
+  postgresql: {
+    testConnection: (config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlTestConnection, config),
+    createConnection: (id: string, config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlCreateConnection, id, config),
+    closeConnection: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlCloseConnection, id),
+    executeQuery: (id: string, query: string, params?: any[]): Promise<PostgreSQLQueryResult> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlExecuteQuery, id, query, params),
+    executeTransaction: (id: string, queries: string[]): Promise<PostgreSQLQueryResult> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlExecuteTransaction, id, queries),
+    getActiveConnections: (): Promise<string[]> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlGetActiveConnections),
+    getConnectionInfo: (id: string): Promise<PostgreSQLConnectionInfo> =>
+      ipcRenderer.invoke(IpcChannels.postgresqlGetConnectionInfo, id)
+  } as PostgreSQLApi,
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
 

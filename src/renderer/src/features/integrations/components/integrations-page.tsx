@@ -7,16 +7,19 @@ import {
   Cloud,
   Database,
   Key,
-  Plus,
   ExternalLink,
   AlertCircle,
   Layers // Added for Google Earth Engine
 } from 'lucide-react'
 import { integrationRegistry } from '../integrations'
 import type { IntegrationConfig } from '../types/integration'
+import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
+import { PostgreSQLConfig } from '../../../shared/ipc-types'
 
 const IntegrationsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] = useState<IntegrationConfig[]>(integrationRegistry)
+  const [isPostgreSQLConfigOpen, setIsPostgreSQLConfigOpen] = useState(false)
+  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationConfig | null>(null)
 
   const handleIntegrationAction = (integrationId: string, action: 'connect' | 'disconnect' | 'configure' | 'test') => {
     const config = integrationConfigs.find(c => c.integration.id === integrationId)
@@ -24,18 +27,74 @@ const IntegrationsPage: React.FC = () => {
 
     switch (action) {
       case 'connect':
-        config.onConnect?.()
+        if (integrationId === 'postgresql-postgis') {
+          handlePostgreSQLConnect(config)
+        } else {
+          config.onConnect?.()
+        }
         break
       case 'disconnect':
-        config.onDisconnect?.()
+        if (integrationId === 'postgresql-postgis') {
+          handlePostgreSQLDisconnect(config)
+        } else {
+          config.onDisconnect?.()
+        }
         break
       case 'configure':
-        config.onConfigure?.()
+        if (integrationId === 'postgresql-postgis') {
+          setSelectedIntegration(config)
+          setIsPostgreSQLConfigOpen(true)
+        } else {
+          config.onConfigure?.()
+        }
         break
       case 'test':
         config.onTest?.()
         break
     }
+  }
+
+  const handlePostgreSQLConnect = async (config: IntegrationConfig) => {
+    try {
+      await config.onConnect?.()
+      // Refresh the integration configs to update the UI
+      setIntegrationConfigs(prev => prev.map(c => c.integration.id === config.integration.id ? config : c))
+    } catch (error) {
+      console.error('Failed to connect to PostgreSQL:', error)
+      // Handle error - could show a toast notification
+    }
+  }
+
+  const handlePostgreSQLDisconnect = async (config: IntegrationConfig) => {
+    try {
+      await config.onDisconnect?.()
+      // Refresh the integration configs to update the UI
+      setIntegrationConfigs(prev => prev.map(c => c.integration.id === config.integration.id ? config : c))
+    } catch (error) {
+      console.error('Failed to disconnect from PostgreSQL:', error)
+      // Handle error - could show a toast notification
+    }
+  }
+
+  const handlePostgreSQLSave = (newConfig: PostgreSQLConfig) => {
+    if (selectedIntegration) {
+      // Update the integration's connection settings
+      selectedIntegration.integration.connectionSettings = newConfig
+      
+      // Update the integration configs
+      setIntegrationConfigs(prev => prev.map(c => 
+        c.integration.id === selectedIntegration.integration.id 
+          ? selectedIntegration 
+          : c
+      ))
+      
+      // Update the integration status
+      selectedIntegration.integration.status = 'not-configured'
+    }
+  }
+
+  const handlePostgreSQLTest = async (config: PostgreSQLConfig) => {
+    return await window.ctg.postgresql.testConnection(config)
   }
 
   const getIntegrationIcon = (type: string) => {
@@ -84,13 +143,6 @@ const IntegrationsPage: React.FC = () => {
 
           {/* Active Integrations */}
           <div className="w-full flex flex-col gap-4">
-            <div className="flex items-center">
-              <Button size="sm" className="flex items-center gap-1">
-                <Plus className="h-4 w-4" />
-                <span>Add New</span>
-              </Button>
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {integrationConfigs.map((config) => {
                 const integration = config.integration
@@ -157,7 +209,7 @@ const IntegrationsPage: React.FC = () => {
                         onClick={() => handleIntegrationAction(integration.id, 'configure')}
                         disabled={integration.status === 'coming-soon'}
                       >
-                        <span>{integration.status === 'connected' ? 'Configure' : 'Details'}</span>
+                        <span>Configure</span>
                         <ExternalLink className="h-3 w-3" />
                       </Button>
                     </div>
@@ -170,6 +222,21 @@ const IntegrationsPage: React.FC = () => {
           {/* Documentation section REMOVED */}
         </div>
       </div>
+      
+      {/* PostgreSQL Configuration Dialog */}
+      {selectedIntegration && selectedIntegration.integration.id === 'postgresql-postgis' && (
+        <PostgreSQLConfigDialog
+          isOpen={isPostgreSQLConfigOpen}
+          onClose={() => {
+            setIsPostgreSQLConfigOpen(false)
+            setSelectedIntegration(null)
+          }}
+          onSave={handlePostgreSQLSave}
+          onTest={handlePostgreSQLTest}
+          initialConfig={selectedIntegration.integration.connectionSettings as PostgreSQLConfig}
+          title="PostgreSQL/PostGIS Configuration"
+        />
+      )}
     </ScrollArea>
   )
 }
