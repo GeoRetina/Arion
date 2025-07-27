@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 @import './base.css';
+@import './chat-input-animations.css';
 
 @import 'tw-animate-css';
 
@@ -358,3 +359,4 @@ code {
   } /* Fades to 10% opacity for a smoother blink */
 }
 /* End Custom Caret Styles */
+
