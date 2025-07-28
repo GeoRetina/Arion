@@ -1,5 +1,5 @@
 """
-filesystem_server.py – Read-only filesystem MCP server (macOS/Unix).
+filesystem_server.py – Read-only filesystem MCP server (Cross-platform).
 
 Dependencies (Python ≥3.10):
     pip install fastmcp
@@ -21,7 +21,7 @@ def get_home_path() -> str:
     Return the current user's home directory, including username. This should be first performed when trying to access files, and you don't need to ask user for the username with this.
     E.g. /Users/alice on macOS.
     """
-    # Path.home() points to the home directory of the user running the process  [oai_citation:0‡Stack Overflow](https://stackoverflow.com/questions/22947427/getting-home-directory-with-pathlib?utm_source=chatgpt.com)
+    # Path.home() points to the home directory of the user running the process
     return str(Path.home())
 
 @mcp.tool()
@@ -31,7 +31,7 @@ def list_dir(path: str, recursive: bool = False) -> dict:
     - path can include ~; it will be expanded to the user’s home.
     - recursive=True will walk subdirectories.
     """
-    p = Path(path).expanduser().resolve()  # expanduser() handles "~" → home dir  [oai_citation:1‡Python documentation](https://docs.python.org/3/library/pathlib.html?utm_source=chatgpt.com)
+    p = Path(path).expanduser().resolve()  # expanduser() handles "~" → home dir
     if not p.exists():
         raise FileNotFoundError(f"Path not found: {p}")
     if not p.is_dir():
