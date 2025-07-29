@@ -6,7 +6,7 @@ import { DocumentsTable } from './documents-table'
 import { FolderManager } from './folder-manager'
 import { DocumentForm } from './document-form'
 import { FolderForm } from './folder-form'
-import { DeleteConfirmDialog } from './delete-confirm-dialog'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 function KnowledgeBase(): React.JSX.Element {
   const {
@@ -97,7 +97,7 @@ function KnowledgeBase(): React.JSX.Element {
   // Handler for bulk document deletion
   const handleDeleteSelectedDocuments = () => {
     // No need to set documentToDelete, directly proceed to confirm bulk delete
-    // This will trigger the DeleteConfirmDialog with appropriate messaging
+    // This will trigger the ConfirmationDialog with appropriate messaging
   }
 
   const confirmBulkDeleteDocuments = () => {
@@ -204,12 +204,14 @@ function KnowledgeBase(): React.JSX.Element {
       />
 
       {/* Delete Document Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmationDialog
         isOpen={!!documentToDelete}
-        onClose={() => {
-          setDocumentToDelete(undefined)
-          if (documentToDelete && documentToDelete.id !== 'bulk-delete-trigger') {
-            setSelectedDocumentIds([])
+        onOpenChange={(open) => {
+          if (!open) {
+            setDocumentToDelete(undefined)
+            if (documentToDelete && documentToDelete.id !== 'bulk-delete-trigger') {
+              setSelectedDocumentIds([])
+            }
           }
         }}
         onConfirm={() => {
@@ -230,15 +232,25 @@ function KnowledgeBase(): React.JSX.Element {
             ? `Are you sure you want to delete "${documentToDelete?.name}"? This action cannot be undone.`
             : `Are you sure you want to delete these ${selectedDocumentIds.length} documents? This action cannot be undone.`
         }
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
       />
 
       {/* Delete Folder Confirmation Dialog */}
-      <DeleteConfirmDialog
+      <ConfirmationDialog
         isOpen={!!folderToDelete}
-        onClose={() => setFolderToDelete(undefined)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFolderToDelete(undefined)
+          }
+        }}
         onConfirm={confirmDeleteFolder}
         title="Delete Folder"
         description={`Are you sure you want to delete the folder "${folderToDelete?.name}"? Documents inside this folder will be moved to root level.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
       />
     </div>
   )

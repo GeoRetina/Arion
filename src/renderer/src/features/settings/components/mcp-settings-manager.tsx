@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea' // Correcting import path fo
 import { ScrollArea } from '@/components/ui/scroll-area' // Added import
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 // Default empty state for a new/editing config
 const initialFormState: Omit<McpServerConfig, 'id'> = {
@@ -30,6 +31,8 @@ export function McpSettingsManager(): React.JSX.Element {
   const [inputMode, setInputMode] = useState<'form' | 'json'>('form')
   const [jsonString, setJsonString] = useState(() => JSON.stringify(initialFormState, null, 2))
   const [connectionType, setConnectionType] = useState<'stdio' | 'http'>('stdio')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [serverToDelete, setServerToDelete] = useState<{ id: string; name: string } | null>(null)
 
   const loadConfigs = async () => {
     setIsLoading(true)
@@ -164,7 +167,15 @@ export function McpSettingsManager(): React.JSX.Element {
     setIsLoading(false)
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDeleteClick = (id: string, name: string) => {
+    setServerToDelete({ id, name })
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!serverToDelete) return
+    
+    const { id } = serverToDelete
     if (editedServerId === id) {
       setEditingConfig(null)
       setIsEditingExistingServer(false)
@@ -185,6 +196,11 @@ export function McpSettingsManager(): React.JSX.Element {
       setError(err instanceof Error ? err.message : 'Failed to delete configuration.')
     }
     setIsLoading(false)
+    setServerToDelete(null)
+  }
+
+  const handleDeleteCancel = () => {
+    setServerToDelete(null)
   }
 
   const handleEdit = (config: McpServerConfig) => {
@@ -546,7 +562,7 @@ export function McpSettingsManager(): React.JSX.Element {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(config.id)}
+                    onClick={() => handleDeleteClick(config.id, config.name)}
                     disabled={
                       isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
                     }
@@ -560,6 +576,18 @@ export function McpSettingsManager(): React.JSX.Element {
           )}
         </div>
       </ScrollArea>
+      
+      <ConfirmationDialog
+        isOpen={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete MCP Server"
+        description={`Are you sure you want to delete the MCP server "${serverToDelete?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        variant="destructive"
+      />
     </div>
   )
 }
