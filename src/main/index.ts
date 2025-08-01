@@ -20,6 +20,7 @@ import { registerKnowledgeBaseIpcHandlers } from './ipc/knowledge-base-handlers'
 import { registerShellHandlers } from './ipc/shell-handlers'
 import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
 import { registerPostgreSQLIpcHandlers } from './ipc/postgresql-handlers'
+import { registerLayerHandlers } from './ipc/layer-handlers'
 
 // Keep a reference to the service instance
 let settingsServiceInstance: SettingsService
@@ -161,6 +162,7 @@ app.whenReady().then(async () => {
   registerShellHandlers(ipcMain)
   registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
   registerPostgreSQLIpcHandlers(ipcMain, postgresqlServiceInstance)
+  registerLayerHandlers()
   // --- End IPC Handler Registration ---
 
   // --- Custom IPC Handlers ---

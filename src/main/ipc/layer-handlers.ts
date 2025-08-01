@@ -18,8 +18,8 @@ import type {
   LayerOperation,
   StylePreset,
   LayerPerformanceMetrics,
-  LayerImportConfig,
-  LayerExportConfig
+  // LayerImportConfig,
+  // LayerExportConfig
 } from '../../shared/types/layer-types'
 
 interface LayerDatabase {
@@ -35,7 +35,7 @@ interface LayerDatabase {
   // Group CRUD
   getAllGroups: () => LayerGroup[]
   getGroupById: (id: string) => LayerGroup | undefined
-  createGroup: (group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt'>) => LayerGroup
+  createGroup: (group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>) => LayerGroup
   updateGroup: (id: string, updates: Partial<LayerGroup>) => LayerGroup
   deleteGroup: (id: string, moveLayersTo?: string) => boolean
   
@@ -84,10 +84,10 @@ class LayerDatabaseManager implements LayerDatabase {
     this.db.pragma('synchronous = NORMAL')
     
     // Check if migration is needed
-    const migrations = this.db.prepare('SELECT name FROM sqlite_master WHERE type="table" AND name="layers"').get()
+    const migrations = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='layers'").get()
     if (!migrations) {
       // Run migration
-      const migrationPath = join(__dirname, '../database/migrations/add-layer-tables.sql')
+      const migrationPath = join(__dirname, 'database/migrations/add-layer-tables.sql')
       const migration = require('fs').readFileSync(migrationPath, 'utf8')
       this.db.exec(migration)
       console.log('[LayerDatabaseManager] Database initialized with layer tables')
@@ -232,7 +232,7 @@ class LayerDatabaseManager implements LayerDatabase {
   // Layer CRUD implementations
   getAllLayers(): LayerDefinition[] {
     const rows = this.statements.getAllLayers.all()
-    return rows.map(this.rowToLayer)
+    return rows.map(row => this.rowToLayer(row))
   }
 
   getLayerById(id: string): LayerDefinition | undefined {
@@ -242,12 +242,12 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getLayersByType(type: 'raster' | 'vector'): LayerDefinition[] {
     const rows = this.statements.getLayersByType.all(type)
-    return rows.map(this.rowToLayer)
+    return rows.map(row => this.rowToLayer(row))
   }
 
   getLayersByGroup(groupId: string | null): LayerDefinition[] {
     const rows = this.statements.getLayersByGroup.all(groupId)
-    return rows.map(this.rowToLayer)
+    return rows.map(row => this.rowToLayer(row))
   }
 
   createLayer(layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>): LayerDefinition {
@@ -280,16 +280,16 @@ class LayerDatabaseManager implements LayerDatabase {
 
   updateLayer(id: string, updates: Partial<LayerDefinition>): LayerDefinition {
     this.statements.updateLayer.run(
-      updates.name || null,
-      updates.type || null,
-      updates.sourceId || null,
+      updates.name ?? null,
+      updates.type ?? null,
+      updates.sourceId ?? null,
       updates.sourceConfig ? JSON.stringify(updates.sourceConfig) : null,
       updates.style ? JSON.stringify(updates.style) : null,
       updates.visibility !== undefined ? (updates.visibility ? 1 : 0) : null,
-      updates.opacity !== undefined ? updates.opacity : null,
-      updates.zIndex !== undefined ? updates.zIndex : null,
+      updates.opacity ?? null,
+      updates.zIndex ?? null,
       updates.metadata ? JSON.stringify(updates.metadata) : null,
-      updates.groupId !== undefined ? updates.groupId : null,
+      updates.groupId ?? null,
       updates.isLocked !== undefined ? (updates.isLocked ? 1 : 0) : null,
       id
     )
@@ -310,7 +310,7 @@ class LayerDatabaseManager implements LayerDatabase {
   // Group CRUD implementations
   getAllGroups(): LayerGroup[] {
     const rows = this.statements.getAllGroups.all()
-    return rows.map(this.rowToGroup)
+    return rows.map(row => this.rowToGroup(row))
   }
 
   getGroupById(id: string): LayerGroup | undefined {
@@ -318,7 +318,7 @@ class LayerDatabaseManager implements LayerDatabase {
     return row ? this.rowToGroup(row) : undefined
   }
 
-  createGroup(group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt'>): LayerGroup {
+  createGroup(group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>): LayerGroup {
     const id = this.generateId()
     const now = new Date()
     
@@ -418,7 +418,7 @@ class LayerDatabaseManager implements LayerDatabase {
     
     const stmt = this.db.prepare(query)
     const rows = stmt.all(...params)
-    const layers = rows.map(this.rowToLayer)
+    const layers = rows.map(row => this.rowToLayer(row))
     
     return {
       layers,
@@ -440,7 +440,7 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getOperations(layerId?: string): LayerOperation[] {
     const rows = this.statements.getOperations.all(layerId || null, layerId || null)
-    return rows.map(this.rowToOperation)
+    return rows.map(row => this.rowToOperation(row))
   }
 
   logError(error: LayerError): void {
@@ -454,7 +454,7 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getErrors(layerId?: string): LayerError[] {
     const rows = this.statements.getErrors.all(layerId || null, layerId || null)
-    return rows.map(this.rowToError)
+    return rows.map(row => this.rowToError(row))
   }
 
   clearErrors(layerId?: string): void {
@@ -464,7 +464,7 @@ class LayerDatabaseManager implements LayerDatabase {
   // Style presets
   getAllStylePresets(): StylePreset[] {
     const rows = this.statements.getAllPresets.all()
-    return rows.map(this.rowToStylePreset)
+    return rows.map(row => this.rowToStylePreset(row))
   }
 
   getStylePresetById(id: string): StylePreset | undefined {
@@ -513,7 +513,7 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getPerformanceMetrics(layerId?: string): LayerPerformanceMetrics[] {
     const rows = this.statements.getMetrics.all(layerId || null, layerId || null)
-    return rows.map(this.rowToMetrics)
+    return rows.map(row => this.rowToMetrics(row))
   }
 
   // Bulk operations

@@ -335,9 +335,19 @@ export const useLayerStore = create<LayerStore>()(
         }
       }
       
+      // Persist to database first
+      try {
+        const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+        await window.ctg.layers.create(layerData)
+      } catch (error) {
+        console.error('[LayerStore] Failed to persist layer to database:', error)
+        throw error
+      }
+      
+      // Update local state
       set(state => ({
         layers: new Map(state.layers).set(id, layer),
-        isDirty: true
+        isDirty: false // We just persisted, so state is clean
       }))
       
       // Record operation
@@ -371,9 +381,18 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error(`Invalid layer update: ${validation.errors.map(e => e.message).join(', ')}`)
       }
       
+      // Persist to database first
+      try {
+        await window.ctg.layers.update(id, updates)
+      } catch (error) {
+        console.error('[LayerStore] Failed to persist layer update to database:', error)
+        throw error
+      }
+      
+      // Update local state
       set(state => ({
         layers: new Map(state.layers).set(id, updatedLayer),
-        isDirty: true
+        isDirty: false // We just persisted, so state is clean
       }))
       
       // Record operation
@@ -393,6 +412,15 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error(`Layer not found: ${id}`)
       }
       
+      // Persist to database first
+      try {
+        await window.ctg.layers.delete(id)
+      } catch (error) {
+        console.error('[LayerStore] Failed to delete layer from database:', error)
+        throw error
+      }
+      
+      // Update local state
       set(state => {
         const newLayers = new Map(state.layers)
         newLayers.delete(id)
@@ -400,7 +428,7 @@ export const useLayerStore = create<LayerStore>()(
         return {
           layers: newLayers,
           selectedLayerId: state.selectedLayerId === id ? null : state.selectedLayerId,
-          isDirty: true
+          isDirty: false // We just persisted, so state is clean
         }
       })
       
@@ -516,7 +544,7 @@ export const useLayerStore = create<LayerStore>()(
       
       get().addOperation({
         type: 'reorder',
-        layerId: layerIds[0], // Reference first layer
+        layerId: layerIds[0] || 'unknown', // Reference first layer
         timestamp: new Date()
       })
       
@@ -575,9 +603,19 @@ export const useLayerStore = create<LayerStore>()(
         updatedAt: now
       }
       
+      // Persist to database first
+      try {
+        const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, layerIds: _layerIds, ...groupData } = group
+        await window.ctg.layers.groups.create(groupData)
+      } catch (error) {
+        console.error('[LayerStore] Failed to persist group to database:', error)
+        throw error
+      }
+      
+      // Update local state
       set(state => ({
         groups: new Map(state.groups).set(id, group),
-        isDirty: true
+        isDirty: false // We just persisted, so state is clean
       }))
       
       console.log(`[LayerStore] Created group: ${name} (${id})`)
@@ -739,10 +777,46 @@ export const useLayerStore = create<LayerStore>()(
     saveToPersistence: async () => {
       set({ isLoading: true })
       try {
-        // This will be implemented when IPC handlers are ready
         console.log('[LayerStore] Saving to persistence...')
-        // await window.api.saveLayers(Array.from(get().layers.values()))
+        
+        // Save all layers to database
+        const layers = Array.from(get().layers.values())
+        const groups = Array.from(get().groups.values())
+        
+        // Save each layer individually to maintain referential integrity
+        for (const layer of layers) {
+          try {
+            await window.ctg.layers.update(layer.id, layer)
+          } catch (error) {
+            // If update fails, try to create the layer
+            try {
+              const { id, createdAt, updatedAt, ...layerData } = layer
+              await window.ctg.layers.create(layerData)
+            } catch (createError) {
+              console.error(`[LayerStore] Failed to save layer ${layer.id}:`, createError)
+              throw createError
+            }
+          }
+        }
+        
+        // Save all groups
+        for (const group of groups) {
+          try {
+            await window.ctg.layers.groups.update(group.id, group)
+          } catch (error) {
+            // If update fails, try to create the group
+            try {
+              const { id, createdAt, updatedAt, layerIds, ...groupData } = group
+              await window.ctg.layers.groups.create(groupData)
+            } catch (createError) {
+              console.error(`[LayerStore] Failed to save group ${group.id}:`, createError)
+              throw createError
+            }
+          }
+        }
+        
         set({ isDirty: false, lastSyncTimestamp: Date.now() })
+        console.log(`[LayerStore] Successfully saved ${layers.length} layers and ${groups.length} groups`)
       } catch (error) {
         console.error('[LayerStore] Failed to save to persistence:', error)
         throw error
@@ -755,14 +829,20 @@ export const useLayerStore = create<LayerStore>()(
       set({ isLoading: true })
       try {
         console.log('[LayerStore] Loading from persistence...')
-        // const layers = await window.api.loadLayers()
-        // const groups = await window.api.loadGroups()
-        // set({ 
-        //   layers: new Map(layers.map(l => [l.id, l])),
-        //   groups: new Map(groups.map(g => [g.id, g])),
-        //   isDirty: false,
-        //   lastSyncTimestamp: Date.now()
-        // })
+        
+        const [layers, groups] = await Promise.all([
+          window.ctg.layers.getAll(),
+          window.ctg.layers.groups.getAll()
+        ])
+        
+        set({ 
+          layers: new Map(layers.map(l => [l.id, l])),
+          groups: new Map(groups.map(g => [g.id, g])),
+          isDirty: false,
+          lastSyncTimestamp: Date.now()
+        })
+        
+        console.log(`[LayerStore] Loaded ${layers.length} layers and ${groups.length} groups from persistence`)
       } catch (error) {
         console.error('[LayerStore] Failed to load from persistence:', error)
         throw error

@@ -2,6 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowUp, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { AttachButton } from './attach-button'
 
 interface ChatInputButtonsProps {
   inputValue: string
@@ -28,17 +29,10 @@ export const ChatInputButtons: React.FC<ChatInputButtonsProps> = ({
 
   return (
     <div className="absolute right-2 bottom-3 flex items-center gap-2">
-      {/* Placeholder for file attach button */}
-      {/* <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={openFileDialog}
+      {/* Layer import attachment button */}
+      <AttachButton 
         disabled={isStreaming}
-        className="text-muted-foreground hover:text-foreground"
-      >
-        <Paperclip className="h-4 w-4" />
-      </Button> */}
+      />
 
       {isStreaming ? (
         <Button

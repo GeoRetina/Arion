@@ -652,7 +652,13 @@ export class LayerSyncService {
         return {
           type: 'image',
           url: sourceConfig.data as string,
-          coordinates: (sourceConfig.options?.bounds as [[number, number], [number, number], [number, number], [number, number]]) || [[0,0],[1,0],[1,1],[0,1]]
+          coordinates: sourceConfig.options?.bounds ? 
+            [
+              [sourceConfig.options.bounds[0], sourceConfig.options.bounds[1]] as [number, number],
+              [sourceConfig.options.bounds[2], sourceConfig.options.bounds[1]] as [number, number],
+              [sourceConfig.options.bounds[2], sourceConfig.options.bounds[3]] as [number, number],
+              [sourceConfig.options.bounds[0], sourceConfig.options.bounds[3]] as [number, number]
+            ] : [[0,0],[1,0],[1,1],[0,1]]
         }
 
       case 'vector-tiles':

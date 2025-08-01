@@ -3,6 +3,7 @@ import maplibregl, { Map, StyleSpecification, NavigationControl, ScaleControl } 
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useMapStore } from '../../../stores/map-store'
 import { initializeMapIpcListeners, cleanupMapIpcListeners } from '../../../lib/ipc/map-ipc-manager'
+import { useLayerSync } from '../../../hooks/use-layer-sync'
 
 interface MapDisplayProps {
   isVisible: boolean
@@ -45,6 +46,9 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const setMapInstanceInStore = useMapStore((state) => state.setMapInstance)
   const setMapReadyForOperations = useMapStore((state) => state.setMapReadyForOperations)
+  
+  // Initialize layer synchronization
+  const { isInitialized: isLayerSyncInitialized } = useLayerSync()
 
   // Initialize map once on component mount or when preload becomes true
   useEffect(() => {

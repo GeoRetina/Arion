@@ -452,6 +452,47 @@ const ctgApi = {
     getConnectionInfo: (id: string): Promise<PostgreSQLConnectionInfo> =>
       ipcRenderer.invoke(IpcChannels.postgresqlGetConnectionInfo, id)
   } as PostgreSQLApi,
+  layers: {
+    // Layer CRUD operations
+    getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:getAll'),
+    getById: (id: string): Promise<any | null> => ipcRenderer.invoke('layers:getById', id),
+    create: (layer: any): Promise<any> => ipcRenderer.invoke('layers:create', layer),
+    update: (id: string, updates: any): Promise<any> => ipcRenderer.invoke('layers:update', id, updates),
+    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('layers:delete', id),
+    
+    // Group operations
+    groups: {
+      getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:groups:getAll'),
+      create: (group: any): Promise<any> => ipcRenderer.invoke('layers:groups:create', group),
+      update: (id: string, updates: any): Promise<any> => ipcRenderer.invoke('layers:groups:update', id, updates),
+      delete: (id: string, moveLayersTo?: string): Promise<boolean> => 
+        ipcRenderer.invoke('layers:groups:delete', id, moveLayersTo)
+    },
+    
+    // Search and operations
+    search: (criteria: any): Promise<any> => ipcRenderer.invoke('layers:search', criteria),
+    logOperation: (operation: any): Promise<void> => ipcRenderer.invoke('layers:logOperation', operation),
+    getOperations: (layerId?: string): Promise<any[]> => ipcRenderer.invoke('layers:getOperations', layerId),
+    logError: (error: any): Promise<void> => ipcRenderer.invoke('layers:logError', error),
+    getErrors: (layerId?: string): Promise<any[]> => ipcRenderer.invoke('layers:getErrors', layerId),
+    clearErrors: (layerId?: string): Promise<void> => ipcRenderer.invoke('layers:clearErrors', layerId),
+    
+    // Style presets
+    presets: {
+      getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:presets:getAll'),
+      create: (preset: any): Promise<any> => ipcRenderer.invoke('layers:presets:create', preset)
+    },
+    
+    // Performance and bulk operations
+    recordMetrics: (metrics: any): Promise<void> => ipcRenderer.invoke('layers:recordMetrics', metrics),
+    bulkUpdate: (updates: any[]): Promise<void> => ipcRenderer.invoke('layers:bulkUpdate', updates),
+    export: (layerIds: string[]): Promise<string> => ipcRenderer.invoke('layers:export', layerIds),
+    import: (data: string, targetGroupId?: string): Promise<string[]> => 
+      ipcRenderer.invoke('layers:import', data, targetGroupId),
+    
+    // Generic invoke method for additional operations
+    invoke: (channel: string, ...args: any[]): Promise<any> => ipcRenderer.invoke(channel, ...args)
+  },
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
 
