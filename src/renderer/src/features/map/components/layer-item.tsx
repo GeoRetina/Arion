@@ -1,12 +1,12 @@
 /**
  * Layer Item Component
- * 
+ *
  * Individual layer display component with visibility toggle, styling controls,
  * and context menu. Keeps the main LayersPanel clean and focused.
  */
 
-import React, { useState } from 'react'
-import { MoreVertical, Eye, EyeOff, Palette, Settings, ZoomIn } from 'lucide-react'
+import React from 'react'
+import { MoreVertical, Eye, EyeOff, Palette, ZoomIn, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LayerDefinition } from '../../../../../shared/types/layer-types'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 
@@ -24,7 +24,6 @@ interface LayerItemProps {
   isSelected?: boolean
   onToggleVisibility: (layerId: string, visible: boolean) => void
   onSelect: (layerId: string) => void
-  onEdit: (layerId: string) => void
   onDelete: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
   onZoomToLayer: (layerId: string) => void
@@ -35,13 +34,10 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   isSelected,
   onToggleVisibility,
   onSelect,
-  onEdit,
   onDelete,
   onShowStyleEditor,
   onZoomToLayer
 }) => {
-  const [isHovered, setIsHovered] = useState(false)
-
   const handleVisibilityToggle = (e: React.MouseEvent) => {
     e.stopPropagation()
     onToggleVisibility(layer.id, !layer.visibility)
@@ -88,8 +84,6 @@ export const LayerItem: React.FC<LayerItemProps> = ({
         !layer.visibility && 'opacity-60'
       )}
       onClick={() => onSelect(layer.id)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
       onContextMenu={handleContextMenu}
     >
       {/* Visibility Toggle */}
@@ -112,8 +106,8 @@ export const LayerItem: React.FC<LayerItemProps> = ({
           {layer.name}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge 
-            variant="secondary" 
+          <Badge
+            variant="secondary"
             className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}
           >
             {layer.type}
@@ -149,7 +143,6 @@ export const LayerItem: React.FC<LayerItemProps> = ({
           <ZoomIn className="h-3 w-3" />
         </Button>
 
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -162,28 +155,24 @@ export const LayerItem: React.FC<LayerItemProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation()
-              onEdit(layer.id)
-            }}>
-              <Settings className="h-4 w-4 mr-2" />
-              Edit Layer
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation()
-              onShowStyleEditor(layer.id)
-            }}>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onShowStyleEditor(layer.id)
+              }}
+            >
               <Palette className="h-4 w-4 mr-2" />
               Style Editor
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete(layer.id)
               }}
               className="text-destructive focus:text-destructive"
             >
+              <Trash2 className="h-4 w-4 mr-2 text-destructive" />
               Delete Layer
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -1,6 +1,6 @@
 /**
  * Layer Group Component
- * 
+ *
  * Handles display and management of layer groups with expand/collapse,
  * group-level operations, and nested layer display.
  */
@@ -8,7 +8,10 @@
 import React, { useState } from 'react'
 import { ChevronDown, ChevronRight, FolderOpen, Folder, MoreVertical, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { LayerGroup as LayerGroupType, LayerDefinition } from '../../../../../shared/types/layer-types'
+import type {
+  LayerGroup as LayerGroupType,
+  LayerDefinition
+} from '../../../../../shared/types/layer-types'
 import { LayerItem } from './layer-item'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,7 +19,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 
@@ -28,7 +31,6 @@ interface LayerGroupProps {
   onToggleGroup: (groupId: string) => void
   onSelectLayer: (layerId: string) => void
   onToggleLayerVisibility: (layerId: string, visible: boolean) => void
-  onEditLayer: (layerId: string) => void
   onDeleteLayer: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
   onZoomToLayer: (layerId: string) => void
@@ -45,7 +47,6 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   onToggleGroup,
   onSelectLayer,
   onToggleLayerVisibility,
-  onEditLayer,
   onDeleteLayer,
   onShowStyleEditor,
   onZoomToLayer,
@@ -54,10 +55,10 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   onAddLayerToGroup
 }) => {
   const [isHovered, setIsHovered] = useState(false)
-  
-  const groupLayers = layers.filter(layer => layer.groupId === group.id)
-  const visibleLayersCount = groupLayers.filter(layer => layer.visibility).length
-  
+
+  const groupLayers = layers.filter((layer) => layer.groupId === group.id)
+  const visibleLayersCount = groupLayers.filter((layer) => layer.visibility).length
+
   const handleToggleExpanded = () => {
     onToggleGroup(group.id)
   }
@@ -65,7 +66,7 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   const handleGroupVisibilityToggle = () => {
     // Toggle visibility of all layers in the group
     const newVisibility = visibleLayersCount === 0
-    groupLayers.forEach(layer => {
+    groupLayers.forEach((layer) => {
       if (layer.visibility !== newVisibility) {
         onToggleLayerVisibility(layer.id, newVisibility)
       }
@@ -73,7 +74,7 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   }
 
   return (
-    <div 
+    <div
       className={cn('border border-transparent rounded-lg', level === 0 && 'mb-2')}
       style={{ marginLeft: level * 12 }}
     >
@@ -119,26 +120,25 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
           }}
         >
           {group.expanded ? (
-            <FolderOpen className={cn(
-              'h-3 w-3',
-              visibleLayersCount > 0 ? 'text-primary' : 'text-muted-foreground'
-            )} />
+            <FolderOpen
+              className={cn(
+                'h-3 w-3',
+                visibleLayersCount > 0 ? 'text-primary' : 'text-muted-foreground'
+              )}
+            />
           ) : (
-            <Folder className={cn(
-              'h-3 w-3',
-              visibleLayersCount > 0 ? 'text-primary' : 'text-muted-foreground'
-            )} />
+            <Folder
+              className={cn(
+                'h-3 w-3',
+                visibleLayersCount > 0 ? 'text-primary' : 'text-muted-foreground'
+              )}
+            />
           )}
         </Button>
 
         {/* Group Info */}
-        <div 
-          className="min-w-0 cursor-pointer"
-          onClick={handleToggleExpanded}
-        >
-          <div className="text-sm font-medium truncate mb-1">
-            {group.name}
-          </div>
+        <div className="min-w-0 cursor-pointer" onClick={handleToggleExpanded}>
+          <div className="text-sm font-medium truncate mb-1">{group.name}</div>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs px-1.5 py-0">
               {groupLayers.length}
@@ -149,18 +149,18 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
               </Badge>
             )}
             {group.description && (
-              <span className="text-xs text-muted-foreground truncate">
-                {group.description}
-              </span>
+              <span className="text-xs text-muted-foreground truncate">{group.description}</span>
             )}
           </div>
         </div>
 
         {/* Group Actions - Show on hover */}
-        <div className={cn(
-          'flex items-center gap-1 transition-opacity justify-end',
-          isHovered ? 'opacity-100' : 'opacity-0'
-        )}>
+        <div
+          className={cn(
+            'flex items-center gap-1 transition-opacity justify-end',
+            isHovered ? 'opacity-100' : 'opacity-0'
+          )}
+        >
           <Button
             variant="ghost"
             size="sm"
@@ -186,28 +186,34 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation()
-                onEditGroup(group.id)
-              }}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEditGroup(group.id)
+                }}
+              >
                 Edit Group
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation()
-                onAddLayerToGroup(group.id)
-              }}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddLayerToGroup(group.id)
+                }}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Layer
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={(e) => {
-                e.stopPropagation()
-                handleGroupVisibilityToggle()
-              }}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleGroupVisibilityToggle()
+                }}
+              >
                 {visibleLayersCount === groupLayers.length ? 'Hide All Layers' : 'Show All Layers'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation()
                   onDeleteGroup(group.id)
@@ -238,7 +244,6 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
                   isSelected={selectedLayerId === layer.id}
                   onToggleVisibility={onToggleLayerVisibility}
                   onSelect={onSelectLayer}
-                  onEdit={onEditLayer}
                   onDelete={onDeleteLayer}
                   onShowStyleEditor={onShowStyleEditor}
                   onZoomToLayer={onZoomToLayer}

@@ -252,7 +252,7 @@ export class MapLibreIntegration {
     try {
       const style = this.mapInstance.getStyle()
       const layersToUpdate = style.layers.filter(mapLayer => 
-        'source' in mapLayer && mapLayer.source === layer.sourceId
+        mapLayer.id.startsWith(layer.id)
       )
 
       for (const mapLayer of layersToUpdate) {

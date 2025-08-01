@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import ChatInterface from './features/chat/components/chat-interface'
 import MainLayout from './components/layout/main-layout'
 import React, { useEffect, useRef } from 'react'
@@ -52,13 +52,15 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const currentPath = location.pathname
     const previousPath = previousLocationRef.current
-    
+
     // If we're leaving a chat route and going to a non-chat route
     if (previousPath && previousPath.startsWith('/chat/') && !currentPath.startsWith('/chat/')) {
-      console.log(`[App.tsx] Leaving chat route (${previousPath}) to non-chat route (${currentPath}). Resetting chat stores.`)
+      console.log(
+        `[App.tsx] Leaving chat route (${previousPath}) to non-chat route (${currentPath}). Resetting chat stores.`
+      )
       resetChatStores()
     }
-    
+
     // Update the previous location reference
     previousLocationRef.current = currentPath
   }, [location.pathname])
@@ -82,10 +84,11 @@ function App(): React.JSX.Element {
   )
 }
 
-// Wrapper component to access route params and pass them as key
+// Wrapper component to provide ChatInterface
 const ChatInterfaceWrapper = () => {
-  const { chatId } = useParams<{ chatId: string }>()
-  return <ChatInterface key={chatId} />
+  // Removed chatId extraction and key prop to prevent component remounting during navigation
+  // This ensures the map instance persists across chat sessions
+  return <ChatInterface />
 }
 
 export default App

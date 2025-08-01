@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { LayerItem } from './layer-item'
+import { LayerStyleEditor } from './layer-style-editor'
 import { zoomToLayer } from '@/lib/layer-zoom-utils'
 import { toast } from 'sonner'
+import type { LayerStyle } from '../../../../../shared/types/layer-types'
 
 interface LayersPanelProps {
   className?: string
@@ -18,7 +20,8 @@ interface LayersPanelProps {
 export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
-  
+  const [styleEditorLayerId, setStyleEditorLayerId] = useState<string | null>(null)
+
   // Map and Layer Store
   const mapInstance = useMapStore((state) => state.mapInstance)
   const layers = useLayerStore((state) => state.layers)
@@ -26,7 +29,8 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   const selectLayer = useLayerStore((state) => state.selectLayer)
   const setLayerVisibility = useLayerStore((state) => state.setLayerVisibility)
   const removeLayer = useLayerStore((state) => state.removeLayer)
-  
+  const updateLayerStyle = useLayerStore((state) => state.updateLayerStyle)
+
   // Chat session tracking
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
@@ -42,7 +46,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   }, [currentChatId, currentChatSession])
 
   // Get only session layers (imported layers for current chat)
-  const sessionLayers = Array.from(layers.values()).filter(layer => {
+  const sessionLayers = Array.from(layers.values()).filter((layer) => {
     if (layer.createdBy !== 'import') return false
     // Check if layer was imported to this specific chat session
     if (!currentChatId) return false
@@ -63,12 +67,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
     selectLayer(layerId === selectedLayerId ? null : layerId)
   }
 
-  const handleEditLayer = (layerId: string) => {
-    // TODO: Open layer edit dialog
-    console.log('[LayersPanel] Edit layer:', layerId)
-  }
-
-
   const handleDeleteLayer = async (layerId: string) => {
     try {
       const layer = layers.get(layerId)
@@ -86,18 +84,32 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   }
 
   const handleShowStyleEditor = (layerId: string) => {
-    // TODO: Open style editor dialog
-    console.log('[LayersPanel] Show style editor for layer:', layerId)
+    setStyleEditorLayerId(layerId)
+    console.log('[LayersPanel] Opening style editor for layer:', layerId)
   }
 
+  const handleCloseStyleEditor = () => {
+    setStyleEditorLayerId(null)
+  }
+
+  const handleStyleChange = async (layerId: string, style: Partial<LayerStyle>) => {
+    try {
+      await updateLayerStyle(layerId, style)
+    } catch (error) {
+      console.error('[LayersPanel] Failed to update layer style:', error)
+      toast.error('Failed to update layer style', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
+    }
+  }
 
   const handleZoomToLayer = async (layerId: string) => {
     const layer = layers.get(layerId)
     if (!layer || !mapInstance) {
-      console.warn('[LayersPanel] Cannot zoom to layer - layer or map not available:', { 
-        layerId, 
-        hasLayer: !!layer, 
-        hasMap: !!mapInstance 
+      console.warn('[LayersPanel] Cannot zoom to layer - layer or map not available:', {
+        layerId,
+        hasLayer: !!layer,
+        hasMap: !!mapInstance
       })
       return
     }
@@ -140,12 +152,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0"
-                    onClick={togglePanel}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={togglePanel}>
                     <PanelLeftClose className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
@@ -158,39 +165,38 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
 
           {/* Content */}
           <div className="flex-1 mt-2">
-              <ScrollArea className="h-full">
-                <div className="p-3 space-y-2">
-                  {displayLayers.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <div className="text-sm text-muted-foreground">
-                        No layers in current session
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Use the + button in chat to import layers
-                      </div>
+            <ScrollArea className="h-full">
+              <div className="p-3 space-y-2">
+                {displayLayers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
+                    <div className="text-sm text-muted-foreground">
+                      No layers in current session
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {displayLayers
-                        .sort((a, b) => b.zIndex - a.zIndex)
-                        .map((layer) => (
-                          <LayerItem
-                            key={layer.id}
-                            layer={layer}
-                            isSelected={selectedLayerId === layer.id}
-                            onToggleVisibility={handleToggleLayerVisibility}
-                            onSelect={handleSelectLayer}
-                            onEdit={handleEditLayer}
-                            onDelete={handleDeleteLayer}
-                            onShowStyleEditor={handleShowStyleEditor}
-                            onZoomToLayer={handleZoomToLayer}
-                          />
-                        ))}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Use the + button in chat to import layers
                     </div>
-                  )}
-                </div>
-              </ScrollArea>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {displayLayers
+                      .sort((a, b) => b.zIndex - a.zIndex)
+                      .map((layer) => (
+                        <LayerItem
+                          key={layer.id}
+                          layer={layer}
+                          isSelected={selectedLayerId === layer.id}
+                          onToggleVisibility={handleToggleLayerVisibility}
+                          onSelect={handleSelectLayer}
+                          onDelete={handleDeleteLayer}
+                          onShowStyleEditor={handleShowStyleEditor}
+                          onZoomToLayer={handleZoomToLayer}
+                        />
+                      ))}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
           </div>
         </div>
       </div>
@@ -224,6 +230,14 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
           </TooltipContent>
         </Tooltip>
       )}
+
+      {/* Style Editor */}
+      <LayerStyleEditor
+        isOpen={styleEditorLayerId !== null}
+        onClose={handleCloseStyleEditor}
+        layer={styleEditorLayerId ? layers.get(styleEditorLayerId) || null : null}
+        onStyleChange={handleStyleChange}
+      />
     </>
   )
 }
