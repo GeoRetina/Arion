@@ -1,19 +1,18 @@
 /**
  * Layer Synchronization Hook
  * 
- * React hook that manages the integration between LayerStore, LayerSyncService, and MapStore.
- * This hook ensures proper initialization, cleanup, and synchronization of layer management.
+ * React hook that manages the integration between LayerStore and MapStore.
+ * This hook ensures proper initialization and cleanup of layer management.
  */
 
 import { useEffect, useRef } from 'react'
-import { layerSyncService } from '../services/layer-sync-service'
 import { useLayerStore } from '../stores/layer-store'
 import { useMapStore } from '../stores/map-store'
 
 export function useLayerSync() {
   const mapInstance = useMapStore(state => state.mapInstance)
   const isMapReady = useMapStore(state => state.isMapReadyForOperations)
-  const loadFromPersistence = useLayerStore(state => state.loadFromPersistence)
+  const setMapInstance = useLayerStore(state => state.setMapInstance)
   const saveToPersistence = useLayerStore(state => state.saveToPersistence)
   const isDirty = useLayerStore(state => state.isDirty)
   
@@ -21,10 +20,14 @@ export function useLayerSync() {
   const isInitializedRef = useRef(false)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Initialize layer sync when map is ready
+  // Set map instance in LayerStore when map is ready
   useEffect(() => {
     if (!mapInstance || !isMapReady) {
       console.log('[useLayerSync] Map not ready, waiting...', { mapInstance: !!mapInstance, isMapReady })
+      // Clear map instance if map is not ready
+      setMapInstance(null).catch(error => 
+        console.error('[useLayerSync] Failed to clear map instance:', error)
+      )
       return
     }
 
@@ -33,22 +36,26 @@ export function useLayerSync() {
       return
     }
 
-    console.log('[useLayerSync] Initializing layer synchronization')
+    console.log('[useLayerSync] Initializing layer management with map instance')
 
-    // Initialize sync service with map
-    layerSyncService.initialize(mapInstance)
-    
-    // Don't load layers from persistence automatically
-    // Only session-imported layers should be displayed on the map
-    console.log('[useLayerSync] Layer sync initialized - session layers only will be shown')
-    isInitializedRef.current = true
+    // Set map instance in LayerStore - this enables direct map operations and syncs existing layers
+    setMapInstance(mapInstance)
+      .then(() => {
+        console.log('[useLayerSync] Layer management initialized - LayerStore will manage map directly')
+        isInitializedRef.current = true
+      })
+      .catch(error => {
+        console.error('[useLayerSync] Failed to initialize layer management:', error)
+      })
 
     return () => {
-      console.log('[useLayerSync] Cleaning up layer sync')
-      layerSyncService.destroy()
+      console.log('[useLayerSync] Cleaning up layer management')
+      setMapInstance(null).catch(error => 
+        console.error('[useLayerSync] Failed to cleanup map instance:', error)
+      )
       isInitializedRef.current = false
     }
-  }, [mapInstance, isMapReady, loadFromPersistence])
+  }, [mapInstance, isMapReady, setMapInstance])
 
   // Auto-save when store becomes dirty (debounced)
   useEffect(() => {
@@ -93,19 +100,17 @@ export function useLayerSync() {
   }, [])
 
   return {
-    isInitialized: isInitializedRef.current,
-    syncService: layerSyncService
+    isInitialized: isInitializedRef.current
   }
 }
 
 /**
- * Hook for accessing layer sync statistics
+ * Hook for accessing layer management utilities
  */
 export function useLayerSyncStats() {
-  const { syncService } = useLayerSync()
+  const { isInitialized } = useLayerSync()
   
   return {
-    getStats: () => syncService.getStats(),
-    forceSyncAll: () => syncService.forceSyncAll()
+    isInitialized
   }
 }

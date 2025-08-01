@@ -267,7 +267,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
 
       // Create a copy of the layer with a new ID for the chat session
       const importedLayer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> = {
-        name: `${layer.name} (Chat Session)`,
+        name: layer.name,
         type: layer.type,
         sourceId: `${layer.sourceId}-session-${currentChatId}`, // Make source unique per session
         sourceConfig: {

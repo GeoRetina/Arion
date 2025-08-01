@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { v4 as uuidv4 } from 'uuid'
+import type { Map as MapLibreMap } from 'maplibre-gl'
 import type {
   LayerDefinition,
   LayerGroup,
@@ -21,6 +22,7 @@ import type {
   LayerType,
   LayerContext
 } from '../../../shared/types/layer-types'
+import { MapLibreIntegration } from '../utils/maplibre-integration'
 
 interface LayerStore {
   // State
@@ -33,6 +35,15 @@ interface LayerStore {
   isLoading: boolean
   isDirty: boolean
   lastSyncTimestamp: number
+  
+  // MapLibre Integration
+  mapLibreIntegration: MapLibreIntegration | null
+  
+  // Map Management
+  setMapInstance: (map: MapLibreMap | null) => Promise<void>
+  syncLayerToMap: (layer: LayerDefinition) => Promise<void>
+  removeLayerFromMap: (layerId: string) => Promise<void>
+  syncLayerProperties: (layer: LayerDefinition) => Promise<void>
   
   // Layer CRUD Operations
   addLayer: (definition: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>, context?: LayerContext) => Promise<string>
@@ -301,6 +312,7 @@ const searchLayersImpl = (
   }
 }
 
+
 // Create the store
 export const useLayerStore = create<LayerStore>()(
   subscribeWithSelector((set, get) => ({
@@ -314,6 +326,76 @@ export const useLayerStore = create<LayerStore>()(
     isLoading: false,
     isDirty: false,
     lastSyncTimestamp: 0,
+    
+    // MapLibre Integration
+    mapLibreIntegration: null,
+    
+    // Map Management
+    setMapInstance: async (map: MapLibreMap | null) => {
+      const integration = map ? new MapLibreIntegration(map) : null
+      set({ mapLibreIntegration: integration })
+      
+      // Sync all existing visible layers to the new map instance
+      if (integration) {
+        const layers = Array.from(get().layers.values())
+        const visibleLayers = layers.filter(layer => layer.visibility)
+        
+        console.log(`[LayerStore] Syncing ${visibleLayers.length} visible layers to new map instance`)
+        
+        for (const layer of visibleLayers) {
+          try {
+            await integration.syncLayerToMap(layer)
+            console.log(`[LayerStore] Successfully synced layer to map: ${layer.name}`)
+          } catch (error) {
+            console.error(`[LayerStore] Failed to sync layer ${layer.id} to new map:`, error)
+          }
+        }
+        
+        console.log(`[LayerStore] Completed syncing layers to new map instance`)
+      }
+    },
+    
+    // MapLibre Helper Methods
+    syncLayerToMap: async (layer: LayerDefinition) => {
+      const state = get()
+      if (!state.mapLibreIntegration) {
+        console.warn(`[LayerStore] MapLibre integration not ready, cannot sync layer ${layer.id}`)
+        return
+      }
+      
+      try {
+        await state.mapLibreIntegration.syncLayerToMap(layer)
+        console.log(`[LayerStore] Successfully synced layer ${layer.name} (${layer.id}) to map`)
+      } catch (error) {
+        console.error(`[LayerStore] Failed to sync layer ${layer.id} to map:`, error)
+        throw error
+      }
+    },
+    
+    removeLayerFromMap: async (layerId: string) => {
+      const state = get()
+      if (!state.mapLibreIntegration) return
+
+      try {
+        await state.mapLibreIntegration.removeLayerFromMap(layerId)
+      } catch (error) {
+        console.error(`[LayerStore] Failed to remove layer ${layerId} from map:`, error)
+        throw error
+      }
+    },
+    
+    syncLayerProperties: async (layer: LayerDefinition) => {
+      const state = get()
+      if (!state.mapLibreIntegration) return
+
+      try {
+        await state.mapLibreIntegration.syncLayerProperties(layer)
+      } catch (error) {
+        console.error(`[LayerStore] Failed to sync properties for layer ${layer.id}:`, error)
+        throw error
+      }
+    },
+    
     
     // Layer CRUD Operations
     addLayer: async (definition, context) => {
@@ -373,6 +455,9 @@ export const useLayerStore = create<LayerStore>()(
         isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
       }))
       
+      // Sync to map immediately after state update
+      await get().syncLayerToMap(layer)
+      
       // Record operation
       get().addOperation({
         type: 'create',
@@ -426,6 +511,9 @@ export const useLayerStore = create<LayerStore>()(
         isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
       }))
       
+      // Sync updated properties to map
+      await get().syncLayerProperties(updatedLayer)
+      
       // Record operation
       get().addOperation({
         type: 'update',
@@ -453,6 +541,9 @@ export const useLayerStore = create<LayerStore>()(
           throw error
         }
       }
+      
+      // Remove from map first
+      await get().removeLayerFromMap(id)
       
       // Update local state
       set(state => {
@@ -539,7 +630,7 @@ export const useLayerStore = create<LayerStore>()(
     
     applyStylePreset: async (id, presetId) => {
       // This will be implemented when style presets are added
-      console.warn(`[LayerStore] Style presets not yet implemented: ${presetId}`)
+      console.warn(`[LayerStore] Style presets not yet implemented: ${presetId} for layer ${id}`)
     },
     
     // Layer Organization
@@ -1017,6 +1108,13 @@ export const useLayerStore = create<LayerStore>()(
     
     // Cleanup
     reset: () => {
+      const state = get()
+      
+      // Clear all managed layers and sources from map
+      if (state.mapLibreIntegration) {
+        state.mapLibreIntegration.cleanup()
+      }
+      
       set({
         layers: new Map(),
         groups: new Map(),
@@ -1026,7 +1124,8 @@ export const useLayerStore = create<LayerStore>()(
         errors: [],
         isLoading: false,
         isDirty: false,
-        lastSyncTimestamp: 0
+        lastSyncTimestamp: 0,
+        mapLibreIntegration: null
       })
       console.log('[LayerStore] Store reset')
     },

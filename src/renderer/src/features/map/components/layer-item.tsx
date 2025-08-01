@@ -108,7 +108,7 @@ export const LayerItem: React.FC<LayerItemProps> = ({
 
       {/* Layer Info */}
       <div className="min-w-0">
-        <div className="text-sm font-medium truncate mb-1">
+        <div className="text-sm font-medium truncate mb-1" title={layer.name}>
           {layer.name}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -134,11 +134,8 @@ export const LayerItem: React.FC<LayerItemProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons - Show on hover */}
-      <div className={cn(
-        'flex items-center gap-1 transition-opacity justify-end w-14',
-        isHovered || isSelected ? 'opacity-100' : 'opacity-0'
-      )}>
+      {/* Action Buttons - Always visible */}
+      <div className="flex items-center gap-1 justify-end w-14">
         <Button
           variant="ghost"
           size="sm"
