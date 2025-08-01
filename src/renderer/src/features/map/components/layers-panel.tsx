@@ -37,10 +37,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   // Track session change but don't reset (let persistence system handle it)
   useEffect(() => {
     if (currentChatId !== currentChatSession) {
-      console.log('[LayersPanel] Chat session changed:', {
-        from: currentChatSession,
-        to: currentChatId
-      })
       setCurrentChatSession(currentChatId)
     }
   }, [currentChatId, currentChatSession])
@@ -74,7 +70,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
       toast.success('Layer deleted successfully', {
         description: layer ? `Removed "${layer.name}" from session` : 'Layer removed'
       })
-      console.log('[LayersPanel] Deleted layer:', layerId)
     } catch (error) {
       console.error('[LayersPanel] Failed to delete layer:', error)
       toast.error('Failed to delete layer', {
@@ -85,7 +80,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
 
   const handleShowStyleEditor = (layerId: string) => {
     setStyleEditorLayerId(layerId)
-    console.log('[LayersPanel] Opening style editor for layer:', layerId)
   }
 
   const handleCloseStyleEditor = () => {
@@ -106,20 +100,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   const handleZoomToLayer = async (layerId: string) => {
     const layer = layers.get(layerId)
     if (!layer || !mapInstance) {
-      console.warn('[LayersPanel] Cannot zoom to layer - layer or map not available:', {
-        layerId,
-        hasLayer: !!layer,
-        hasMap: !!mapInstance
-      })
       return
     }
 
-    const success = await zoomToLayer(mapInstance, layer)
-    if (!success) {
-      console.warn('[LayersPanel] Failed to zoom to layer:', layerId)
-    } else {
-      console.log(`[LayersPanel] Successfully zoomed to layer: ${layer.name}`)
-    }
+    await zoomToLayer(mapInstance, layer)
   }
 
   const togglePanel = () => {

@@ -112,10 +112,6 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ isVisible }) => {
       ) {
         map.current.resize()
         // Map remains ready for operations regardless of visibility
-      } else {
-        console.warn(
-          '[MapDisplay] Skipping resize: map instance or container not ready, or container has zero dimensions.'
-        )
       }
     }
 
