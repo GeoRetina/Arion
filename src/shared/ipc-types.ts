@@ -147,7 +147,38 @@ export const IpcChannels = {
   postgresqlExecuteQuery: 'ctg:postgresql:executeQuery',
   postgresqlExecuteTransaction: 'ctg:postgresql:executeTransaction',
   postgresqlGetActiveConnections: 'ctg:postgresql:getActiveConnections',
-  postgresqlGetConnectionInfo: 'ctg:postgresql:getConnectionInfo'
+  postgresqlGetConnectionInfo: 'ctg:postgresql:getConnectionInfo',
+
+  // Layer Management IPC Channels
+  layersGetAll: 'layers:getAll',
+  layersGetById: 'layers:getById',
+  layersCreate: 'layers:create',
+  layersUpdate: 'layers:update',
+  layersDelete: 'layers:delete',
+  layersSearch: 'layers:search',
+  layersBulkUpdate: 'layers:bulkUpdate',
+  layersExport: 'layers:export',
+  layersImport: 'layers:import',
+  
+  // Layer Group IPC Channels
+  layerGroupsGetAll: 'layers:groups:getAll',
+  layerGroupsCreate: 'layers:groups:create',
+  layerGroupsUpdate: 'layers:groups:update',
+  layerGroupsDelete: 'layers:groups:delete',
+  
+  // Layer Operations and Errors
+  layersLogOperation: 'layers:logOperation',
+  layersGetOperations: 'layers:getOperations',
+  layersLogError: 'layers:logError',
+  layersGetErrors: 'layers:getErrors',
+  layersClearErrors: 'layers:clearErrors',
+  
+  // Style Presets
+  layerPresetsGetAll: 'layers:presets:getAll',
+  layerPresetsCreate: 'layers:presets:create',
+  
+  // Performance Metrics
+  layersRecordMetrics: 'layers:recordMetrics'
 } as const
 
 // Generic IPC Response wrapper
@@ -435,6 +466,7 @@ declare global {
       shell: ExposedShellApi // Added shell API
       mcp: McpPermissionApi // Added MCP permission API
       postgresql: PostgreSQLApi // Added PostgreSQL API
+      layers: LayerApi // Added Layer Management API
       getAppVersion: () => Promise<string>
     }
   }
@@ -507,6 +539,44 @@ export interface PostgreSQLQueryResult {
 export interface PostgreSQLConnectionInfo {
   connected: boolean
   config?: PostgreSQLConfig
+}
+
+// Layer Management API for preload script  
+export interface LayerApi {
+  // Layer CRUD operations
+  getAll: () => Promise<import('./types/layer-types').LayerDefinition[]>
+  getById: (id: string) => Promise<import('./types/layer-types').LayerDefinition | null>
+  create: (layer: Omit<import('./types/layer-types').LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>) => Promise<import('./types/layer-types').LayerDefinition>
+  update: (id: string, updates: Partial<import('./types/layer-types').LayerDefinition>) => Promise<import('./types/layer-types').LayerDefinition>
+  delete: (id: string) => Promise<boolean>
+  search: (criteria: import('./types/layer-types').LayerSearchCriteria) => Promise<import('./types/layer-types').LayerSearchResult>
+  bulkUpdate: (updates: Array<{ id: string; changes: Partial<import('./types/layer-types').LayerDefinition> }>) => Promise<void>
+  export: (layerIds: string[]) => Promise<string>
+  import: (data: string, targetGroupId?: string) => Promise<string[]>
+  
+  // Group operations
+  groups: {
+    getAll: () => Promise<import('./types/layer-types').LayerGroup[]>
+    create: (group: Omit<import('./types/layer-types').LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>) => Promise<import('./types/layer-types').LayerGroup>
+    update: (id: string, updates: Partial<import('./types/layer-types').LayerGroup>) => Promise<import('./types/layer-types').LayerGroup>
+    delete: (id: string, moveLayersTo?: string) => Promise<boolean>
+  }
+  
+  // Operations and errors
+  logOperation: (operation: import('./types/layer-types').LayerOperation) => Promise<void>
+  getOperations: (layerId?: string) => Promise<import('./types/layer-types').LayerOperation[]>
+  logError: (error: import('./types/layer-types').LayerError) => Promise<void>
+  getErrors: (layerId?: string) => Promise<import('./types/layer-types').LayerError[]>
+  clearErrors: (layerId?: string) => Promise<void>
+  
+  // Style presets
+  presets: {
+    getAll: () => Promise<import('./types/layer-types').StylePreset[]>
+    create: (preset: Omit<import('./types/layer-types').StylePreset, 'id' | 'createdAt'>) => Promise<import('./types/layer-types').StylePreset>
+  }
+  
+  // Performance metrics
+  recordMetrics: (metrics: import('./types/layer-types').LayerPerformanceMetrics) => Promise<void>
 }
 
 // PostgreSQL API for preload script
