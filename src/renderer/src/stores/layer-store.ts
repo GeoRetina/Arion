@@ -18,7 +18,8 @@ import type {
   LayerSearchResult,
   LayerValidationResult,
   LayerPerformanceMetrics,
-  LayerType
+  LayerType,
+  LayerContext
 } from '../../../shared/types/layer-types'
 
 interface LayerStore {
@@ -34,7 +35,7 @@ interface LayerStore {
   lastSyncTimestamp: number
   
   // Layer CRUD Operations
-  addLayer: (definition: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>) => Promise<string>
+  addLayer: (definition: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>, context?: LayerContext) => Promise<string>
   updateLayer: (id: string, updates: Partial<LayerDefinition>) => Promise<void>
   removeLayer: (id: string) => Promise<void>
   duplicateLayer: (id: string, newName?: string) => Promise<string>
@@ -110,6 +111,10 @@ interface LayerStore {
   addOperation: (operation: LayerOperation) => void
   getOperations: (layerId?: string) => LayerOperation[]
   clearOperations: () => void
+  
+  // Session Management
+  clearSessionData: () => void
+  clearSessionLayersForChat: (chatId: string) => void
   
   // Cleanup
   reset: () => void
@@ -312,7 +317,7 @@ export const useLayerStore = create<LayerStore>()(
     lastSyncTimestamp: 0,
     
     // Layer CRUD Operations
-    addLayer: async (definition) => {
+    addLayer: async (definition, context) => {
       const id = uuidv4()
       const now = new Date()
       
@@ -323,6 +328,20 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error(`Invalid layer definition: ${validation.errors.map(e => e.message).join(', ')}`)
       }
       
+      // Prepare metadata with context-based tagging
+      const metadata = { ...definition.metadata }
+      let tags = [...(metadata.tags || [])]
+      
+      // Add context-based tags for imported layers
+      if (definition.createdBy === 'import' && context?.chatId) {
+        tags = [...tags, 'session-import', context.chatId]
+      }
+      
+      // Add source context if provided
+      if (context?.source) {
+        tags = [...tags, `source:${context.source}`]
+      }
+      
       const layer: LayerDefinition = {
         ...definition,
         id,
@@ -330,8 +349,10 @@ export const useLayerStore = create<LayerStore>()(
         updatedAt: now,
         style: { ...DEFAULT_LAYER_STYLE, ...definition.style },
         metadata: {
-          ...definition.metadata,
-          tags: definition.metadata?.tags || []
+          ...metadata,
+          tags,
+          // Add additional context metadata if provided
+          ...(context?.metadata || {})
         }
       }
       
@@ -357,7 +378,11 @@ export const useLayerStore = create<LayerStore>()(
         timestamp: now
       })
       
-      console.log(`[LayerStore] Added layer: ${layer.name} (${id})`)
+      console.log(`[LayerStore] Added layer: ${layer.name} (${id})`, {
+        createdBy: layer.createdBy,
+        tags: layer.metadata.tags,
+        context: context || 'none'
+      })
       return id
     },
     
@@ -936,6 +961,61 @@ export const useLayerStore = create<LayerStore>()(
     
     clearOperations: () => {
       set({ operations: [] })
+    },
+    
+    // Session Management
+    clearSessionData: () => {
+      const state = get()
+      const sessionLayers = Array.from(state.layers.entries()).filter(([_, layer]) => 
+        layer.createdBy === 'import'
+      )
+      
+      // Remove session-imported layers
+      sessionLayers.forEach(([layerId, _]) => {
+        state.layers.delete(layerId)
+      })
+      
+      set({
+        layers: new Map(state.layers),
+        selectedLayerId: state.selectedLayerId && state.layers.has(state.selectedLayerId) 
+          ? state.selectedLayerId 
+          : null,
+        operations: state.operations.filter(op => 
+          !sessionLayers.some(([layerId, _]) => op.layerId === layerId)
+        ),
+        errors: state.errors.filter(error => 
+          !sessionLayers.some(([layerId, _]) => error.layerId === layerId)
+        )
+      })
+      
+      console.log(`[LayerStore] Cleared ${sessionLayers.length} session-imported layers`)
+    },
+    
+    clearSessionLayersForChat: (chatId: string) => {
+      const state = get()
+      const chatLayers = Array.from(state.layers.entries()).filter(([_, layer]) => 
+        layer.metadata.description?.includes(`[Session: ${chatId}]`)
+      )
+      
+      // Remove layers associated with this chat
+      chatLayers.forEach(([layerId, _]) => {
+        state.layers.delete(layerId)
+      })
+      
+      set({
+        layers: new Map(state.layers),
+        selectedLayerId: state.selectedLayerId && state.layers.has(state.selectedLayerId) 
+          ? state.selectedLayerId 
+          : null,
+        operations: state.operations.filter(op => 
+          !chatLayers.some(([layerId, _]) => op.layerId === layerId)
+        ),
+        errors: state.errors.filter(error => 
+          !chatLayers.some(([layerId, _]) => error.layerId === layerId)
+        )
+      })
+      
+      console.log(`[LayerStore] Cleared ${chatLayers.length} layers for chat: ${chatId}`)
     },
     
     // Cleanup

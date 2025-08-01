@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat-history-store'
+import { resetChatStores, prepareChatSwitch } from '@/lib/chat-store-reset'
 import { v4 as uuidv4 } from 'uuid'
 import type { Message as SDKMessage } from '@ai-sdk/react'
 
@@ -43,8 +44,8 @@ export function useChatSession(): UseChatSessionReturn {
         processingNewChatUrlRef.current = true
 
         if (currentChatIdFromStore !== null) {
-          console.log('[useChatSession] Navigated to /new, clearing current chat in store.')
-          clearCurrentChat() // Clears messages and currentChatId from store
+          console.log('[useChatSession] Navigated to /new, clearing current chat and resetting stores.')
+          resetChatStores() // Use centralized reset for all chat-related stores
         }
         const newSessionId = uuidv4()
         console.log(
@@ -61,8 +62,10 @@ export function useChatSession(): UseChatSessionReturn {
 
       if (chatIdFromUrl !== currentChatIdFromStore) {
         console.log(
-          `[useChatSession] URL chatId ${chatIdFromUrl} differs from store ${currentChatIdFromStore}. Loading chat (won't create if not found).`
+          `[useChatSession] URL chatId ${chatIdFromUrl} differs from store ${currentChatIdFromStore}. Preparing chat switch and loading chat.`
         )
+        // Use centralized chat switch preparation
+        prepareChatSwitch(currentChatIdFromStore || undefined, chatIdFromUrl)
         // loadChat should set currentChatId and messages in the store if found
         loadChat(chatIdFromUrl)
       }

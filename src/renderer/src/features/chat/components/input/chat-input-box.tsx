@@ -4,9 +4,11 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { X, AlertTriangle, Map as MapIcon } from 'lucide-react' // Added MapIcon
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LLMProvider } from '@/stores/llm-store'
 import ModelSelector, { ProviderOption } from './model-selector'
 import { ChatInputButtons } from './chat-input-buttons'
+import { PlusDropdown } from './plus-dropdown'
 import { ScrollArea } from '@/components/ui/scroll-area' // Added ScrollArea import
 
 interface ChatInputBoxProps {
@@ -30,6 +32,9 @@ interface ChatInputBoxProps {
   // New props for map sidebar control
   isMapSidebarExpanded?: boolean
   onToggleMapSidebar?: () => void
+
+  // New prop for database modal
+  onOpenDatabase?: () => void
 }
 
 const ChatInputBox: React.FC<ChatInputBoxProps> = ({
@@ -46,7 +51,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   onSelectProvider,
   // New props for map sidebar control
   isMapSidebarExpanded = false,
-  onToggleMapSidebar
+  onToggleMapSidebar,
+  onOpenDatabase
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
@@ -190,13 +196,20 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               {/* Icon placeholder if needed */}
               {activeBanner}
               {/* Removed area limit display */}
-              <button
-                onClick={handleCloseBanner}
-                className="ml-1 relative -top-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Remove selection banner"
-              >
-                <X size={11} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleCloseBanner}
+                    className="ml-1 relative -top-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Remove selection banner"
+                  >
+                    <X size={11} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Clear context</p>
+                </TooltipContent>
+              </Tooltip>
             </span>
           </div>
         )}
@@ -241,6 +254,12 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           {' '}
           {/* Added mt-auto and shrink-0 */}
           <div className="flex items-center gap-2">
+            {/* Plus dropdown moved to the left side */}
+            <PlusDropdown 
+              disabled={isStreaming}
+              onOpenDatabase={onOpenDatabase}
+            />
+            
             <ModelSelector
               availableProviders={availableProviders}
               activeProvider={activeProvider}
@@ -249,20 +268,26 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
             {/* Map toggle button */}
             {onToggleMapSidebar && (
-              <Button
-                variant="custom"
-                size="icon"
-                onClick={onToggleMapSidebar}
-                type="button"
-                className={`
-                  h-8 w-8 flex items-center justify-center ml-1 border-[1px] rounded-md
-                  border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
-                  ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
-                `}
-                title={isMapSidebarExpanded ? 'Hide Map' : 'Show Map'}
-              >
-                <MapIcon className="h-4 w-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="custom"
+                    size="icon"
+                    onClick={onToggleMapSidebar}
+                    type="button"
+                    className={`
+                      h-8 w-8 flex items-center justify-center ml-1 border-[1px] rounded-md
+                      border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
+                      ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
+                    `}
+                  >
+                    <MapIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isMapSidebarExpanded ? 'Hide Map' : 'Show Map'}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           <ChatInputButtons

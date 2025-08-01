@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { ChevronRight, Layers, PanelLeftClose } from 'lucide-react'
 import { useMapStore } from '@/stores/map-store'
-import { useLayerStore, useSelectedLayer } from '@/stores/layer-store'
-import { layerSyncService } from '@/services/layer-sync-service'
+import { useLayerStore } from '@/stores/layer-store'
+import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { LayerItem } from './layer-item'
 import { LayerGroup } from './layer-group'
-import { LayerSearch } from './layer-search'
 import { LayerStats } from './layer-stats'
-import type { LayerSearchCriteria } from '../../../../../shared/types/layer-types'
+import { zoomToLayer } from '@/lib/layer-zoom-utils'
+import { toast } from 'sonner'
 
 interface LayersPanelProps {
   className?: string
@@ -20,41 +21,45 @@ interface LayersPanelProps {
 export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'layers' | 'stats'>('layers')
-  const [searchCriteria, setSearchCriteria] = useState<LayerSearchCriteria>({})
+  const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
   
   // Map and Layer Store
   const mapInstance = useMapStore((state) => state.mapInstance)
-  const isMapReady = useMapStore((state) => state.isMapReadyForOperations)
   const { 
     layers, 
     groups, 
     selectedLayerId,
-    searchResults,
     selectLayer,
     setLayerVisibility,
     duplicateLayer,
     removeLayer,
-    updateGroup,
-    searchLayers,
-    clearSearch
+    updateGroup
   } = useLayerStore()
-  const selectedLayer = useSelectedLayer()
+  
+  // Chat session tracking
+  const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
-  // Initialize layer sync service when map is ready
+  // Track session change but don't reset (let persistence system handle it)
   useEffect(() => {
-    if (mapInstance && isMapReady) {
-      layerSyncService.initialize(mapInstance)
-      console.log('[LayersPanel] Layer sync service initialized')
-      
-      return () => {
-        layerSyncService.destroy()
-      }
+    if (currentChatId !== currentChatSession) {
+      console.log('[LayersPanel] Chat session changed:', {
+        from: currentChatSession,
+        to: currentChatId
+      })
+      setCurrentChatSession(currentChatId)
     }
-  }, [mapInstance, isMapReady])
+  }, [currentChatId, currentChatSession])
 
-  // Get display layers based on search results
-  const displayLayers = searchResults?.layers || Array.from(layers.values())
+  // Get only session layers (imported layers for current chat)
+  const sessionLayers = Array.from(layers.values()).filter(layer => {
+    if (layer.createdBy !== 'import') return false
+    // Check if layer was imported to this specific chat session
+    if (!currentChatId) return false
+    return layer.metadata.tags?.includes(currentChatId)
+  })
+  const displayLayers = sessionLayers
   const displayGroups = Array.from(groups.values())
+  
   
   // Get ungrouped layers
   const ungroupedLayers = displayLayers.filter(layer => !layer.groupId)
@@ -79,19 +84,33 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
 
   const handleDuplicateLayer = async (layerId: string) => {
     try {
+      const layer = layers.get(layerId)
       const newLayerId = await duplicateLayer(layerId)
+      toast.success('Layer duplicated successfully', {
+        description: layer ? `Created copy of "${layer.name}"` : 'Layer duplicated'
+      })
       console.log('[LayersPanel] Duplicated layer:', layerId, '→', newLayerId)
     } catch (error) {
       console.error('[LayersPanel] Failed to duplicate layer:', error)
+      toast.error('Failed to duplicate layer', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
     }
   }
 
   const handleDeleteLayer = async (layerId: string) => {
     try {
+      const layer = layers.get(layerId)
       await removeLayer(layerId)
+      toast.success('Layer deleted successfully', {
+        description: layer ? `Removed "${layer.name}" from session` : 'Layer removed'
+      })
       console.log('[LayersPanel] Deleted layer:', layerId)
     } catch (error) {
       console.error('[LayersPanel] Failed to delete layer:', error)
+      toast.error('Failed to delete layer', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
     }
   }
 
@@ -122,18 +141,29 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
     console.log('[LayersPanel] Add layer to group:', groupId)
   }
 
-  const handleSearchChange = async (criteria: LayerSearchCriteria) => {
-    setSearchCriteria(criteria)
-    if (Object.keys(criteria).length === 0) {
-      clearSearch()
-    } else {
-      await searchLayers(criteria)
+  const handleZoomToLayer = async (layerId: string) => {
+    const layer = layers.get(layerId)
+    if (!layer || !mapInstance) {
+      console.warn('[LayersPanel] Cannot zoom to layer - layer or map not available:', { 
+        layerId, 
+        hasLayer: !!layer, 
+        hasMap: !!mapInstance 
+      })
+      toast.error('Cannot zoom to layer', {
+        description: !layer ? 'Layer not found' : 'Map not available'
+      })
+      return
     }
-  }
 
-  const handleClearSearch = () => {
-    setSearchCriteria({})
-    clearSearch()
+    const success = await zoomToLayer(mapInstance, layer)
+    if (!success) {
+      console.warn('[LayersPanel] Failed to zoom to layer:', layerId)
+      toast.error('Failed to zoom to layer', {
+        description: 'Layer may not have valid bounds or geometry'
+      })
+    } else {
+      toast.success(`Zoomed to "${layer.name}"`)
+    }
   }
 
   const togglePanel = () => {
@@ -164,25 +194,22 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
                 <Layers className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Layers</span>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={togglePanel}
-                title="Close layers panel"
-              >
-                <PanelLeftClose className="h-3 w-3" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={togglePanel}
+                  >
+                    <PanelLeftClose className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Close layers panel</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-          </div>
-
-          {/* Search */}
-          <div className="p-3 border-b border-border/50">
-            <LayerSearch
-              searchCriteria={searchCriteria}
-              onSearchChange={handleSearchChange}
-              onClearSearch={handleClearSearch}
-            />
           </div>
 
           {/* Tabs */}
@@ -206,10 +233,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
                     <div className="text-center py-8">
                       <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                       <div className="text-sm text-muted-foreground">
-                        {searchResults ? 'No layers match your search' : 'No layers loaded'}
+                        No layers in current session
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
-                        {!searchResults && 'Import data or use tools to create layers'}
+                        Use the + button in chat to import layers
                       </div>
                     </div>
                   ) : (
@@ -228,6 +255,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
                           onDuplicateLayer={handleDuplicateLayer}
                           onDeleteLayer={handleDeleteLayer}
                           onShowStyleEditor={handleShowStyleEditor}
+                          onZoomToLayer={handleZoomToLayer}
                           onEditGroup={handleEditGroup}
                           onDeleteGroup={handleDeleteGroup}
                           onAddLayerToGroup={handleAddLayerToGroup}
@@ -255,6 +283,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
                                 onDuplicate={handleDuplicateLayer}
                                 onDelete={handleDeleteLayer}
                                 onShowStyleEditor={handleShowStyleEditor}
+                                onZoomToLayer={handleZoomToLayer}
                               />
                             ))}
                         </div>
@@ -279,26 +308,32 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
 
       {/* Open Button - Only show when panel is closed */}
       {!isExpanded && (
-        <button
-          onClick={togglePanel}
-          className={cn(
-            'absolute z-5 bg-card/95 backdrop-blur-sm border border-border/50 hover:bg-muted/50',
-            'w-8 h-16 flex items-center rounded-r-lg shadow-md',
-            className
-          )}
-          style={{
-            top: '50%',
-            left: 0,
-            transform: 'translateY(-50%) translateX(-21px)',
-            borderTopLeftRadius: 0,
-            borderBottomLeftRadius: 0,
-            transition: 'transform 300ms ease-in-out',
-            paddingLeft: '12px'
-          }}
-          title="Open layers panel"
-        >
-          <ChevronRight className="h-5 w-5 text-muted-foreground ml-2" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={togglePanel}
+              className={cn(
+                'absolute z-5 bg-card/95 backdrop-blur-sm border border-border/50 hover:bg-muted/50',
+                'w-8 h-16 flex items-center rounded-r-lg shadow-md',
+                className
+              )}
+              style={{
+                top: '50%',
+                left: 0,
+                transform: 'translateY(-50%) translateX(-21px)',
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                transition: 'transform 300ms ease-in-out',
+                paddingLeft: '12px'
+              }}
+            >
+              <ChevronRight className="h-5 w-5 text-muted-foreground ml-2" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Open layers panel</p>
+          </TooltipContent>
+        </Tooltip>
       )}
     </>
   )

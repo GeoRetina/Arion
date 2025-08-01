@@ -1,13 +1,20 @@
 /**
- * AttachButton Component
+ * Plus Dropdown Component
  * 
- * Button for importing vector and raster layers via file upload.
- * Provides file validation, progress indication, and error handling.
+ * Dropdown menu triggered by a plus button that contains various
+ * import and database options for the chat input.
  */
 
-import React, { useRef, useState } from 'react'
-import { Paperclip, Upload, AlertCircle, CheckCircle } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { Plus, Paperclip, Database, Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
@@ -15,27 +22,31 @@ import { LayerImportService, SUPPORTED_FORMATS } from '@/services/layer-import-s
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 
-interface AttachButtonProps {
+interface PlusDropdownProps {
   disabled?: boolean
   className?: string
+  onOpenDatabase?: () => void
 }
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error'
 
-export const AttachButton: React.FC<AttachButtonProps> = ({
+export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   disabled = false,
-  className
+  className,
+  onOpenDatabase
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadState, setUploadState] = useState<UploadState>('idle')
+  const [isOpen, setIsOpen] = useState(false)
   const { addLayer, addError } = useLayerStore()
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
   // Generate accepted file types for input element
   const acceptedTypes = Object.keys(SUPPORTED_FORMATS).join(',') + ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
 
-  const handleButtonClick = () => {
+  const handleFileImport = () => {
     if (disabled || uploadState === 'uploading') return
+    setIsOpen(false) // Close dropdown
     fileInputRef.current?.click()
   }
 
@@ -59,7 +70,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
       // Add to layer store with chat context for session tracking
       await addLayer(layerDefinition, {
         chatId: currentChatId,
-        source: 'attach-button',
+        source: 'file-import',
         metadata: {
           fileName: file.name,
           fileSize: file.size
@@ -77,7 +88,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
       }, 1500)
 
     } catch (error) {
-      console.error('[AttachButton] Import failed:', error)
+      console.error('[PlusDropdown] Import failed:', error)
       setUploadState('error')
       
       const errorMessage = error instanceof Error ? error.message : 'Failed to import layer'
@@ -106,6 +117,12 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
     }
   }
 
+  const handleDatabaseOpen = () => {
+    if (disabled) return
+    setIsOpen(false) // Close dropdown
+    onOpenDatabase?.()
+  }
+
   const getButtonIcon = () => {
     switch (uploadState) {
       case 'uploading':
@@ -115,7 +132,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
       case 'error':
         return <AlertCircle className="h-4 w-4 text-red-500" />
       default:
-        return <Paperclip className="h-4 w-4" />
+        return <Plus className="h-4 w-4" />
     }
   }
 
@@ -128,46 +145,52 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
       case 'error':
         return 'Import failed'
       default:
-        return 'Import layer (GeoJSON, Shapefile, KML, CSV, GeoTIFF, etc.)'
-    }
-  }
-
-  const getButtonVariant = () => {
-    switch (uploadState) {
-      case 'success':
-        return 'default' // Keep subtle
-      case 'error':
-        return 'ghost' // Keep subtle for error state too
-      default:
-        return 'ghost'
+        return 'Add content'
     }
   }
 
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant={getButtonVariant()}
-            size="icon"
-            onClick={handleButtonClick}
-            disabled={disabled || uploadState === 'uploading'}
-            className={cn(
-              'text-muted-foreground hover:text-foreground transition-colors',
-              uploadState === 'uploading' && 'cursor-not-allowed opacity-75',
-              uploadState === 'success' && 'text-green-600 hover:text-green-700',
-              uploadState === 'error' && 'text-red-600 hover:text-red-700',
-              className
-            )}
-          >
-            {getButtonIcon()}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{getButtonTitle()}</p>
-        </TooltipContent>
-      </Tooltip>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={disabled || uploadState === 'uploading'}
+                className={cn(
+                  'text-foreground hover:text-foreground/80 transition-colors h-8 w-8',
+                  uploadState === 'uploading' && 'cursor-not-allowed opacity-75',
+                  uploadState === 'success' && 'text-green-600 hover:text-green-700',
+                  uploadState === 'error' && 'text-red-600 hover:text-red-700',
+                  className
+                )}
+              >
+                {getButtonIcon()}
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{getButtonTitle()}</p>
+          </TooltipContent>
+        </Tooltip>
+        
+        <DropdownMenuContent align="center" side="top" className="w-56">
+          <DropdownMenuItem onClick={handleFileImport} disabled={disabled || uploadState === 'uploading'}>
+            <Paperclip className="h-4 w-4 mr-2" />
+            Import File
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator />
+          
+          <DropdownMenuItem onClick={handleDatabaseOpen} disabled={disabled}>
+            <Database className="h-4 w-4 mr-2" />
+            Layer Database
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <input
         ref={fileInputRef}

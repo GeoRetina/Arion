@@ -32,6 +32,7 @@ interface LayerGroupProps {
   onDuplicateLayer: (layerId: string) => void
   onDeleteLayer: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
+  onZoomToLayer: (layerId: string) => void
   onEditGroup: (groupId: string) => void
   onDeleteGroup: (groupId: string) => void
   onAddLayerToGroup: (groupId: string) => void
@@ -49,6 +50,7 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   onDuplicateLayer,
   onDeleteLayer,
   onShowStyleEditor,
+  onZoomToLayer,
   onEditGroup,
   onDeleteGroup,
   onAddLayerToGroup
@@ -244,6 +246,7 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
                   onDuplicate={onDuplicateLayer}
                   onDelete={onDeleteLayer}
                   onShowStyleEditor={onShowStyleEditor}
+                  onZoomToLayer={onZoomToLayer}
                 />
               ))
           )}

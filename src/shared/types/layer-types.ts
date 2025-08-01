@@ -30,6 +30,14 @@ export type LayerType = 'raster' | 'vector'
 // Layer creation origins
 export type LayerOrigin = 'user' | 'tool' | 'mcp' | 'import'
 
+// Context information for layer creation
+export interface LayerContext {
+  chatId?: string | null                  // Associated chat session ID
+  userId?: string                         // User who initiated the action
+  source?: string                         // Source component/service name
+  metadata?: Record<string, any>          // Additional context metadata
+}
+
 // Source configuration for different layer types
 export interface LayerSourceConfig {
   type: LayerSourceType

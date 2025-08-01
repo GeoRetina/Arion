@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button'
 import { AlertTriangle } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
+import { LayersDatabaseModal } from './layers-database-modal'
 
 // Create a better streamable fetch function for useChat that uses real-time streaming
 const createStreamingFetch = () => {
@@ -107,6 +108,7 @@ export default function ChatInterface(): React.JSX.Element {
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [mcpServerConfigs, setMcpServerConfigs] = useState<McpServerConfig[]>([])
+  const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false)
   
   // MCP permission dialog state
   const { 
@@ -119,6 +121,10 @@ export default function ChatInterface(): React.JSX.Element {
 
   const toggleMapSidebar = () => {
     setIsMapSidebarExpanded(!isMapSidebarExpanded)
+  }
+
+  const handleOpenDatabase = () => {
+    setIsDatabaseModalOpen(true)
   }
 
   // Fetch MCP server configurations on component mount
@@ -625,6 +631,7 @@ export default function ChatInterface(): React.JSX.Element {
             onSelectProvider={setActiveProvider}
             isMapSidebarExpanded={isMapSidebarExpanded}
             onToggleMapSidebar={toggleMapSidebar}
+            onOpenDatabase={handleOpenDatabase}
           />
         </div>
       </div>
@@ -673,6 +680,12 @@ export default function ChatInterface(): React.JSX.Element {
           onPermissionResponse={resolvePendingPermission}
         />
       )}
+
+      {/* Layers Database Modal */}
+      <LayersDatabaseModal
+        isOpen={isDatabaseModalOpen}
+        onOpenChange={setIsDatabaseModalOpen}
+      />
     </div>
   )
 }

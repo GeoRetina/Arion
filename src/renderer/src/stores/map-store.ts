@@ -21,6 +21,11 @@ interface MapState {
   setMapReadyForOperations: (isReady: boolean) => void
   pendingFeatures: AddMapFeaturePayload[] // Queue for features to add when map is ready
   pendingImageLayers: AddGeoreferencedImageLayerPayload[] // Queue for image layers
+  
+  // Session Management
+  clearSessionData: () => void
+  resetPendingQueues: () => void
+  
   // TODO: Add more map-specific state and actions as needed (e.g., active layers, sources, styles)
 }
 
@@ -380,6 +385,23 @@ export const useMapStore = create<MapState>((set, get) => ({
       // Fallback could be implemented here if needed
       console.warn('[MapStore] Falling back to legacy image layer addition method')
     }
+  },
+
+  // Session Management
+  clearSessionData: () => {
+    set({
+      pendingFeatures: [],
+      pendingImageLayers: []
+    })
+    console.log('[MapStore] Cleared session-specific map data')
+  },
+
+  resetPendingQueues: () => {
+    set({
+      pendingFeatures: [],
+      pendingImageLayers: []
+    })
+    console.log('[MapStore] Reset pending queues')
   }
 }))
 

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react'
-import { MoreVertical, Eye, EyeOff, Palette, Settings } from 'lucide-react'
+import { MoreVertical, Eye, EyeOff, Palette, Settings, ZoomIn } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LayerDefinition } from '../../../../../shared/types/layer-types'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ interface LayerItemProps {
   onDuplicate: (layerId: string) => void
   onDelete: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
+  onZoomToLayer: (layerId: string) => void
 }
 
 export const LayerItem: React.FC<LayerItemProps> = ({
@@ -38,7 +39,8 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   onEdit,
   onDuplicate,
   onDelete,
-  onShowStyleEditor
+  onShowStyleEditor,
+  onZoomToLayer
 }) => {
   const [isHovered, setIsHovered] = useState(false)
 
@@ -153,6 +155,19 @@ export const LayerItem: React.FC<LayerItemProps> = ({
           className="h-6 w-6 p-0"
           onClick={(e) => {
             e.stopPropagation()
+            onZoomToLayer(layer.id)
+          }}
+          title="Zoom to layer"
+        >
+          <ZoomIn className="h-3 w-3" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={(e) => {
+            e.stopPropagation()
             onShowStyleEditor(layer.id)
           }}
           title="Edit layer style"
@@ -172,6 +187,14 @@ export const LayerItem: React.FC<LayerItemProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={(e) => {
+              e.stopPropagation()
+              onZoomToLayer(layer.id)
+            }}>
+              <ZoomIn className="h-4 w-4 mr-2" />
+              Zoom to Layer
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={(e) => {
               e.stopPropagation()
               onEdit(layer.id)
