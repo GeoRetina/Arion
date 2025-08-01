@@ -10,6 +10,9 @@ import ModelSelector, { ProviderOption } from './model-selector'
 import { ChatInputButtons } from './chat-input-buttons'
 import { PlusDropdown } from './plus-dropdown'
 import { ScrollArea } from '@/components/ui/scroll-area' // Added ScrollArea import
+import { MentionMenu } from './mention-menu'
+import { useMentionTrigger } from './use-mention-trigger'
+import { useMentionData, type MentionItem } from './use-mention-data'
 
 interface ChatInputBoxProps {
   inputValue: string // Controlled input value from useChat
@@ -58,6 +61,19 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
   const [internalText, setInternalText] = useState(inputValue) // Local state for editor content
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
+
+  // Mention system integration
+  const mentionTrigger = useMentionTrigger({
+    editorRef,
+    onTriggerChange: (isActive, searchQuery) => {
+      // Optional: additional logic when mention state changes
+    }
+  })
+
+  const mentionData = useMentionData({
+    searchQuery: mentionTrigger.searchQuery,
+    enabled: mentionTrigger.isActive
+  })
 
   // Sync internalText and editor when inputValue prop changes (e.g., after submit)
   useEffect(() => {
@@ -112,9 +128,12 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
       setInternalText(currentText)
       onValueChange(currentText)
+      
+      // Trigger mention detection on input change
+      setTimeout(() => mentionTrigger.detectMentionTrigger(), 0)
       // updateCaretPosition(); // Called by selectionchange or mutation observer
     },
-    [onValueChange]
+    [onValueChange, mentionTrigger]
   )
 
   const onInternalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -133,12 +152,52 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   }
 
   const handleCombinedKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Handle mention menu navigation when active
+    if (mentionTrigger.isActive && mentionData.items.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const nextIndex = (mentionTrigger.selectedIndex + 1) % mentionData.items.length
+        mentionTrigger.setSelectedIndex(nextIndex)
+        return
+      }
+      
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const prevIndex = mentionTrigger.selectedIndex === 0 
+          ? mentionData.items.length - 1 
+          : mentionTrigger.selectedIndex - 1
+        mentionTrigger.setSelectedIndex(prevIndex)
+        return
+      }
+      
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        const selectedItem = mentionData.items[mentionTrigger.selectedIndex]
+        if (selectedItem) {
+          handleMentionSelect(selectedItem)
+        }
+        return
+      }
+      
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        mentionTrigger.closeMention()
+        return
+      }
+    }
+
+    // Regular input handling
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       onInternalSubmit()
     }
     // Allow default behavior for other keys, which will trigger mutation/selection observers
   }
+
+  const handleMentionSelect = useCallback((item: MentionItem) => {
+    const mentionText = `@${item.name}`
+    mentionTrigger.insertMention(mentionText)
+  }, [mentionTrigger])
 
   // Simplified banner closing, just clears the visual banner part
   // Actual logic for clearing selected ROI would be in useChatLogic or parent
@@ -299,7 +358,17 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           />
         </div>
       </form>
-      {/* Mention menu and file dialog are deferred */}
+
+      {/* Mention Menu */}
+      <MentionMenu
+        items={mentionData.items}
+        isVisible={mentionTrigger.isActive}
+        position={mentionTrigger.position}
+        selectedIndex={mentionTrigger.selectedIndex}
+        searchQuery={mentionTrigger.searchQuery}
+        onSelect={handleMentionSelect}
+        onClose={mentionTrigger.closeMention}
+      />
     </div>
   )
 }
