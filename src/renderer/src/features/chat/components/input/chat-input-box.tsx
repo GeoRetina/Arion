@@ -276,7 +276,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               Type a message...
             </span>
           )}
-          {/* ContentEditable Div wrapped with ScrollArea */}
+          {/* ContentEditable Div with Highlighting Overlay */}
           <ScrollArea
             className="flex-grow w-full" // Ensure it takes available width and can grow
             style={{ maxHeight: `${maxInputHeight}px` }}
@@ -284,15 +284,16 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           >
             <div
               ref={editorRef}
-              contentEditable={true} // Always editable
+              contentEditable={true}
               onInput={onActualInput}
               onKeyDown={handleCombinedKeyDown}
               role="textbox"
               aria-multiline="true"
-              className={`relative w-full py-3 px-4 bg-transparent focus:outline-none leading-snug`} // Use py-3 for symmetrical padding, pb-12 on parent handles button bar space
+              className="relative w-full py-3 px-4 bg-transparent focus:outline-none leading-snug"
               style={{
-                caretColor: 'auto', // Use native caret
-                minHeight: editorMinHeight // Keep minHeight for initial rendering
+                caretColor: 'auto',
+                minHeight: editorMinHeight,
+                color: 'var(--foreground)' // Normal text color
               }}
               suppressContentEditableWarning={true}
             />

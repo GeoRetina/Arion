@@ -66,7 +66,7 @@ export const useMentionTrigger = ({
       
       return {
         x: rect.left - containerRect.left,
-        y: rect.top - containerRect.top - 120 // Position above the caret with more space
+        y: rect.top - containerRect.top
       }
     } catch (error) {
       // Fallback if range insertion fails
@@ -79,7 +79,7 @@ export const useMentionTrigger = ({
 
     // Check if we're in a cooldown period after inserting a mention
     const now = Date.now()
-    if (now - insertCooldownRef.current < 200) {
+    if (now - insertCooldownRef.current < 500) { // Increased cooldown
       return
     }
 
@@ -118,32 +118,41 @@ export const useMentionTrigger = ({
       return
     }
 
-    // Get the full text content of the editor, not just the current text node
-    const fullText = editorRef.current.textContent || ''
-    
-    // Calculate the global offset within the entire editor
-    let globalOffset = offset
-    let currentNode = textNode
-    
-    // Walk backwards through text nodes to calculate global offset
-    while (currentNode.previousSibling) {
-      currentNode = currentNode.previousSibling
-      if (currentNode.nodeType === Node.TEXT_NODE) {
-        globalOffset += (currentNode.textContent || '').length
+    // Check if we're inside a non-editable mention span
+    let parentNode = textNode.parentNode
+    while (parentNode && parentNode !== editorRef.current) {
+      if (parentNode.nodeType === Node.ELEMENT_NODE) {
+        const element = parentNode as Element
+        if (element.contentEditable === 'false' || element.hasAttribute('data-mention')) {
+          // We're inside a mention span, don't trigger menu
+          if (state.isActive) {
+            mentionStartRef.current = -1
+            setState(prev => ({
+              ...prev,
+              isActive: false,
+              searchQuery: '',
+              selectedIndex: 0
+            }))
+            onTriggerChange?.(false, '')
+          }
+          return
+        }
       }
+      parentNode = parentNode.parentNode
     }
+
+    // Get just the current text node content for @ detection
+    const textContent = textNode.textContent || ''
+    const beforeCaret = textContent.substring(0, offset)
     
-    const beforeCaret = fullText.substring(0, globalOffset)
-    
-    // Look for @ symbol followed by optional search text
+    // Look for @ symbol followed by optional search text at the end of current text node
     const mentionMatch = beforeCaret.match(/@([^@\s]*)$/)
     
     if (mentionMatch) {
       const searchQuery = mentionMatch[1]
-      const mentionStart = globalOffset - mentionMatch[0].length
+      const mentionStart = offset - mentionMatch[0].length
       
       // Only trigger if this is a new mention or the search query changed
-      // Also add a minimum delay between state changes
       if (mentionStartRef.current !== mentionStart || state.searchQuery !== searchQuery) {
         mentionStartRef.current = mentionStart
         const position = getCaretPosition()
@@ -153,42 +162,30 @@ export const useMentionTrigger = ({
           isActive: true,
           searchQuery,
           position,
-          selectedIndex: 0
+          selectedIndex: 0 // Only reset selectedIndex for new mentions or changed queries
         }))
         
         onTriggerChange?.(true, searchQuery)
+      } else if (state.isActive) {
+        // Same mention session, just update position if needed
+        const position = getCaretPosition()
+        setState(prev => ({
+          ...prev,
+          position
+          // Don't reset selectedIndex here
+        }))
       }
     } else {
       // No mention trigger found, close the menu
-      // Add a small delay before closing to prevent flicker
       if (state.isActive) {
-        setTimeout(() => {
-          // Double-check we still want to close
-          const currentSelection = window.getSelection()
-          if (!currentSelection?.rangeCount) return
-          
-          const currentRange = currentSelection.getRangeAt(0)
-          const currentTextNode = currentRange.startContainer
-          
-          if (currentTextNode.nodeType === Node.TEXT_NODE) {
-            const currentText = currentTextNode.textContent || ''
-            const currentOffset = currentRange.startOffset
-            const currentBeforeCaret = currentText.substring(0, currentOffset)
-            
-            // Only close if we still don't have a mention
-            if (!/@([^@\s]*)$/.test(currentBeforeCaret)) {
-              mentionStartRef.current = -1
-              setState(prev => ({
-                ...prev,
-                isActive: false,
-                searchQuery: '',
-                selectedIndex: 0
-              }))
-              
-              onTriggerChange?.(false, '')
-            }
-          }
-        }, 50)
+        mentionStartRef.current = -1
+        setState(prev => ({
+          ...prev,
+          isActive: false,
+          searchQuery: '',
+          selectedIndex: 0
+        }))
+        onTriggerChange?.(false, '')
       }
     }
   }, [editorRef, getCaretPosition, onTriggerChange, state.isActive, state.searchQuery])
@@ -210,61 +207,54 @@ export const useMentionTrigger = ({
     // Focus the editor first
     editorRef.current.focus()
 
-    // Get current selection
     const selection = window.getSelection()
-    if (!selection?.rangeCount) return
+    if (!selection || selection.rangeCount === 0) return
 
     const range = selection.getRangeAt(0)
-    const startContainer = range.startContainer
-    
-    // If we're not in a text node, find the nearest text node
-    let textNode = startContainer
-    if (textNode.nodeType !== Node.TEXT_NODE) {
-      // Create a text node if we're in an element
-      if (textNode.nodeType === Node.ELEMENT_NODE) {
-        const newTextNode = document.createTextNode('')
-        textNode.appendChild(newTextNode)
-        textNode = newTextNode
-      } else {
-        return
-      }
+    if (!range.collapsed) {
+      range.collapse(false)
     }
 
-    const text = textNode.textContent || ''
-    const caretPos = range.startOffset
+    // Focus and position at end
+    editorRef.current.focus()
+    selection.collapseToEnd()
 
-    // Find the @ pattern before caret
-    const beforeCaret = text.substring(0, caretPos)
-    const mentionMatch = beforeCaret.match(/@([^@\s]*)$/)
+    // Get current text content and find the command to replace
+    const textContent = editorRef.current.textContent || ''
+    const beforeCaret = textContent.substring(0, selection.getRangeAt(0).startOffset || textContent.length)
+    const match = beforeCaret.match(/@([^@\s]*)$/)
     
-    if (!mentionMatch) return
+    if (!match) return
 
-    const mentionStart = caretPos - mentionMatch[0].length
-    const beforeMention = text.substring(0, mentionStart)
-    const afterCaret = text.substring(caretPos)
-    
-    // Create the new text with mention and space
-    const newText = beforeMention + mentionText + ' ' + afterCaret
-    const newCaretPos = mentionStart + mentionText.length + 1
+    const commandLength = match[0].length
 
-    // Update the text content
-    textNode.textContent = newText
-
-    // Set the new caret position
-    try {
-      const newRange = document.createRange()
-      newRange.setStart(textNode, newCaretPos)
-      newRange.collapse(true)
-      selection.removeAllRanges()
-      selection.addRange(newRange)
-    } catch (error) {
-      // Fallback: position at the end of the text
-      const fallbackRange = document.createRange()
-      fallbackRange.setStart(textNode, textNode.textContent.length)
-      fallbackRange.collapse(true)
-      selection.removeAllRanges()
-      selection.addRange(fallbackRange)
+    // Select backward to cover the command
+    for (let i = 0; i < commandLength; i++) {
+      selection.modify("extend", "backward", "character")
     }
+
+    // Create the mention span (non-editable)
+    const mentionSpan = document.createElement("span")
+    mentionSpan.contentEditable = "false"
+    mentionSpan.className = "inline-block bg-blue-100 dark:bg-yellow-800/40 dark:text-yellow-300 px-1.5 py-0 rounded-md font-normal align-baseline"
+    mentionSpan.textContent = mentionText
+
+    // Create NBSP text node for boundary
+    const spaceNode = document.createTextNode("\u00A0")
+
+    // Insert the mention span and NBSP
+    const currentRange = selection.getRangeAt(0)
+    currentRange.deleteContents()
+    currentRange.insertNode(mentionSpan)
+
+    currentRange.setStartAfter(mentionSpan)
+    currentRange.collapse(true)
+    currentRange.insertNode(spaceNode)
+
+    // Position caret after the NBSP
+    selection.removeAllRanges()
+    selection.addRange(currentRange)
+    selection.collapseToEnd()
 
     // Ensure focus is maintained
     editorRef.current.focus()
