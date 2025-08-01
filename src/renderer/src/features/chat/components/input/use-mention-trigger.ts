@@ -24,6 +24,7 @@ export const useMentionTrigger = ({
   })
 
   const mentionStartRef = useRef<number>(-1)
+  const insertCooldownRef = useRef<number>(0)
 
   const getCaretPosition = useCallback(() => {
     if (!editorRef.current) return { x: 0, y: 0 }
@@ -76,11 +77,16 @@ export const useMentionTrigger = ({
   const detectMentionTrigger = useCallback(() => {
     if (!editorRef.current) return
 
+    // Check if we're in a cooldown period after inserting a mention
+    const now = Date.now()
+    if (now - insertCooldownRef.current < 200) {
+      return
+    }
+
     const selection = window.getSelection()
     if (!selection?.rangeCount) {
       // No selection, close mention menu
       if (state.isActive) {
-        console.log('Mention closed - no selection')
         mentionStartRef.current = -1
         setState(prev => ({
           ...prev,
@@ -100,7 +106,6 @@ export const useMentionTrigger = ({
     // If we're not in a text node, close the menu
     if (textNode.nodeType !== Node.TEXT_NODE) {
       if (state.isActive) {
-        console.log('Mention closed - not in text node')
         mentionStartRef.current = -1
         setState(prev => ({
           ...prev,
@@ -129,7 +134,6 @@ export const useMentionTrigger = ({
     }
     
     const beforeCaret = fullText.substring(0, globalOffset)
-    console.log('Detection check:', { fullText, beforeCaret, globalOffset, isActive: state.isActive })
     
     // Look for @ symbol followed by optional search text
     const mentionMatch = beforeCaret.match(/@([^@\s]*)$/)
@@ -139,11 +143,10 @@ export const useMentionTrigger = ({
       const mentionStart = globalOffset - mentionMatch[0].length
       
       // Only trigger if this is a new mention or the search query changed
+      // Also add a minimum delay between state changes
       if (mentionStartRef.current !== mentionStart || state.searchQuery !== searchQuery) {
         mentionStartRef.current = mentionStart
         const position = getCaretPosition()
-        
-        console.log('Mention triggered:', { searchQuery, position, beforeCaret })
         
         setState(prev => ({
           ...prev,
@@ -157,69 +160,118 @@ export const useMentionTrigger = ({
       }
     } else {
       // No mention trigger found, close the menu
+      // Add a small delay before closing to prevent flicker
       if (state.isActive) {
-        console.log('Mention closed - no @ found in:', beforeCaret)
-        mentionStartRef.current = -1
-        setState(prev => ({
-          ...prev,
-          isActive: false,
-          searchQuery: '',
-          selectedIndex: 0
-        }))
-        
-        onTriggerChange?.(false, '')
+        setTimeout(() => {
+          // Double-check we still want to close
+          const currentSelection = window.getSelection()
+          if (!currentSelection?.rangeCount) return
+          
+          const currentRange = currentSelection.getRangeAt(0)
+          const currentTextNode = currentRange.startContainer
+          
+          if (currentTextNode.nodeType === Node.TEXT_NODE) {
+            const currentText = currentTextNode.textContent || ''
+            const currentOffset = currentRange.startOffset
+            const currentBeforeCaret = currentText.substring(0, currentOffset)
+            
+            // Only close if we still don't have a mention
+            if (!/@([^@\s]*)$/.test(currentBeforeCaret)) {
+              mentionStartRef.current = -1
+              setState(prev => ({
+                ...prev,
+                isActive: false,
+                searchQuery: '',
+                selectedIndex: 0
+              }))
+              
+              onTriggerChange?.(false, '')
+            }
+          }
+        }, 50)
       }
     }
   }, [editorRef, getCaretPosition, onTriggerChange, state.isActive, state.searchQuery])
 
   const insertMention = useCallback((mentionText: string) => {
-    if (!editorRef.current || mentionStartRef.current === -1) return
+    if (!editorRef.current) return
 
-    const selection = window.getSelection()
-    if (!selection?.rangeCount) return
-
-    const range = selection.getRangeAt(0)
-    const textNode = range.startContainer
-
-    if (textNode.nodeType !== Node.TEXT_NODE) return
-
-    const text = textNode.textContent || ''
-    const offset = range.startOffset
-    const beforeCaret = text.substring(0, offset)
-    
-    // Find the @ symbol and replace from there to the current caret position
-    const mentionMatch = beforeCaret.match(/@([^@\s]*)$/)
-    if (!mentionMatch) return
-
-    const mentionStart = offset - mentionMatch[0].length
-    const newText = text.substring(0, mentionStart) + mentionText + ' ' + text.substring(offset)
-    
-    // Update the text content
-    textNode.textContent = newText
-    
-    // Set the caret position after the inserted mention
-    const newCaretPosition = mentionStart + mentionText.length + 1
-    range.setStart(textNode, newCaretPosition)
-    range.setEnd(textNode, newCaretPosition)
-    selection.removeAllRanges()
-    selection.addRange(range)
-    
-    // Close the mention menu
+    // Close the mention menu immediately
     mentionStartRef.current = -1
+    insertCooldownRef.current = Date.now()
     setState(prev => ({
       ...prev,
       isActive: false,
       searchQuery: '',
       selectedIndex: 0
     }))
-    
     onTriggerChange?.(false, '')
+
+    // Focus the editor first
+    editorRef.current.focus()
+
+    // Get current selection
+    const selection = window.getSelection()
+    if (!selection?.rangeCount) return
+
+    const range = selection.getRangeAt(0)
+    const startContainer = range.startContainer
     
-    // Trigger input event to sync with parent
-    if (editorRef.current) {
-      const event = new Event('input', { bubbles: true })
-      editorRef.current.dispatchEvent(event)
+    // If we're not in a text node, find the nearest text node
+    let textNode = startContainer
+    if (textNode.nodeType !== Node.TEXT_NODE) {
+      // Create a text node if we're in an element
+      if (textNode.nodeType === Node.ELEMENT_NODE) {
+        const newTextNode = document.createTextNode('')
+        textNode.appendChild(newTextNode)
+        textNode = newTextNode
+      } else {
+        return
+      }
     }
+
+    const text = textNode.textContent || ''
+    const caretPos = range.startOffset
+
+    // Find the @ pattern before caret
+    const beforeCaret = text.substring(0, caretPos)
+    const mentionMatch = beforeCaret.match(/@([^@\s]*)$/)
+    
+    if (!mentionMatch) return
+
+    const mentionStart = caretPos - mentionMatch[0].length
+    const beforeMention = text.substring(0, mentionStart)
+    const afterCaret = text.substring(caretPos)
+    
+    // Create the new text with mention and space
+    const newText = beforeMention + mentionText + ' ' + afterCaret
+    const newCaretPos = mentionStart + mentionText.length + 1
+
+    // Update the text content
+    textNode.textContent = newText
+
+    // Set the new caret position
+    try {
+      const newRange = document.createRange()
+      newRange.setStart(textNode, newCaretPos)
+      newRange.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(newRange)
+    } catch (error) {
+      // Fallback: position at the end of the text
+      const fallbackRange = document.createRange()
+      fallbackRange.setStart(textNode, textNode.textContent.length)
+      fallbackRange.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(fallbackRange)
+    }
+
+    // Ensure focus is maintained
+    editorRef.current.focus()
+
+    // Trigger input event to sync with parent
+    const inputEvent = new Event('input', { bubbles: true })
+    editorRef.current.dispatchEvent(inputEvent)
   }, [editorRef, onTriggerChange])
 
   const closeMention = useCallback(() => {
@@ -237,29 +289,20 @@ export const useMentionTrigger = ({
     setState(prev => ({ ...prev, selectedIndex: index }))
   }, [])
 
-  // Listen for both selection changes and input events to detect mention triggers
+  // Listen for selection changes to detect mention triggers
+  // Note: We don't listen to input events here to avoid conflicts
   useEffect(() => {
     const handleSelectionChange = () => {
-      detectMentionTrigger()
-    }
-
-    const handleInput = () => {
-      detectMentionTrigger()
+      // Add a small delay to prevent rapid firing
+      setTimeout(() => detectMentionTrigger(), 10)
     }
 
     document.addEventListener('selectionchange', handleSelectionChange)
-    
-    if (editorRef.current) {
-      editorRef.current.addEventListener('input', handleInput)
-    }
 
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange)
-      if (editorRef.current) {
-        editorRef.current.removeEventListener('input', handleInput)
-      }
     }
-  }, [detectMentionTrigger, editorRef])
+  }, [detectMentionTrigger])
 
   return {
     isActive: state.isActive,

@@ -53,7 +53,6 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
 }) => {
   const menuRef = useRef<HTMLDivElement>(null)
   
-  console.log('MentionMenu render:', { isVisible, items: items.length, position, searchQuery })
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

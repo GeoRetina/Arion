@@ -22,7 +22,6 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
   const mentionItems = useMemo<MentionItem[]>(() => {
-    console.log('useMentionData:', { enabled, searchQuery, currentChatId, layersCount: layers.size, docsCount: documents.length })
     
     if (!enabled) return []
 
@@ -85,11 +84,9 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
                item.description?.toLowerCase().includes(query) ||
                item.tags?.some(tag => tag.toLowerCase().includes(query))
       })
-      console.log('Filtered items:', filtered)
       return filtered
     }
 
-    console.log('All items:', items)
     return items
   }, [layers, documents, currentChatId, searchQuery, enabled])
 

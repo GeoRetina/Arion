@@ -75,25 +75,22 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     enabled: mentionTrigger.isActive
   })
 
+
   // Sync internalText and editor when inputValue prop changes (e.g., after submit)
   useEffect(() => {
     // Always update internalText to reflect the prop.
     // This is because inputValue is the "source of truth" from the parent.
     setInternalText(inputValue)
 
-    // Now, ensure the DOM (editorRef) matches this inputValue.
+    // Now, ensure the DOM (editorRef) matches this inputValue with highlighting.
     if (editorRef.current) {
       if (inputValue === '') {
-        // If inputValue is empty, ensure the editor's innerHTML is also empty
-        // to clear any residual <br> tags, etc.
+        // If inputValue is empty, clear the editor
         if (editorRef.current.innerHTML !== '') {
           editorRef.current.innerHTML = ''
         }
       } else {
-        // If inputValue is not empty, and the editor's current textContent
-        // doesn't match, then update the editor's textContent.
-        // This avoids unnecessary DOM manipulation if they already match,
-        // which helps preserve caret position.
+        // If inputValue is not empty, just set the text content
         if (editorRef.current.textContent !== inputValue) {
           editorRef.current.textContent = inputValue
         }
@@ -103,37 +100,29 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   const onActualInput = useCallback(
     (event: React.FormEvent<HTMLDivElement>) => {
-      let currentText = ''
       const editorNode = event.currentTarget
+      if (!editorNode) return
 
-      if (editorNode) {
-        // Browsers insert <br> into an empty contentEditable or if you press Enter then delete.
-        // Check for this or if textContent is just whitespace.
-        if (
-          editorNode.innerHTML === '<br>' ||
-          editorNode.innerHTML === '<div><br></div>' || // Sometimes nested
-          (editorNode.textContent !== null && editorNode.textContent.trim() === '')
-        ) {
-          currentText = ''
-          // If we determine it's empty, and visually it's not (e.g. still has <br>)
-          // ensure it becomes visually empty for next check.
-          if (editorNode.innerHTML !== '' && editorNode.innerHTML !== '<br>') {
-            // Avoid loop if already <br>
-            // editorNode.innerHTML = ""; // This might be too aggressive here and fight with user typing
-          }
-        } else {
-          currentText = editorNode.textContent || ''
-        }
+      // Get the plain text content
+      let currentText = editorNode.textContent || ''
+
+      // Handle empty content
+      if (
+        editorNode.innerHTML === '<br>' ||
+        editorNode.innerHTML === '<div><br></div>' ||
+        currentText.trim() === ''
+      ) {
+        currentText = ''
       }
 
+      // Update internal state first
       setInternalText(currentText)
       onValueChange(currentText)
       
       // Trigger mention detection on input change
       setTimeout(() => mentionTrigger.detectMentionTrigger(), 0)
-      // updateCaretPosition(); // Called by selectionchange or mutation observer
     },
-    [onValueChange, mentionTrigger]
+    [mentionTrigger, setInternalText, onValueChange]
   )
 
   const onInternalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -196,6 +185,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   const handleMentionSelect = useCallback((item: MentionItem) => {
     const mentionText = `@${item.name}`
+    
+    // Insert the mention - this handles everything including caret positioning
     mentionTrigger.insertMention(mentionText)
   }, [mentionTrigger])
 
