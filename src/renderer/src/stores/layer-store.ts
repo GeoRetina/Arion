@@ -38,7 +38,6 @@ interface LayerStore {
   addLayer: (definition: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>, context?: LayerContext) => Promise<string>
   updateLayer: (id: string, updates: Partial<LayerDefinition>) => Promise<void>
   removeLayer: (id: string) => Promise<void>
-  duplicateLayer: (id: string, newName?: string) => Promise<string>
   getLayer: (id: string) => LayerDefinition | undefined
   getLayers: (groupId?: string) => LayerDefinition[]
   getLayersByType: (type: LayerType) => LayerDefinition[]
@@ -87,7 +86,7 @@ interface LayerStore {
   
   // Persistence Operations
   saveToPersistence: () => Promise<void>
-  loadFromPersistence: () => Promise<void>
+  loadFromPersistence: (includeImported?: boolean) => Promise<void>
   exportLayers: (layerIds: string[]) => Promise<string>
   importLayers: (data: string) => Promise<string[]>
   
@@ -356,19 +355,22 @@ export const useLayerStore = create<LayerStore>()(
         }
       }
       
-      // Persist to database first
-      try {
-        const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
-        await window.ctg.layers.create(layerData)
-      } catch (error) {
-        console.error('[LayerStore] Failed to persist layer to database:', error)
-        throw error
+      // Only persist to database if not imported for session-only use
+      const shouldPersist = layer.createdBy !== 'import'
+      if (shouldPersist) {
+        try {
+          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+          await window.ctg.layers.create(layerData)
+        } catch (error) {
+          console.error('[LayerStore] Failed to persist layer to database:', error)
+          throw error
+        }
       }
       
       // Update local state
       set(state => ({
         layers: new Map(state.layers).set(id, layer),
-        isDirty: false // We just persisted, so state is clean
+        isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
       }))
       
       // Record operation
@@ -380,6 +382,7 @@ export const useLayerStore = create<LayerStore>()(
       
       console.log(`[LayerStore] Added layer: ${layer.name} (${id})`, {
         createdBy: layer.createdBy,
+        sessionOnly: !shouldPersist,
         tags: layer.metadata.tags,
         context: context || 'none'
       })
@@ -406,18 +409,21 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error(`Invalid layer update: ${validation.errors.map(e => e.message).join(', ')}`)
       }
       
-      // Persist to database first
-      try {
-        await window.ctg.layers.update(id, updates)
-      } catch (error) {
-        console.error('[LayerStore] Failed to persist layer update to database:', error)
-        throw error
+      // Only persist to database if not imported for session-only use
+      const shouldPersist = existingLayer.createdBy !== 'import'
+      if (shouldPersist) {
+        try {
+          await window.ctg.layers.update(id, updates)
+        } catch (error) {
+          console.error('[LayerStore] Failed to persist layer update to database:', error)
+          throw error
+        }
       }
       
       // Update local state
       set(state => ({
         layers: new Map(state.layers).set(id, updatedLayer),
-        isDirty: false // We just persisted, so state is clean
+        isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
       }))
       
       // Record operation
@@ -437,12 +443,15 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error(`Layer not found: ${id}`)
       }
       
-      // Persist to database first
-      try {
-        await window.ctg.layers.delete(id)
-      } catch (error) {
-        console.error('[LayerStore] Failed to delete layer from database:', error)
-        throw error
+      // Only persist to database if not imported for session-only use
+      const shouldPersist = layer.createdBy !== 'import'
+      if (shouldPersist) {
+        try {
+          await window.ctg.layers.delete(id)
+        } catch (error) {
+          console.error('[LayerStore] Failed to delete layer from database:', error)
+          throw error
+        }
       }
       
       // Update local state
@@ -453,7 +462,7 @@ export const useLayerStore = create<LayerStore>()(
         return {
           layers: newLayers,
           selectedLayerId: state.selectedLayerId === id ? null : state.selectedLayerId,
-          isDirty: false // We just persisted, so state is clean
+          isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
         }
       })
       
@@ -467,23 +476,6 @@ export const useLayerStore = create<LayerStore>()(
       console.log(`[LayerStore] Removed layer: ${layer.name} (${id})`)
     },
     
-    duplicateLayer: async (id, newName) => {
-      const originalLayer = get().layers.get(id)
-      if (!originalLayer) {
-        throw new Error(`Layer not found: ${id}`)
-      }
-      
-      const duplicatedLayer = {
-        ...originalLayer,
-        name: newName || `${originalLayer.name} Copy`,
-        sourceId: `${originalLayer.sourceId}-copy-${Date.now()}`
-      }
-      
-      // Remove fields that should be regenerated
-      const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = duplicatedLayer
-      
-      return get().addLayer(layerData)
-    },
     
     getLayer: (id) => {
       return get().layers.get(id)
@@ -804,8 +796,8 @@ export const useLayerStore = create<LayerStore>()(
       try {
         console.log('[LayerStore] Saving to persistence...')
         
-        // Save all layers to database
-        const layers = Array.from(get().layers.values())
+        // Save non-imported layers to database (imported layers are session-only)
+        const layers = Array.from(get().layers.values()).filter(layer => layer.createdBy !== 'import')
         const groups = Array.from(get().groups.values())
         
         // Save each layer individually to maintain referential integrity
@@ -850,7 +842,7 @@ export const useLayerStore = create<LayerStore>()(
       }
     },
     
-    loadFromPersistence: async () => {
+    loadFromPersistence: async (includeImported = false) => {
       set({ isLoading: true })
       try {
         console.log('[LayerStore] Loading from persistence...')
@@ -860,14 +852,19 @@ export const useLayerStore = create<LayerStore>()(
           window.ctg.layers.groups.getAll()
         ])
         
+        // Filter out imported layers unless explicitly requested
+        const layersToLoad = includeImported ? layers : layers.filter(layer => layer.createdBy !== 'import')
+        
+        console.log(`[LayerStore] Filtered layers: ${layers.length} total, ${layersToLoad.length} loaded, ${layers.length - layersToLoad.length} filtered out, includeImported: ${includeImported}`)
+        
         set({ 
-          layers: new Map(layers.map(l => [l.id, l])),
+          layers: new Map(layersToLoad.map(l => [l.id, l])),
           groups: new Map(groups.map(g => [g.id, g])),
           isDirty: false,
           lastSyncTimestamp: Date.now()
         })
         
-        console.log(`[LayerStore] Loaded ${layers.length} layers and ${groups.length} groups from persistence`)
+        console.log(`[LayerStore] Loaded ${layersToLoad.length} layers and ${groups.length} groups from persistence`)
       } catch (error) {
         console.error('[LayerStore] Failed to load from persistence:', error)
         throw error
@@ -994,7 +991,7 @@ export const useLayerStore = create<LayerStore>()(
     clearSessionLayersForChat: (chatId: string) => {
       const state = get()
       const chatLayers = Array.from(state.layers.entries()).filter(([_, layer]) => 
-        layer.metadata.description?.includes(`[Session: ${chatId}]`)
+        layer.createdBy === 'import' && layer.metadata.tags?.includes(chatId)
       )
       
       // Remove layers associated with this chat

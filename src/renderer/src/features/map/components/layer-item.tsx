@@ -25,7 +25,6 @@ interface LayerItemProps {
   onToggleVisibility: (layerId: string, visible: boolean) => void
   onSelect: (layerId: string) => void
   onEdit: (layerId: string) => void
-  onDuplicate: (layerId: string) => void
   onDelete: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
   onZoomToLayer: (layerId: string) => void
@@ -37,7 +36,6 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   onToggleVisibility,
   onSelect,
   onEdit,
-  onDuplicate,
   onDelete,
   onShowStyleEditor,
   onZoomToLayer
@@ -84,7 +82,7 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   return (
     <div
       className={cn(
-        'group flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer',
+        'group grid grid-cols-[auto_1fr_auto] gap-2 p-2 rounded-lg border transition-all cursor-pointer items-center',
         'hover:bg-muted/50 hover:border-border',
         isSelected && 'bg-primary/10 border-primary/50',
         !layer.visibility && 'opacity-60'
@@ -109,44 +107,36 @@ export const LayerItem: React.FC<LayerItemProps> = ({
       </Button>
 
       {/* Layer Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium truncate">
-              {layer.name}
-            </div>
-            <div className="flex items-center gap-1 mt-0.5">
-              <Badge 
-                variant="secondary" 
-                className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}
-              >
-                {layer.type}
-              </Badge>
-              {layer.metadata.geometryType && (
-                <span className="text-xs text-muted-foreground">
-                  {getGeometryTypeIcon(layer.metadata.geometryType)} {layer.metadata.geometryType}
-                </span>
-              )}
-            </div>
-          </div>
-          
-          {/* Layer Status Indicators */}
-          <div className="flex items-center gap-1">
-            {layer.isLocked && (
-              <div className="w-1 h-1 bg-orange-500 rounded-full" title="Layer is locked" />
-            )}
-            {layer.opacity < 1 && (
-              <div className="text-xs text-muted-foreground">
-                {Math.round(layer.opacity * 100)}%
-              </div>
-            )}
-          </div>
+      <div className="min-w-0">
+        <div className="text-sm font-medium truncate mb-1">
+          {layer.name}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge 
+            variant="secondary" 
+            className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}
+          >
+            {layer.type}
+          </Badge>
+          {layer.metadata.geometryType && (
+            <span className="text-xs text-muted-foreground">
+              {getGeometryTypeIcon(layer.metadata.geometryType)} {layer.metadata.geometryType}
+            </span>
+          )}
+          {layer.isLocked && (
+            <div className="w-1 h-1 bg-orange-500 rounded-full" title="Layer is locked" />
+          )}
+          {layer.opacity < 1 && (
+            <span className="text-xs text-muted-foreground">
+              {Math.round(layer.opacity * 100)}%
+            </span>
+          )}
         </div>
       </div>
 
       {/* Action Buttons - Show on hover */}
       <div className={cn(
-        'flex items-center gap-1 transition-opacity',
+        'flex items-center gap-1 transition-opacity justify-end w-14',
         isHovered || isSelected ? 'opacity-100' : 'opacity-0'
       )}>
         <Button
@@ -162,18 +152,6 @@ export const LayerItem: React.FC<LayerItemProps> = ({
           <ZoomIn className="h-3 w-3" />
         </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={(e) => {
-            e.stopPropagation()
-            onShowStyleEditor(layer.id)
-          }}
-          title="Edit layer style"
-        >
-          <Palette className="h-3 w-3" />
-        </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -189,26 +167,11 @@ export const LayerItem: React.FC<LayerItemProps> = ({
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem onClick={(e) => {
               e.stopPropagation()
-              onZoomToLayer(layer.id)
-            }}>
-              <ZoomIn className="h-4 w-4 mr-2" />
-              Zoom to Layer
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation()
               onEdit(layer.id)
             }}>
               <Settings className="h-4 w-4 mr-2" />
               Edit Layer
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={(e) => {
-              e.stopPropagation()
-              onDuplicate(layer.id)
-            }}>
-              Duplicate Layer
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={(e) => {
               e.stopPropagation()
               onShowStyleEditor(layer.id)

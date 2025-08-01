@@ -29,7 +29,6 @@ interface LayerGroupProps {
   onSelectLayer: (layerId: string) => void
   onToggleLayerVisibility: (layerId: string, visible: boolean) => void
   onEditLayer: (layerId: string) => void
-  onDuplicateLayer: (layerId: string) => void
   onDeleteLayer: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
   onZoomToLayer: (layerId: string) => void
@@ -47,7 +46,6 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   onSelectLayer,
   onToggleLayerVisibility,
   onEditLayer,
-  onDuplicateLayer,
   onDeleteLayer,
   onShowStyleEditor,
   onZoomToLayer,
@@ -82,7 +80,7 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
       {/* Group Header */}
       <div
         className={cn(
-          'group flex items-center gap-2 p-2 rounded-lg transition-all',
+          'group grid grid-cols-[auto_auto_1fr_auto] gap-2 p-2 rounded-lg transition-all items-center',
           'hover:bg-muted/30 cursor-pointer',
           group.color && 'border-l-4',
           isHovered && 'bg-muted/20'
@@ -135,34 +133,32 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
 
         {/* Group Info */}
         <div 
-          className="flex-1 min-w-0 cursor-pointer"
+          className="min-w-0 cursor-pointer"
           onClick={handleToggleExpanded}
         >
-          <div className="flex items-center gap-2">
-            <div className="text-sm font-medium truncate">
-              {group.name}
-            </div>
-            <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-xs px-1.5 py-0">
-                {groupLayers.length}
-              </Badge>
-              {visibleLayersCount > 0 && visibleLayersCount < groupLayers.length && (
-                <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                  {visibleLayersCount} visible
-                </Badge>
-              )}
-            </div>
+          <div className="text-sm font-medium truncate mb-1">
+            {group.name}
           </div>
-          {group.description && (
-            <div className="text-xs text-muted-foreground truncate mt-0.5">
-              {group.description}
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="text-xs px-1.5 py-0">
+              {groupLayers.length}
+            </Badge>
+            {visibleLayersCount > 0 && visibleLayersCount < groupLayers.length && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {visibleLayersCount} visible
+              </Badge>
+            )}
+            {group.description && (
+              <span className="text-xs text-muted-foreground truncate">
+                {group.description}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Group Actions - Show on hover */}
         <div className={cn(
-          'flex items-center gap-1 transition-opacity',
+          'flex items-center gap-1 transition-opacity justify-end',
           isHovered ? 'opacity-100' : 'opacity-0'
         )}>
           <Button
@@ -243,7 +239,6 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
                   onToggleVisibility={onToggleLayerVisibility}
                   onSelect={onSelectLayer}
                   onEdit={onEditLayer}
-                  onDuplicate={onDuplicateLayer}
                   onDelete={onDeleteLayer}
                   onShowStyleEditor={onShowStyleEditor}
                   onZoomToLayer={onZoomToLayer}

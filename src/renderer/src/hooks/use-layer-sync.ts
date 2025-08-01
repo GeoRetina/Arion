@@ -38,17 +38,10 @@ export function useLayerSync() {
     // Initialize sync service with map
     layerSyncService.initialize(mapInstance)
     
-    // Load existing layers from persistence
-    loadFromPersistence()
-      .then(() => {
-        console.log('[useLayerSync] Layer data loaded from persistence')
-        isInitializedRef.current = true
-      })
-      .catch(error => {
-        console.error('[useLayerSync] Failed to load layers from persistence:', error)
-        // Still mark as initialized to prevent repeated attempts
-        isInitializedRef.current = true
-      })
+    // Don't load layers from persistence automatically
+    // Only session-imported layers should be displayed on the map
+    console.log('[useLayerSync] Layer sync initialized - session layers only will be shown')
+    isInitializedRef.current = true
 
     return () => {
       console.log('[useLayerSync] Cleaning up layer sync')
@@ -72,7 +65,7 @@ export function useLayerSync() {
 
     // Schedule save with debounce
     saveTimeoutRef.current = setTimeout(() => {
-      console.log('[useLayerSync] Performing auto-save')
+      console.log('[useLayerSync] Performing auto-save of persistent layers only')
       saveToPersistence()
         .then(() => {
           console.log('[useLayerSync] Auto-save completed')
