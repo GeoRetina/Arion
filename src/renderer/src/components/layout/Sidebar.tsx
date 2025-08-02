@@ -9,7 +9,8 @@ import {
   Server,
   PlugZap,
   Link2,
-  Database
+  Database,
+  Bot
 } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -137,6 +138,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
 
         <NavGroup title="Tools">
           <NavButton path="/models" title="Models" icon={Brain} />
+          <NavButton path="/agents" title="Agents" icon={Bot} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
           <NavButton path="/plugins" title="Plugins" icon={PlugZap} />
         </NavGroup>

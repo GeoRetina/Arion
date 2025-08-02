@@ -40,7 +40,14 @@ import {
   type PostgreSQLConfig,
   type PostgreSQLConnectionResult,
   type PostgreSQLQueryResult,
-  type PostgreSQLConnectionInfo
+  type PostgreSQLConnectionInfo,
+  type AgentApi,
+  type PromptModuleApi,
+  type AgentDefinition,
+  type AgentRegistryEntry,
+  type CreateAgentParams,
+  type UpdateAgentParams,
+  type PromptModuleInfo
 } from '../shared/ipc-types' // Corrected relative path
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react Message
@@ -493,6 +500,54 @@ const ctgApi = {
     // Generic invoke method for additional operations
     invoke: (channel: string, ...args: any[]): Promise<any> => ipcRenderer.invoke(channel, ...args)
   },
+  // Agent API for managing agents
+  agents: {
+    getAll: (): Promise<AgentRegistryEntry[]> => ipcRenderer.invoke(IpcChannels.getAgents).then(res => res.success ? res.data : []),
+    getById: (id: string): Promise<AgentDefinition | null> => ipcRenderer.invoke(IpcChannels.getAgentById, id).then(res => res.success ? res.data : null),
+    create: (agent: CreateAgentParams): Promise<AgentDefinition> => ipcRenderer.invoke(IpcChannels.createAgent, agent).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to create agent');
+      return res.data;
+    }),
+    update: (id: string, updates: UpdateAgentParams): Promise<AgentDefinition> => ipcRenderer.invoke(IpcChannels.updateAgent, id, updates).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to update agent');
+      return res.data;
+    }),
+    delete: (id: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.deleteAgent, id).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to delete agent');
+      return res.data;
+    }),
+    executeAgent: (agentId: string, chatId: string): Promise<string> => {
+      // This will be implemented when agent execution is supported
+      console.warn('[AgentsAPI] Agent execution not yet implemented');
+      return Promise.resolve('');
+    },
+    stopExecution: (executionId: string): Promise<boolean> => {
+      // This will be implemented when agent execution is supported
+      console.warn('[AgentsAPI] Stop execution not yet implemented');
+      return Promise.resolve(false);
+    }
+  } as AgentApi,
+  // Prompt Module API for managing prompt modules
+  promptModules: {
+    getAll: (): Promise<PromptModuleInfo[]> => ipcRenderer.invoke(IpcChannels.getPromptModules).then(res => res.success ? res.data : []),
+    getById: (id: string): Promise<any | null> => ipcRenderer.invoke(IpcChannels.getPromptModuleById, id).then(res => res.success ? res.data : null),
+    create: (promptModule: any): Promise<any> => ipcRenderer.invoke(IpcChannels.createPromptModule, promptModule).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to create prompt module');
+      return res.data;
+    }),
+    update: (id: string, updates: any): Promise<any> => ipcRenderer.invoke(IpcChannels.updatePromptModule, id, updates).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to update prompt module');
+      return res.data;
+    }),
+    delete: (id: string): Promise<boolean> => ipcRenderer.invoke(IpcChannels.deletePromptModule, id).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to delete prompt module');
+      return res.data;
+    }),
+    assemble: (request: any): Promise<any> => ipcRenderer.invoke(IpcChannels.assemblePrompt, request).then(res => {
+      if (!res.success) throw new Error(res.error || 'Failed to assemble prompt');
+      return res.data;
+    })
+  } as PromptModuleApi,
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
 

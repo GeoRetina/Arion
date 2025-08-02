@@ -1,4 +1,8 @@
 import type { Feature, Geometry } from 'geojson' // Ensure geojson types are imported
+import type { AgentDefinition, CreateAgentParams, UpdateAgentParams, PromptModuleInfo } from './types/agent-types'
+export type { AgentDefinition, AgentRegistryEntry, CreateAgentParams, UpdateAgentParams, PromptModuleInfo } from './types/agent-types'
+import type { PromptModule, PromptAssemblyRequest, PromptAssemblyResult, CreatePromptModuleParams, UpdatePromptModuleParams } from './types/prompt-types'
+export type { PromptModule, PromptAssemblyRequest, PromptAssemblyResult, CreatePromptModuleParams, UpdatePromptModuleParams } from './types/prompt-types'
 
 export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
 
@@ -74,6 +78,21 @@ export interface SystemPromptConfig {
 }
 
 export const IpcChannels = {
+  // Agent System IPC Channels
+  getAgents: 'agents:getAll',
+  getAgentById: 'agents:getById',
+  createAgent: 'agents:create',
+  updateAgent: 'agents:update',
+  deleteAgent: 'agents:delete',
+  
+  // Prompt Module IPC Channels
+  getPromptModules: 'prompts:getAll',
+  getPromptModuleById: 'prompts:getById',
+  createPromptModule: 'prompts:create',
+  updatePromptModule: 'prompts:update',
+  deletePromptModule: 'prompts:delete',
+  assemblePrompt: 'prompts:assemble',
+  
   // Setters
   setOpenAIConfig: 'settings:set-openai-config',
   setGoogleConfig: 'settings:set-google-config',
@@ -467,9 +486,41 @@ declare global {
       mcp: McpPermissionApi // Added MCP permission API
       postgresql: PostgreSQLApi // Added PostgreSQL API
       layers: LayerApi // Added Layer Management API
+      agents: AgentApi // Added Agent System API
+      promptModules: PromptModuleApi // Added Prompt Module API
       getAppVersion: () => Promise<string>
     }
   }
+}
+
+// Import needed for the interface
+import type { AgentRegistryEntry } from './types/agent-types'
+
+// Agent System API for preload script
+export interface AgentApi {
+  // Agent CRUD operations
+  getAll: () => Promise<AgentRegistryEntry[]>
+  getById: (id: string) => Promise<AgentDefinition | null>
+  create: (agent: CreateAgentParams) => Promise<AgentDefinition>
+  update: (id: string, updates: UpdateAgentParams) => Promise<AgentDefinition>
+  delete: (id: string) => Promise<boolean>
+  
+  // Agent execution
+  executeAgent: (agentId: string, chatId: string) => Promise<string> // Returns execution ID
+  stopExecution: (executionId: string) => Promise<boolean>
+}
+
+// Prompt Module API for preload script
+export interface PromptModuleApi {
+  // Prompt module CRUD operations
+  getAll: () => Promise<PromptModuleInfo[]>
+  getById: (id: string) => Promise<PromptModule | null>
+  create: (promptModule: CreatePromptModuleParams) => Promise<PromptModule>
+  update: (id: string, updates: UpdatePromptModuleParams) => Promise<PromptModule>
+  delete: (id: string) => Promise<boolean>
+  
+  // Prompt assembly
+  assemble: (request: PromptAssemblyRequest) => Promise<PromptAssemblyResult>
 }
 
 // Define KnowledgeBaseDocument for client-side usage if different from DBService one,

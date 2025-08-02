@@ -11,6 +11,9 @@ import { LlmToolService } from './services/llm-tool-service'
 import { KnowledgeBaseService } from './services/knowledge-base-service'
 import { McpPermissionService } from './services/mcp-permission-service'
 import { PostgreSQLService } from './services/postgresql-service'
+import { PromptModuleService } from './services/prompt-module-service'
+import { AgentRegistryService } from './services/agent-registry-service'
+import { ModularPromptManager } from './services/modular-prompt-manager'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -21,6 +24,7 @@ import { registerShellHandlers } from './ipc/shell-handlers'
 import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
 import { registerPostgreSQLIpcHandlers } from './ipc/postgresql-handlers'
 import { registerLayerHandlers } from './ipc/layer-handlers'
+import { registerAgentIpcHandlers } from './ipc/agent-handlers'
 
 // Keep a reference to the service instance
 let settingsServiceInstance: SettingsService
@@ -31,6 +35,9 @@ let llmToolServiceInstance: LlmToolService
 let knowledgeBaseServiceInstance: KnowledgeBaseService
 let mcpPermissionServiceInstance: McpPermissionService
 let postgresqlServiceInstance: PostgreSQLService
+let promptModuleServiceInstance: PromptModuleService
+let agentRegistryServiceInstance: AgentRegistryService
+let modularPromptManagerInstance: ModularPromptManager
 
 function createWindow(): void {
   console.log('[Main Process] __dirname:', __dirname)
@@ -122,6 +129,12 @@ app.whenReady().then(async () => {
     mcpPermissionServiceInstance
   )
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
+  
+  // Instantiate agent system services
+  promptModuleServiceInstance = new PromptModuleService()
+  agentRegistryServiceInstance = new AgentRegistryService(promptModuleServiceInstance)
+  modularPromptManagerInstance = new ModularPromptManager(promptModuleServiceInstance, agentRegistryServiceInstance)
+  
   // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
 
   console.log('[Main Process] Core services instantiated.')
@@ -139,6 +152,18 @@ app.whenReady().then(async () => {
     console.log('[Main Process] Initializing LlmToolService...')
     await llmToolServiceInstance.initialize() // This will now wait for MCPClientService
     console.log('[Main Process] LlmToolService initialized successfully.')
+    
+    console.log('[Main Process] Initializing PromptModuleService...')
+    await promptModuleServiceInstance.initialize()
+    console.log('[Main Process] PromptModuleService initialized successfully.')
+    
+    console.log('[Main Process] Initializing AgentRegistryService...')
+    await agentRegistryServiceInstance.initialize()
+    console.log('[Main Process] AgentRegistryService initialized successfully.')
+    
+    console.log('[Main Process] Initializing ModularPromptManager...')
+    await modularPromptManagerInstance.initialize()
+    console.log('[Main Process] ModularPromptManager initialized successfully.')
   } catch (error) {
     console.error('[Main Process] Critical error during service initialization:', error)
     // Consider quitting the app or showing an error dialog if critical services fail
@@ -146,9 +171,13 @@ app.whenReady().then(async () => {
     return // Exit if services fail to initialize
   }
 
-  // Now that LlmToolService is initialized (including its MCP tools), instantiate ChatService
-  chatServiceInstance = new ChatService(settingsServiceInstance, llmToolServiceInstance)
-  console.log('[Main Process] ChatService instantiated after LlmToolService initialization.')
+  // Now that all services are initialized, instantiate ChatService
+  chatServiceInstance = new ChatService(
+    settingsServiceInstance, 
+    llmToolServiceInstance,
+    modularPromptManagerInstance
+  )
+  console.log('[Main Process] ChatService instantiated after all service initialization.')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -163,6 +192,7 @@ app.whenReady().then(async () => {
   registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
   registerPostgreSQLIpcHandlers(ipcMain, postgresqlServiceInstance)
   registerLayerHandlers()
+  registerAgentIpcHandlers(ipcMain, agentRegistryServiceInstance, promptModuleServiceInstance)
   // --- End IPC Handler Registration ---
 
   // --- Custom IPC Handlers ---
@@ -197,8 +227,24 @@ app.whenReady().then(async () => {
     }
     if (postgresqlServiceInstance) {
       console.log('[Main Process] Cleaning up PostgreSQLService...')
+      // PostgreSQLService may not have a close method, add if needed
+    }
+    
+    if (agentRegistryServiceInstance) {
+      console.log('[Main Process] Cleaning up AgentRegistryService...')
+      // No explicit cleanup needed unless we add persistent connections
+    }
+    
+    if (promptModuleServiceInstance) {
+      console.log('[Main Process] Cleaning up PromptModuleService...')
+      // No explicit cleanup needed unless we add persistent connections
+    }
+    
+    if (postgresqlServiceInstance) {
+      console.log('[Main Process] Cleaning up PostgreSQLService connections...')
       await postgresqlServiceInstance.cleanup()
     }
+    
     console.log('[Main Process] All services shut down where applicable in main index.')
   })
 })

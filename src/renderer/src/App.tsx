@@ -19,6 +19,9 @@ const IntegrationsPage = React.lazy(
 const KnowledgeBasePage = React.lazy(
   () => import('./features/knowledge-base/components/knowledge-base')
 )
+const AgentsPage = React.lazy(
+  () => import('./features/agents/components/agents-page')
+)
 
 function App(): React.JSX.Element {
   const initializeLLMStore = useLLMStore((state) => state.initializeStore)
@@ -75,6 +78,7 @@ function App(): React.JSX.Element {
           <Route path="/mcp-servers" element={<McpServersPage />} />
           <Route path="/history" element={<ChatHistoryList />} />
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+          <Route path="/agents" element={<AgentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />

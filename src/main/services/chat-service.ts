@@ -5,6 +5,7 @@ import {
   type LanguageModel,
   convertToCoreMessages
 } from 'ai'
+import { ModularPromptManager } from './modular-prompt-manager'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createAzure } from '@ai-sdk/azure'
@@ -36,16 +37,24 @@ interface PreparedMessagesResult {
 export class ChatService {
   private settingsService: SettingsService
   private llmToolService: LlmToolService
+  private modularPromptManager: ModularPromptManager
 
-  constructor(settingsService: SettingsService, llmToolService: LlmToolService) {
+  constructor(
+    settingsService: SettingsService, 
+    llmToolService: LlmToolService,
+    modularPromptManager: ModularPromptManager
+  ) {
     this.settingsService = settingsService
     this.llmToolService = llmToolService
+    this.modularPromptManager = modularPromptManager
     console.log('[ChatService] Initialized with LlmToolService')
   }
 
   // Shared method to prepare messages and extract system prompt
   private async prepareMessagesAndSystemPrompt(
-    rendererMessages: CoreMessage[]
+    rendererMessages: CoreMessage[],
+    chatId?: string,
+    agentId?: string
   ): Promise<PreparedMessagesResult> {
     let coreMessages = convertToCoreMessages(rendererMessages as any)
     let finalSystemPrompt: string | null = null
@@ -60,12 +69,49 @@ export class ChatService {
 
     // Attempt to construct the system prompt
     try {
+      // Get the basic system prompt configuration
       const systemPromptConfig = await this.settingsService.getSystemPromptConfig()
       let baseSystemPrompt = systemPromptConfig.defaultSystemPrompt
+      
+      // Add user system prompt if provided
       if (systemPromptConfig.userSystemPrompt) {
         baseSystemPrompt = `${baseSystemPrompt}\n\n${systemPromptConfig.userSystemPrompt}`
       }
-      finalSystemPrompt = baseSystemPrompt // Assign directly, kbToolInstruction is removed
+      
+      // Use the modular prompt manager to get a system prompt if available
+      // If chatId and/or agentId are provided, we can get a more specific system prompt
+      if (this.modularPromptManager) {
+        try {
+          const context = {
+            chatId: chatId || 'default',
+            timestamp: new Date().toISOString(),
+            // Add any other context that would be useful for prompt assembly
+          }
+          
+          const moduleBasedPrompt = await this.modularPromptManager.getSystemPrompt(
+            chatId || 'default',
+            baseSystemPrompt,
+            agentId,
+            context
+          )
+          
+          // Use the assembled prompt if it was successfully generated
+          if (moduleBasedPrompt) {
+            finalSystemPrompt = moduleBasedPrompt
+            console.log('[ChatService] Using modular system prompt')
+          } else {
+            finalSystemPrompt = baseSystemPrompt
+            console.log('[ChatService] Falling back to base system prompt')
+          }
+        } catch (error) {
+          console.warn('[ChatService] Error using modular prompt manager, falling back to base system prompt:', error)
+          finalSystemPrompt = baseSystemPrompt
+        }
+      } else {
+        // No modular prompt manager available, use the base system prompt
+        finalSystemPrompt = baseSystemPrompt
+        console.log('[ChatService] No modular prompt manager available, using base system prompt')
+      }
     } catch (error) {
       console.warn(
         '[ChatService] Error constructing system prompt, proceeding without it or with a partial one if already set:',
@@ -107,8 +153,8 @@ export class ChatService {
   }
 
   // Legacy method that collects all chunks and returns them at once
-  async handleSendMessageStream(body: ChatRequestBody & { id?: string }): Promise<Uint8Array[]> {
-    const { messages: rendererMessages } = body
+  async handleSendMessageStream(body: ChatRequestBody & { id?: string, agentId?: string }): Promise<Uint8Array[]> {
+    const { messages: rendererMessages, agentId } = body
     
     // Set the chat ID in the LlmToolService for permission tracking
     if (body.id) {
@@ -119,7 +165,7 @@ export class ChatService {
 
     try {
       const { processedMessages, finalSystemPrompt } =
-        await this.prepareMessagesAndSystemPrompt(rendererMessages)
+        await this.prepareMessagesAndSystemPrompt(rendererMessages, body.id, agentId)
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
@@ -362,10 +408,10 @@ export class ChatService {
 
   // NEW METHOD: Real-time streaming that sends chunks as they arrive
   async handleStreamingMessage(
-    body: ChatRequestBody & { id?: string },
+    body: ChatRequestBody & { id?: string, agentId?: string },
     callbacks: StreamingCallbacks
   ): Promise<void> {
-    const { messages: rendererMessages } = body
+    const { messages: rendererMessages, agentId } = body
     
     // Set the chat ID in the LlmToolService for permission tracking
     if (body.id) {
@@ -374,7 +420,7 @@ export class ChatService {
 
     try {
       const { processedMessages, finalSystemPrompt } =
-        await this.prepareMessagesAndSystemPrompt(rendererMessages)
+        await this.prepareMessagesAndSystemPrompt(rendererMessages, body.id, agentId)
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
