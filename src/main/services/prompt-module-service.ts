@@ -39,8 +39,42 @@ export class PromptModuleService {
     // Load modules into cache
     await this.refreshCache()
     
+    // Ensure default modules exist
+    await this.ensureDefaultModules()
+    
     this.initialized = true
     console.log('[PromptModuleService] Initialized successfully')
+  }
+  
+  /**
+   * Ensure default prompt modules exist
+   */
+  private async ensureDefaultModules(): Promise<void> {
+    console.log('[PromptModuleService] Checking for default modules...')
+    console.log(`[PromptModuleService] Current module cache size: ${this.moduleCache.size}`)
+    
+    // Check for user-defined-prompt module
+    const userDefinedPromptExists = Array.from(this.moduleCache.values()).some(
+      module => module.id === 'user-defined-prompt'
+    )
+    
+    console.log(`[PromptModuleService] user-defined-prompt module exists: ${userDefinedPromptExists}`)
+    
+    if (!userDefinedPromptExists) {
+      console.log('[PromptModuleService] Creating default user-defined-prompt module')
+      
+      await this.createModule({
+        name: 'User-Defined Prompt',
+        description: 'Custom prompt content provided by the user for agent definition',
+        type: 'agent',
+        content: '{{content}}',
+        parameters: ['content'],
+        priority: 100,
+        author: 'system'
+      }, 'user-defined-prompt', true)
+      
+      console.log('[PromptModuleService] Created default user-defined-prompt module')
+    }
   }
   
   /**
@@ -148,10 +182,13 @@ export class PromptModuleService {
   /**
    * Create a new prompt module
    */
-  public async createModule(params: CreatePromptModuleParams): Promise<PromptModule> {
-    await this.ensureInitialized()
+  public async createModule(params: CreatePromptModuleParams, specificId?: string, skipInitCheck: boolean = false): Promise<PromptModule> {
+    // Only perform initialization check if not explicitly skipped
+    if (!skipInitCheck) {
+      await this.ensureInitialized()
+    }
     
-    const id = uuidv4()
+    const id = specificId || uuidv4()
     const now = new Date().toISOString()
     const version = '1.0.0'
     
@@ -172,8 +209,22 @@ export class PromptModuleService {
     }
     
     try {
-      const db = this.getDb()
+      console.log(`[PromptModuleService] Creating module with ID ${id}: ${params.name}`)
       
+      // Check if module with this ID already exists in the database
+      const db = this.getDb()
+      const existingModule = db.prepare('SELECT id FROM prompt_modules WHERE id = ?').get(id)
+      
+      if (existingModule) {
+        console.log(`[PromptModuleService] Module with ID ${id} already exists in database, skipping creation`)
+        // Just update the cache if needed
+        if (!this.moduleCache.has(id)) {
+          this.moduleCache.set(newModule.id, newModule)
+        }
+        return newModule
+      }
+      
+      // Insert the new module
       db.prepare(`
         INSERT INTO prompt_modules 
         (id, name, description, type, content, parameters, dependencies, conditions, priority, version, created_at, updated_at, author) 

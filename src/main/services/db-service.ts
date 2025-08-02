@@ -21,6 +21,7 @@ export interface Message {
   name?: string | null
   tool_calls?: string | null // JSON string
   tool_call_id?: string | null
+  orchestration?: string | null // JSON string containing orchestration data
   created_at: string
 }
 
@@ -69,6 +70,7 @@ export class DBService {
   private initDatabase(): void {
     this.db.exec('PRAGMA journal_mode=WAL;')
     this.createTables()
+    this.runMigrations()
     // TODO: Load SpatiaLite extension if needed, path to be configured as per Rule 5
     // try {
     //   // const spatialitePath = path.join(app.getAppPath(), 'path/to/mod_spatialite'); // Adjust path
@@ -100,6 +102,7 @@ export class DBService {
         name TEXT,
         tool_calls TEXT,
         tool_call_id TEXT,
+        orchestration TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
       );
@@ -252,6 +255,23 @@ export class DBService {
 
   // --- Plugin Operations ---
 
+  // Run database migrations to update the schema when needed
+  private runMigrations(): void {
+    try {
+      // Check if orchestration column exists in messages table
+      const orchestrationColumnExists = this.db.prepare(
+        "SELECT COUNT(*) as count FROM pragma_table_info('messages') WHERE name = 'orchestration'"
+      ).get() as { count: number }
+
+      if (orchestrationColumnExists.count === 0) {
+        console.log('[DBService] Adding orchestration column to messages table')
+        this.db.prepare('ALTER TABLE messages ADD COLUMN orchestration TEXT').run()
+      }
+    } catch (error) {
+      console.error('[DBService] Error running migrations:', error)
+    }
+  }
+
   // Method to seed core plugins (called from initDatabase or createTables)
   private seedCorePlugins(): void {
     const corePlugins: Omit<Plugin, 'created_at' | 'updated_at'>[] = [
@@ -348,13 +368,14 @@ export class DBService {
       content,
       name = null,
       tool_calls = null,
-      tool_call_id = null
+      tool_call_id = null,
+      orchestration = null
     } = messageData
     const stmt = this.db.prepare(
-      'INSERT INTO messages (id, chat_id, role, content, name, tool_calls, tool_call_id) VALUES (@id, @chat_id, @role, @content, @name, @tool_calls, @tool_call_id)'
+      'INSERT INTO messages (id, chat_id, role, content, name, tool_calls, tool_call_id, orchestration) VALUES (@id, @chat_id, @role, @content, @name, @tool_calls, @tool_call_id, @orchestration)'
     )
     try {
-      const result = stmt.run({ id, chat_id, role, content, name, tool_calls, tool_call_id })
+      const result = stmt.run({ id, chat_id, role, content, name, tool_calls, tool_call_id, orchestration })
       if (result.changes > 0) {
         const newMessage = this.getMessageById(id)
         console.log('[DBService] addMessage successful, result:', result, 'returning:', newMessage)

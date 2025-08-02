@@ -1,6 +1,16 @@
 'use client'
 
 import { useChat, type Message as SDKMessage } from '@ai-sdk/react'
+import { OrchestrationSubtask } from '../../../../../shared/ipc-types'
+
+// Extend the SDKMessage type to include orchestration data
+interface ExtendedSDKMessage extends SDKMessage {
+  orchestration?: {
+    subtasks?: OrchestrationSubtask[]
+    agentsInvolved?: string[]
+    completionTime?: number
+  }
+}
 import { useRef, useEffect, useMemo, useState } from 'react'
 
 import arionLogo from '@/assets/icon.png' // Added import for the logo
@@ -15,6 +25,9 @@ import { useAutoScroll } from '../hooks/useAutoScroll'
 import { MapSidebar } from '@/features/map/components/map-sidebar'
 import ToolCallDisplay from './tool-call-display'
 import ChartDisplay from '../../visualization/components/chart-display'
+import OrchestrationTaskList from './orchestration-task-list'
+import { AgentGroupIndicator } from './agent-indicator'
+import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 import type { ChartDisplayProps } from '../../visualization/components/chart-display'
 import {
   SUPPORTED_LLM_PROVIDERS,
@@ -35,6 +48,15 @@ import { AlertTriangle } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
 import { LayersDatabaseModal } from './layers-database-modal'
+
+// Extend the SDKMessage type to include orchestration data
+interface ExtendedSDKMessage extends SDKMessage {
+  orchestration?: {
+    subtasks?: OrchestrationSubtask[]
+    agentsInvolved?: string[]
+    completionTime?: number
+  }
+}
 
 // Create a better streamable fetch function for useChat that uses real-time streaming
 const createStreamingFetch = () => {
@@ -110,12 +132,14 @@ export default function ChatInterface(): React.JSX.Element {
   const [mcpServerConfigs, setMcpServerConfigs] = useState<McpServerConfig[]>([])
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false)
   
+  // Orchestration state is accessed in onFinish handler via useAgentOrchestrationStore.getState()
+  
   // MCP permission dialog state
   const { 
     pendingPermission, 
     resolvePendingPermission, 
     hasPermission, 
-    requestPermission,
+    // requestPermission, // Not used, removing to fix TS error
     setPendingPermission 
   } = useMcpPermissionStore()
 
@@ -182,6 +206,7 @@ export default function ChatInterface(): React.JSX.Element {
       const unsubscribe = window.ctg.mcp.onShowPermissionDialog(handleMcpPermissionRequest)
       return () => unsubscribe()
     }
+    return undefined // Adding explicit return to fix TS error
   }, [hasPermission, setPendingPermission])
 
   const {
@@ -210,12 +235,29 @@ export default function ChatInterface(): React.JSX.Element {
     api: '/api/chat',
     fetch: streamingFetch as unknown as typeof fetch,
     initialMessages: sdkCompatibleInitialMessages,
-    onFinish: async (assistantMessage: SDKMessage) => {
+    onFinish: async (assistantMessage: ExtendedSDKMessage) => {
       // Basic saving logic for the final state of the assistant message
       let currentChatId = useChatHistoryStore.getState().currentChatId
       if (!currentChatId && stableChatIdForUseChat) {
         const newChatId = await createChatAndSelect({ id: stableChatIdForUseChat })
         if (newChatId) currentChatId = newChatId
+      }
+
+      // Get orchestration data from the store
+      const orchestrationStore = useAgentOrchestrationStore.getState()
+      const { activeSessionId, subtasks, agentsInvolved } = orchestrationStore
+      
+      // Attach orchestration data if available
+      if (activeSessionId && (subtasks.length > 0 || agentsInvolved.length > 0)) {
+        assistantMessage.orchestration = {
+          subtasks: subtasks,
+          agentsInvolved: agentsInvolved.map(agent => agent.id),
+          completionTime: Date.now() // Placeholder for completion time
+        }
+        console.log('Attached orchestration data to message:', assistantMessage.orchestration)
+        
+        // Reset orchestration after attaching to message
+        orchestrationStore.resetOrchestration()
       }
 
       if (currentChatId) {
@@ -228,9 +270,11 @@ export default function ChatInterface(): React.JSX.Element {
             id: assistantMessage.id,
             chat_id: currentChatId,
             role: assistantMessage.role,
-            content: assistantMessage.content ?? ''
-            // TODO: Persist tool_invocations if needed. For now, content is primary.
-            // tool_calls: JSON.stringify(assistantMessage.toolInvocations)
+            content: assistantMessage.content ?? '',
+            // Include orchestration metadata in persisted message
+            orchestration: assistantMessage.orchestration
+                ? JSON.stringify(assistantMessage.orchestration)
+                : undefined
           })
         }
       }
@@ -379,13 +423,13 @@ export default function ChatInterface(): React.JSX.Element {
     }
   }, [isSdkChatLoading, sdkMessages.length, stableChatIdForUseChat])
 
-  const displayMessages: SDKMessage[] = useMemo(() => {
+  const displayMessages: ExtendedSDKMessage[] = useMemo(() => {
     if (stableChatIdForUseChat === currentChatIdFromStore) {
       return sdkMessages
     } else {
       return currentMessagesFromStore
         .map((storeMsg) => {
-          const displayableMessageCandidate: Partial<SDKMessage> & {
+          const displayableMessageCandidate: Partial<ExtendedSDKMessage> & {
             role?: 'system' | 'user' | 'assistant' | 'data' | 'tool'
           } = {
             id: storeMsg.id,
@@ -397,7 +441,7 @@ export default function ChatInterface(): React.JSX.Element {
           if (['system', 'user', 'assistant', 'data', 'tool'].includes(storeMsg.role)) {
             displayableMessageCandidate.role = storeMsg.role as any
           }
-          return displayableMessageCandidate as SDKMessage
+          return displayableMessageCandidate as ExtendedSDKMessage
         })
         .filter((msg) => msg.role !== undefined && !!msg.id)
     }
@@ -547,7 +591,7 @@ export default function ChatInterface(): React.JSX.Element {
                 </div>
               )}
 
-              {displayMessages.map((m: SDKMessage, index: number) => {
+              {displayMessages.map((m: ExtendedSDKMessage, index: number) => {
                 return (
                   <div
                     key={m.id}
@@ -569,7 +613,30 @@ export default function ChatInterface(): React.JSX.Element {
                       ) : Array.isArray(m.parts) && m.parts.length > 0 ? (
                         m.parts.map((part, index) => renderMessagePart(part, m.id, index))
                       ) : (
-                        <MemoizedMarkdown content={m.content} id={m.id} isAssistant={true} />
+                        <>
+                          <MemoizedMarkdown content={m.content} id={m.id} isAssistant={true} />
+                          
+                          {/* Display orchestration UI when metadata is available */}
+                          {m.orchestration && (
+                            <div className="mt-4">
+                              <AgentGroupIndicator 
+                                agents={m.orchestration.agentsInvolved?.map(agentId => ({
+                                  id: agentId,
+                                  name: agentId,
+                                  type: agentId === 'orchestrator-1' ? 'orchestrator' : 'specialized',
+                                  isActive: true
+                                })) || []}
+                                size="sm" 
+                                className="mb-2" 
+                                showActiveOnly={true}
+                              />
+                              <OrchestrationTaskList 
+                                subtasks={m.orchestration.subtasks || []}
+                                className="mb-2"
+                              />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     {(m.content ||
@@ -626,6 +693,7 @@ export default function ChatInterface(): React.JSX.Element {
             handleSubmit={handleSubmit}
             isStreaming={isSdkChatLoading}
             onStopStreaming={stop}
+            chatId={stableChatIdForUseChat}
             availableProviders={availableProvidersForInput}
             activeProvider={activeProvider}
             onSelectProvider={setActiveProvider}

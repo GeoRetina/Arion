@@ -2,17 +2,18 @@
 // TODO: Resolve TypeScript errors after full refactor, especially around contentEditable syncing
 
 import React, { useRef, useState, useEffect, useCallback } from 'react'
-import { X, AlertTriangle, Map as MapIcon } from 'lucide-react' // Added MapIcon
+import { X, AlertTriangle, Map as MapIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LLMProvider } from '@/stores/llm-store'
 import ModelSelector, { ProviderOption } from './model-selector'
 import { ChatInputButtons } from './chat-input-buttons'
 import { PlusDropdown } from './plus-dropdown'
-import { ScrollArea } from '@/components/ui/scroll-area' // Added ScrollArea import
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { MentionMenu } from './mention-menu'
 import { useMentionTrigger } from './use-mention-trigger'
 import { useMentionData, type MentionItem } from './use-mention-data'
+import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 
 interface ChatInputBoxProps {
   inputValue: string // Controlled input value from useChat
@@ -24,7 +25,7 @@ interface ChatInputBoxProps {
   // isProgressActive?: boolean; // For button state, deferred for now
   setStoppingRequested?: (isRequested: boolean) => void // From useChatLogic
   // maxAreaLimit?: number; // Deferred, no area checks for now
-  // chatId?: string; // Not directly used by input box UI itself
+  chatId?: string // Added for orchestration
   isStoppingRequestedRef?: React.RefObject<boolean> // Added prop for the ref
 
   // New props for LLM provider selection
@@ -38,6 +39,9 @@ interface ChatInputBoxProps {
 
   // New prop for database modal
   onOpenDatabase?: () => void
+  
+  // New prop for orchestration
+  enableOrchestration?: boolean
 }
 
 const ChatInputBox: React.FC<ChatInputBoxProps> = ({
@@ -49,18 +53,30 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   onStopStreaming,
   setStoppingRequested, // This function updates the ref in useChatLogic
   isStoppingRequestedRef, // This is the ref itself
+  chatId,
   availableProviders,
   activeProvider,
   onSelectProvider,
   // New props for map sidebar control
   isMapSidebarExpanded = false,
   onToggleMapSidebar,
-  onOpenDatabase
+  onOpenDatabase,
+  enableOrchestration = true
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
   const [internalText, setInternalText] = useState(inputValue) // Local state for editor content
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
+  // Agent orchestration store
+  const { 
+    initialize: initializeOrchestration,
+    startOrchestration
+  } = useAgentOrchestrationStore()
+  
+  // Initialize the orchestration store
+  useEffect(() => {
+    initializeOrchestration()
+  }, [initializeOrchestration])
 
   // Mention system integration
   const mentionTrigger = useMentionTrigger({
@@ -130,10 +146,18 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     // Submit based on internalText to ensure it matches what user sees,
     // though inputValue should ideally be in sync.
     if (isSubmitting || isStreaming || !internalText.trim()) return
+    
     try {
       setIsSubmitting(true)
-      handleSubmit() // Call useChat's handleSubmit
+      
+      // Use regular handleSubmit - orchestration will be handled internally
+      // based on the selected model/agent
+      handleSubmit()
+      
       // After successful submit, inputValue will change via useChat, triggering useEffect to clear editor
+    } catch (error) {
+      console.error('Error submitting message:', error)
+      // Show error to user?
     } finally {
       setIsSubmitting(false)
       editorRef.current?.focus()

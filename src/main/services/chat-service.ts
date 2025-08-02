@@ -15,6 +15,7 @@ import { createOllama } from 'ollama-ai-provider'
 import { SettingsService } from './settings-service'
 import type { LlmToolService } from './llm-tool-service'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
+import { AgentRegistryService } from './agent-registry-service'
 
 // Interface for the request body from the renderer
 interface ChatRequestBody {
@@ -38,16 +39,178 @@ export class ChatService {
   private settingsService: SettingsService
   private llmToolService: LlmToolService
   private modularPromptManager: ModularPromptManager
+  private agentRegistryService?: AgentRegistryService
 
   constructor(
     settingsService: SettingsService, 
     llmToolService: LlmToolService,
-    modularPromptManager: ModularPromptManager
+    modularPromptManager: ModularPromptManager,
+    agentRegistryService?: AgentRegistryService
   ) {
     this.settingsService = settingsService
     this.llmToolService = llmToolService
     this.modularPromptManager = modularPromptManager
-    console.log('[ChatService] Initialized with LlmToolService')
+    this.agentRegistryService = agentRegistryService
+    console.log('[ChatService] Initialized with LlmToolService and optional AgentRegistryService')
+  }
+  
+  /**
+   * Get a list of tools that are assigned to specialized (non-orchestrator) agents
+   * @returns Array of tool IDs that are assigned to specialized agents
+   */
+  /**
+   * Get tools that are specifically assigned to specialized agents
+   * @returns Array of tool IDs that are assigned to specialized agents
+   */
+  private async getToolsAssignedToSpecializedAgents(): Promise<string[]> {
+    if (!this.agentRegistryService) {
+      console.log('[ChatService] No agent registry service available')
+      return []
+    }
+    
+    try {
+      // Get all agents
+      const allAgents = await this.agentRegistryService.getAllAgents()
+      const specializedAgentTools: string[] = []
+      
+      // Process each agent
+      for (const agentEntry of allAgents) {
+        const agent = await this.agentRegistryService.getAgentById(agentEntry.id)
+        if (!agent) continue
+        
+        // Skip orchestrators
+        const isOrchestrator = agent.capabilities.some(cap => 
+          cap.name.toLowerCase().includes('orchestrat') ||
+          cap.description.toLowerCase().includes('orchestrat')
+        )
+        
+        if (!isOrchestrator) {
+          // Add all tools assigned to this specialized agent
+          if (agent.toolAccess && agent.toolAccess.length > 0) {
+            specializedAgentTools.push(...agent.toolAccess)
+          }
+        }
+      }
+      
+      // Return unique tool IDs
+      const uniqueTools = [...new Set(specializedAgentTools)]
+      console.log(`[ChatService] Found ${uniqueTools.length} unique tools assigned to specialized agents`)
+      return uniqueTools
+    } catch (error) {
+      console.error('[ChatService] Error getting tools assigned to specialized agents:', error)
+      return []
+    }
+  }
+  
+  /**
+   * Get appropriate tools for an agent based on agent type (orchestrator vs specialized)
+   * @param agentId Optional agent ID to get tools for. If not provided, treats as main orchestrator.
+   * @returns Object containing tool definitions suitable for the agent
+   */
+  private async getToolsForAgent(agentId?: string): Promise<Record<string, any>> {
+    let combinedTools: Record<string, any> = {};
+    
+    // Get ALL tools first
+    const allTools = this.llmToolService.getToolDefinitionsForLLM();
+    
+    // Case 1: Specific agent is provided
+    if (agentId && this.agentRegistryService) {
+      const agent = await this.agentRegistryService.getAgentById(agentId);
+      console.log(`[ChatService] Found agent for ID ${agentId}:`, agent ? `${agent.name} with ${agent.capabilities.length} capabilities` : 'null');
+      
+      if (agent?.capabilities) {
+        console.log(`[ChatService] Agent capabilities:`, agent.capabilities.map(cap => `${cap.name}: ${cap.description}`).join(', '));
+      }
+      
+      // Determine if this is an orchestrator
+      const isOrchestrator = agent?.capabilities.some(cap => 
+        cap.name.toLowerCase().includes('orchestrat') ||
+        cap.description.toLowerCase().includes('orchestrat')
+      );
+      
+      console.log(`[ChatService] Agent ${agentId} isOrchestrator: ${isOrchestrator}`);
+      
+      if (isOrchestrator) {
+        console.log('[ChatService] Agent is an orchestrator - filtering available tools');
+        // For orchestrator: Filter out tools assigned to specialized agents
+        const specializedAgentTools = await this.getToolsAssignedToSpecializedAgents();
+        
+        // Filter out tools that are assigned to specialized agents
+        combinedTools = Object.fromEntries(
+          Object.entries(allTools).filter(([toolName]) => !specializedAgentTools.includes(toolName))
+        );
+        
+        console.log(
+          '[ChatService] Filtered tools for orchestrator:',
+          Object.keys(combinedTools),
+          'Excluded specialized agent tools:',
+          specializedAgentTools
+        );
+      } else if (agent) {
+        // For specialized agents: Use only their assigned tools
+        console.log('[ChatService] Using assigned tools for specialized agent:', agent.toolAccess || []);
+        
+        if (agent.toolAccess && agent.toolAccess.length > 0) {
+          // Get tools with the agent's specific tool access list
+          const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess);
+          
+          // Only exclude send_to_agent tool for specialized agents (to prevent recursion)
+          combinedTools = Object.fromEntries(
+            Object.entries(agentTools).filter(([toolName]) => 
+              toolName !== 'send_to_agent' // Explicitly prevent specialized agents from calling send_to_agent
+            )
+          );
+          
+          if (agent.toolAccess.includes('send_to_agent')) {
+            console.log('[ChatService] Removed send_to_agent tool from specialized agent to prevent recursion');
+          }
+          
+          console.log('[ChatService] Providing these tools to specialized agent:', Object.keys(combinedTools));
+          
+          // Verify that the required tools are actually present
+          const missingTools = agent.toolAccess.filter(toolName => 
+            !Object.keys(combinedTools).includes(toolName) && toolName !== 'send_to_agent'
+          );
+          
+          if (missingTools.length > 0) {
+            console.warn(`[ChatService] WARNING: Some assigned tools are missing for agent ${agent.name} (${agentId}): ${missingTools.join(', ')}`);
+            console.warn(`[ChatService] This might cause the agent to try using send_to_agent as a fallback to access these tools`);
+          }
+        } else {
+          combinedTools = {}; // No tools assigned to this agent
+          console.log('[ChatService] No tools assigned to specialized agent');
+        }
+      } else {
+        // Agent not found, fall back to default tools
+        console.warn(`[ChatService] Agent with ID ${agentId} not found, using default tool filtering`);
+        return await this.getToolsForAgent(); // Recursive call without agentId to get default tools
+      }
+    } else {
+      // Case 2: No agent ID provided - treat as main orchestrator
+      console.log('[ChatService] No agent ID provided - treating as main orchestrator');
+      
+      // Get tools that are specifically assigned to specialized agents
+      const specializedAgentTools = await this.getToolsAssignedToSpecializedAgents();
+      
+      // Filter out tools that are assigned to specialized agents
+      combinedTools = Object.fromEntries(
+        Object.entries(allTools).filter(([toolName]) => !specializedAgentTools.includes(toolName))
+      );
+      
+      console.log(
+        '[ChatService] Filtered tools for main orchestrator:',
+        Object.keys(combinedTools),
+        'Excluded specialized agent tools:',
+        specializedAgentTools
+      );
+    }
+    
+    // Warn if no tools are provided
+    if (Object.keys(combinedTools).length === 0) {
+      console.warn(`[ChatService] WARNING: No tools are being provided to the agent${agentId ? ` ${agentId}` : ''}!`);
+    }
+    
+    return combinedTools;
   }
 
   // Shared method to prepare messages and extract system prompt
@@ -76,6 +239,47 @@ export class ChatService {
       // Add user system prompt if provided
       if (systemPromptConfig.userSystemPrompt) {
         baseSystemPrompt = `${baseSystemPrompt}\n\n${systemPromptConfig.userSystemPrompt}`
+      }
+      
+      // Get available agents information if the registry is available
+      let availableAgentsInfo = ''
+      if (this.agentRegistryService) {
+        try {
+          console.log('[ChatService] Retrieving available agents info for system prompt')
+          
+          // Get all agents from the registry
+          const allAgents = await this.agentRegistryService.getAllAgents()
+          if (allAgents && allAgents.length > 0) {
+            availableAgentsInfo = "\n\nAVAILABLE SPECIALIZED AGENTS:\n\n"
+            
+            // Process each agent to create a formatted agent info section
+            for (const agentEntry of allAgents) {
+              const agentDef = await this.agentRegistryService.getAgentById(agentEntry.id)
+              if (!agentDef) continue
+              
+              // Skip agents that are orchestrators (to avoid recursion)
+              const isOrchestrator = agentDef.capabilities.some(cap => 
+                cap.name.toLowerCase().includes('orchestrat') ||
+                cap.description.toLowerCase().includes('orchestrat')
+              )
+              
+              if (!isOrchestrator) {
+                const capabilitiesList = agentDef.capabilities
+                  .map(cap => `- ${cap.name}: ${cap.description}`)
+                  .join('\n')
+                
+                availableAgentsInfo += `Agent: ${agentDef.name} (ID: ${agentDef.id})\n`
+                availableAgentsInfo += `Description: ${agentDef.description || 'No description'}\n`
+                availableAgentsInfo += `Capabilities:\n${capabilitiesList}\n\n`
+              }
+            }
+            console.log(`[ChatService] Found ${allAgents.length} agents to include in system prompt`)
+          } else {
+            console.log('[ChatService] No agents found in registry to include in system prompt')
+          }
+        } catch (error) {
+          console.error('[ChatService] Error getting agent information for system prompt:', error)
+        }
       }
       
       // Use the modular prompt manager to get a system prompt if available
@@ -111,6 +315,12 @@ export class ChatService {
         // No modular prompt manager available, use the base system prompt
         finalSystemPrompt = baseSystemPrompt
         console.log('[ChatService] No modular prompt manager available, using base system prompt')
+      }
+      
+      // Add available agents info to the system prompt if we have any
+      if (availableAgentsInfo) {
+        finalSystemPrompt += availableAgentsInfo
+        console.log('[ChatService] Added agent information to system prompt')
       }
     } catch (error) {
       console.warn(
@@ -310,12 +520,8 @@ export class ChatService {
         throw new Error('LLM model could not be initialized.')
       }
 
-      // Get ALL tool definitions from LlmToolService (includes built-in and assimilated MCP tools)
-      const combinedTools = this.llmToolService.getToolDefinitionsForLLM()
-      console.log(
-        '[ChatService] Combined tools from LlmToolService for LLM:',
-        Object.keys(combinedTools)
-      )
+      // Get appropriate tools for this agent (or main orchestrator if no agent ID)
+      const combinedTools = await this.getToolsForAgent(agentId)
 
       // Define streamText options
       const streamTextOptions: Parameters<typeof streamText>[0] = {
@@ -553,14 +759,18 @@ export class ChatService {
         throw new Error('LLM model could not be initialized.')
       }
 
-      // Get ALL tool definitions from LlmToolService (includes built-in and assimilated MCP tools)
-      const combinedTools = this.llmToolService.getToolDefinitionsForLLM()
-      console.log(
-        '[ChatService] Combined tools from LlmToolService for streaming LLM:',
-        Object.keys(combinedTools)
-      )
+      // Get appropriate tools for this agent (or main orchestrator if no agent ID)
+      const combinedTools = await this.getToolsForAgent(agentId)
 
       // Set up streamText options
+      // Check if we have any tools to provide
+      if (Object.keys(combinedTools).length === 0) {
+        console.warn('[ChatService] WARNING: No tools are being provided to the agent!')
+        if (agentId) {
+          console.warn(`[ChatService] This might be a configuration issue with agent ${agentId}`)
+        }
+      }
+      
       const streamTextOptions: Parameters<typeof streamText>[0] = {
         model: llm,
         messages: processedMessages,

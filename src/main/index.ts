@@ -125,16 +125,19 @@ app.whenReady().then(async () => {
   knowledgeBaseServiceInstance = new KnowledgeBaseService(settingsServiceInstance)
   mcpPermissionServiceInstance = new McpPermissionService()
   postgresqlServiceInstance = new PostgreSQLService()
+  
+  // Instantiate agent system services
+  promptModuleServiceInstance = new PromptModuleService()
+  agentRegistryServiceInstance = new AgentRegistryService(promptModuleServiceInstance)
+  
+  // Create llmToolService initially without agent services
   llmToolServiceInstance = new LlmToolService(
     knowledgeBaseServiceInstance,
     mcpClientServiceInstance,
     mcpPermissionServiceInstance
   )
-  agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
   
-  // Instantiate agent system services
-  promptModuleServiceInstance = new PromptModuleService()
-  agentRegistryServiceInstance = new AgentRegistryService(promptModuleServiceInstance)
+  agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
   modularPromptManagerInstance = new ModularPromptManager(promptModuleServiceInstance, agentRegistryServiceInstance)
   
   // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
@@ -177,9 +180,10 @@ app.whenReady().then(async () => {
   chatServiceInstance = new ChatService(
     settingsServiceInstance, 
     llmToolServiceInstance,
-    modularPromptManagerInstance
+    modularPromptManagerInstance,
+    agentRegistryServiceInstance  // Pass the agent registry to ChatService
   )
-  console.log('[Main Process] ChatService instantiated after all service initialization.')
+  console.log('[Main Process] ChatService instantiated after all service initialization with AgentRegistryService')
   
   // Instantiate AgentRoutingService after ChatService and other required services
   agentRoutingServiceInstance = new AgentRoutingService(
@@ -191,6 +195,10 @@ app.whenReady().then(async () => {
   console.log('[Main Process] Initializing AgentRoutingService...')
   await agentRoutingServiceInstance.initialize()
   console.log('[Main Process] AgentRoutingService initialized successfully.')
+  
+  // Now that all agent services are initialized, update the LlmToolService with them
+  llmToolServiceInstance.setAgentServices(agentRegistryServiceInstance, agentRoutingServiceInstance)
+  console.log('[Main Process] Updated LlmToolService with agent services')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

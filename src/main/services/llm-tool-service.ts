@@ -45,6 +45,11 @@ import {
   openMapSidebarToolName,
   openMapSidebarToolDefinition
 } from '../llm-tools/app-ui-control-tools'
+import {
+  sendToAgentToolName,
+  sendToAgentToolDefinition,
+  type SendToAgentParams
+} from '../llm-tools/agent-tools/send-to-agent-tool'
 import type { AddMapFeaturePayload } from '../../shared/ipc-types'
 import {
   queryKnowledgeBaseToolName,
@@ -56,6 +61,8 @@ import { MAX_RAG_RESULTS } from '../constants/llm-constants'
 import type { MCPClientService, DiscoveredMcpTool } from './mcp-client-service'
 import { convertImageFileToDataUri } from '../lib/image-processing'
 import type { McpPermissionService } from './mcp-permission-service'
+import type { AgentRegistryService } from './agent-registry-service'
+import type { OrchestrationService } from './orchestration-service'
 
 // Define a type for the tool execution functions
 interface ToolExecutorParams {
@@ -87,11 +94,21 @@ export class LlmToolService {
   private isInitialized = false // Track initialization
   private currentChatId: string | null = null // Track current chat ID for permission checking
   private mcpPermissionService: McpPermissionService | null = null
+  private agentRegistryService: AgentRegistryService | null = null
+  private orchestrationService: OrchestrationService | null = null
 
-  constructor(knowledgeBaseService?: KnowledgeBaseService, mcpClientService?: MCPClientService, mcpPermissionService?: McpPermissionService) {
+  constructor(
+    knowledgeBaseService?: KnowledgeBaseService,
+    mcpClientService?: MCPClientService,
+    mcpPermissionService?: McpPermissionService,
+    agentRegistryService?: AgentRegistryService,
+    orchestrationService?: OrchestrationService
+  ) {
     this.knowledgeBaseService = knowledgeBaseService || null
     this.mcpClientService = mcpClientService || null
     this.mcpPermissionService = mcpPermissionService || null
+    this.agentRegistryService = agentRegistryService || null
+    this.orchestrationService = orchestrationService || null
     // Register built-in tools synchronously in constructor
     this.registerBuiltInTools()
     console.log('[LlmToolService] Constructed and built-in tools registered.')
@@ -131,6 +148,15 @@ export class LlmToolService {
     console.log(`[LlmToolService] Current chat ID set to: ${chatId}`)
   }
 
+  public setAgentServices(
+    agentRegistryService: AgentRegistryService,
+    orchestrationService: OrchestrationService
+  ) {
+    this.agentRegistryService = agentRegistryService
+    this.orchestrationService = orchestrationService
+    console.log('[LlmToolService] Agent services set successfully')
+  }
+
   private async checkMcpToolPermission(toolName: string, serverId: string): Promise<boolean> {
     if (!this.currentChatId) {
       console.warn('[LlmToolService] No current chat ID set, allowing MCP tool execution')
@@ -138,7 +164,9 @@ export class LlmToolService {
     }
 
     if (!this.mcpPermissionService) {
-      console.warn('[LlmToolService] No MCP permission service available, allowing MCP tool execution')
+      console.warn(
+        '[LlmToolService] No MCP permission service available, allowing MCP tool execution'
+      )
       return true
     }
 
@@ -148,7 +176,7 @@ export class LlmToolService {
         toolName,
         serverId
       )
-      
+
       console.log(`[LlmToolService] Permission request result for ${toolName}: ${result}`)
       return result
     } catch (error) {
@@ -618,6 +646,48 @@ ${chunk.content}`
         }
       }
     })
+
+    // Register Send To Agent Tool (for orchestrators only)
+    this.registerTool({
+      name: sendToAgentToolName,
+      definition: sendToAgentToolDefinition,
+      category: 'agent_communication',
+      execute: async ({ args, chatId }) => {
+        if (!this.agentRegistryService || !this.orchestrationService) {
+          console.error(
+            '[LlmToolService] AgentRegistryService or OrchestrationService not available for send_to_agent tool.'
+          )
+          return {
+            status: 'error',
+            message: 'Agent services are not properly configured. Cannot delegate to other agents.'
+          }
+        }
+
+        try {
+          const params = args as SendToAgentParams
+
+          // Use the actual chat ID from the context if available
+          const actualChatId = chatId || this.currentChatId || 'unknown'
+
+          // Import the function here to avoid circular dependencies
+          const { sendToAgent } = await import('../llm-tools/agent-tools/send-to-agent-tool')
+
+          // Execute the sendToAgent function with the correct parameters
+          return await sendToAgent(
+            params,
+            actualChatId,
+            this.agentRegistryService,
+            this.orchestrationService
+          )
+        } catch (error) {
+          console.error('[LlmToolService] Error executing send_to_agent tool:', error)
+          return {
+            status: 'error',
+            message: `Error delegating to agent: ${error instanceof Error ? error.message : 'Unknown error'}.`
+          }
+        }
+      }
+    })
   }
 
   private registerTool(toolToRegister: RegisteredTool) {
@@ -678,14 +748,16 @@ ${chunk.content}`
             `[LlmToolService] Executing assimilated MCP tool "${mcpTool.name}" (from server ${mcpTool.serverId}) with args:`,
             args
           )
-          
+
           // Check permission for MCP tools
           const hasPermission = await this.checkMcpToolPermission(mcpTool.name, mcpTool.serverId)
           if (!hasPermission) {
             console.log(`[LlmToolService] Permission denied for MCP tool "${mcpTool.name}"`)
-            throw new Error(`Permission denied for MCP tool "${mcpTool.name}". User must grant permission to use this tool.`)
+            throw new Error(
+              `Permission denied for MCP tool "${mcpTool.name}". User must grant permission to use this tool.`
+            )
           }
-          
+
           if (!this.mcpClientService) {
             console.error(
               `[LlmToolService] MCPClientService became unavailable after tool "${mcpTool.name}" was registered.`
@@ -699,17 +771,36 @@ ${chunk.content}`
     console.log('[LlmToolService] Finished assimilating MCP tools.')
   }
 
-  public getToolDefinitionsForLLM(): Record<string, any> {
+  /**
+   * Get tool definitions for LLM, optionally filtered to only include specific tools
+   * @param allowedToolIds Optional array of tool IDs to include (if not provided, all tools are included)
+   * @returns Object containing tool definitions for use with the LLM
+   */
+  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, any> {
     const llmTools: Record<string, any> = {}
+
     this.registeredTools.forEach((registeredToolEntry) => {
-      llmTools[registeredToolEntry.name] = tool({
-        description: registeredToolEntry.definition.description,
-        parameters: registeredToolEntry.definition.parameters,
-        execute: async (args: any) => {
-          return this.executeTool(registeredToolEntry.name, args)
-        }
-      })
+      // If allowedToolIds is provided, only include tools in that list
+      if (!allowedToolIds || allowedToolIds.includes(registeredToolEntry.name)) {
+        llmTools[registeredToolEntry.name] = tool({
+          description: registeredToolEntry.definition.description,
+          parameters: registeredToolEntry.definition.parameters,
+          execute: async (args: any) => {
+            return this.executeTool(registeredToolEntry.name, args)
+          }
+        })
+      }
     })
+
+    // Log the filtering results if allowedToolIds was provided
+    if (allowedToolIds) {
+      const includedTools = Object.keys(llmTools)
+      console.log(
+        `[LlmToolService] Filtered tools for LLM: ${includedTools.length} included out of ${this.registeredTools.size} total`
+      )
+      console.log(`[LlmToolService] Included tools: ${includedTools.join(', ')}`)
+    }
+
     return llmTools
   }
 

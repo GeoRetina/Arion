@@ -149,18 +149,12 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
             </div>
           )}
 
-          {/* Missing Required Parameters Check */}
+          {/* Tool execution in progress */}
           {status === 'loading' && (
             <div className="mt-2 text-amber-500 flex items-start gap-1.5 text-xs">
-              <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+              <Loader2 className="h-3 w-3 shrink-0 mt-0.5 animate-spin" />
               <div>
-                <p>Tool may be missing required parameters.</p>
-                <p className="mt-1 text-muted-foreground">
-                  The <code className="bg-muted px-1 py-0.5 rounded text-xs">set_layer_style</code>{' '}
-                  tool requires both{' '}
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs">source_id</code> and
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs">paint</code> parameters.
-                </p>
+                <p>Executing tool...</p>
               </div>
             </div>
           )}

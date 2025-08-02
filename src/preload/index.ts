@@ -47,7 +47,10 @@ import {
   type AgentRegistryEntry,
   type CreateAgentParams,
   type UpdateAgentParams,
-  type PromptModuleInfo
+  type PromptModuleInfo,
+  type OrchestrationResult,
+  type OrchestrationStatus,
+  type AgentCapabilitiesResult
 } from '../shared/ipc-types' // Corrected relative path
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react Message
@@ -71,6 +74,38 @@ const streamEmitters = new Map<string, EventEmitter>()
 
 // Custom APIs for renderer
 const ctgApi = {
+  orchestration: {
+    orchestrateMessage: async (
+      chatId: string, 
+      message: string, 
+      orchestratorAgentId: string
+    ): Promise<OrchestrationResult> => {
+      try {
+        return await ipcRenderer.invoke(
+          IpcChannels.orchestrateMessage, 
+          { chatId, message, orchestratorAgentId }
+        )
+      } catch (error) {
+        console.error('[Preload Orchestration] Error in orchestrateMessage:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
+        }
+      }
+    },
+    
+    getStatus: async (sessionId?: string): Promise<OrchestrationStatus> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
+      } catch (error) {
+        console.error('[Preload Orchestration] Error in getOrchestrationStatus:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error getting orchestration status'
+        }
+      }
+    }
+  },
   settings: {
     getSetting: async (key: string): Promise<unknown> => {
       try {
@@ -525,6 +560,44 @@ const ctgApi = {
       // This will be implemented when agent execution is supported
       console.warn('[AgentsAPI] Stop execution not yet implemented');
       return Promise.resolve(false);
+    },
+    
+    // Agent orchestration
+    orchestrateMessage: async (chatId: string, message: string, orchestratorAgentId: string): Promise<OrchestrationResult> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.orchestrateMessage, { chatId, message, orchestratorAgentId })
+      } catch (error) {
+        console.error('[AgentsAPI] Error in orchestrateMessage:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
+        }
+      }
+    },
+    
+    getCapabilities: async (): Promise<AgentCapabilitiesResult> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.getAgentCapabilities)
+      } catch (error) {
+        console.error('[AgentsAPI] Error getting agent capabilities:', error)
+        return {
+          success: false,
+          capabilities: [],
+          error: error instanceof Error ? error.message : 'Unknown error getting agent capabilities'
+        }
+      }
+    },
+    
+    getOrchestrationStatus: async (sessionId?: string): Promise<OrchestrationStatus> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
+      } catch (error) {
+        console.error('[AgentsAPI] Error getting orchestration status:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error getting orchestration status'
+        }
+      }
     }
   } as AgentApi,
   // Prompt Module API for managing prompt modules
