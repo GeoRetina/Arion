@@ -78,6 +78,8 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
+    
+    return undefined // Explicit return for TS to avoid 'not all code paths return a value' error
   }, [isVisible, onClose])
 
   if (!isVisible || items.length === 0) {
