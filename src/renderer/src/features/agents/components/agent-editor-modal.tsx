@@ -5,9 +5,7 @@ import {
   DialogDescription, 
   DialogFooter, 
   DialogHeader, 
-  DialogTitle,
-  DialogTabs,
-  DialogTab
+  DialogTitle
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,9 +16,8 @@ import { toast } from 'sonner'
 import { AgentDefinition, AgentCapability, AgentPromptModuleRef } from '@/../../shared/types/agent-types'
 import { useAgentStore } from '@/stores/agent-store'
 import { LLMProviderType } from '@/../../shared/ipc-types'
-import { Loader2, Plus, Trash, Settings } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
+import { Loader2, Plus, Trash } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 
@@ -70,6 +67,24 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   const handleSave = async () => {
     if (!agent || !agentId) return
     
+    // Validate required fields
+    if (!agent.name.trim()) {
+      toast.error('Agent name is required')
+      return
+    }
+    
+    if (!agent.description.trim()) {
+      toast.error('Agent description is required')
+      return
+    }
+    
+    // Check if agent prompt is filled
+    const agentPrompt = agent.promptConfig.coreModules.find(m => m.moduleId === 'user-defined-prompt')?.parameters?.content;
+    if (!agentPrompt || !agentPrompt.trim()) {
+      toast.error('Agent prompt is required')
+      return
+    }
+    
     setIsSaving(true)
     try {
       await updateAgent(agentId, {
@@ -106,41 +121,50 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     })
   }
   
-  // Handle capability updates
-  const updateCapability = (index: number, field: keyof AgentCapability, value: any) => {
+  // Handle capability update
+  const updateCapabilityField = (field: keyof AgentCapability, value: any) => {
     if (!agent) return
     
-    const updatedCapabilities = [...agent.capabilities]
-    updatedCapabilities[index] = {
-      ...updatedCapabilities[index],
-      [field]: value
+    // Since we only have a single capability now, update just the first one
+    if (agent.capabilities.length === 0) {
+      // If no capabilities exist, create one
+      const newCapability: AgentCapability = {
+        id: crypto.randomUUID(),
+        name: 'Default Capability',
+        description: value,
+        tools: []
+      }
+      updateAgentField('capabilities', [newCapability])
+    } else {
+      // Update the existing capability
+      const updatedCapabilities = [...agent.capabilities]
+      updatedCapabilities[0] = {
+        ...updatedCapabilities[0],
+        [field]: value
+      }
+      updateAgentField('capabilities', updatedCapabilities)
     }
-    
-    updateAgentField('capabilities', updatedCapabilities)
   }
   
-  // Add a new capability
-  const addCapability = () => {
-    if (!agent) return
+  // Toggle tool selection for the capability
+  const toggleToolSelection = (toolId: string) => {
+    if (!agent || agent.capabilities.length === 0) return
     
-    const newCapability: AgentCapability = {
-      id: crypto.randomUUID(),
-      name: 'New Capability',
-      description: 'Describe this capability',
-      tools: []
+    const capability = agent.capabilities[0]
+    let updatedTools: string[]
+    
+    if (capability.tools.includes(toolId)) {
+      updatedTools = capability.tools.filter(id => id !== toolId)
+    } else {
+      updatedTools = [...capability.tools, toolId]
     }
     
-    updateAgentField('capabilities', [...agent.capabilities, newCapability])
-  }
-  
-  // Remove a capability
-  const removeCapability = (index: number) => {
-    if (!agent) return
+    const updatedCapability = {
+      ...capability,
+      tools: updatedTools
+    }
     
-    const updatedCapabilities = [...agent.capabilities]
-    updatedCapabilities.splice(index, 1)
-    
-    updateAgentField('capabilities', updatedCapabilities)
+    updateAgentField('capabilities', [updatedCapability])
   }
   
   // Update model config parameter
@@ -192,8 +216,8 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid grid-cols-4 mb-4">
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
             <TabsTrigger value="prompts">Prompts</TabsTrigger>
+            <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
             <TabsTrigger value="model">Model</TabsTrigger>
           </TabsList>
           
@@ -201,21 +225,27 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
           <TabsContent value="general" className="space-y-4">
             <div className="space-y-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name" className="flex items-center gap-1">
+                  Name <span className="text-red-500">*</span>
+                </Label>
                 <Input 
                   id="name" 
                   value={agent.name} 
-                  onChange={(e) => updateAgentField('name', e.target.value)} 
+                  onChange={(e) => updateAgentField('name', e.target.value)}
+                  required
                 />
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description" className="flex items-center gap-1">
+                  Description <span className="text-red-500">*</span>
+                </Label>
                 <Textarea 
                   id="description" 
                   value={agent.description} 
                   onChange={(e) => updateAgentField('description', e.target.value)}
                   rows={3}
+                  required
                 />
               </div>
               
@@ -235,72 +265,44 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
           
           {/* Capabilities Tab */}
           <TabsContent value="capabilities" className="space-y-4">
-            {agent.capabilities.map((capability, index) => (
-              <Card key={capability.id} className="relative">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <Label htmlFor={`capability-name-${index}`}>Capability Name</Label>
-                      <Input 
-                        id={`capability-name-${index}`}
-                        value={capability.name}
-                        onChange={(e) => updateCapability(index, 'name', e.target.value)}
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => removeCapability(index)}
-                      className="absolute top-2 right-2"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
+            <Card>
+              <CardHeader>
+                <CardTitle>Agent Capability</CardTitle>
+                <CardDescription>
+                  Define what this agent can do and what tools it can use.
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="pb-2">
+                <div>
+                  <Label>Select Tools</Label>
+                  {/* Available tools should be loaded from LlmToolService */}
+                  <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+                    {[
+                      'add_map_feature',
+                      'add_georeferenced_image_layer',
+                      'create_map_buffer',
+                      'list_map_layers',
+                      'set_map_view',
+                      'display_chart',
+                      'query_knowledge_base'
+                    ].map((tool) => {
+                      const isSelected = agent.capabilities[0]?.tools.includes(tool) || false
+                      return (
+                        <Badge 
+                          key={tool} 
+                          variant={isSelected ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => toggleToolSelection(tool)}
+                        >
+                          {tool}
+                        </Badge>
+                      )
+                    })}
                   </div>
-                </CardHeader>
-                
-                <CardContent className="pb-2 space-y-4">
-                  <div>
-                    <Label htmlFor={`capability-description-${index}`}>Description</Label>
-                    <Textarea 
-                      id={`capability-description-${index}`}
-                      value={capability.description}
-                      onChange={(e) => updateCapability(index, 'description', e.target.value)}
-                      className="mt-1"
-                      rows={2}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>Tools</Label>
-                    <div className="mt-1 p-2 border rounded-md min-h-[60px] bg-muted/30">
-                      {capability.tools.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No tools assigned</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {capability.tools.map((tool) => (
-                            <Badge key={tool} variant="outline">{tool}</Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Tool assignment will be implemented in the next version.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            
-            <Button 
-              variant="outline" 
-              onClick={addCapability}
-              className="w-full"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Capability
-            </Button>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
           
           {/* Prompts Tab */}
@@ -313,8 +315,43 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Prompt module configuration will be implemented in the next version.
+                <Label htmlFor="agentPrompt" className="flex items-center gap-1 mb-2">
+                  Agent Prompt <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="agentPrompt"
+                  value={agent.promptConfig.coreModules.find(m => m.moduleId === 'user-defined-prompt')?.parameters?.content || ''}
+                  onChange={(e) => {
+                    const updatedModules = [...agent.promptConfig.coreModules];
+                    const promptModuleIndex = updatedModules.findIndex(m => m.moduleId === 'user-defined-prompt');
+                    
+                    if (promptModuleIndex >= 0) {
+                      // Update existing module
+                      updatedModules[promptModuleIndex] = {
+                        ...updatedModules[promptModuleIndex],
+                        parameters: { content: e.target.value }
+                      };
+                    } else {
+                      // Add new module
+                      updatedModules.push({
+                        moduleId: 'user-defined-prompt',
+                        parameters: { content: e.target.value }
+                      });
+                    }
+                    
+                    updateAgentField('promptConfig', {
+                      ...agent.promptConfig,
+                      coreModules: updatedModules
+                    });
+                  }}
+                  rows={10}
+                  placeholder="You are an expert geospatial analyst with knowledge of GIS, remote sensing, and spatial analysis techniques. Help users analyze geospatial data and create visualizations..."
+                  className="font-mono text-sm mb-4"
+                  required
+                />
+                
+                <p className="text-sm text-muted-foreground mb-2">
+                  Additional prompt modules:
                 </p>
                 
                 <div className="space-y-4">

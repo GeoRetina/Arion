@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { PlusCircle, Loader2, RefreshCcw, Search } from 'lucide-react'
+import { PlusCircle, Loader2, Search } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAgentStore } from '@/stores/agent-store'
 import AgentCard from './agent-card'
@@ -14,7 +14,6 @@ const AgentsPage: React.FC = () => {
   // State for search and filters
   const [searchQuery, setSearchQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
@@ -44,13 +43,6 @@ const AgentsPage: React.FC = () => {
       resetError()
     }
   }, [error, resetError])
-
-  // Handle refresh button click
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    await loadAgents()
-    setIsRefreshing(false)
-  }
 
   // Filter agents based on search query and type filter
   const filteredAgents = agents.filter(agent => {
@@ -136,18 +128,6 @@ const AgentsPage: React.FC = () => {
                 <SelectItem value="user-defined">User-defined</SelectItem>
               </SelectContent>
             </Select>
-            <Button 
-              variant="outline"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
-            >
-              {isRefreshing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCcw className="h-4 w-4" />
-              )}
-            </Button>
           </div>
 
           {/* Agent Cards */}
