@@ -8,6 +8,10 @@ Original user query: {{query}}
 Results from subtasks:
 {{subtask_results}}
 
+You have access to the following specialized agents that can help accomplish tasks:
+
+{{agents_info}}
+
 Please provide a comprehensive, well-structured response to the user's original query using the results from all subtasks.
 - Maintain a cohesive narrative
 - Integrate all relevant information from the subtasks

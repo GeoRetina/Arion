@@ -9,6 +9,10 @@ Your specific subtask: {{subtask_description}}
 
 {{dependency_context}}
 
+You have access to the following specialized agents that can help accomplish tasks:
+
+{{agents_info}}
+
 Provide a complete solution for this specific subtask only. Do not attempt to solve the entire original query.
 ]]>
 </prompt>

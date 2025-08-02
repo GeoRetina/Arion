@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <prompt>
 <![CDATA[
-Analyze the following user query to determine its characteristics:
+Analyze the following user query to determine its characteristics.
 
 USER QUERY: {{query}}
 
-Respond with a JSON object that includes:
+You have access to the following specialized agents that can help accomplish tasks:
+
+{{agents_info}}
+
+Based on the user query and available agents, respond with a JSON object that includes:
 1. taskType: The type of task (e.g., "data-analysis", "visualization", "search", "explanation")
 2. requiredCapabilities: Array of capabilities needed (e.g., "vector-analysis", "raster-analysis", "visualization")
 3. complexity: How complex the task is - must be one of: "simple", "moderate", "complex"
