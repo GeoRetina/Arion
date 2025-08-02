@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt>
+<![CDATA[
+You are synthesizing the results of multiple subtasks into a coherent response for the user.
+
+Original user query: {{query}}
+
+Results from subtasks:
+{{subtask_results}}
+
+Please provide a comprehensive, well-structured response to the user's original query using the results from all subtasks.
+- Maintain a cohesive narrative
+- Integrate all relevant information from the subtasks
+- Format the response appropriately for the user
+- Do not mention that the response was generated from subtasks
+
+Your response:
+]]>
+</prompt>

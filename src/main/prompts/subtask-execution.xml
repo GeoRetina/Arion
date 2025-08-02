@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt>
+<![CDATA[
+You are working on a subtask as part of a larger task.
+
+Original user query: {{original_query}}
+
+Your specific subtask: {{subtask_description}}
+
+{{dependency_context}}
+
+Provide a complete solution for this specific subtask only. Do not attempt to solve the entire original query.
+]]>
+</prompt>

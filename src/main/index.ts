@@ -14,6 +14,7 @@ import { PostgreSQLService } from './services/postgresql-service'
 import { PromptModuleService } from './services/prompt-module-service'
 import { AgentRegistryService } from './services/agent-registry-service'
 import { ModularPromptManager } from './services/modular-prompt-manager'
+import { AgentRoutingService } from './services/agent-routing-service'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -38,6 +39,7 @@ let postgresqlServiceInstance: PostgreSQLService
 let promptModuleServiceInstance: PromptModuleService
 let agentRegistryServiceInstance: AgentRegistryService
 let modularPromptManagerInstance: ModularPromptManager
+let agentRoutingServiceInstance: AgentRoutingService
 
 function createWindow(): void {
   console.log('[Main Process] __dirname:', __dirname)
@@ -178,6 +180,17 @@ app.whenReady().then(async () => {
     modularPromptManagerInstance
   )
   console.log('[Main Process] ChatService instantiated after all service initialization.')
+  
+  // Instantiate AgentRoutingService after ChatService and other required services
+  agentRoutingServiceInstance = new AgentRoutingService(
+    agentRegistryServiceInstance,
+    chatServiceInstance,
+    llmToolServiceInstance
+  )
+  
+  console.log('[Main Process] Initializing AgentRoutingService...')
+  await agentRoutingServiceInstance.initialize()
+  console.log('[Main Process] AgentRoutingService initialized successfully.')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -185,7 +198,7 @@ app.whenReady().then(async () => {
 
   // --- Register IPC Handlers ---
   registerSettingsIpcHandlers(ipcMain, settingsServiceInstance)
-  registerChatIpcHandlers(ipcMain, chatServiceInstance)
+  registerChatIpcHandlers(ipcMain, chatServiceInstance, agentRoutingServiceInstance) // Pass routing service
   registerDbIpcHandlers(ipcMain)
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)
   registerShellHandlers(ipcMain)

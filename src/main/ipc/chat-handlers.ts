@@ -1,8 +1,13 @@
 import { type IpcMain } from 'electron'
 import { type ChatService } from '../services/chat-service'
 import { dbService } from '../services/db-service' // Import dbService for chat existence check
+import { AgentRoutingService } from '../services/agent-routing-service'
 
-export function registerChatIpcHandlers(ipcMain: IpcMain, chatService: ChatService): void {
+export function registerChatIpcHandlers(
+  ipcMain: IpcMain, 
+  chatService: ChatService, 
+  agentRoutingService?: AgentRoutingService
+): void {
   ipcMain.handle('ctg:chat:sendMessageStreamHandler', async (_event, jsonBodyString) => {
     let parsedBody
     try {
@@ -151,6 +156,39 @@ export function registerChatIpcHandlers(ipcMain: IpcMain, chatService: ChatServi
       return false
     }
   })
+  
+  // Add new handler for orchestrated chat messages
+  if (agentRoutingService) {
+    ipcMain.handle('chat:orchestrateMessage', async (_event, { chatId, message, orchestratorAgentId }) => {
+      console.log(`[Chat Handlers IPC] Orchestrating message with agent ${orchestratorAgentId}`)
+      
+      try {
+        // Call the agent routing service's orchestration method
+        const result = await agentRoutingService.orchestrateTask(
+          message,
+          chatId,
+          orchestratorAgentId
+        )
+        
+        return { 
+          success: true, 
+          result: result.finalResponse,
+          sessionId: result.sessionId,
+          subtasksExecuted: result.subtasksExecuted,
+          agentsInvolved: result.agentsInvolved,
+          completionTime: result.completionTime
+        }
+      } catch (error) {
+        console.error('[Chat Handlers IPC] Error in chat:orchestrateMessage:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
+        }
+      }
+    })
+    
+    console.log('[Main Process] Orchestration IPC handler registered.')
+  }
 
   console.log('[Main Process] ChatService IPC handler registered by chat.handlers.ts.')
 }
