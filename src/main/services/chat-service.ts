@@ -53,6 +53,167 @@ export class ChatService {
     this.agentRegistryService = agentRegistryService
     console.log('[ChatService] Initialized with LlmToolService and optional AgentRegistryService')
   }
+
+  /**
+   * Create an LLM instance based on agent-specific configuration or fall back to global settings
+   * @param agentId Optional agent ID to get model configuration for
+   * @returns Promise<LanguageModel> configured for the agent or global settings
+   */
+  private async createLLMFromAgentConfig(agentId?: string): Promise<LanguageModel> {
+    let provider: string
+    let model: string
+
+    // Try to get agent-specific configuration first
+    if (agentId && this.agentRegistryService) {
+      try {
+        const agent = await this.agentRegistryService.getAgentById(agentId)
+        if (agent?.modelConfig) {
+          // Validate agent model configuration
+          const modelConfig = agent.modelConfig
+          if (!modelConfig.provider || !modelConfig.model) {
+            console.warn(`[ChatService] Agent ${agentId} has incomplete modelConfig (provider: ${modelConfig.provider}, model: ${modelConfig.model}), falling back to global settings`)
+            provider = await this.settingsService.getActiveLLMProvider() || ''
+            model = await this.getGlobalModelForProvider(provider)
+          } else {
+            provider = modelConfig.provider
+            model = modelConfig.model
+            console.log(`[ChatService] Using agent-specific LLM config for ${agentId}: ${provider}/${model}`)
+            
+            // Validate that the provider is supported
+            const supportedProviders = ['openai', 'google', 'azure', 'anthropic', 'vertex', 'ollama']
+            if (!supportedProviders.includes(provider.toLowerCase())) {
+              console.warn(`[ChatService] Agent ${agentId} has unsupported provider '${provider}', falling back to global settings`)
+              provider = await this.settingsService.getActiveLLMProvider() || ''
+              model = await this.getGlobalModelForProvider(provider)
+            }
+          }
+        } else {
+          console.log(`[ChatService] Agent ${agentId} not found or has no modelConfig, falling back to global settings`)
+          // Fall back to global settings
+          provider = await this.settingsService.getActiveLLMProvider() || ''
+          model = await this.getGlobalModelForProvider(provider)
+        }
+      } catch (error) {
+        console.error(`[ChatService] Error getting agent config for ${agentId}, falling back to global settings:`, error)
+        // Fall back to global settings
+        provider = await this.settingsService.getActiveLLMProvider() || ''
+        model = await this.getGlobalModelForProvider(provider)
+      }
+    } else {
+      // Use global settings
+      provider = await this.settingsService.getActiveLLMProvider() || ''
+      model = await this.getGlobalModelForProvider(provider)
+      console.log(`[ChatService] Using global LLM config: ${provider}/${model}`)
+    }
+
+    if (!provider) {
+      throw new Error('No LLM provider configured (neither agent-specific nor global)')
+    }
+
+    if (!model) {
+      throw new Error(`No LLM model configured for provider '${provider}' (neither agent-specific nor global)`)
+    }
+
+    // Create LLM based on provider
+    switch (provider) {
+      case 'openai':
+        const openaiConfig = await this.settingsService.getOpenAIConfig()
+        if (!openaiConfig?.apiKey) {
+          throw new Error('OpenAI provider is not configured correctly.')
+        }
+        const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
+        return customOpenAI.chat(model as any)
+
+      case 'google':
+        const googleConfig = await this.settingsService.getGoogleConfig()
+        if (!googleConfig?.apiKey) {
+          throw new Error('Google provider is not configured correctly.')
+        }
+        const customGoogleProvider = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
+        return customGoogleProvider(model as any)
+
+      case 'azure':
+        const azureConfig = await this.settingsService.getAzureConfig()
+        if (!azureConfig?.apiKey || !azureConfig.endpoint || !azureConfig.deploymentName) {
+          throw new Error('Azure OpenAI provider is not configured correctly.')
+        }
+        const configuredAzure = createAzure({
+          apiKey: azureConfig.apiKey,
+          baseURL: azureConfig.endpoint,
+          apiVersion: '2024-04-01-preview'
+        })
+        return configuredAzure.chat(model || azureConfig.deploymentName)
+
+      case 'anthropic':
+        const anthropicConfig = await this.settingsService.getAnthropicConfig()
+        if (!anthropicConfig?.apiKey) {
+          throw new Error('Anthropic provider is not configured correctly.')
+        }
+        const customAnthropic = createAnthropic({ apiKey: anthropicConfig.apiKey })
+        return customAnthropic.messages(model as any)
+
+      case 'vertex':
+        const vertexConfig = await this.settingsService.getVertexConfig()
+        if (!vertexConfig?.apiKey || !vertexConfig.project || !vertexConfig.location) {
+          throw new Error('Vertex AI provider is not configured correctly.')
+        }
+        let credentialsJson: any = undefined
+        try {
+          if (vertexConfig.apiKey.trim().startsWith('{')) {
+            credentialsJson = JSON.parse(vertexConfig.apiKey)
+          }
+        } catch (e) {
+          console.error('[ChatService] Failed to parse Vertex API key as JSON:', e)
+        }
+        const vertexProvider = createVertex({
+          ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
+          project: vertexConfig.project,
+          location: vertexConfig.location
+        })
+        return vertexProvider(model as any)
+
+      case 'ollama':
+        const ollamaConfig = await this.settingsService.getOllamaConfig()
+        if (!ollamaConfig?.baseURL) {
+          throw new Error('Ollama provider is not configured correctly.')
+        }
+        const customOllama = createOllama({
+          baseURL: ollamaConfig.baseURL
+        })
+        return customOllama(model as any)
+
+      default:
+        throw new Error(`Unsupported LLM provider: ${provider}`)
+    }
+  }
+
+  /**
+   * Helper method to get the global model name for a given provider
+   */
+  private async getGlobalModelForProvider(provider: string): Promise<string> {
+    switch (provider) {
+      case 'openai':
+        const openaiConfig = await this.settingsService.getOpenAIConfig()
+        return openaiConfig?.model || ''
+      case 'google':
+        const googleConfig = await this.settingsService.getGoogleConfig()
+        return googleConfig?.model || ''
+      case 'azure':
+        const azureConfig = await this.settingsService.getAzureConfig()
+        return azureConfig?.deploymentName || ''
+      case 'anthropic':
+        const anthropicConfig = await this.settingsService.getAnthropicConfig()
+        return anthropicConfig?.model || ''
+      case 'vertex':
+        const vertexConfig = await this.settingsService.getVertexConfig()
+        return vertexConfig?.model || ''
+      case 'ollama':
+        const ollamaConfig = await this.settingsService.getOllamaConfig()
+        return ollamaConfig?.model || ''
+      default:
+        return ''
+    }
+  }
   
   /**
    * Get a list of tools that are assigned to specialized (non-orchestrator) agents
@@ -394,18 +555,6 @@ export class ChatService {
         }
       }
 
-      const activeProvider = await this.settingsService.getActiveLLMProvider()
-      let llm: LanguageModel | undefined = undefined
-
-      if (!activeProvider) {
-        console.error('[ChatService] No active LLM provider configured.')
-        streamChunks.push(
-          textEncoder.encode(JSON.stringify({ streamError: 'No active LLM provider configured.' }))
-        )
-        return streamChunks
-      }
-      console.log(`[ChatService] Active provider: ${activeProvider}`)
-
       console.log(
         '[ChatService] Messages from renderer:',
         JSON.stringify(rendererMessages, null, 2)
@@ -424,100 +573,18 @@ export class ChatService {
         return streamChunks
       }
 
-      switch (activeProvider) {
-        case 'openai':
-          const openaiConfig = await this.settingsService.getOpenAIConfig()
-          if (!openaiConfig?.apiKey || !openaiConfig.model) {
-            throw new Error('OpenAI provider is not configured correctly.')
-          }
-          const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
-          llm = customOpenAI.chat(openaiConfig.model as any)
-          console.log(`[ChatService] Using OpenAI model: ${openaiConfig.model}`)
-          break
-        case 'google':
-          const googleConfig = await this.settingsService.getGoogleConfig()
-          if (!googleConfig?.apiKey || !googleConfig.model) {
-            throw new Error('Google provider is not configured correctly.')
-          }
-          const customGoogleProvider = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
-          llm = customGoogleProvider(googleConfig.model as any)
-          console.log(`[ChatService] Using Google model: ${googleConfig.model}`)
-          break
-        case 'azure':
-          const azureConfig = await this.settingsService.getAzureConfig()
-          if (!azureConfig?.apiKey || !azureConfig.endpoint || !azureConfig.deploymentName) {
-            throw new Error('Azure OpenAI provider is not configured correctly.')
-          }
-          const configuredAzure = createAzure({
-            apiKey: azureConfig.apiKey,
-            baseURL: azureConfig.endpoint, // Use endpoint directly as baseURL
-            apiVersion: '2024-04-01-preview' // Use a known stable or desired preview version
-          })
-          llm = configuredAzure.chat(azureConfig.deploymentName)
-          console.log(
-            `[ChatService] Using Azure deployment: ${azureConfig.deploymentName} on endpoint ${azureConfig.endpoint}`
-          )
-          break
-        case 'anthropic':
-          const anthropicConfig = await this.settingsService.getAnthropicConfig()
-          if (!anthropicConfig?.apiKey || !anthropicConfig.model) {
-            throw new Error('Anthropic provider is not configured correctly.')
-          }
-          const customAnthropic = createAnthropic({ apiKey: anthropicConfig.apiKey })
-          llm = customAnthropic.messages(anthropicConfig.model as any)
-          console.log(`[ChatService] Using Anthropic model: ${anthropicConfig.model}`)
-          break
-        case 'vertex':
-          const vertexConfig = await this.settingsService.getVertexConfig()
-          if (
-            !vertexConfig?.apiKey ||
-            !vertexConfig.project ||
-            !vertexConfig.location ||
-            !vertexConfig.model
-          ) {
-            throw new Error('Vertex AI provider is not configured correctly.')
-          }
-          let credentialsJson: any = undefined
-          try {
-            if (vertexConfig.apiKey.trim().startsWith('{')) {
-              credentialsJson = JSON.parse(vertexConfig.apiKey)
-            }
-          } catch (e) {
-            console.error(
-              '[ChatService] Failed to parse Vertex API key as JSON, proceeding assuming Application Default Credentials or direct key support:',
-              e
-            )
-          }
-          const vertexProvider = createVertex({
-            // Pass parsed credentials if available, otherwise SDK uses ADC or other methods
-            ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
-            project: vertexConfig.project,
-            location: vertexConfig.location
-          })
-          llm = vertexProvider(vertexConfig.model as any)
-          console.log(
-            `[ChatService] Using Vertex AI model: ${vertexConfig.model} in project ${vertexConfig.project} at ${vertexConfig.location}`
-          )
-          break
-        case 'ollama':
-          const ollamaConfig = await this.settingsService.getOllamaConfig()
-          if (!ollamaConfig?.baseURL || !ollamaConfig.model) {
-            throw new Error('Ollama provider is not configured correctly.')
-          }
-          const customOllama = createOllama({
-            baseURL: ollamaConfig.baseURL
-          })
-          llm = customOllama(ollamaConfig.model as any)
-          console.log(
-            `[ChatService] Using Ollama model: ${ollamaConfig.model} via ${ollamaConfig.baseURL}`
-          )
-          break
-        default:
-          throw new Error(`Unsupported LLM provider: ${activeProvider}`)
-      }
-
-      if (!llm) {
-        throw new Error('LLM model could not be initialized.')
+      // Create LLM using agent-specific configuration or global settings
+      let llm: LanguageModel
+      try {
+        llm = await this.createLLMFromAgentConfig(agentId)
+      } catch (error) {
+        console.error('[ChatService] Error creating LLM:', error)
+        streamChunks.push(
+          textEncoder.encode(JSON.stringify({ 
+            streamError: error instanceof Error ? error.message : 'Failed to create LLM'
+          }))
+        )
+        return streamChunks
       }
 
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)
@@ -642,17 +709,6 @@ export class ChatService {
         }
       }
 
-      const activeProvider = await this.settingsService.getActiveLLMProvider()
-      let llm: LanguageModel | undefined = undefined
-
-      if (!activeProvider) {
-        console.error('[ChatService] No active LLM provider configured.')
-        callbacks.onError(new Error('No active LLM provider configured.'))
-        callbacks.onComplete()
-        return
-      }
-      console.log(`[ChatService] Active provider for streaming: ${activeProvider}`)
-
       console.log(
         '[ChatService] Streaming messages from renderer:',
         JSON.stringify(rendererMessages, null, 2)
@@ -663,100 +719,15 @@ export class ChatService {
         JSON.stringify(processedMessages, null, 2)
       )
 
-      // Configure LLM based on active provider (same code as handleSendMessageStream)
-      switch (activeProvider) {
-        case 'openai':
-          const openaiConfig = await this.settingsService.getOpenAIConfig()
-          if (!openaiConfig?.apiKey || !openaiConfig.model) {
-            throw new Error('OpenAI provider is not configured correctly.')
-          }
-          const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
-          llm = customOpenAI.chat(openaiConfig.model as any)
-          console.log(`[ChatService] Using OpenAI model: ${openaiConfig.model}`)
-          break
-        case 'google':
-          const googleConfig = await this.settingsService.getGoogleConfig()
-          if (!googleConfig?.apiKey || !googleConfig.model) {
-            throw new Error('Google provider is not configured correctly.')
-          }
-          const customGoogleProvider = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
-          llm = customGoogleProvider(googleConfig.model as any)
-          console.log(`[ChatService] Using Google model: ${googleConfig.model}`)
-          break
-        case 'azure':
-          const azureConfig = await this.settingsService.getAzureConfig()
-          if (!azureConfig?.apiKey || !azureConfig.endpoint || !azureConfig.deploymentName) {
-            throw new Error('Azure OpenAI provider is not configured correctly.')
-          }
-          const configuredAzure = createAzure({
-            apiKey: azureConfig.apiKey,
-            baseURL: azureConfig.endpoint,
-            apiVersion: '2024-04-01-preview'
-          })
-          llm = configuredAzure.chat(azureConfig.deploymentName)
-          console.log(
-            `[ChatService] Using Azure deployment: ${azureConfig.deploymentName} on endpoint ${azureConfig.endpoint}`
-          )
-          break
-        case 'anthropic':
-          const anthropicConfig = await this.settingsService.getAnthropicConfig()
-          if (!anthropicConfig?.apiKey || !anthropicConfig.model) {
-            throw new Error('Anthropic provider is not configured correctly.')
-          }
-          const customAnthropic = createAnthropic({ apiKey: anthropicConfig.apiKey })
-          llm = customAnthropic.messages(anthropicConfig.model as any)
-          console.log(`[ChatService] Using Anthropic model: ${anthropicConfig.model}`)
-          break
-        case 'vertex':
-          const vertexConfig = await this.settingsService.getVertexConfig()
-          if (
-            !vertexConfig?.apiKey ||
-            !vertexConfig.project ||
-            !vertexConfig.location ||
-            !vertexConfig.model
-          ) {
-            throw new Error('Vertex AI provider is not configured correctly.')
-          }
-          let credentialsJson: any = undefined
-          try {
-            if (vertexConfig.apiKey.trim().startsWith('{')) {
-              credentialsJson = JSON.parse(vertexConfig.apiKey)
-            }
-          } catch (e) {
-            console.error(
-              '[ChatService] Failed to parse Vertex API key as JSON, proceeding assuming Application Default Credentials or direct key support:',
-              e
-            )
-          }
-          const vertexProvider = createVertex({
-            ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
-            project: vertexConfig.project,
-            location: vertexConfig.location
-          })
-          llm = vertexProvider(vertexConfig.model as any)
-          console.log(
-            `[ChatService] Using Vertex AI model: ${vertexConfig.model} in project ${vertexConfig.project} at ${vertexConfig.location}`
-          )
-          break
-        case 'ollama':
-          const ollamaConfig = await this.settingsService.getOllamaConfig()
-          if (!ollamaConfig?.baseURL || !ollamaConfig.model) {
-            throw new Error('Ollama provider is not configured correctly.')
-          }
-          const customOllama = createOllama({
-            baseURL: ollamaConfig.baseURL
-          })
-          llm = customOllama(ollamaConfig.model as any)
-          console.log(
-            `[ChatService] Using Ollama model: ${ollamaConfig.model} via ${ollamaConfig.baseURL}`
-          )
-          break
-        default:
-          throw new Error(`Unsupported LLM provider: ${activeProvider}`)
-      }
-
-      if (!llm) {
-        throw new Error('LLM model could not be initialized.')
+      // Create LLM using agent-specific configuration or global settings
+      let llm: LanguageModel
+      try {
+        llm = await this.createLLMFromAgentConfig(agentId)
+      } catch (error) {
+        console.error('[ChatService] Error creating LLM for streaming:', error)
+        callbacks.onError(error instanceof Error ? error : new Error('Failed to create LLM'))
+        callbacks.onComplete()
+        return
       }
 
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)

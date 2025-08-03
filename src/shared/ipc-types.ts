@@ -15,6 +15,9 @@ export type {
   PromptModuleInfo,
   AgentCapability
 } from './types/agent-types'
+
+// Re-export orchestration types
+export type { OrchestrationResult, Subtask } from '../main/services/types/orchestration-types'
 import type {
   PromptModule,
   PromptAssemblyRequest,
