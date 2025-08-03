@@ -126,13 +126,13 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   const getButtonIcon = () => {
     switch (uploadState) {
       case 'uploading':
-        return <Upload className="h-4 w-4 animate-pulse" />
+        return <Upload className="h-5 w-5 animate-pulse" />
       case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-green-500" />
       case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />
+        return <AlertCircle className="h-5 w-5 text-red-500" />
       default:
-        return <Plus className="h-4 w-4" />
+        return <Plus className="h-5 w-5" />
     }
   }
 
@@ -179,14 +179,14 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
         
         <DropdownMenuContent align="center" side="top" className="w-56">
           <DropdownMenuItem onClick={handleFileImport} disabled={disabled || uploadState === 'uploading'}>
-            <Paperclip className="h-4 w-4 mr-2" />
+            <Paperclip className="h-5 w-5 mr-2" />
             Import File
           </DropdownMenuItem>
           
           <DropdownMenuSeparator />
           
           <DropdownMenuItem onClick={handleDatabaseOpen} disabled={disabled}>
-            <Database className="h-4 w-4 mr-2" />
+            <Database className="h-5 w-5 mr-2" />
             Layer Database
           </DropdownMenuItem>
         </DropdownMenuContent>
