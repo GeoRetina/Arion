@@ -10,7 +10,7 @@ import { OrchestrationService } from './orchestration-service'
  */
 export class AgentRoutingService {
   private agentRegistryService: AgentRegistryService
-
+  private chatService: ChatService
   private orchestrationService: OrchestrationService
   // LlmToolService might be useful in future extensions
   private initialized = false
@@ -204,5 +204,12 @@ export class AgentRoutingService {
 
   public getExecutionContext(sessionId: string) {
     return this.orchestrationService.getExecutionContext(sessionId)
+  }
+
+  /**
+   * Get the internal orchestration service instance
+   */
+  public getOrchestrationService(): OrchestrationService {
+    return this.orchestrationService
   }
 }

@@ -197,7 +197,7 @@ app.whenReady().then(async () => {
   console.log('[Main Process] AgentRoutingService initialized successfully.')
   
   // Now that all agent services are initialized, update the LlmToolService with them
-  llmToolServiceInstance.setAgentServices(agentRegistryServiceInstance, agentRoutingServiceInstance)
+  llmToolServiceInstance.setAgentServices(agentRegistryServiceInstance, agentRoutingServiceInstance.getOrchestrationService())
   console.log('[Main Process] Updated LlmToolService with agent services')
 
   app.on('browser-window-created', (_, window) => {
