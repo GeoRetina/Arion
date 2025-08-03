@@ -50,6 +50,26 @@ export interface AgentExecutionContext {
 }
 
 /**
+ * Tool execution result from an agent
+ */
+export interface AgentToolResult {
+  toolCallId: string
+  toolName: string
+  args: any
+  result: any
+}
+
+/**
+ * Enhanced result from agent execution that includes both text and tool results
+ */
+export interface AgentExecutionResult {
+  textResponse: string
+  toolResults: AgentToolResult[]
+  success: boolean
+  error?: string
+}
+
+/**
  * Result of an orchestration process
  */
 export interface OrchestrationResult {

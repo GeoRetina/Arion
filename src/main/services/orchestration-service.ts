@@ -12,7 +12,8 @@ import {
   type AgentSelection,
   type Subtask,
   type AgentExecutionContext,
-  type OrchestrationResult
+  type OrchestrationResult,
+  type AgentExecutionResult
 } from './types/orchestration-types'
 
 /**
@@ -300,15 +301,27 @@ export class OrchestrationService {
     }
 
     // Use the chat service to get a response from the orchestrator agent
-    const result = await this.executeAgentWithPrompt(
+    const executionResult = await this.executeAgentWithPrompt(
       orchestratorAgentId,
       chatId,
       decompositionPrompt
     )
 
+    if (!executionResult.success) {
+      console.error('[OrchestrationService] Error in task decomposition:', executionResult.error)
+      // Fallback to a single task
+      return [{
+        id: uuidv4(),
+        description: query,
+        requiredCapabilities: taskAnalysis.requiredCapabilities,
+        dependencies: [],
+        status: 'pending'
+      }]
+    }
+
     try {
-      // Extract JSON from the result
-      const jsonMatch = result.match(/\[[\s\S]*\]/m)
+      // Extract JSON from the text result
+      const jsonMatch = executionResult.textResponse.match(/\[[\s\S]*\]/m)
       if (!jsonMatch) {
         throw new Error('Could not extract JSON subtasks from LLM response')
       }
@@ -370,11 +383,22 @@ export class OrchestrationService {
     })
 
     // Use the agent to analyze the query
-    const result = await this.executeAgentWithPrompt(agentId, chatId, analysisPrompt)
+    const executionResult = await this.executeAgentWithPrompt(agentId, chatId, analysisPrompt)
+
+    if (!executionResult.success) {
+      console.error('[OrchestrationService] Error in query analysis:', executionResult.error)
+      // Return default analysis if execution failed
+      return {
+        taskType: 'unknown',
+        requiredCapabilities: [],
+        complexity: 'moderate',
+        estimatedSubtasks: 1
+      }
+    }
 
     try {
-      // Extract JSON from the result
-      const jsonMatch = result.match(/\{[\s\S]*\}/m)
+      // Extract JSON from the text result
+      const jsonMatch = executionResult.textResponse.match(/\{[\s\S]*\}/m)
       if (!jsonMatch) {
         throw new Error('Could not extract JSON analysis from LLM response')
       }
@@ -593,15 +617,30 @@ export class OrchestrationService {
           })
 
           // Execute the agent with the subtask prompt
-          const result = await this.executeAgentWithPrompt(
+          const executionResult = await this.executeAgentWithPrompt(
             subtask.assignedAgentId!,
             context.chatId,
             subtaskPrompt
           )
 
-          // Store the result
-          subtask.result = result
-          context.results.set(subtask.id, result)
+          if (!executionResult.success) {
+            console.error(`[OrchestrationService] Error executing subtask ${subtask.id}:`, executionResult.error)
+            subtask.status = 'failed'
+            subtask.result = `Error: ${executionResult.error}`
+            completedSubtasks.add(subtask.id)
+            return
+          }
+
+          // Store both text result and tool results for potential later use
+          subtask.result = executionResult.textResponse
+          context.results.set(subtask.id, executionResult.textResponse)
+          
+          // Store tool results in shared memory if they exist
+          if (executionResult.toolResults && executionResult.toolResults.length > 0) {
+            context.sharedMemory.set(`${subtask.id}_toolResults`, executionResult.toolResults)
+            console.log(`[OrchestrationService] Stored ${executionResult.toolResults.length} tool results for subtask ${subtask.id}`)
+          }
+          
           subtask.status = 'completed'
           completedSubtasks.add(subtask.id)
 
@@ -650,14 +689,19 @@ export class OrchestrationService {
     })
 
     // Execute the orchestrator agent with the synthesis prompt
-    const finalResult = await this.executeAgentWithPrompt(
+    const executionResult = await this.executeAgentWithPrompt(
       orchestratorAgentId,
       context.chatId,
       synthesisPrompt
     )
 
+    if (!executionResult.success) {
+      console.error('[OrchestrationService] Error in result synthesis:', executionResult.error)
+      return `Error synthesizing results: ${executionResult.error}`
+    }
+
     console.log(`[OrchestrationService] Results synthesized for session ${sessionId}`)
-    return finalResult
+    return executionResult.textResponse
   }
 
   /**
@@ -676,7 +720,7 @@ export class OrchestrationService {
     agentId: string,
     chatId: string,
     prompt: string
-  ): Promise<string> {
+  ): Promise<AgentExecutionResult> {
     console.log(`[OrchestrationService] Executing agent ${agentId} with prompt`)
 
     // Track the currently executing agent for this chat
@@ -689,26 +733,32 @@ export class OrchestrationService {
     const messages: CoreMessage[] = [{ role: 'user', content: prompt }]
 
     try {
-      // Use the chat service to execute the agent
-      // We're using the internal method that collects all chunks
-      const result = await this.chatService.handleSendMessageStream({
+      // Use the new structured execution method to capture both text and tool results
+      const result = await this.chatService.executeAgentWithStructuredResult(
         messages,
-        id: chatId,
+        chatId,
         agentId
-      })
+      )
 
-      // Convert the Uint8Array chunks to a single string
-      const textDecoder = new TextDecoder()
-      let resultText = ''
-
-      for (const chunk of result) {
-        resultText += textDecoder.decode(chunk)
+      return {
+        textResponse: result.textResponse,
+        toolResults: result.toolResults.map(tr => ({
+          toolCallId: tr.toolCallId,
+          toolName: tr.toolName,
+          args: tr.args,
+          result: tr.result
+        })),
+        success: result.success,
+        error: result.error
       }
-
-      return resultText
     } catch (error) {
       console.error('[OrchestrationService] Error executing agent with prompt:', error)
-      throw error
+      return {
+        textResponse: '',
+        toolResults: [],
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error in agent execution'
+      }
     } finally {
       // Clear the executing agent tracking when done
       this.currentlyExecutingAgents.delete(chatId)

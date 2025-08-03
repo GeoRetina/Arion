@@ -77,17 +77,36 @@ export async function sendToAgent(
     console.log(`[send_to_agent tool] Delegating task to agent: ${agent.name} (${agent_id})`)
     console.log(`[send_to_agent tool] Message: ${message}`)
 
-    // Execute agent and get response
+    // Execute agent and get structured response including tool results
     const result = await orchestrationService.executeAgentWithPrompt(agent_id, chatId, message)
 
-    // Return the response from the agent
-    return {
+    if (!result.success) {
+      return {
+        status: 'error',
+        message: `Agent "${agent.name}" failed to process the request: ${result.error}`,
+        agent_id,
+        agent_name: agent.name,
+        error: result.error
+      }
+    }
+
+    // Return the response from the agent, including tool results if any
+    const response: any = {
       status: 'success',
       message: `Agent "${agent.name}" processed the request successfully.`,
       agent_id,
       agent_name: agent.name,
-      response: result
+      response: result.textResponse
     }
+
+    // Include tool results if the agent executed any tools
+    if (result.toolResults && result.toolResults.length > 0) {
+      response.toolResults = result.toolResults
+      console.log(`[send_to_agent tool] Agent ${agent.name} executed ${result.toolResults.length} tools:`, 
+        result.toolResults.map(tr => tr.toolName).join(', '))
+    }
+
+    return response
   } catch (error) {
     console.error(`[send_to_agent tool] Error:`, error)
     return {
