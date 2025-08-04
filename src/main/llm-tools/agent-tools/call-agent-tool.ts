@@ -1,29 +1,31 @@
 import { z } from 'zod'
 import { AgentRegistryService } from '../../services/agent-registry-service'
 import { OrchestrationService } from '../../services/orchestration-service'
+import { CALL_AGENT_TOOL_NAME } from '../../constants/llm-constants'
 
 // Define the tool name as a constant
-export const sendToAgentToolName = 'send_to_agent'
+export const callAgentToolName = CALL_AGENT_TOOL_NAME
 
 // Define the parameter schema using zod
-export const sendToAgentToolDefinition = {
+export const callAgentToolDefinition = {
   description:
-    'Sends a message to a specialized agent and returns its response. Use this tool to delegate specific tasks to agents with specialized capabilities.',
+    'Calls a specialized agent and returns its response. Use this tool to delegate specific tasks to agents with specialized capabilities.',
   parameters: z.object({
     message: z.string().describe('The message or task to send to the specialized agent'),
-    agent_id: z.string().describe('The ID of the specialized agent to send the message to')
+    agent_id: z.string().describe('The ID of the specialized agent to call')
   })
 }
 
 // Define the parameters interface
-export interface SendToAgentParams {
+export interface CallAgentParams {
   message: string
   agent_id: string
+  agent_name?: string // Optional agent name for UI display
 }
 
 // Export tool's main function
-export async function sendToAgent(
-  params: SendToAgentParams,
+export async function callAgent(
+  params: CallAgentParams,
   chatId: string,
   agentRegistryService: AgentRegistryService,
   orchestrationService: OrchestrationService
@@ -62,7 +64,7 @@ export async function sendToAgent(
     const executingAgent = orchestrationService.getCurrentExecutingAgent(chatId)
     if (executingAgent && executingAgent === agent_id) {
       console.error(
-        `[send_to_agent tool] Recursive call detected! Agent ${agent.name} (${agent_id}) is trying to call itself`
+        `[call_agent tool] Recursive call detected! Agent ${agent.name} (${agent_id}) is trying to call itself`
       )
       return {
         status: 'error',
@@ -74,8 +76,8 @@ export async function sendToAgent(
     }
 
     // Execute the agent with the message
-    console.log(`[send_to_agent tool] Delegating task to agent: ${agent.name} (${agent_id})`)
-    console.log(`[send_to_agent tool] Message: ${message}`)
+    console.log(`[call_agent tool] Delegating task to agent: ${agent.name} (${agent_id})`)
+    console.log(`[call_agent tool] Message: ${message}`)
 
     // Execute agent and get structured response including tool results
     const result = await orchestrationService.executeAgentWithPrompt(agent_id, chatId, message)
@@ -102,13 +104,13 @@ export async function sendToAgent(
     // Include tool results if the agent executed any tools
     if (result.toolResults && result.toolResults.length > 0) {
       response.toolResults = result.toolResults
-      console.log(`[send_to_agent tool] Agent ${agent.name} executed ${result.toolResults.length} tools:`, 
+      console.log(`[call_agent tool] Agent ${agent.name} executed ${result.toolResults.length} tools:`, 
         result.toolResults.map(tr => tr.toolName).join(', '))
     }
 
     return response
   } catch (error) {
-    console.error(`[send_to_agent tool] Error:`, error)
+    console.error(`[call_agent tool] Error:`, error)
     return {
       status: 'error',
       message:

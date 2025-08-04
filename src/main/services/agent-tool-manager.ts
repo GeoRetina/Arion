@@ -137,10 +137,10 @@ export class AgentToolManager {
       // Get tools with the agent's specific tool access list
       const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess)
       
-      // Only exclude send_to_agent tool for specialized agents (to prevent recursion)
+      // Only exclude call_agent tool for specialized agents (to prevent recursion)
       const combinedTools = Object.fromEntries(
         Object.entries(agentTools).filter(([toolName]) => 
-          toolName !== 'send_to_agent' // Explicitly prevent specialized agents from calling send_to_agent
+          toolName !== 'call_agent' // Explicitly prevent specialized agents from calling call_agent
         )
       )
       return combinedTools

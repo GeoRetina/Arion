@@ -1,5 +1,6 @@
 import ChartDisplay from '../../visualization/components/chart-display'
 import type { ChartDisplayProps } from '../../visualization/components/chart-display'
+import AgentCallDisplay from '../components/agent-call-display'
 
 export interface ToolUIComponent {
   component: React.ComponentType<any>
@@ -49,6 +50,35 @@ export function detectToolUIComponent(
     }
   }
 
+  // Agent call detection
+  if (toolName === 'call_agent') {
+    const { message, agent_id, agent_name } = toolInvocation.args || {}
+    
+    // Extract agent name from result if available, otherwise try from args, fallback to agent_id
+    const agentName = result?.agent_name || agent_name || agent_id
+    
+    // Determine status based on tool state
+    let status: 'loading' | 'completed' | 'error' = 'loading'
+    if (state === 'result') {
+      const isError = toolInvocation.isError || (result && result.status === 'error')
+      status = isError ? 'error' : 'completed'
+    } else if (state === 'error') {
+      status = 'error'
+    }
+
+    return {
+      component: AgentCallDisplay,
+      props: {
+        agentName,
+        agentId: agent_id,
+        message: message || 'No message provided',
+        status,
+        result: state === 'result' ? result : undefined
+      },
+      key: toolCallId
+    }
+  }
+
   // Add other tool UI components here in the future
   // Example:
   // if (toolName === 'display_map' && state === 'result' && result) {
@@ -94,4 +124,52 @@ export function detectNestedToolUIComponents(
   })
 
   return uiComponents
+}
+
+/**
+ * Detects all nested tool calls from agent execution results
+ * Returns an array of ToolInvocation objects for rendering regular tool call displays
+ * 
+ * @param toolResult - The result object from a tool execution that may contain nested tool results
+ * @returns Array of ToolInvocation objects representing nested tool calls
+ */
+export function detectNestedToolCalls(
+  toolResult: any
+): ToolInvocation[] {
+  // Guard clause: ensure we have valid nested tool results
+  if (!toolResult || typeof toolResult !== 'object') {
+    return []
+  }
+  
+  const toolResults = toolResult.toolResults
+  if (!Array.isArray(toolResults) || toolResults.length === 0) {
+    return []
+  }
+
+  const nestedToolCalls: ToolInvocation[] = []
+
+  toolResults.forEach((nestedTool: any, index: number) => {
+    // Skip invalid nested tools
+    if (!nestedTool || typeof nestedTool !== 'object' || typeof nestedTool.toolName !== 'string') {
+      console.warn(`[detectNestedToolCalls] Skipping invalid nested tool at index ${index}:`, nestedTool)
+      return
+    }
+
+    try {
+      const mockInvocation: ToolInvocation = {
+        toolCallId: `nested-tool-${Date.now()}-${index}`, // More unique ID
+        toolName: nestedTool.toolName,
+        args: nestedTool.args && typeof nestedTool.args === 'object' ? nestedTool.args : {},
+        state: 'result',
+        result: nestedTool.result,
+        isError: Boolean(nestedTool.isError || nestedTool.error || (nestedTool.result?.isError))
+      }
+
+      nestedToolCalls.push(mockInvocation)
+    } catch (error) {
+      console.error(`[detectNestedToolCalls] Error processing nested tool at index ${index}:`, error, nestedTool)
+    }
+  })
+
+  return nestedToolCalls
 }

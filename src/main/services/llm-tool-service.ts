@@ -46,10 +46,10 @@ import {
   openMapSidebarToolDefinition
 } from '../llm-tools/app-ui-control-tools'
 import {
-  sendToAgentToolName,
-  sendToAgentToolDefinition,
-  type SendToAgentParams
-} from '../llm-tools/agent-tools/send-to-agent-tool'
+  callAgentToolName,
+  callAgentToolDefinition,
+  type CallAgentParams
+} from '../llm-tools/agent-tools/call-agent-tool'
 import type { AddMapFeaturePayload } from '../../shared/ipc-types'
 import {
   queryKnowledgeBaseToolName,
@@ -649,13 +649,13 @@ ${chunk.content}`
 
     // Register Send To Agent Tool (for orchestrators only)
     this.registerTool({
-      name: sendToAgentToolName,
-      definition: sendToAgentToolDefinition,
+      name: callAgentToolName,
+      definition: callAgentToolDefinition,
       category: 'agent_communication',
       execute: async ({ args, chatId }) => {
         if (!this.agentRegistryService || !this.orchestrationService) {
           console.error(
-            '[LlmToolService] AgentRegistryService or OrchestrationService not available for send_to_agent tool.'
+            '[LlmToolService] AgentRegistryService or OrchestrationService not available for call_agent tool.'
           )
           return {
             status: 'error',
@@ -664,23 +664,39 @@ ${chunk.content}`
         }
 
         try {
-          const params = args as SendToAgentParams
+          const params = args as CallAgentParams
 
           // Use the actual chat ID from the context if available
           const actualChatId = chatId || this.currentChatId || 'unknown'
 
-          // Import the function here to avoid circular dependencies
-          const { sendToAgent } = await import('../llm-tools/agent-tools/send-to-agent-tool')
+          // Enhance params with agent name for better UI display during loading
+          let enhancedParams = params
+          if (this.agentRegistryService && params.agent_id) {
+            try {
+              const agent = await this.agentRegistryService.getAgentById(params.agent_id)
+              if (agent) {
+                enhancedParams = {
+                  ...params,
+                  agent_name: agent.name
+                }
+              }
+            } catch (error) {
+              console.warn('[LlmToolService] Could not fetch agent name for UI:', error)
+            }
+          }
 
-          // Execute the sendToAgent function with the correct parameters
-          return await sendToAgent(
-            params,
+          // Import the function here to avoid circular dependencies
+          const { callAgent } = await import('../llm-tools/agent-tools/call-agent-tool')
+
+          // Execute the callAgent function with the correct parameters
+          return await callAgent(
+            enhancedParams,
             actualChatId,
             this.agentRegistryService,
             this.orchestrationService
           )
         } catch (error) {
-          console.error('[LlmToolService] Error executing send_to_agent tool:', error)
+          console.error('[LlmToolService] Error executing call_agent tool:', error)
           return {
             status: 'error',
             message: `Error delegating to agent: ${error instanceof Error ? error.message : 'Unknown error'}.`

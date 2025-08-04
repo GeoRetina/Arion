@@ -5,7 +5,7 @@ import {
   CheckCircle,
   Loader2,
   XCircle,
-  Terminal,
+  Users,
   ChevronDown,
   ChevronRight,
   AlertTriangle
@@ -14,30 +14,24 @@ import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useState } from 'react'
 
-interface ToolCallDisplayProps {
-  toolName: string
-  args: Record<string, any>
+interface AgentCallDisplayProps {
+  agentName?: string
+  agentId: string
+  message: string
   status: 'loading' | 'completed' | 'error'
   result?: any
   className?: string
 }
 
-const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
-  toolName,
-  args,
+const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
+  agentName,
+  agentId,
+  message,
   status,
   result,
   className
 }) => {
-  const [expanded, setExpanded] = useState(false) // Auto-expand on error
-
-  const formattedArgs = useMemo(() => {
-    try {
-      return JSON.stringify(args, null, 2)
-    } catch (e) {
-      return 'Invalid arguments'
-    }
-  }, [args])
+  const [expanded, setExpanded] = useState(false)
 
   const formattedResult = useMemo(() => {
     if (!result) return ''
@@ -62,7 +56,7 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
         )
       }
     }
-    return 'Tool execution failed'
+    return 'Agent call failed'
   }, [status, result])
 
   // Determine status colors and styling
@@ -70,21 +64,28 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
     loading: {
       border: 'border-amber-200 dark:border-amber-800/50',
       bg: 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10',
-      icon: 'text-amber-600 dark:text-amber-400'
+      icon: 'text-amber-600 dark:text-amber-400',
+      accent: 'text-amber-600 dark:text-amber-400'
     },
     completed: {
       border: 'border-emerald-200 dark:border-emerald-800/50',
       bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10',
-      icon: 'text-emerald-600 dark:text-emerald-400'
+      icon: 'text-emerald-600 dark:text-emerald-400',
+      accent: 'text-emerald-600 dark:text-emerald-400'
     },
     error: {
       border: 'border-red-200 dark:border-red-800/50',
       bg: 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/20 dark:to-red-900/10',
-      icon: 'text-red-600 dark:text-red-400'
+      icon: 'text-red-600 dark:text-red-400',
+      accent: 'text-red-600 dark:text-red-400'
     }
   }
 
   const currentStyles = statusStyles[status]
+  
+  // For loading state without agent name, format the ID nicely
+  // For completed state, we should have the agent name from the result
+  const displayName = agentName || (status === 'loading' ? `Agent ${agentId}` : agentId)
 
   return (
     <div
@@ -99,23 +100,29 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
         className="flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
         onClick={() => setExpanded(!expanded)}
       >
-        <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
+        <Users className={cn('h-4 w-4', currentStyles.icon)} />
 
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-xs text-foreground truncate">
-            {toolName}
+            Calling agent: {displayName}
           </div>
           {status === 'loading' && (
             <div className="text-xs text-muted-foreground">
-              Executing...
+              Processing...
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-1.5">
-          {status === 'loading' && <Loader2 className={cn('h-3.5 w-3.5 animate-spin', currentStyles.icon)} />}
-          {status === 'completed' && <CheckCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />}
-          {status === 'error' && <XCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />}
+          {status === 'loading' && (
+            <Loader2 className={cn('h-3.5 w-3.5 animate-spin', currentStyles.accent)} />
+          )}
+          {status === 'completed' && (
+            <CheckCircle className={cn('h-3.5 w-3.5', currentStyles.accent)} />
+          )}
+          {status === 'error' && (
+            <XCircle className={cn('h-3.5 w-3.5', currentStyles.accent)} />
+          )}
 
           {expanded ? (
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -127,19 +134,25 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
 
       {expanded && (
         <div className="border-t border-border/20 p-2.5 space-y-2.5 text-xs">
-          {/* Arguments */}
+          {/* Message/Task */}
           <div>
-            <div className="font-medium text-muted-foreground mb-1">Arguments</div>
-            <div className="rounded border border-border/40 bg-muted/20">
-              <ScrollArea className="h-24 max-h-32 w-full">
-                <div className="p-2">
-                  <div className="whitespace-pre-wrap break-words text-foreground">
-                    {formattedArgs}
-                  </div>
-                </div>
-              </ScrollArea>
+            <div className="font-medium text-muted-foreground mb-1">Task</div>
+            <div className="rounded border border-border/40 bg-muted/20 p-2">
+              <div className="whitespace-pre-wrap break-words text-foreground">
+                {message}
+              </div>
             </div>
           </div>
+
+          {/* Agent ID (only show if different from name) */}
+          {agentName && agentName !== agentId && (
+            <div>
+              <div className="font-medium text-muted-foreground mb-1">Agent ID</div>
+              <div className="font-mono text-foreground/80 bg-muted/20 px-2 py-1 rounded text-xs">
+                {agentId}
+              </div>
+            </div>
+          )}
 
           {/* Error Message - show if in error state */}
           {status === 'error' && errorMessage && (
@@ -161,7 +174,7 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
             <div>
               <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle className="h-3 w-3" />
-                Result
+                Response
               </div>
               <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
                 <ScrollArea className="h-24 max-h-32 w-full">
@@ -175,12 +188,12 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
             </div>
           )}
 
-          {/* Tool execution in progress */}
+          {/* Agent execution in progress */}
           {status === 'loading' && (
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
               <Loader2 className="h-3 w-3 animate-spin shrink-0" />
               <div className="font-medium">
-                Executing tool...
+                Processing request...
               </div>
             </div>
           )}
@@ -190,4 +203,4 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
   )
 }
 
-export default ToolCallDisplay
+export default AgentCallDisplay
