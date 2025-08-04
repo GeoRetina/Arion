@@ -63,9 +63,6 @@ export async function callAgent(
     // Check if we're trying to call ourselves (detect if agent_id matches the current executing agent)
     const executingAgent = orchestrationService.getCurrentExecutingAgent(chatId)
     if (executingAgent && executingAgent === agent_id) {
-      console.error(
-        `[call_agent tool] Recursive call detected! Agent ${agent.name} (${agent_id}) is trying to call itself`
-      )
       return {
         status: 'error',
         message: `Cannot delegate to agent "${agent.name}" (${agent_id}) because it is the currently executing agent. Please use the agent's tools directly.`,
@@ -76,8 +73,6 @@ export async function callAgent(
     }
 
     // Execute the agent with the message
-    console.log(`[call_agent tool] Delegating task to agent: ${agent.name} (${agent_id})`)
-    console.log(`[call_agent tool] Message: ${message}`)
 
     // Execute agent and get structured response including tool results
     const result = await orchestrationService.executeAgentWithPrompt(agent_id, chatId, message)
@@ -104,13 +99,10 @@ export async function callAgent(
     // Include tool results if the agent executed any tools
     if (result.toolResults && result.toolResults.length > 0) {
       response.toolResults = result.toolResults
-      console.log(`[call_agent tool] Agent ${agent.name} executed ${result.toolResults.length} tools:`, 
-        result.toolResults.map(tr => tr.toolName).join(', '))
     }
 
     return response
   } catch (error) {
-    console.error(`[call_agent tool] Error:`, error)
     return {
       status: 'error',
       message:

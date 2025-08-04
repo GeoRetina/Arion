@@ -22,9 +22,7 @@ export interface ToolInvocation {
  * Detects if a tool result should render a special UI component
  * Returns the component and props if found, null otherwise
  */
-export function detectToolUIComponent(
-  toolInvocation: ToolInvocation
-): ToolUIComponent | null {
+export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUIComponent | null {
   const { toolName, state, result, toolCallId } = toolInvocation
 
   // Chart display detection
@@ -53,10 +51,10 @@ export function detectToolUIComponent(
   // Agent call detection
   if (toolName === 'call_agent') {
     const { message, agent_id, agent_name } = toolInvocation.args || {}
-    
+
     // Extract agent name from result if available, otherwise try from args, fallback to agent_id
     const agentName = result?.agent_name || agent_name || agent_id
-    
+
     // Determine status based on tool state
     let status: 'loading' | 'completed' | 'error' = 'loading'
     if (state === 'result') {
@@ -95,9 +93,7 @@ export function detectToolUIComponent(
 /**
  * Finds nested tool results that should render special UI components
  */
-export function detectNestedToolUIComponents(
-  toolResult: any
-): ToolUIComponent[] {
+export function detectNestedToolUIComponents(toolResult: any): ToolUIComponent[] {
   if (!toolResult?.toolResults || !Array.isArray(toolResult.toolResults)) {
     return []
   }
@@ -129,18 +125,16 @@ export function detectNestedToolUIComponents(
 /**
  * Detects all nested tool calls from agent execution results
  * Returns an array of ToolInvocation objects for rendering regular tool call displays
- * 
+ *
  * @param toolResult - The result object from a tool execution that may contain nested tool results
  * @returns Array of ToolInvocation objects representing nested tool calls
  */
-export function detectNestedToolCalls(
-  toolResult: any
-): ToolInvocation[] {
+export function detectNestedToolCalls(toolResult: any): ToolInvocation[] {
   // Guard clause: ensure we have valid nested tool results
   if (!toolResult || typeof toolResult !== 'object') {
     return []
   }
-  
+
   const toolResults = toolResult.toolResults
   if (!Array.isArray(toolResults) || toolResults.length === 0) {
     return []
@@ -151,7 +145,6 @@ export function detectNestedToolCalls(
   toolResults.forEach((nestedTool: any, index: number) => {
     // Skip invalid nested tools
     if (!nestedTool || typeof nestedTool !== 'object' || typeof nestedTool.toolName !== 'string') {
-      console.warn(`[detectNestedToolCalls] Skipping invalid nested tool at index ${index}:`, nestedTool)
       return
     }
 
@@ -162,13 +155,11 @@ export function detectNestedToolCalls(
         args: nestedTool.args && typeof nestedTool.args === 'object' ? nestedTool.args : {},
         state: 'result',
         result: nestedTool.result,
-        isError: Boolean(nestedTool.isError || nestedTool.error || (nestedTool.result?.isError))
+        isError: Boolean(nestedTool.isError || nestedTool.error || nestedTool.result?.isError)
       }
 
       nestedToolCalls.push(mockInvocation)
-    } catch (error) {
-      console.error(`[detectNestedToolCalls] Error processing nested tool at index ${index}:`, error, nestedTool)
-    }
+    } catch (error) {}
   })
 
   return nestedToolCalls

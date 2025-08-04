@@ -93,11 +93,9 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
   initializeStore: async () => {
     if (get().isInitialized) return
     try {
-      console.log('[LLMStore] Initializing store from main process...')
       const settings = window.ctg?.settings
       if (settings?.getAllLLMConfigs) {
         const allConfigs = await settings.getAllLLMConfigs()
-        console.log('[LLMStore] Received configs from main:', allConfigs)
         set({
           openaiConfig: allConfigs.openai || { ...initialConfig },
           googleConfig: allConfigs.google || { ...initialConfig },
@@ -109,13 +107,9 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           isInitialized: true
         })
       } else {
-        console.warn(
-          '[LLMStore] window.ctg.settings.getAllLLMConfigs not found. Cannot load initial settings.'
-        )
         set({ isInitialized: true })
       }
     } catch (error) {
-      console.error('[LLMStore] Error initializing store:', error)
       set({ isInitialized: true })
     }
   },
@@ -129,10 +123,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       if (settings?.setActiveLLMProvider) {
         await settings.setActiveLLMProvider(provider)
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setActiveLLMProvider not found.')
       }
     } catch (err) {
-      console.error('Failed to persist active provider:', err)
       set({ activeProvider: oldActiveProvider })
       throw err
     }
@@ -162,10 +154,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('openai')
         }
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setOpenAIConfig not found.')
       }
     } catch (err) {
-      console.error('Failed to persist OpenAI config:', err)
       set({ openaiConfig: oldConfig, activeProvider: oldActiveProvider })
       throw err
     }
@@ -195,10 +185,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('google')
         }
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setGoogleConfig not found.')
       }
     } catch (err) {
-      console.error('Failed to persist Google config:', err)
       set({ googleConfig: oldConfig, activeProvider: oldActiveProvider })
       throw err
     }
@@ -231,10 +219,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('azure')
         }
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setAzureConfig not found.')
       }
     } catch (err) {
-      console.error('Failed to persist Azure config:', err)
       set({ azureConfig: oldConfig, activeProvider: oldActiveProvider })
       throw err
     }
@@ -264,10 +250,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('anthropic')
         }
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setAnthropicConfig not found.')
       }
     } catch (err) {
-      console.error('Failed to persist Anthropic config:', err)
       set({ anthropicConfig: oldConfig, activeProvider: oldActiveProvider })
       throw err
     }
@@ -300,10 +284,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('vertex')
         }
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setVertexConfig or settings itself not found.')
       }
     } catch (err) {
-      console.error('Failed to persist Vertex config:', err)
       set({ vertexConfig: oldConfig, activeProvider: oldActiveProvider })
       throw err
     }
@@ -333,10 +315,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('ollama')
         }
       } else {
-        console.warn('[LLMStore] window.ctg.settings.setOllamaConfig or settings itself not found.')
       }
     } catch (err) {
-      console.error('Failed to persist Ollama config:', err)
       set({ ollamaConfig: oldConfig, activeProvider: oldActiveProvider })
       throw err
     }

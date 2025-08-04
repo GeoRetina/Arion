@@ -1,8 +1,5 @@
 import { CoreMessage } from 'ai'
-import type { 
-  Subtask,
-  AgentExecutionContext
-} from '../types/orchestration-types'
+import type { Subtask, AgentExecutionContext } from '../types/orchestration-types'
 import { IExecutionManager, IPromptManager, IAgentSelector } from './types/orchestration-interfaces'
 import { AgentExecutionResult } from './types/execution-types'
 import { ChatService } from '../chat-service'
@@ -25,13 +22,8 @@ export class ExecutionManager implements IExecutionManager {
     chatId: string,
     prompt: string
   ): Promise<AgentExecutionResult> {
-    console.log(`[ExecutionManager] Executing agent ${agentId} with prompt`)
-
     // Track the currently executing agent for this chat
     this.currentlyExecutingAgents.set(chatId, agentId)
-    console.log(
-      `[ExecutionManager] Set current executing agent for chat ${chatId} to ${agentId}`
-    )
 
     // Create artificial message history for the request
     const messages: CoreMessage[] = [{ role: 'user', content: prompt }]
@@ -46,7 +38,7 @@ export class ExecutionManager implements IExecutionManager {
 
       return {
         textResponse: result.textResponse,
-        toolResults: result.toolResults.map(tr => ({
+        toolResults: result.toolResults.map((tr) => ({
           toolCallId: tr.toolCallId,
           toolName: tr.toolName,
           args: tr.args,
@@ -56,7 +48,6 @@ export class ExecutionManager implements IExecutionManager {
         error: result.error
       }
     } catch (error) {
-      console.error('[ExecutionManager] Error executing agent with prompt:', error)
       return {
         textResponse: '',
         toolResults: [],
@@ -66,15 +57,10 @@ export class ExecutionManager implements IExecutionManager {
     } finally {
       // Clear the executing agent tracking when done
       this.currentlyExecutingAgents.delete(chatId)
-      console.log(`[ExecutionManager] Cleared current executing agent for chat ${chatId}`)
     }
   }
 
   public async executeSubtasks(sessionId: string, context: AgentExecutionContext): Promise<void> {
-    console.log(
-      `[ExecutionManager] Executing ${context.subtasks.length} subtasks for session ${sessionId}`
-    )
-
     // Create a map of subtasks by ID for easier access
     const subtasksById = new Map<string, Subtask>()
     context.subtasks.forEach((subtask) => {
@@ -114,7 +100,6 @@ export class ExecutionManager implements IExecutionManager {
           break
         } else {
           // We're stuck - likely a dependency cycle
-          console.error('[ExecutionManager] Dependency cycle detected in subtasks')
           throw new Error('Could not execute subtasks due to dependency cycle')
         }
       }
@@ -123,7 +108,6 @@ export class ExecutionManager implements IExecutionManager {
       const subtaskPromises = executableSubtasks.map(async (subtask) => {
         try {
           subtask.status = 'in_progress'
-          console.log(`[ExecutionManager] Executing subtask: ${subtask.description}`)
 
           // Include results from dependencies in the prompt
           let dependencyContext = ''
@@ -157,7 +141,6 @@ export class ExecutionManager implements IExecutionManager {
           )
 
           if (!executionResult.success) {
-            console.error(`[ExecutionManager] Error executing subtask ${subtask.id}:`, executionResult.error)
             subtask.status = 'failed'
             subtask.result = `Error: ${executionResult.error}`
             completedSubtasks.add(subtask.id)
@@ -167,19 +150,15 @@ export class ExecutionManager implements IExecutionManager {
           // Store both text result and tool results for potential later use
           subtask.result = executionResult.textResponse
           context.results.set(subtask.id, executionResult.textResponse)
-          
+
           // Store tool results in shared memory if they exist
           if (executionResult.toolResults && executionResult.toolResults.length > 0) {
             context.sharedMemory.set(`${subtask.id}_toolResults`, executionResult.toolResults)
-            console.log(`[ExecutionManager] Stored ${executionResult.toolResults.length} tool results for subtask ${subtask.id}`)
           }
-          
+
           subtask.status = 'completed'
           completedSubtasks.add(subtask.id)
-
-          console.log(`[ExecutionManager] Subtask completed: ${subtask.id}`)
         } catch (error) {
-          console.error(`[ExecutionManager] Error executing subtask ${subtask.id}:`, error)
           subtask.status = 'failed'
           subtask.result = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
           completedSubtasks.add(subtask.id) // Mark as processed even though it failed
@@ -189,7 +168,5 @@ export class ExecutionManager implements IExecutionManager {
       // Wait for this batch of subtasks to complete
       await Promise.all(subtaskPromises)
     }
-
-    console.log(`[ExecutionManager] All subtasks executed for session ${sessionId}`)
   }
 }

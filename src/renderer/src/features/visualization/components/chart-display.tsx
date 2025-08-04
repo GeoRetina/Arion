@@ -117,11 +117,6 @@ const DEFAULT_COLORS = [
 const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData, onClose }) => {
   const { chartId, chartType, data, config: rawConfig } = chartData
 
-  console.log(`[ChartDisplay] Rendering chart ${chartId} of type ${chartType}:`, {
-    data,
-    rawConfig
-  })
-
   // Custom content renderer for Treemap to handle colors and text
   const TreemapCustomContent = (props: any) => {
     const { depth, x, y, width, height, index, name, value, colors } = props
@@ -589,7 +584,6 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData, onClose }) => {
           </ResponsiveContainer>
         )
       default:
-        console.warn(`[ChartDisplay] Unknown chart type: ${chartType}`)
         return (
           <div>
             Unsupported chart type: {chartType} for ID: {chartId}

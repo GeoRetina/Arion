@@ -1,6 +1,6 @@
 /**
  * MapLibre Integration Utilities
- * 
+ *
  * Centralized utilities for MapLibre GL JS integration with the layer management system.
  * Handles source creation, layer specifications, synchronization, and styling operations.
  */
@@ -10,7 +10,7 @@ import type { LayerDefinition, LayerStyle } from '../../../shared/types/layer-ty
 
 /**
  * MapLibre Integration Manager
- * 
+ *
  * Manages the synchronization between LayerDefinition objects and MapLibre GL JS
  * map instances, including sources, layers, and styling.
  */
@@ -64,7 +64,7 @@ export class MapLibreIntegration {
           data: sourceConfig.data as any,
           ...(sourceConfig.options?.buffer && { buffer: sourceConfig.options.buffer }),
           ...(sourceConfig.options?.tolerance && { tolerance: sourceConfig.options.tolerance }),
-          ...(sourceConfig.options?.cluster && { 
+          ...(sourceConfig.options?.cluster && {
             cluster: sourceConfig.options.cluster,
             clusterMaxZoom: sourceConfig.options.clusterMaxZoom,
             clusterRadius: sourceConfig.options.clusterRadius
@@ -77,7 +77,9 @@ export class MapLibreIntegration {
           type: 'raster',
           tiles: [sourceConfig.data as string],
           tileSize: sourceConfig.options?.tileSize || 256,
-          ...(sourceConfig.options?.attribution && { attribution: sourceConfig.options.attribution }),
+          ...(sourceConfig.options?.attribution && {
+            attribution: sourceConfig.options.attribution
+          }),
           ...(sourceConfig.options?.minZoom && { minzoom: sourceConfig.options.minZoom }),
           ...(sourceConfig.options?.maxZoom && { maxzoom: sourceConfig.options.maxZoom })
         }
@@ -86,13 +88,28 @@ export class MapLibreIntegration {
         return {
           type: 'image',
           url: sourceConfig.data as string,
-          coordinates: sourceConfig.options?.bounds ? 
-            [
-              [sourceConfig.options.bounds[0], sourceConfig.options.bounds[1]] as [number, number],
-              [sourceConfig.options.bounds[2], sourceConfig.options.bounds[1]] as [number, number],
-              [sourceConfig.options.bounds[2], sourceConfig.options.bounds[3]] as [number, number],
-              [sourceConfig.options.bounds[0], sourceConfig.options.bounds[3]] as [number, number]
-            ] : [[0,0],[1,0],[1,1],[0,1]]
+          coordinates: sourceConfig.options?.bounds
+            ? [
+                [sourceConfig.options.bounds[0], sourceConfig.options.bounds[1]] as [
+                  number,
+                  number
+                ],
+                [sourceConfig.options.bounds[2], sourceConfig.options.bounds[1]] as [
+                  number,
+                  number
+                ],
+                [sourceConfig.options.bounds[2], sourceConfig.options.bounds[3]] as [
+                  number,
+                  number
+                ],
+                [sourceConfig.options.bounds[0], sourceConfig.options.bounds[3]] as [number, number]
+              ]
+            : [
+                [0, 0],
+                [1, 0],
+                [1, 1],
+                [0, 1]
+              ]
         }
 
       case 'vector-tiles':
@@ -101,7 +118,9 @@ export class MapLibreIntegration {
           tiles: [sourceConfig.data as string],
           ...(sourceConfig.options?.minZoom && { minzoom: sourceConfig.options.minZoom }),
           ...(sourceConfig.options?.maxZoom && { maxzoom: sourceConfig.options.maxZoom }),
-          ...(sourceConfig.options?.attribution && { attribution: sourceConfig.options.attribution })
+          ...(sourceConfig.options?.attribution && {
+            attribution: sourceConfig.options.attribution
+          })
         }
 
       default:
@@ -174,25 +193,21 @@ export class MapLibreIntegration {
         const sourceSpec = this.createSourceSpecification(layer)
         this.mapInstance!.addSource(layer.sourceId, sourceSpec)
         this.managedSources.add(layer.sourceId)
-        console.log(`[MapLibreIntegration] Added source: ${layer.sourceId}`)
       }
 
       // Create layer specifications based on layer type and geometry
       const layerSpecs = this.createLayerSpecifications(layer)
-      
+
       for (const layerSpec of layerSpecs) {
         if (!this.mapInstance!.getLayer(layerSpec.id)) {
           this.mapInstance!.addLayer(layerSpec)
           this.managedLayers.add(layerSpec.id)
-          console.log(`[MapLibreIntegration] Added layer: ${layerSpec.id}`)
         }
       }
 
       // Apply initial styling and properties
       await this.syncLayerProperties(layer)
-
     } catch (error) {
-      console.error(`[MapLibreIntegration] Failed to sync layer ${layer.id} to map:`, error)
       throw error
     }
   }
@@ -206,9 +221,10 @@ export class MapLibreIntegration {
     try {
       // Find all MapLibre layers associated with this layer definition
       const style = this.mapInstance.getStyle()
-      const layersToRemove = style.layers.filter(layer => 
-        layer.id.startsWith(layerId) || 
-        ('source' in layer && this.managedSources.has(layer.source as string))
+      const layersToRemove = style.layers.filter(
+        (layer) =>
+          layer.id.startsWith(layerId) ||
+          ('source' in layer && this.managedSources.has(layer.source as string))
       )
 
       // Remove layers
@@ -216,29 +232,26 @@ export class MapLibreIntegration {
         if (this.mapInstance.getLayer(layer.id)) {
           this.mapInstance.removeLayer(layer.id)
           this.managedLayers.delete(layer.id)
-          console.log(`[MapLibreIntegration] Removed layer: ${layer.id}`)
         }
       }
 
       // Remove source if no other layers use it
-      const sourceId = layersToRemove[0] && 'source' in layersToRemove[0] 
-        ? layersToRemove[0].source as string 
-        : null
-      
+      const sourceId =
+        layersToRemove[0] && 'source' in layersToRemove[0]
+          ? (layersToRemove[0].source as string)
+          : null
+
       if (sourceId && this.managedSources.has(sourceId)) {
-        const remainingLayers = style.layers.filter(layer => 
-          'source' in layer && layer.source === sourceId
+        const remainingLayers = style.layers.filter(
+          (layer) => 'source' in layer && layer.source === sourceId
         )
-        
+
         if (remainingLayers.length === 0 && this.mapInstance.getSource(sourceId)) {
           this.mapInstance.removeSource(sourceId)
           this.managedSources.delete(sourceId)
-          console.log(`[MapLibreIntegration] Removed source: ${sourceId}`)
         }
       }
-
     } catch (error) {
-      console.error(`[MapLibreIntegration] Failed to remove layer ${layerId} from map:`, error)
       throw error
     }
   }
@@ -251,9 +264,7 @@ export class MapLibreIntegration {
 
     try {
       const style = this.mapInstance.getStyle()
-      const layersToUpdate = style.layers.filter(mapLayer => 
-        mapLayer.id.startsWith(layer.id)
-      )
+      const layersToUpdate = style.layers.filter((mapLayer) => mapLayer.id.startsWith(layer.id))
 
       for (const mapLayer of layersToUpdate) {
         // Sync visibility
@@ -263,9 +274,7 @@ export class MapLibreIntegration {
         // Apply layer-specific styling based on layer type
         await this.applyLayerStyle(mapLayer.id, mapLayer.type, layer.style, layer.opacity)
       }
-
     } catch (error) {
-      console.error(`[MapLibreIntegration] Failed to sync properties for layer ${layer.id}:`, error)
       throw error
     }
   }
@@ -274,9 +283,9 @@ export class MapLibreIntegration {
    * Apply styling to a specific map layer
    */
   async applyLayerStyle(
-    mapLayerId: string, 
-    mapLayerType: string, 
-    style: LayerStyle, 
+    mapLayerId: string,
+    mapLayerType: string,
+    style: LayerStyle,
     opacity: number
   ): Promise<void> {
     if (!this.mapInstance) return
@@ -291,16 +300,32 @@ export class MapLibreIntegration {
             this.mapInstance.setPaintProperty(mapLayerId, 'circle-radius', style.pointRadius)
           }
           if (style.pointOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-opacity', style.pointOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-opacity',
+              style.pointOpacity * opacity
+            )
           }
           if (style.pointStrokeColor) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-stroke-color', style.pointStrokeColor)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-stroke-color',
+              style.pointStrokeColor
+            )
           }
           if (style.pointStrokeWidth !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-stroke-width', style.pointStrokeWidth)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-stroke-width',
+              style.pointStrokeWidth
+            )
           }
           if (style.pointStrokeOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-stroke-opacity', style.pointStrokeOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-stroke-opacity',
+              style.pointStrokeOpacity * opacity
+            )
           }
           break
 
@@ -312,7 +337,11 @@ export class MapLibreIntegration {
             this.mapInstance.setPaintProperty(mapLayerId, 'line-width', style.lineWidth)
           }
           if (style.lineOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'line-opacity', style.lineOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'line-opacity',
+              style.lineOpacity * opacity
+            )
           }
           if (style.lineDasharray) {
             this.mapInstance.setPaintProperty(mapLayerId, 'line-dasharray', style.lineDasharray)
@@ -327,25 +356,49 @@ export class MapLibreIntegration {
             this.mapInstance.setPaintProperty(mapLayerId, 'fill-color', style.fillColor)
           }
           if (style.fillOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'fill-opacity', style.fillOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'fill-opacity',
+              style.fillOpacity * opacity
+            )
           }
           if (style.fillOutlineColor) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'fill-outline-color', style.fillOutlineColor)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'fill-outline-color',
+              style.fillOutlineColor
+            )
           }
           break
 
         case 'raster':
           if (style.rasterOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-opacity', style.rasterOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-opacity',
+              style.rasterOpacity * opacity
+            )
           }
           if (style.rasterBrightnessMin !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-brightness-min', style.rasterBrightnessMin)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-brightness-min',
+              style.rasterBrightnessMin
+            )
           }
           if (style.rasterBrightnessMax !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-brightness-max', style.rasterBrightnessMax)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-brightness-max',
+              style.rasterBrightnessMax
+            )
           }
           if (style.rasterSaturation !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-saturation', style.rasterSaturation)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-saturation',
+              style.rasterSaturation
+            )
           }
           if (style.rasterContrast !== undefined) {
             this.mapInstance.setPaintProperty(mapLayerId, 'raster-contrast', style.rasterContrast)
@@ -370,9 +423,7 @@ export class MapLibreIntegration {
           }
           break
       }
-
     } catch (error) {
-      console.error(`[MapLibreIntegration] Failed to apply style to layer ${mapLayerId}:`, error)
       throw error
     }
   }
@@ -413,7 +464,6 @@ export class MapLibreIntegration {
 
     this.managedLayers.clear()
     this.managedSources.clear()
-    console.log('[MapLibreIntegration] Cleaned up all managed resources')
   }
 }
 

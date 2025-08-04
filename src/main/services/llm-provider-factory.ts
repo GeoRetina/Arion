@@ -17,10 +17,7 @@ export class LLMProviderFactory {
   private settingsService: SettingsService
   private agentRegistryService?: AgentRegistryService
 
-  constructor(
-    settingsService: SettingsService,
-    agentRegistryService?: AgentRegistryService
-  ) {
+  constructor(settingsService: SettingsService, agentRegistryService?: AgentRegistryService) {
     this.settingsService = settingsService
     this.agentRegistryService = agentRegistryService
   }
@@ -52,32 +49,39 @@ export class LLMProviderFactory {
           // Validate agent model configuration
           const modelConfig = agent.modelConfig
           if (!modelConfig.provider || !modelConfig.model) {
-            provider = await this.settingsService.getActiveLLMProvider() || ''
+            provider = (await this.settingsService.getActiveLLMProvider()) || ''
             model = await this.getGlobalModelForProvider(provider)
           } else {
             provider = modelConfig.provider
             model = modelConfig.model
-            
+
             // Validate that the provider is supported
-            const supportedProviders = ['openai', 'google', 'azure', 'anthropic', 'vertex', 'ollama']
+            const supportedProviders = [
+              'openai',
+              'google',
+              'azure',
+              'anthropic',
+              'vertex',
+              'ollama'
+            ]
             if (!supportedProviders.includes(provider.toLowerCase())) {
-              provider = await this.settingsService.getActiveLLMProvider() || ''
+              provider = (await this.settingsService.getActiveLLMProvider()) || ''
               model = await this.getGlobalModelForProvider(provider)
             }
           }
         } else {
           // Fall back to global settings
-          provider = await this.settingsService.getActiveLLMProvider() || ''
+          provider = (await this.settingsService.getActiveLLMProvider()) || ''
           model = await this.getGlobalModelForProvider(provider)
         }
       } catch (error) {
         // Fall back to global settings
-        provider = await this.settingsService.getActiveLLMProvider() || ''
+        provider = (await this.settingsService.getActiveLLMProvider()) || ''
         model = await this.getGlobalModelForProvider(provider)
       }
     } else {
       // Use global settings
-      provider = await this.settingsService.getActiveLLMProvider() || ''
+      provider = (await this.settingsService.getActiveLLMProvider()) || ''
       model = await this.getGlobalModelForProvider(provider)
     }
 
@@ -86,7 +90,9 @@ export class LLMProviderFactory {
     }
 
     if (!model) {
-      throw new Error(`No LLM model configured for provider '${provider}' (neither agent-specific nor global)`)
+      throw new Error(
+        `No LLM model configured for provider '${provider}' (neither agent-specific nor global)`
+      )
     }
 
     return { provider, model }
@@ -210,8 +216,7 @@ export class LLMProviderFactory {
       if (vertexConfig.apiKey.trim().startsWith('{')) {
         credentialsJson = JSON.parse(vertexConfig.apiKey)
       }
-    } catch (e) {
-    }
+    } catch (e) {}
     const vertexProvider = createVertex({
       ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
       project: vertexConfig.project,

@@ -5,10 +5,7 @@ export class AgentToolManager {
   private llmToolService: LlmToolService
   private agentRegistryService?: AgentRegistryService
 
-  constructor(
-    llmToolService: LlmToolService,
-    agentRegistryService?: AgentRegistryService
-  ) {
+  constructor(llmToolService: LlmToolService, agentRegistryService?: AgentRegistryService) {
     this.llmToolService = llmToolService
     this.agentRegistryService = agentRegistryService
   }
@@ -21,23 +18,24 @@ export class AgentToolManager {
     if (!this.agentRegistryService) {
       return []
     }
-    
+
     try {
       // Get all agents
       const allAgents = await this.agentRegistryService.getAllAgents()
       const specializedAgentTools: string[] = []
-      
+
       // Process each agent
       for (const agentEntry of allAgents) {
         const agent = await this.agentRegistryService.getAgentById(agentEntry.id)
         if (!agent) continue
-        
+
         // Skip orchestrators
-        const isOrchestrator = agent.capabilities.some(cap => 
-          cap.name.toLowerCase().includes('orchestrat') ||
-          cap.description.toLowerCase().includes('orchestrat')
+        const isOrchestrator = agent.capabilities.some(
+          (cap) =>
+            cap.name.toLowerCase().includes('orchestrat') ||
+            cap.description.toLowerCase().includes('orchestrat')
         )
-        
+
         if (!isOrchestrator) {
           // Add all tools assigned to this specialized agent
           if (agent.toolAccess && agent.toolAccess.length > 0) {
@@ -45,7 +43,7 @@ export class AgentToolManager {
           }
         }
       }
-      
+
       // Return unique tool IDs
       const uniqueTools = [...new Set(specializedAgentTools)]
       return uniqueTools
@@ -60,9 +58,10 @@ export class AgentToolManager {
    * @returns boolean indicating if the agent is an orchestrator
    */
   private isOrchestratorAgent(agent: any): boolean {
-    return agent?.capabilities.some((cap: any) => 
-      cap.name.toLowerCase().includes('orchestrat') ||
-      cap.description.toLowerCase().includes('orchestrat')
+    return agent?.capabilities.some(
+      (cap: any) =>
+        cap.name.toLowerCase().includes('orchestrat') ||
+        cap.description.toLowerCase().includes('orchestrat')
     )
   }
 
@@ -73,21 +72,20 @@ export class AgentToolManager {
    */
   async getToolsForAgent(agentId?: string): Promise<Record<string, any>> {
     let combinedTools: Record<string, any> = {}
-    
+
     // Get ALL tools first
     const allTools = this.llmToolService.getToolDefinitionsForLLM()
-    
+
     // Case 1: Specific agent is provided
     if (agentId && this.agentRegistryService) {
       const agent = await this.agentRegistryService.getAgentById(agentId)
-      
+
       if (agent?.capabilities) {
       }
-      
+
       // Determine if this is an orchestrator
       const isOrchestrator = this.isOrchestratorAgent(agent)
-      
-      
+
       if (isOrchestrator) {
         combinedTools = await this.getOrchestratorTools(allTools)
       } else if (agent) {
@@ -100,9 +98,9 @@ export class AgentToolManager {
       // Case 2: No agent ID provided - treat as main orchestrator
       combinedTools = await this.getOrchestratorTools(allTools)
     }
-    
+
     // Warn if no tools are provided
-    
+
     return combinedTools
   }
 
@@ -112,15 +110,13 @@ export class AgentToolManager {
    * @returns Filtered tools for orchestrator
    */
   private async getOrchestratorTools(allTools: Record<string, any>): Promise<Record<string, any>> {
-    
     // For orchestrator: Filter out tools assigned to specialized agents
     const specializedAgentTools = await this.getToolsAssignedToSpecializedAgents()
-    
+
     // Filter out tools that are assigned to specialized agents
     const combinedTools = Object.fromEntries(
       Object.entries(allTools).filter(([toolName]) => !specializedAgentTools.includes(toolName))
     )
-    
 
     return combinedTools
   }
@@ -132,15 +128,15 @@ export class AgentToolManager {
    */
   private async getSpecializedAgentTools(agent: any): Promise<Record<string, any>> {
     // For specialized agents: Use only their assigned tools
-    
+
     if (agent.toolAccess && agent.toolAccess.length > 0) {
       // Get tools with the agent's specific tool access list
       const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess)
-      
+
       // Only exclude call_agent tool for specialized agents (to prevent recursion)
       const combinedTools = Object.fromEntries(
-        Object.entries(agentTools).filter(([toolName]) => 
-          toolName !== 'call_agent' // Explicitly prevent specialized agents from calling call_agent
+        Object.entries(agentTools).filter(
+          ([toolName]) => toolName !== 'call_agent' // Explicitly prevent specialized agents from calling call_agent
         )
       )
       return combinedTools

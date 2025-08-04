@@ -102,19 +102,19 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
         <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
 
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-xs text-foreground truncate">
-            {toolName}
-          </div>
+          <div className="font-semibold text-xs text-foreground truncate">{toolName}</div>
           {status === 'loading' && (
-            <div className="text-xs text-muted-foreground">
-              Executing...
-            </div>
+            <div className="text-xs text-muted-foreground">Executing...</div>
           )}
         </div>
 
         <div className="flex items-center gap-1.5">
-          {status === 'loading' && <Loader2 className={cn('h-3.5 w-3.5 animate-spin', currentStyles.icon)} />}
-          {status === 'completed' && <CheckCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />}
+          {status === 'loading' && (
+            <Loader2 className={cn('h-3.5 w-3.5 animate-spin', currentStyles.icon)} />
+          )}
+          {status === 'completed' && (
+            <CheckCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />
+          )}
           {status === 'error' && <XCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />}
 
           {expanded ? (
@@ -179,9 +179,7 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
           {status === 'loading' && (
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
               <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-              <div className="font-medium">
-                Executing tool...
-              </div>
+              <div className="font-medium">Executing tool...</div>
             </div>
           )}
         </div>

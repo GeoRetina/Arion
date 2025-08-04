@@ -1,7 +1,4 @@
-import type { 
-  AgentSelection, 
-  Subtask 
-} from '../types/orchestration-types'
+import type { AgentSelection, Subtask } from '../types/orchestration-types'
 import type { AgentDefinition } from '../../../shared/types/agent-types'
 import { IAgentSelector } from './types/orchestration-interfaces'
 import { AgentRegistryService } from '../agent-registry-service'
@@ -38,7 +35,6 @@ export class AgentSelector implements IAgentSelector {
 
       return agentInfoText
     } catch (error) {
-      console.error('[AgentSelector] Error getting agent information:', error)
       return 'Error: Could not retrieve agent information.'
     }
   }
@@ -47,13 +43,10 @@ export class AgentSelector implements IAgentSelector {
     subtask: Subtask,
     orchestratorAgentId: string
   ): Promise<AgentSelection | null> {
-    console.log(`[AgentSelector] Selecting agent for subtask: ${subtask.description}`)
-
     // Get all available agents
     const allAgents = await this.agentRegistryService.getAllAgents()
 
     if (allAgents.length === 0) {
-      console.warn('[AgentSelector] No agents available for selection')
       return null
     }
 
@@ -61,7 +54,6 @@ export class AgentSelector implements IAgentSelector {
     const candidateAgents = allAgents.filter((agent) => agent.id !== orchestratorAgentId)
 
     if (candidateAgents.length === 0) {
-      console.warn('[AgentSelector] Only the orchestrator agent is available')
       return {
         agentId: orchestratorAgentId,
         confidence: 1,
@@ -99,9 +91,6 @@ export class AgentSelector implements IAgentSelector {
     // Select the highest scoring agent with at least some capability match
     const bestAgent = scoredAgents[0]
     if (bestAgent && bestAgent.score > 0) {
-      console.log(
-        `[AgentSelector] Selected agent ${bestAgent.agent.name} with score ${bestAgent.score}`
-      )
       return {
         agentId: bestAgent.agent.id,
         confidence: bestAgent.score,
@@ -110,7 +99,6 @@ export class AgentSelector implements IAgentSelector {
     }
 
     // If no good match found, return null
-    console.warn('[AgentSelector] No suitable agent found for subtask')
     return null
   }
 

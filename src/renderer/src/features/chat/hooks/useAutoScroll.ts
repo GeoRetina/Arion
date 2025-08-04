@@ -31,8 +31,6 @@ export function useAutoScroll(props: UseAutoScrollProps) {
         // Use setTimeout to ensure DOM has updated
         setTimeout(() => {
           if (latestUserMessageRef.current) {
-            console.log('[useAutoScroll] Smooth scrolling to latest user message')
-
             // Add space above the element temporarily for scrolling
             latestUserMessageRef.current.style.scrollMarginTop = marginTop
 
@@ -49,7 +47,6 @@ export function useAutoScroll(props: UseAutoScrollProps) {
               }
             }, clearMarginDelay)
           } else {
-            console.error('[useAutoScroll] Reference to latest user message not available')
           }
         }, scrollDelay)
       }

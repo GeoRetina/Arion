@@ -19,9 +19,7 @@ const IntegrationsPage = React.lazy(
 const KnowledgeBasePage = React.lazy(
   () => import('./features/knowledge-base/components/knowledge-base')
 )
-const AgentsPage = React.lazy(
-  () => import('./features/agents/components/agents-page')
-)
+const AgentsPage = React.lazy(() => import('./features/agents/components/agents-page'))
 
 function App(): React.JSX.Element {
   const initializeLLMStore = useLLMStore((state) => state.initializeStore)
@@ -34,20 +32,17 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     if (!isLLMStoreInitialized) {
-      console.log('[App.tsx] Initializing LLM store...')
       initializeLLMStore()
     }
   }, [initializeLLMStore, isLLMStoreInitialized])
 
   // Fetch chat history on initial app load
   useEffect(() => {
-    console.log('[App.tsx] Attempting to fetch chat history...')
     fetchChats()
   }, [fetchChats])
 
   // Initialize theme on app load
   useEffect(() => {
-    console.log('[App.tsx] Initializing theme...')
     initTheme()
   }, [])
 
@@ -58,9 +53,6 @@ function App(): React.JSX.Element {
 
     // If we're leaving a chat route and going to a non-chat route
     if (previousPath && previousPath.startsWith('/chat/') && !currentPath.startsWith('/chat/')) {
-      console.log(
-        `[App.tsx] Leaving chat route (${previousPath}) to non-chat route (${currentPath}). Resetting chat stores.`
-      )
       resetChatStores()
     }
 

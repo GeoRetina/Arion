@@ -73,9 +73,7 @@ export default function ModelsPage(): React.JSX.Element {
   }): Promise<void> => {
     try {
       await setOpenAIConfig(config)
-    } catch (error) {
-      console.error('Failed to save OpenAI config:', error)
-    }
+    } catch (error) {}
     handleOpenAICloseModal()
   }
 
@@ -88,9 +86,7 @@ export default function ModelsPage(): React.JSX.Element {
   }): Promise<void> => {
     try {
       await setGoogleConfig(config)
-    } catch (error) {
-      console.error('Failed to save Google config:', error)
-    }
+    } catch (error) {}
     handleGoogleCloseModal()
   }
 
@@ -104,9 +100,7 @@ export default function ModelsPage(): React.JSX.Element {
   }): Promise<void> => {
     try {
       await setAzureConfig(config)
-    } catch (error) {
-      console.error('Failed to save Azure config:', error)
-    }
+    } catch (error) {}
     handleAzureCloseModal()
   }
 
@@ -119,9 +113,7 @@ export default function ModelsPage(): React.JSX.Element {
   }): Promise<void> => {
     try {
       await setAnthropicConfig(config)
-    } catch (error) {
-      console.error('Failed to save Anthropic config:', error)
-    }
+    } catch (error) {}
     handleAnthropicCloseModal()
   }
 
@@ -136,9 +128,7 @@ export default function ModelsPage(): React.JSX.Element {
   }): Promise<void> => {
     try {
       await setVertexConfig(config)
-    } catch (error) {
-      console.error('Failed to save Vertex config:', error)
-    }
+    } catch (error) {}
     handleVertexCloseModal()
   }
 
@@ -151,9 +141,7 @@ export default function ModelsPage(): React.JSX.Element {
   }): Promise<void> => {
     try {
       await setOllamaConfig(config)
-    } catch (error) {
-      console.error('Failed to save Ollama config:', error)
-    }
+    } catch (error) {}
     handleOllamaCloseModal()
   }
 
@@ -194,9 +182,7 @@ export default function ModelsPage(): React.JSX.Element {
       if (useLLMStore.getState().activeProvider === null) {
         window.ctg.settings.setActiveLLMProvider(null)
       }
-      console.log(`${providerFriendlyName} configuration cleared.`)
     } else {
-      console.log(`Clearing ${providerFriendlyName} configuration cancelled by user.`)
     }
   }
 

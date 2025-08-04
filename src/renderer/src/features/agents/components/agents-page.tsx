@@ -8,7 +8,13 @@ import AgentCreationModal from './agent-creation-modal'
 import AgentEditorModal from './agent-editor-modal'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 
 const AgentsPage: React.FC = () => {
   // State for search and filters
@@ -19,14 +25,7 @@ const AgentsPage: React.FC = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
 
   // Get agents and actions from store
-  const { 
-    agents, 
-    isLoading, 
-    error, 
-    loadAgents, 
-    deleteAgent, 
-    resetError
-  } = useAgentStore()
+  const { agents, isLoading, error, loadAgents, deleteAgent, resetError } = useAgentStore()
 
   // Load agents on component mount
   useEffect(() => {
@@ -38,19 +37,20 @@ const AgentsPage: React.FC = () => {
     if (error) {
       toast.error('Error loading agents', {
         description: error,
-        duration: 5000,
+        duration: 5000
       })
       resetError()
     }
   }, [error, resetError])
 
   // Filter agents based on search query and type filter
-  const filteredAgents = agents.filter(agent => {
-    const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         agent.description.toLowerCase().includes(searchQuery.toLowerCase())
-    
+  const filteredAgents = agents.filter((agent) => {
+    const matchesSearch =
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.description.toLowerCase().includes(searchQuery.toLowerCase())
+
     const matchesType = typeFilter === 'all' || agent.type === typeFilter
-    
+
     return matchesSearch && matchesType
   })
 
@@ -90,13 +90,11 @@ const AgentsPage: React.FC = () => {
             <div>
               <h1 className="text-3xl font-semibold mb-2">AI Agents</h1>
               <p className="text-muted-foreground max-w-2xl">
-                Manage your AI agents and their capabilities. Create specialized agents for different tasks.
+                Manage your AI agents and their capabilities. Create specialized agents for
+                different tasks.
               </p>
             </div>
-            <Button 
-              className="md:self-start flex items-center gap-2"
-              onClick={handleCreateAgent}
-            >
+            <Button className="md:self-start flex items-center gap-2" onClick={handleCreateAgent}>
               <PlusCircle className="h-4 w-4" />
               New Agent
             </Button>
@@ -115,10 +113,7 @@ const AgentsPage: React.FC = () => {
                 />
               </div>
             </div>
-            <Select
-              value={typeFilter}
-              onValueChange={setTypeFilter}
-            >
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
@@ -152,8 +147,8 @@ const AgentsPage: React.FC = () => {
             <div className="w-full text-center py-12 border border-dashed rounded-lg">
               <p className="text-muted-foreground mb-2">No agents found</p>
               <p className="text-sm text-muted-foreground">
-                {searchQuery || typeFilter !== 'all' 
-                  ? 'Try adjusting your search or filters' 
+                {searchQuery || typeFilter !== 'all'
+                  ? 'Try adjusting your search or filters'
                   : 'Create your first agent to get started'}
               </p>
             </div>
@@ -161,17 +156,14 @@ const AgentsPage: React.FC = () => {
         </div>
       </div>
       {/* Modals */}
-      <AgentCreationModal 
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)} 
-      />
-      <AgentEditorModal 
+      <AgentCreationModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />
+      <AgentEditorModal
         agentId={selectedAgentId}
         isOpen={isEditorModalOpen}
         onClose={() => {
           setIsEditorModalOpen(false)
           loadAgents() // Refresh the agent list after editing
-        }} 
+        }}
       />
     </ScrollArea>
   )

@@ -1,6 +1,6 @@
 /**
  * Layer Stats Component
- * 
+ *
  * Displays summary statistics and information about layers,
  * including counts, types, and performance metrics.
  */
@@ -46,13 +46,13 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
     for (const layer of layers) {
       // Count visible layers
       if (layer.visibility) summary.visible++
-      
+
       // Count by type
       summary.byType[layer.type] = (summary.byType[layer.type] || 0) + 1
-      
+
       // Count by origin
       summary.byOrigin[layer.createdBy] = (summary.byOrigin[layer.createdBy] || 0) + 1
-      
+
       // Count by group
       const groupKey = layer.groupId || 'ungrouped'
       summary.byGroup[groupKey] = (summary.byGroup[groupKey] || 0) + 1
@@ -61,16 +61,14 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
     return summary
   }, [layers])
 
-  const selectedLayer = selectedLayerId ? layers.find(l => l.id === selectedLayerId) : null
+  const selectedLayer = selectedLayerId ? layers.find((l) => l.id === selectedLayerId) : null
 
   if (layers.length === 0) {
     return (
       <div className={cn('p-3 text-center text-muted-foreground', className)}>
         <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
         <div className="text-sm">No layers loaded</div>
-        <div className="text-xs mt-1">
-          Import data or use tools to create layers
-        </div>
+        <div className="text-xs mt-1">Import data or use tools to create layers</div>
       </div>
     )
   }
@@ -109,19 +107,19 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
       {Object.keys(summary.byType).length > 0 && (
         <>
           <div className="border-t pt-3">
-            <div className="text-xs font-medium text-muted-foreground mb-2">
-              By Type
-            </div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">By Type</div>
             <div className="space-y-1">
               {Object.entries(summary.byType).map(([type, count]) => (
                 <div key={type} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className={cn(
                         'text-xs px-1.5 py-0',
-                        type === 'raster' && 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-                        type === 'vector' && 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                        type === 'raster' &&
+                          'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+                        type === 'vector' &&
+                          'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                       )}
                     >
                       {type}
@@ -139,9 +137,7 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
       {Object.keys(summary.byOrigin).length > 0 && (
         <>
           <div className="border-t pt-3">
-            <div className="text-xs font-medium text-muted-foreground mb-2">
-              By Origin
-            </div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">By Origin</div>
             <div className="space-y-1">
               {Object.entries(summary.byOrigin).map(([origin, count]) => (
                 <div key={origin} className="flex items-center justify-between text-sm">
@@ -176,20 +172,18 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
       {selectedLayer && (
         <>
           <div className="border-t pt-3">
-            <div className="text-xs font-medium text-muted-foreground mb-2">
-              Selected Layer
-            </div>
+            <div className="text-xs font-medium text-muted-foreground mb-2">Selected Layer</div>
             <div className="space-y-1">
-              <div className="text-sm font-medium truncate">
-                {selectedLayer.name}
-              </div>
+              <div className="text-sm font-medium truncate">{selectedLayer.name}</div>
               <div className="flex items-center gap-2">
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className={cn(
                     'text-xs px-1.5 py-0',
-                    selectedLayer.type === 'raster' && 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-                    selectedLayer.type === 'vector' && 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                    selectedLayer.type === 'raster' &&
+                      'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+                    selectedLayer.type === 'vector' &&
+                      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
                   )}
                 >
                   {selectedLayer.type}
@@ -200,7 +194,7 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
                   </Badge>
                 )}
               </div>
-              
+
               {/* Layer Properties */}
               <div className="space-y-0.5 text-xs text-muted-foreground">
                 <div className="flex justify-between">
@@ -229,7 +223,7 @@ export const LayerStats: React.FC<LayerStatsProps> = ({
               {/* Layer Tags */}
               {selectedLayer.metadata.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {selectedLayer.metadata.tags.slice(0, 3).map(tag => (
+                  {selectedLayer.metadata.tags.slice(0, 3).map((tag) => (
                     <Badge key={tag} variant="outline" className="text-xs px-1.5 py-0">
                       {tag}
                     </Badge>
@@ -261,6 +255,6 @@ function formatRelativeTime(date: Date): string {
   if (diffMinutes < 60) return `${diffMinutes}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
-  
+
   return date.toLocaleDateString()
 }

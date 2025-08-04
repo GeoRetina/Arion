@@ -1,8 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { 
-  AgentExecutionContext,
-  Subtask
-} from '../types/orchestration-types'
+import type { AgentExecutionContext, Subtask } from '../types/orchestration-types'
 import { IExecutionContextManager } from './types/orchestration-interfaces'
 
 export class ExecutionContextManager implements IExecutionContextManager {
@@ -29,7 +26,6 @@ export class ExecutionContextManager implements IExecutionContextManager {
     }
 
     this.executionContexts.set(sessionId, context)
-    console.log(`[ExecutionContextManager] Created execution context ${sessionId} for chat ${chatId}`)
     return sessionId
   }
 
@@ -37,25 +33,24 @@ export class ExecutionContextManager implements IExecutionContextManager {
     return this.executionContexts.get(sessionId)
   }
 
-  public updateExecutionContext(sessionId: string, updates: Partial<AgentExecutionContext>): boolean {
+  public updateExecutionContext(
+    sessionId: string,
+    updates: Partial<AgentExecutionContext>
+  ): boolean {
     const context = this.executionContexts.get(sessionId)
     if (!context) {
-      console.error(`[ExecutionContextManager] Context ${sessionId} not found for update`)
       return false
     }
 
     // Apply updates
     Object.assign(context, updates)
-    console.log(`[ExecutionContextManager] Updated execution context ${sessionId}`)
     return true
   }
 
   public deleteExecutionContext(sessionId: string): boolean {
     const deleted = this.executionContexts.delete(sessionId)
     if (deleted) {
-      console.log(`[ExecutionContextManager] Deleted execution context ${sessionId}`)
     } else {
-      console.warn(`[ExecutionContextManager] Context ${sessionId} not found for deletion`)
     }
     return deleted
   }
@@ -100,7 +95,6 @@ export class ExecutionContextManager implements IExecutionContextManager {
         }
       }
     } catch (error) {
-      console.error('[ExecutionContextManager] Error getting orchestration status:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error getting status'
@@ -113,11 +107,12 @@ export class ExecutionContextManager implements IExecutionContextManager {
   }
 
   public clearAllContexts(): void {
-    console.log(`[ExecutionContextManager] Clearing ${this.executionContexts.size} execution contexts`)
     this.executionContexts.clear()
   }
 
   public getContextsByStatus(status: AgentExecutionContext['status']): AgentExecutionContext[] {
-    return Array.from(this.executionContexts.values()).filter(context => context.status === status)
+    return Array.from(this.executionContexts.values()).filter(
+      (context) => context.status === status
+    )
   }
 }

@@ -22,18 +22,22 @@ export interface LayerApi {
   // Layer CRUD operations
   getAll: () => Promise<LayerDefinition[]>
   getById: (id: string) => Promise<LayerDefinition | null>
-  create: (layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>) => Promise<LayerDefinition>
+  create: (
+    layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
+  ) => Promise<LayerDefinition>
   update: (id: string, updates: Partial<LayerDefinition>) => Promise<LayerDefinition>
   delete: (id: string) => Promise<boolean>
-  
+
   // Group operations
   groups: {
     getAll: () => Promise<LayerGroup[]>
-    create: (group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>) => Promise<LayerGroup>
+    create: (
+      group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>
+    ) => Promise<LayerGroup>
     update: (id: string, updates: Partial<LayerGroup>) => Promise<LayerGroup>
     delete: (id: string, moveLayersTo?: string) => Promise<boolean>
   }
-  
+
   // Search and operations
   search: (criteria: LayerSearchCriteria) => Promise<LayerSearchResult>
   logOperation: (operation: LayerOperation) => Promise<void>
@@ -41,19 +45,19 @@ export interface LayerApi {
   logError: (error: LayerError) => Promise<void>
   getErrors: (layerId?: string) => Promise<LayerError[]>
   clearErrors: (layerId?: string) => Promise<void>
-  
+
   // Style presets
   presets: {
     getAll: () => Promise<StylePreset[]>
     create: (preset: Omit<StylePreset, 'id' | 'createdAt'>) => Promise<StylePreset>
   }
-  
+
   // Performance and bulk operations
   recordMetrics: (metrics: LayerPerformanceMetrics) => Promise<void>
   bulkUpdate: (updates: Array<{ id: string; changes: Partial<LayerDefinition> }>) => Promise<void>
   export: (layerIds: string[]) => Promise<string>
   import: (data: string, targetGroupId?: string) => Promise<string[]>
-  
+
   // Generic invoke method for additional operations
   invoke: (channel: string, ...args: any[]) => Promise<any>
 }

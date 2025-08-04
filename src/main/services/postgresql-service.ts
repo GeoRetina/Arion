@@ -1,6 +1,10 @@
 import { Pool, PoolClient, QueryResult } from 'pg'
 import * as keytar from 'keytar'
-import { PostgreSQLConfig, PostgreSQLConnectionResult, PostgreSQLQueryResult } from '../../shared/ipc-types'
+import {
+  PostgreSQLConfig,
+  PostgreSQLConnectionResult,
+  PostgreSQLQueryResult
+} from '../../shared/ipc-types'
 
 const SERVICE_NAME = 'ArionPostgreSQLCredentials'
 
@@ -10,15 +14,11 @@ export class PostgreSQLService {
   private readonly connectionTimeout = 30000
   private readonly idleTimeout = 30000
 
-  constructor() {
-    console.log('[PostgreSQLService] Initialized')
-  }
+  constructor() {}
 
   async testConnection(config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> {
-    console.log(`[PostgreSQLService] Testing connection to ${config.host}:${config.port}/${config.database}`)
-    
     let client: PoolClient | null = null
-    
+
     try {
       // Create a temporary pool for testing
       const tempPool = new Pool({
@@ -34,19 +34,17 @@ export class PostgreSQLService {
       })
 
       client = await tempPool.connect()
-      
+
       // Test basic connection
       const result = await client.query('SELECT version()')
       const version = result.rows[0]?.version || 'Unknown'
-      
+
       // Test PostGIS availability
       let postgisVersion: string | null = null
       try {
         const postgisResult = await client.query('SELECT PostGIS_Version()')
         postgisVersion = postgisResult.rows[0]?.postgis_version || null
-      } catch (error) {
-        console.log('[PostgreSQLService] PostGIS not available:', error)
-      }
+      } catch (error) {}
 
       await tempPool.end()
 
@@ -57,7 +55,6 @@ export class PostgreSQLService {
         message: 'Connection successful'
       }
     } catch (error) {
-      console.error('[PostgreSQLService] Connection test failed:', error)
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown connection error'
@@ -69,9 +66,10 @@ export class PostgreSQLService {
     }
   }
 
-  async createConnection(id: string, config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> {
-    console.log(`[PostgreSQLService] Creating connection pool for ${id}`)
-    
+  async createConnection(
+    id: string,
+    config: PostgreSQLConfig
+  ): Promise<PostgreSQLConnectionResult> {
     try {
       // Close existing connection if it exists
       await this.closeConnection(id)
@@ -100,7 +98,7 @@ export class PostgreSQLService {
       }
 
       this.pools.set(id, pool)
-      
+
       return {
         success: true,
         version: testResult.version,
@@ -108,7 +106,6 @@ export class PostgreSQLService {
         message: 'Connection pool created successfully'
       }
     } catch (error) {
-      console.error(`[PostgreSQLService] Failed to create connection pool for ${id}:`, error)
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error creating connection'
@@ -117,21 +114,17 @@ export class PostgreSQLService {
   }
 
   async closeConnection(id: string): Promise<void> {
-    console.log(`[PostgreSQLService] Closing connection pool for ${id}`)
-    
     const pool = this.pools.get(id)
     if (pool) {
       await pool.end()
       this.pools.delete(id)
     }
-    
+
     // Remove stored credentials
     await this.removeCredentials(id)
   }
 
   async executeQuery(id: string, query: string, params?: any[]): Promise<PostgreSQLQueryResult> {
-    console.log(`[PostgreSQLService] Executing query on connection ${id}`)
-    
     const pool = this.pools.get(id)
     if (!pool) {
       return {
@@ -141,30 +134,30 @@ export class PostgreSQLService {
     }
 
     let client: PoolClient | null = null
-    
+
     try {
       client = await pool.connect()
-      
+
       const startTime = Date.now()
       const result: QueryResult = await client.query(query, params)
       const executionTime = Date.now() - startTime
-      
+
       return {
         success: true,
         rows: result.rows,
         rowCount: result.rowCount || 0,
-        fields: result.fields?.map(field => ({
-          name: field.name,
-          dataTypeID: field.dataTypeID,
-          dataTypeSize: field.dataTypeSize,
-          dataTypeModifier: field.dataTypeModifier,
-          format: field.format
-        })) || [],
+        fields:
+          result.fields?.map((field) => ({
+            name: field.name,
+            dataTypeID: field.dataTypeID,
+            dataTypeSize: field.dataTypeSize,
+            dataTypeModifier: field.dataTypeModifier,
+            format: field.format
+          })) || [],
         executionTime,
         message: `Query executed successfully in ${executionTime}ms`
       }
     } catch (error) {
-      console.error(`[PostgreSQLService] Query execution failed for ${id}:`, error)
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown query execution error'
@@ -177,8 +170,6 @@ export class PostgreSQLService {
   }
 
   async executeTransaction(id: string, queries: string[]): Promise<PostgreSQLQueryResult> {
-    console.log(`[PostgreSQLService] Executing transaction on connection ${id}`)
-    
     const pool = this.pools.get(id)
     if (!pool) {
       return {
@@ -188,22 +179,22 @@ export class PostgreSQLService {
     }
 
     let client: PoolClient | null = null
-    
+
     try {
       client = await pool.connect()
-      
+
       const startTime = Date.now()
       await client.query('BEGIN')
-      
+
       const results: any[] = []
       for (const query of queries) {
         const result = await client.query(query)
         results.push(result.rows)
       }
-      
+
       await client.query('COMMIT')
       const executionTime = Date.now() - startTime
-      
+
       return {
         success: true,
         rows: results,
@@ -216,12 +207,9 @@ export class PostgreSQLService {
       if (client) {
         try {
           await client.query('ROLLBACK')
-        } catch (rollbackError) {
-          console.error(`[PostgreSQLService] Rollback failed for ${id}:`, rollbackError)
-        }
+        } catch (rollbackError) {}
       }
-      
-      console.error(`[PostgreSQLService] Transaction failed for ${id}:`, error)
+
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown transaction error'
@@ -250,7 +238,6 @@ export class PostgreSQLService {
         config: config || undefined
       }
     } catch (error) {
-      console.error(`[PostgreSQLService] Failed to get connection info for ${id}:`, error)
       return { connected: false }
     }
   }
@@ -266,10 +253,9 @@ export class PostgreSQLService {
         password: config.password,
         ssl: config.ssl
       })
-      
+
       await keytar.setPassword(SERVICE_NAME, credentialsKey, credentials)
     } catch (error) {
-      console.error(`[PostgreSQLService] Failed to store credentials for ${id}:`, error)
       throw error
     }
   }
@@ -278,14 +264,13 @@ export class PostgreSQLService {
     try {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       const credentials = await keytar.getPassword(SERVICE_NAME, credentialsKey)
-      
+
       if (!credentials) {
         return null
       }
-      
+
       return JSON.parse(credentials) as PostgreSQLConfig
     } catch (error) {
-      console.error(`[PostgreSQLService] Failed to retrieve credentials for ${id}:`, error)
       return null
     }
   }
@@ -294,23 +279,16 @@ export class PostgreSQLService {
     try {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       await keytar.deletePassword(SERVICE_NAME, credentialsKey)
-    } catch (error) {
-      console.error(`[PostgreSQLService] Failed to remove credentials for ${id}:`, error)
-    }
+    } catch (error) {}
   }
 
   async cleanup(): Promise<void> {
-    console.log('[PostgreSQLService] Cleaning up all connections')
-    
     for (const [id, pool] of this.pools) {
       try {
         await pool.end()
-        console.log(`[PostgreSQLService] Closed connection pool for ${id}`)
-      } catch (error) {
-        console.error(`[PostgreSQLService] Error closing connection pool for ${id}:`, error)
-      }
+      } catch (error) {}
     }
-    
+
     this.pools.clear()
   }
 }

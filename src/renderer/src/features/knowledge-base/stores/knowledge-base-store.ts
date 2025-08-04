@@ -122,7 +122,6 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set, get) => ({
       }
     } catch (err) {
       set({ isLoading: false, error: (err as Error).message })
-      console.error('Error fetching documents from KnowledgeBaseService:', err)
     }
   },
 
@@ -141,7 +140,6 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set, get) => ({
       }
     } catch (err) {
       set({ isLoading: false, error: (err as Error).message })
-      console.error(`Error deleting document ${id} via KnowledgeBaseService:`, err)
     }
   },
 

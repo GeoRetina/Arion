@@ -3,7 +3,7 @@ import { create } from 'zustand'
 interface McpPermissionState {
   // Map of chatId -> toolName -> boolean (granted/denied)
   chatPermissions: Record<string, Record<string, boolean>>
-  
+
   // Current pending permission request
   pendingPermission: {
     chatId: string
@@ -19,7 +19,12 @@ interface McpPermissionState {
   clearChatPermissions: (chatId: string) => void
   requestPermission: (chatId: string, toolName: string, serverId: string) => Promise<boolean>
   resolvePendingPermission: (granted: boolean, rememberChoice: boolean) => void
-  setPendingPermission: (request: { chatId: string; toolName: string; serverId: string; requestId: string }) => void
+  setPendingPermission: (request: {
+    chatId: string
+    toolName: string
+    serverId: string
+    requestId: string
+  }) => void
 }
 
 export const useMcpPermissionStore = create<McpPermissionState>((set, get) => ({
@@ -54,7 +59,11 @@ export const useMcpPermissionStore = create<McpPermissionState>((set, get) => ({
     })
   },
 
-  requestPermission: async (chatId: string, toolName: string, serverId: string): Promise<boolean> => {
+  requestPermission: async (
+    chatId: string,
+    toolName: string,
+    serverId: string
+  ): Promise<boolean> => {
     return new Promise((resolve) => {
       set({
         pendingPermission: {
@@ -84,12 +93,17 @@ export const useMcpPermissionStore = create<McpPermissionState>((set, get) => ({
 
     // Resolve the promise
     pending.resolve(granted)
-    
+
     // Clear pending request
     set({ pendingPermission: null })
   },
 
-  setPendingPermission: (request: { chatId: string; toolName: string; serverId: string; requestId: string }) => {
+  setPendingPermission: (request: {
+    chatId: string
+    toolName: string
+    serverId: string
+    requestId: string
+  }) => {
     set({
       pendingPermission: {
         ...request,

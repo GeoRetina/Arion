@@ -58,8 +58,9 @@ export default function ChatInterface(): React.JSX.Element {
   } = useChatSession()
 
   const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
-  
-  const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } = useProviderConfiguration(stableChatIdForUseChat || null)
+
+  const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } =
+    useProviderConfiguration(stableChatIdForUseChat || null)
 
   // Create the streaming fetch function (memoize it)
   const streamingFetch = useMemo(() => createStreamingFetch(), [])
@@ -88,16 +89,15 @@ export default function ChatInterface(): React.JSX.Element {
       // Get orchestration data from the store
       const orchestrationStore = useAgentOrchestrationStore.getState()
       const { activeSessionId, subtasks, agentsInvolved } = orchestrationStore
-      
+
       // Attach orchestration data if available
       if (activeSessionId && (subtasks.length > 0 || agentsInvolved.length > 0)) {
         assistantMessage.orchestration = {
           subtasks: subtasks,
-          agentsInvolved: agentsInvolved.map(agent => agent.id),
+          agentsInvolved: agentsInvolved.map((agent) => agent.id),
           completionTime: Date.now() // Placeholder for completion time
         }
-        console.log('Attached orchestration data to message:', assistantMessage.orchestration)
-        
+
         // Reset orchestration after attaching to message
         orchestrationStore.resetOrchestration()
       }
@@ -115,8 +115,8 @@ export default function ChatInterface(): React.JSX.Element {
             content: assistantMessage.content ?? '',
             // Include orchestration metadata in persisted message
             orchestration: assistantMessage.orchestration
-                ? JSON.stringify(assistantMessage.orchestration)
-                : undefined
+              ? JSON.stringify(assistantMessage.orchestration)
+              : undefined
           })
         }
       }
@@ -165,8 +165,10 @@ export default function ChatInterface(): React.JSX.Element {
   ])
 
   // Use error dialog hook
-  const { isErrorDialogOpen, setIsErrorDialogOpen, errorMessage } = useErrorDialog(sdkError || null, stableChatIdForUseChat || null)
-
+  const { isErrorDialogOpen, setIsErrorDialogOpen, errorMessage } = useErrorDialog(
+    sdkError || null,
+    stableChatIdForUseChat || null
+  )
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -234,7 +236,6 @@ export default function ChatInterface(): React.JSX.Element {
     originalHandleSubmit(e) // Pass the event if it exists
   }
 
-
   return (
     <div className="flex flex-row h-full max-h-full bg-transparent overflow-hidden relative">
       {/* Chat Interface Area - Always full width, with padding when map is visible */}
@@ -262,9 +263,7 @@ export default function ChatInterface(): React.JSX.Element {
 
               {displayIsLoading &&
                 displayMessages.length > 0 &&
-                displayMessages[displayMessages.length - 1].role === 'user' && (
-                  <LoadingIndicator />
-                )}
+                displayMessages[displayMessages.length - 1].role === 'user' && <LoadingIndicator />}
 
               {/* Add a spacer div with screen height to ensure enough scroll space */}
               <div className="h-screen" />
@@ -339,10 +338,7 @@ export default function ChatInterface(): React.JSX.Element {
       )}
 
       {/* Layers Database Modal */}
-      <LayersDatabaseModal
-        isOpen={isDatabaseModalOpen}
-        onOpenChange={setIsDatabaseModalOpen}
-      />
+      <LayersDatabaseModal isOpen={isDatabaseModalOpen} onOpenChange={setIsDatabaseModalOpen} />
     </div>
   )
 }

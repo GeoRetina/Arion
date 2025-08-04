@@ -17,7 +17,7 @@ import type { AgentExecutionResult } from './orchestration/types/execution-types
  */
 export class OrchestrationService {
   private initialized = false
-  
+
   // Component services
   private promptManager: PromptManager
   private taskAnalyzer: TaskAnalyzer
@@ -31,17 +31,25 @@ export class OrchestrationService {
     private chatService: ChatService,
     _llmToolService: LlmToolService // Unused parameter, prefixed with underscore
   ) {
-    console.log('[OrchestrationService] Constructing with component services')
-    
     // Initialize component services
     this.promptManager = new PromptManager()
     this.agentSelector = new AgentSelector(this.agentRegistryService)
     this.contextManager = new ExecutionContextManager()
-    this.executionManager = new ExecutionManager(this.chatService, this.promptManager, this.agentSelector)
-    this.taskAnalyzer = new TaskAnalyzer(this.promptManager, this.agentSelector, this.executionManager)
-    this.resultSynthesizer = new ResultSynthesizer(this.promptManager, this.agentSelector, this.executionManager)
-    
-    console.log('[OrchestrationService] Component services initialized')
+    this.executionManager = new ExecutionManager(
+      this.chatService,
+      this.promptManager,
+      this.agentSelector
+    )
+    this.taskAnalyzer = new TaskAnalyzer(
+      this.promptManager,
+      this.agentSelector,
+      this.executionManager
+    )
+    this.resultSynthesizer = new ResultSynthesizer(
+      this.promptManager,
+      this.agentSelector,
+      this.executionManager
+    )
   }
 
   /**
@@ -52,14 +60,11 @@ export class OrchestrationService {
       return
     }
 
-    console.log('[OrchestrationService] Initializing...')
-
     // Ensure dependent services are initialized
     await this.agentRegistryService.initialize()
     // chatService and llmToolService are expected to be initialized by the main process
 
     this.initialized = true
-    console.log('[OrchestrationService] Initialized successfully')
   }
 
   /**
@@ -71,13 +76,16 @@ export class OrchestrationService {
     orchestratorAgentId: string
   ): Promise<OrchestrationResult> {
     await this.ensureInitialized()
-    console.log(`[OrchestrationService] Orchestrating task with model/agent ${orchestratorAgentId}`)
 
     const startTime = Date.now()
 
     try {
       // 1. Create execution context
-      const sessionId = await this.contextManager.createExecutionContext(chatId, query, orchestratorAgentId)
+      const sessionId = await this.contextManager.createExecutionContext(
+        chatId,
+        query,
+        orchestratorAgentId
+      )
 
       // 2. Analyze and decompose task
       const subtasks = await this.taskAnalyzer.decomposeTask(query, orchestratorAgentId, chatId)
@@ -89,7 +97,10 @@ export class OrchestrationService {
 
       // 4. Select agents for subtasks based on capabilities
       for (const subtask of subtasks) {
-        const selectedAgent = await this.agentSelector.selectAgentForSubtask(subtask, orchestratorAgentId)
+        const selectedAgent = await this.agentSelector.selectAgentForSubtask(
+          subtask,
+          orchestratorAgentId
+        )
         subtask.assignedAgentId = selectedAgent?.agentId
 
         if (subtask.assignedAgentId) {
@@ -98,9 +109,6 @@ export class OrchestrationService {
           // Fallback to orchestrator if no suitable agent found
           subtask.assignedAgentId = orchestratorAgentId
           subtask.status = 'assigned'
-          console.log(
-            `[OrchestrationService] No suitable agent found for subtask, falling back to orchestrator: ${subtask.description}`
-          )
         }
       }
 
@@ -108,7 +116,11 @@ export class OrchestrationService {
       await this.executionManager.executeSubtasks(sessionId, context)
 
       // 6. Synthesize results
-      const finalResult = await this.resultSynthesizer.synthesizeResults(sessionId, context, orchestratorAgentId)
+      const finalResult = await this.resultSynthesizer.synthesizeResults(
+        sessionId,
+        context,
+        orchestratorAgentId
+      )
 
       // 7. Mark context as completed
       context.status = 'completed'
@@ -142,12 +154,8 @@ export class OrchestrationService {
         success: true
       }
 
-      console.log(
-        `[OrchestrationService] Task orchestration completed in ${result.completionTime}ms`
-      )
       return result
     } catch (error) {
-      console.error('[OrchestrationService] Error orchestrating task:', error)
       return {
         sessionId: '', // Empty session ID for error case
         finalResponse:
@@ -173,7 +181,11 @@ export class OrchestrationService {
    * Execute an agent with a specific prompt and return the result
    * Used by tools that need to delegate tasks to agents
    */
-  public async executeAgentWithPrompt(agentId: string, chatId: string, prompt: string): Promise<AgentExecutionResult> {
+  public async executeAgentWithPrompt(
+    agentId: string,
+    chatId: string,
+    prompt: string
+  ): Promise<AgentExecutionResult> {
     await this.ensureInitialized()
     return this.executionManager.executeAgentWithPrompt(agentId, chatId, prompt)
   }

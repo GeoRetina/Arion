@@ -1,7 +1,7 @@
-import type { 
-  TaskAnalysis, 
-  AgentSelection, 
-  Subtask, 
+import type {
+  TaskAnalysis,
+  AgentSelection,
+  Subtask,
   AgentExecutionContext
 } from '../../types/orchestration-types'
 import type { AgentDefinition } from '../../../../shared/types/agent-types'
@@ -18,23 +18,38 @@ export interface ITaskAnalyzer {
 }
 
 export interface IAgentSelector {
-  selectAgentForSubtask(subtask: Subtask, orchestratorAgentId: string): Promise<AgentSelection | null>
+  selectAgentForSubtask(
+    subtask: Subtask,
+    orchestratorAgentId: string
+  ): Promise<AgentSelection | null>
   matchCapabilities(requiredCapabilities: string[], agent: AgentDefinition): string[]
   getAvailableAgentsInfo(): Promise<string>
 }
 
 export interface IExecutionManager {
   executeSubtasks(sessionId: string, context: AgentExecutionContext): Promise<void>
-  executeAgentWithPrompt(agentId: string, chatId: string, prompt: string): Promise<AgentExecutionResult>
+  executeAgentWithPrompt(
+    agentId: string,
+    chatId: string,
+    prompt: string
+  ): Promise<AgentExecutionResult>
   getCurrentExecutingAgent(chatId: string): string | undefined
 }
 
 export interface IResultSynthesizer {
-  synthesizeResults(sessionId: string, context: AgentExecutionContext, orchestratorAgentId: string): Promise<string>
+  synthesizeResults(
+    sessionId: string,
+    context: AgentExecutionContext,
+    orchestratorAgentId: string
+  ): Promise<string>
 }
 
 export interface IExecutionContextManager {
-  createExecutionContext(chatId: string, query: string, orchestratorAgentId: string): Promise<string>
+  createExecutionContext(
+    chatId: string,
+    query: string,
+    orchestratorAgentId: string
+  ): Promise<string>
   getExecutionContext(sessionId: string): AgentExecutionContext | undefined
   updateExecutionContext(sessionId: string, updates: Partial<AgentExecutionContext>): boolean
   deleteExecutionContext(sessionId: string): boolean

@@ -1,6 +1,6 @@
 /**
  * Layer Adaptation Utilities
- * 
+ *
  * Utilities for converting between old map feature formats and new layer management format.
  * This helps maintain compatibility while transitioning to the centralized layer system.
  */
@@ -25,23 +25,21 @@ import * as turf from '@turf/turf'
 export function convertFeatureToLayer(payload: AddMapFeaturePayload): LayerDefinition {
   const { feature, sourceId } = payload
   const now = new Date()
-  
+
   // Generate unique IDs
   const layerId = uuidv4()
   const actualSourceId = sourceId || `feature-source-${layerId}`
-  
+
   // Determine geometry type for metadata
   const geometryType = feature.geometry.type as LayerMetadata['geometryType']
-  
+
   // Calculate bounds for metadata
   let bounds: [number, number, number, number] | undefined
   try {
     const bbox = turf.bbox(feature)
     bounds = [bbox[0], bbox[1], bbox[2], bbox[3]]
-  } catch (error) {
-    console.warn('[LayerAdapter] Failed to calculate bounds for feature:', error)
-  }
-  
+  } catch (error) {}
+
   // Create source configuration
   const sourceConfig: LayerSourceConfig = {
     type: 'geojson',
@@ -51,10 +49,10 @@ export function convertFeatureToLayer(payload: AddMapFeaturePayload): LayerDefin
       tolerance: 0.375
     }
   }
-  
+
   // Create style based on feature properties and geometry type
   const style: LayerStyle = createStyleFromFeature(feature)
-  
+
   // Create metadata
   const metadata: LayerMetadata = {
     description: `Feature layer created from ${geometryType}`,
@@ -64,7 +62,7 @@ export function convertFeatureToLayer(payload: AddMapFeaturePayload): LayerDefin
     bounds,
     attributes: feature.properties ? extractAttributeInfo(feature.properties) : {}
   }
-  
+
   return {
     id: layerId,
     name: feature.properties?.name || `${geometryType} Feature`,
@@ -89,19 +87,19 @@ export function convertFeatureToLayer(payload: AddMapFeaturePayload): LayerDefin
 export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload): LayerDefinition {
   const { imageUrl, coordinates, sourceId, layerId, opacity } = payload
   const now = new Date()
-  
+
   // Generate unique IDs
   const actualLayerId = layerId || uuidv4()
   const actualSourceId = sourceId || `image-source-${actualLayerId}`
-  
+
   // Calculate bounds from coordinates
-  const polygonForBounds = turf.polygon([[
-    coordinates[0], coordinates[1], coordinates[2], coordinates[3], coordinates[0]
-  ]])
+  const polygonForBounds = turf.polygon([
+    [coordinates[0], coordinates[1], coordinates[2], coordinates[3], coordinates[0]]
+  ])
   const bbox = turf.bbox(polygonForBounds)
-  const bounds: [number, number, number, number] = bbox.length === 4 ? 
-    [bbox[0], bbox[1], bbox[2], bbox[3]] : [0, 0, 0, 0]
-  
+  const bounds: [number, number, number, number] =
+    bbox.length === 4 ? [bbox[0], bbox[1], bbox[2], bbox[3]] : [0, 0, 0, 0]
+
   // Create source configuration
   const sourceConfig: LayerSourceConfig = {
     type: 'image',
@@ -110,7 +108,7 @@ export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload):
       bounds: coordinates
     }
   }
-  
+
   // Create raster style
   const style: LayerStyle = {
     rasterOpacity: opacity || 1,
@@ -120,7 +118,7 @@ export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload):
     rasterContrast: 0,
     rasterFadeDuration: 300
   }
-  
+
   // Create metadata
   const metadata: LayerMetadata = {
     description: `Georeferenced image layer`,
@@ -128,7 +126,7 @@ export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload):
     source: imageUrl,
     bounds
   }
-  
+
   return {
     id: actualLayerId,
     name: `Georeferenced Image`,
@@ -153,7 +151,7 @@ export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload):
 function createStyleFromFeature(feature: Feature): LayerStyle {
   const { geometry, properties } = feature
   const style: LayerStyle = {}
-  
+
   switch (geometry.type) {
     case 'Point':
     case 'MultiPoint':
@@ -164,7 +162,7 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
       style.pointStrokeWidth = properties?.strokeWidth || 1.5
       style.pointStrokeOpacity = 1
       break
-      
+
     case 'LineString':
     case 'MultiLineString':
       style.lineColor = properties?.color || '#1E90FF'
@@ -173,7 +171,7 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
       style.lineCap = 'round'
       style.lineJoin = 'round'
       break
-      
+
     case 'Polygon':
     case 'MultiPolygon':
       style.fillColor = properties?.fillColor || '#32CD32'
@@ -181,7 +179,7 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
       style.fillOutlineColor = properties?.outlineColor || '#000000'
       break
   }
-  
+
   return style
 }
 
@@ -190,13 +188,25 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
  */
 function extractAttributeInfo(properties: Record<string, any>): Record<string, any> {
   const attributes: Record<string, any> = {}
-  
+
   for (const [key, value] of Object.entries(properties)) {
     // Skip style-related properties
-    if (['color', 'opacity', 'strokeColor', 'strokeWidth', 'fillColor', 'fillOpacity', 'outlineColor', 'radius', 'width'].includes(key)) {
+    if (
+      [
+        'color',
+        'opacity',
+        'strokeColor',
+        'strokeWidth',
+        'fillColor',
+        'fillOpacity',
+        'outlineColor',
+        'radius',
+        'width'
+      ].includes(key)
+    ) {
       continue
     }
-    
+
     let type: string
     if (typeof value === 'string') {
       type = 'string'
@@ -209,14 +219,14 @@ function extractAttributeInfo(properties: Record<string, any>): Record<string, a
     } else {
       type = 'string' // Default fallback
     }
-    
+
     attributes[key] = {
       type,
       nullable: value === null || value === undefined,
       description: `Property: ${key}`
     }
   }
-  
+
   return attributes
 }
 
@@ -225,7 +235,7 @@ function extractAttributeInfo(properties: Record<string, any>): Record<string, a
  */
 export function isLegacyFeatureLayer(layer: LayerDefinition): boolean {
   return (
-    layer.createdBy === 'tool' && 
+    layer.createdBy === 'tool' &&
     layer.sourceConfig.type === 'geojson' &&
     layer.metadata.tags.includes('feature')
   )
@@ -236,7 +246,7 @@ export function isLegacyFeatureLayer(layer: LayerDefinition): boolean {
  */
 export function isLegacyImageLayer(layer: LayerDefinition): boolean {
   return (
-    layer.createdBy === 'tool' && 
+    layer.createdBy === 'tool' &&
     layer.sourceConfig.type === 'image' &&
     layer.metadata.tags.includes('georeferenced')
   )

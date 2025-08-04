@@ -16,6 +16,7 @@ Thank you for your interest in contributing to Arion! We welcome contributions f
 ## 📋 Ways to Contribute
 
 ### 🐛 Bug Reports
+
 - Use the [GitHub Issues](https://github.com/georetina/arion/issues) page
 - Search existing issues first to avoid duplicates
 - Provide detailed reproduction steps
@@ -23,12 +24,14 @@ Thank you for your interest in contributing to Arion! We welcome contributions f
 - Attach screenshots or error logs when relevant
 
 ### 💡 Feature Requests
+
 - Open an issue with the "enhancement" label
 - Clearly describe the problem you're trying to solve
 - Explain how this feature would benefit other users
 - Consider proposing an implementation approach
 
 ### 🔧 Code Contributions
+
 - **Bug fixes** are always welcome
 - **New features** should be discussed in an issue first
 - **Documentation improvements** help everyone
@@ -37,11 +40,13 @@ Thank you for your interest in contributing to Arion! We welcome contributions f
 ## 🛠️ Development Guidelines
 
 ### Prerequisites
+
 - **Node.js** 18 or higher
 - **npm** 8 or higher
 - **Git** for version control
 
 ### Code Style
+
 - Follow the existing **TypeScript** and **ESLint** configurations
 - Use **Prettier** for code formatting (run `npm run format`)
 - Write **meaningful commit messages** following [Conventional Commits](https://www.conventionalcommits.org/)
@@ -49,6 +54,7 @@ Thank you for your interest in contributing to Arion! We welcome contributions f
 - Include **unit tests** for new functionality
 
 ### Project Structure
+
 ```
 src/
 ├── main/          # Electron main process (Node.js)
@@ -58,12 +64,14 @@ src/
 ```
 
 ### Testing
+
 - Run tests with: `npm test`
 - Ensure all tests pass before submitting PR
 - Add tests for new features and bug fixes
 - Aim for meaningful test coverage, not just high percentages
 
 ### Pull Request Process
+
 1. **Update** documentation if you change APIs
 2. **Run** `npm run lint` and fix any issues
 3. **Test** your changes thoroughly
@@ -87,18 +95,21 @@ If you're contributing on behalf of your employer, ensure you have permission to
 We're particularly interested in contributions in these areas:
 
 ### Core Features
+
 - **LLM integrations** and tool improvements
 - **Geospatial analysis** capabilities
 - **Map visualization** enhancements
 - **Knowledge base** functionality
 
 ### Developer Experience
+
 - **Documentation** improvements
 - **Testing** infrastructure
 - **Build and deployment** optimizations
 - **Plugin system** development
 
 ### Integrations
+
 - **MCP server** implementations
 - **Data connectors** for geospatial sources
 - **Export/import** functionality
@@ -132,23 +143,27 @@ We're particularly interested in contributions in these areas:
 ## 🤝 Code of Conduct
 
 ### Our Standards
+
 - **Be respectful** and inclusive
 - **Be collaborative** and constructive
 - **Be patient** with newcomers
 - **Be professional** in all interactions
 
 ### Unacceptable Behavior
+
 - Harassment, discrimination, or offensive language
 - Personal attacks or trolling
 - Spam or off-topic discussions
 - Sharing private information without consent
 
 ### Enforcement
+
 Community leaders will remove, edit, or reject contributions that don't align with this Code of Conduct. Serious violations may result in temporary or permanent bans.
 
 ## 📞 Contact
 
 For questions about contributing:
+
 - **Email**: `support@georetina.com`
 - **GitHub Issues**: [Create an issue](https://github.com/georetina/arion/issues)
 
@@ -156,4 +171,4 @@ For questions about contributing:
 
 **Thank you for contributing to Arion!** 🎉
 
-Your contributions help make geospatial AI more accessible to researchers, developers, and organizations worldwide. 
+Your contributions help make geospatial AI more accessible to researchers, developers, and organizations worldwide.

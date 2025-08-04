@@ -30,40 +30,23 @@ export function useChatSession(): UseChatSessionReturn {
 
   // Effect to synchronize URL chatId with chat history store
   useEffect(() => {
-    console.log(
-      '[useChatSession] URL Sync Effect. URL:',
-      chatIdFromUrl,
-      'StoreChatID:',
-      currentChatIdFromStore,
-      'ProcessingNewRef:',
-      processingNewChatUrlRef.current
-    )
-
     if (chatIdFromUrl === 'new') {
       if (!processingNewChatUrlRef.current) {
         processingNewChatUrlRef.current = true
 
         if (currentChatIdFromStore !== null) {
-          console.log('[useChatSession] Navigated to /new, clearing current chat and resetting stores.')
           resetChatStores() // Use centralized reset for all chat-related stores
         }
         const newSessionId = uuidv4()
-        console.log(
-          `[useChatSession] Detected 'new' chat URL, navigating to /chat/${newSessionId}. Chat record will be created on first message.`
-        )
         navigate(`/chat/${newSessionId}`, { replace: true })
         // processingNewChatUrlRef.current will be reset when chatIdFromUrl is no longer 'new'
       }
     } else if (chatIdFromUrl && chatIdFromUrl !== 'new') {
       if (processingNewChatUrlRef.current) {
-        console.log("[useChatSession] URL is no longer 'new'. Resetting processingNewChatUrlRef.")
         processingNewChatUrlRef.current = false
       }
 
       if (chatIdFromUrl !== currentChatIdFromStore) {
-        console.log(
-          `[useChatSession] URL chatId ${chatIdFromUrl} differs from store ${currentChatIdFromStore}. Preparing chat switch and loading chat.`
-        )
         // Use centralized chat switch preparation
         prepareChatSwitch(currentChatIdFromStore || undefined, chatIdFromUrl)
         // loadChat should set currentChatId and messages in the store if found
@@ -72,9 +55,6 @@ export function useChatSession(): UseChatSessionReturn {
     } else if (!chatIdFromUrl && currentChatIdFromStore) {
       // If there's no chat ID in the URL, but there is one in the store (e.g., after a hot reload or returning to the app)
       // navigate to the stored chat ID.
-      console.log(
-        `[useChatSession] No URL chatId, but store has ${currentChatIdFromStore}. Navigating.`
-      )
       navigate(`/chat/${currentChatIdFromStore}`, { replace: true })
     }
     // If !chatIdFromUrl && !currentChatIdFromStore, we do nothing, user might be on a different page or app just loaded.

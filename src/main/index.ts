@@ -42,14 +42,10 @@ let modularPromptManagerInstance: ModularPromptManager
 let agentRoutingServiceInstance: AgentRoutingService
 
 function createWindow(): void {
-  console.log('[Main Process] __dirname:', __dirname)
   const preloadPath = join(__dirname, '../preload/index.js')
-  console.log('[Main Process] Calculated preload path:', preloadPath)
 
   if (fs.existsSync(preloadPath)) {
-    console.log('[Main Process] Preload script FOUND at path:', preloadPath)
   } else {
-    console.error('[Main Process] Preload script NOT FOUND at path:', preloadPath)
   }
 
   const mainWindow = new BrowserWindow({
@@ -78,7 +74,6 @@ function createWindow(): void {
   if (llmToolServiceInstance) {
     llmToolServiceInstance.setMainWindow(mainWindow)
   } else {
-    console.warn('[Main Process] LlmToolService instance not available when setting main window.')
   }
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -125,52 +120,40 @@ app.whenReady().then(async () => {
   knowledgeBaseServiceInstance = new KnowledgeBaseService(settingsServiceInstance)
   mcpPermissionServiceInstance = new McpPermissionService()
   postgresqlServiceInstance = new PostgreSQLService()
-  
+
   // Instantiate agent system services
   promptModuleServiceInstance = new PromptModuleService()
   agentRegistryServiceInstance = new AgentRegistryService(promptModuleServiceInstance)
-  
+
   // Create llmToolService initially without agent services
   llmToolServiceInstance = new LlmToolService(
     knowledgeBaseServiceInstance,
     mcpClientServiceInstance,
     mcpPermissionServiceInstance
   )
-  
-  agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
-  modularPromptManagerInstance = new ModularPromptManager(promptModuleServiceInstance, agentRegistryServiceInstance)
-  
-  // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
 
-  console.log('[Main Process] Core services instantiated.')
+  agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
+  modularPromptManagerInstance = new ModularPromptManager(
+    promptModuleServiceInstance,
+    agentRegistryServiceInstance
+  )
+
+  // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
 
   // Initialize services that require async setup
   try {
-    console.log('[Main Process] Initializing MCPClientService...')
     await mcpClientServiceInstance.ensureInitialized()
-    console.log('[Main Process] MCPClientService initialized successfully.')
 
-    console.log('[Main Process] Initializing KnowledgeBaseService...')
     await knowledgeBaseServiceInstance.initialize()
-    console.log('[Main Process] KnowledgeBaseService initialized successfully.')
 
-    console.log('[Main Process] Initializing LlmToolService...')
     await llmToolServiceInstance.initialize() // This will now wait for MCPClientService
-    console.log('[Main Process] LlmToolService initialized successfully.')
-    
-    console.log('[Main Process] Initializing PromptModuleService...')
+
     await promptModuleServiceInstance.initialize()
-    console.log('[Main Process] PromptModuleService initialized successfully.')
-    
-    console.log('[Main Process] Initializing AgentRegistryService...')
+
     await agentRegistryServiceInstance.initialize()
-    console.log('[Main Process] AgentRegistryService initialized successfully.')
-    
-    console.log('[Main Process] Initializing ModularPromptManager...')
+
     await modularPromptManagerInstance.initialize()
-    console.log('[Main Process] ModularPromptManager initialized successfully.')
   } catch (error) {
-    console.error('[Main Process] Critical error during service initialization:', error)
     // Consider quitting the app or showing an error dialog if critical services fail
     app.quit()
     return // Exit if services fail to initialize
@@ -178,27 +161,26 @@ app.whenReady().then(async () => {
 
   // Now that all services are initialized, instantiate ChatService
   chatServiceInstance = new ChatService(
-    settingsServiceInstance, 
+    settingsServiceInstance,
     llmToolServiceInstance,
     modularPromptManagerInstance,
-    agentRegistryServiceInstance  // Pass the agent registry to ChatService
+    agentRegistryServiceInstance // Pass the agent registry to ChatService
   )
-  console.log('[Main Process] ChatService instantiated after all service initialization with AgentRegistryService')
-  
+
   // Instantiate AgentRoutingService after ChatService and other required services
   agentRoutingServiceInstance = new AgentRoutingService(
     agentRegistryServiceInstance,
     chatServiceInstance,
     llmToolServiceInstance
   )
-  
-  console.log('[Main Process] Initializing AgentRoutingService...')
+
   await agentRoutingServiceInstance.initialize()
-  console.log('[Main Process] AgentRoutingService initialized successfully.')
-  
+
   // Now that all agent services are initialized, update the LlmToolService with them
-  llmToolServiceInstance.setAgentServices(agentRegistryServiceInstance, agentRoutingServiceInstance.getOrchestrationService())
-  console.log('[Main Process] Updated LlmToolService with agent services')
+  llmToolServiceInstance.setAgentServices(
+    agentRegistryServiceInstance,
+    agentRoutingServiceInstance.getOrchestrationService()
+  )
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -229,44 +211,33 @@ app.whenReady().then(async () => {
   })
 
   app.on('will-quit', async () => {
-    console.log('[Main Process] App is quitting...')
     if (mcpClientServiceInstance) {
-      console.log('[Main Process] Shutting down MCPClientService...')
       await mcpClientServiceInstance.shutdown()
     }
     if (agentRunnerServiceInstance) {
-      console.log('[Main Process] Shutting down AgentRunnerService...')
       agentRunnerServiceInstance.terminateAllAgents()
     }
     if (knowledgeBaseServiceInstance) {
-      console.log('[Main Process] Closing KnowledgeBaseService...')
       await knowledgeBaseServiceInstance.close()
     }
     if (mcpPermissionServiceInstance) {
-      console.log('[Main Process] Cleaning up McpPermissionService...')
       mcpPermissionServiceInstance.cleanup()
     }
     if (postgresqlServiceInstance) {
-      console.log('[Main Process] Cleaning up PostgreSQLService...')
       // PostgreSQLService may not have a close method, add if needed
     }
-    
+
     if (agentRegistryServiceInstance) {
-      console.log('[Main Process] Cleaning up AgentRegistryService...')
       // No explicit cleanup needed unless we add persistent connections
     }
-    
+
     if (promptModuleServiceInstance) {
-      console.log('[Main Process] Cleaning up PromptModuleService...')
       // No explicit cleanup needed unless we add persistent connections
     }
-    
+
     if (postgresqlServiceInstance) {
-      console.log('[Main Process] Cleaning up PostgreSQLService connections...')
       await postgresqlServiceInstance.cleanup()
     }
-    
-    console.log('[Main Process] All services shut down where applicable in main index.')
   })
 })
 

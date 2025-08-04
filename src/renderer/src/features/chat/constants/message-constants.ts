@@ -27,6 +27,6 @@ export const TOOL_STATUS = {
  */
 export const CALL_AGENT_TOOL_NAME = 'call_agent'
 
-export type ComponentType = typeof COMPONENT_TYPES[keyof typeof COMPONENT_TYPES]
-export type ToolState = typeof TOOL_STATES[keyof typeof TOOL_STATES]
-export type ToolStatus = typeof TOOL_STATUS[keyof typeof TOOL_STATUS]
+export type ComponentType = (typeof COMPONENT_TYPES)[keyof typeof COMPONENT_TYPES]
+export type ToolState = (typeof TOOL_STATES)[keyof typeof TOOL_STATES]
+export type ToolStatus = (typeof TOOL_STATUS)[keyof typeof TOOL_STATUS]

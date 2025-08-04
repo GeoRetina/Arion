@@ -47,7 +47,7 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
 
   // Toggle task expanded state
   const toggleTaskExpanded = (taskId: string) => {
-    setExpandedTasks(prev => ({
+    setExpandedTasks((prev) => ({
       ...prev,
       [taskId]: !prev[taskId]
     }))
@@ -77,32 +77,30 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
   return (
     <div className={cn('my-4 rounded-lg border border-border p-4 bg-muted/30', className)}>
       <h3 className="text-sm font-medium mb-3">Task Execution Plan</h3>
-      
+
       <div className="space-y-2">
         {subtasks.map((task) => (
-          <div 
-            key={task.id} 
+          <div
+            key={task.id}
             className={cn(
-              "border rounded-md p-3",
-              task.status === 'completed' 
-                ? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/20' 
+              'border rounded-md p-3',
+              task.status === 'completed'
+                ? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/20'
                 : task.status === 'failed'
-                ? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20'
-                : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900'
+                  ? 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20'
+                  : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900'
             )}
           >
-            <div 
+            <div
               className="flex items-center gap-2 cursor-pointer"
               onClick={() => toggleTaskExpanded(task.id)}
             >
-              <div className="flex-shrink-0">
-                {renderStatusIcon(task.status)}
-              </div>
-              
+              <div className="flex-shrink-0">{renderStatusIcon(task.status)}</div>
+
               <div className="flex-grow">
                 <p className="text-sm font-medium">{task.description}</p>
               </div>
-              
+
               {task.assignedAgentId && (
                 <div className="flex-shrink-0">
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
@@ -110,14 +108,14 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
                   </span>
                 </div>
               )}
-              
+
               {expandedTasks[task.id] ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               ) : (
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               )}
             </div>
-            
+
             {expandedTasks[task.id] && (
               <div className="mt-2 text-xs pt-2 border-t border-gray-200 dark:border-gray-800">
                 <div className="grid grid-cols-2 gap-2 mt-1">
@@ -125,16 +123,18 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
                     <p className="text-muted-foreground">Status:</p>
                     <p className="font-medium capitalize">{task.status.replace('_', ' ')}</p>
                   </div>
-                  
+
                   {task.assignedAgentId && (
                     <div>
                       <p className="text-muted-foreground">Assigned Agent:</p>
-                      <p className="font-medium">{task.assignedAgentName || task.assignedAgentId}</p>
+                      <p className="font-medium">
+                        {task.assignedAgentName || task.assignedAgentId}
+                      </p>
                       {agentSpecialties[task.assignedAgentId] && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {agentSpecialties[task.assignedAgentId].slice(0, 2).map((specialty) => (
-                            <span 
-                              key={specialty} 
+                            <span
+                              key={specialty}
                               className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 rounded"
                             >
                               {specialty}
@@ -150,13 +150,13 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
                     </div>
                   )}
                 </div>
-                
+
                 {onViewSubtaskDetails && (
-                  <button 
+                  <button
                     onClick={(e) => {
                       e.stopPropagation()
                       onViewSubtaskDetails(task.id)
-                    }} 
+                    }}
                     className="mt-2 flex items-center text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
                   >
                     View details <ExternalLink className="ml-1 h-3 w-3" />
@@ -167,11 +167,11 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
           </div>
         ))}
       </div>
-      
+
       <div className="mt-3 flex justify-between text-xs text-muted-foreground">
         <span>Total tasks: {subtasks.length}</span>
         <span>
-          Completed: {subtasks.filter(t => t.status === 'completed').length}/{subtasks.length}
+          Completed: {subtasks.filter((t) => t.status === 'completed').length}/{subtasks.length}
         </span>
       </div>
     </div>

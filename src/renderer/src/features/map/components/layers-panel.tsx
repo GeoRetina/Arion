@@ -54,9 +54,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
   const handleToggleLayerVisibility = async (layerId: string, visible: boolean) => {
     try {
       await setLayerVisibility(layerId, visible)
-    } catch (error) {
-      console.error('[LayersPanel] Failed to toggle layer visibility:', error)
-    }
+    } catch (error) {}
   }
 
   const handleSelectLayer = (layerId: string) => {
@@ -71,7 +69,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
         description: layer ? `Removed "${layer.name}" from session` : 'Layer removed'
       })
     } catch (error) {
-      console.error('[LayersPanel] Failed to delete layer:', error)
       toast.error('Failed to delete layer', {
         description: error instanceof Error ? error.message : 'An unknown error occurred'
       })
@@ -90,7 +87,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
     try {
       await updateLayerStyle(layerId, style)
     } catch (error) {
-      console.error('[LayersPanel] Failed to update layer style:', error)
       toast.error('Failed to update layer style', {
         description: error instanceof Error ? error.message : 'An unknown error occurred'
       })

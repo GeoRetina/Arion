@@ -44,13 +44,16 @@ const getTypeLabel = (type: MentionItem['type']): string => {
 
 const getTypeBadge = (type: MentionItem['type']) => {
   const label = getTypeLabel(type)
-  
+
   return (
-    <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-md" style={{
-      backgroundColor: 'oklch(0.718 0.188 65.4 / 0.1)',
-      color: 'oklch(0.718 0.188 65.4)',
-      border: '1px solid oklch(0.718 0.188 65.4 / 0.2)'
-    }}>
+    <span
+      className="inline-block px-2 py-0.5 text-xs font-medium rounded-md"
+      style={{
+        backgroundColor: 'oklch(0.718 0.188 65.4 / 0.1)',
+        color: 'oklch(0.718 0.188 65.4)',
+        border: '1px solid oklch(0.718 0.188 65.4 / 0.2)'
+      }}
+    >
       {label}
     </span>
   )
@@ -78,7 +81,7 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-    
+
     return undefined // Explicit return for TS to avoid 'not all code paths return a value' error
   }, [isVisible, onClose])
 
@@ -97,7 +100,7 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
       style={{
         left: position.x,
         top: position.y - 8,
-        transform: 'translateY(-100%)',
+        transform: 'translateY(-100%)'
       }}
     >
       <div className="p-2 border-b border-stone-200 dark:border-stone-700 flex-shrink-0">
@@ -106,7 +109,7 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
           {searchQuery ? `Results for "${searchQuery}"` : 'Available data sources'}
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="py-1">
           {items.map((item, index) => (
@@ -120,24 +123,20 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
               )}
               onClick={() => handleItemClick(item)}
             >
-              <div className="flex-shrink-0">
-                {getIconForType(item.type)}
-              </div>
-              
+              <div className="flex-shrink-0">{getIconForType(item.type)}</div>
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-sm truncate">
-                    {item.name}
-                  </span>
+                  <span className="font-medium text-sm truncate">{item.name}</span>
                   {getTypeBadge(item.type)}
                 </div>
-                
+
                 {item.description && (
                   <div className="text-xs text-stone-600 dark:text-stone-400 truncate">
                     {item.description}
                   </div>
                 )}
-                
+
                 {item.tags && item.tags.length > 0 && (
                   <div className="flex gap-1 mt-1">
                     {item.tags.slice(0, 2).map((tag) => (
@@ -149,26 +148,20 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
                       </span>
                     ))}
                     {item.tags.length > 2 && (
-                      <span className="text-xs text-stone-500">
-                        +{item.tags.length - 2}
-                      </span>
+                      <span className="text-xs text-stone-500">+{item.tags.length - 2}</span>
                     )}
                   </div>
                 )}
               </div>
-              
+
               <ChevronRight className="h-3 w-3 text-stone-400" />
             </div>
           ))}
-          
+
           {items.length === 0 && (
             <div className="p-4 text-center text-sm text-stone-500 dark:text-stone-400">
               No data sources found
-              {searchQuery && (
-                <div className="text-xs mt-1">
-                  Try a different search term
-                </div>
-              )}
+              {searchQuery && <div className="text-xs mt-1">Try a different search term</div>}
             </div>
           )}
         </div>

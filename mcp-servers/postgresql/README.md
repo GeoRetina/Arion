@@ -5,16 +5,19 @@ A FastMCP-based Model Context Protocol (MCP) server that provides secure access 
 ## Features
 
 ### 🔐 **Safe Operations**
+
 - **Read-only complex queries**: Execute sophisticated SELECT queries with safety validation
 - **Parametric CRUD operations**: Secure INSERT, UPDATE, DELETE with parameter binding
 - **SQL injection prevention**: All queries use parameterized statements
 
 ### 🗺️ **Spatial Analysis**
+
 - **PostGIS integration**: Full support for spatial functions and operations
 - **Geometry format conversion**: Output as WKT or GeoJSON
 - **Spatial statistics**: Calculate extents, distances, and spatial relationships
 
 ### 🔍 **Schema Inspection**
+
 - **Database structure**: List tables, columns, and data types
 - **Spatial metadata**: Identify geometry columns and spatial reference systems
 - **Table statistics**: Row counts and spatial extents
@@ -22,19 +25,23 @@ A FastMCP-based Model Context Protocol (MCP) server that provides secure access 
 ## Tools Available
 
 ### Connection Management
+
 - `connect_database` - Establish database connections
 - `list_connections` - Show active database connections
 - `close_connection` - Close database connections
 
 ### Schema & Metadata
+
 - `describe_schema` - Get table and column information
 - `get_table_statistics` - Table statistics including spatial extent
 
 ### Safe Retrieval
+
 - `execute_select_query` - Run complex SELECT queries (read-only)
 - `execute_spatial_query` - PostGIS spatial analysis queries
 
 ### Parametric CRUD
+
 - `insert_record` - Insert new records with validation
 - `update_record` - Update existing records safely
 - `delete_record` - Delete records with WHERE conditions
@@ -55,6 +62,7 @@ pip install -r requirements.txt
 ## Usage with FastMCP
 
 ### Starting the Server
+
 ```bash
 python postgresql_server.py
 ```
@@ -64,8 +72,10 @@ python postgresql_server.py
 The LLM can interact with the PostgreSQL MCP server through natural language:
 
 #### 1. Database Connection
+
 **User:** "Connect to my local PostgreSQL database"
 **Tool Call:** `connect_database`
+
 ```json
 {
   "connection_id": "local_gis",
@@ -79,8 +89,10 @@ The LLM can interact with the PostgreSQL MCP server through natural language:
 ```
 
 #### 2. Complex Spatial Analysis
+
 **User:** "Find all restaurants within 500 meters of downtown"
 **Tool Call:** `execute_spatial_query`
+
 ```json
 {
   "connection_id": "local_gis",
@@ -90,8 +102,10 @@ The LLM can interact with the PostgreSQL MCP server through natural language:
 ```
 
 #### 3. Parametric Data Operations
+
 **User:** "Add a new hospital to the database"
 **Tool Call:** `insert_record`
+
 ```json
 {
   "connection_id": "local_gis",
@@ -107,8 +121,10 @@ The LLM can interact with the PostgreSQL MCP server through natural language:
 ```
 
 #### 4. Advanced Geospatial Queries
+
 **User:** "Calculate population density by neighborhood"
 **Tool Call:** `execute_select_query`
+
 ```json
 {
   "connection_id": "local_gis",
@@ -120,16 +136,19 @@ The LLM can interact with the PostgreSQL MCP server through natural language:
 ## Security Features
 
 ### Query Safety Validation
+
 - Only SELECT queries allowed for `execute_select_query`
 - Automatic detection of dangerous SQL keywords
 - Parameterized queries prevent SQL injection
 
 ### Connection Security
+
 - SSL support for encrypted connections
 - Secure credential handling
 - Connection pooling and cleanup
 
 ### Data Protection
+
 - Read-only operations for complex queries
 - Explicit CRUD operations with validation
 - Transaction rollback on errors
@@ -173,6 +192,7 @@ Add this MCP server to your Arion configuration:
 ## Error Handling
 
 The server provides comprehensive error handling:
+
 - Connection failures with detailed messages
 - SQL syntax error reporting
 - Security violation warnings
@@ -181,6 +201,7 @@ The server provides comprehensive error handling:
 ## Logging
 
 All operations are logged with appropriate levels:
+
 - INFO: Successful operations
 - ERROR: Failures and exceptions
 - DEBUG: Query execution details (in development)
@@ -190,19 +211,22 @@ All operations are logged with appropriate levels:
 The LLM can handle these types of requests:
 
 ### Spatial Analysis
-- *"Find all buildings within 1km of the city center"*
-- *"Calculate the area of all parks in the downtown district"*
-- *"Show me the nearest hospital to coordinates [lat, lng]"*
-- *"Find optimal locations for new fire stations"*
+
+- _"Find all buildings within 1km of the city center"_
+- _"Calculate the area of all parks in the downtown district"_
+- _"Show me the nearest hospital to coordinates [lat, lng]"_
+- _"Find optimal locations for new fire stations"_
 
 ### Data Management
-- *"Add a new school to the database at these coordinates"*
-- *"Update all residential buildings to include flood risk data"*
-- *"Delete all temporary construction sites from last month"*
-- *"Show me the structure of the spatial_data table"*
+
+- _"Add a new school to the database at these coordinates"_
+- _"Update all residential buildings to include flood risk data"_
+- _"Delete all temporary construction sites from last month"_
+- _"Show me the structure of the spatial_data table"_
 
 ### Business Intelligence
-- *"Calculate population density by neighborhood"*
-- *"Find areas with high commercial activity but low residential density"*
-- *"Analyze traffic patterns near shopping centers"*
-- *"Generate a report of all building permits issued this year"*
+
+- _"Calculate population density by neighborhood"_
+- _"Find areas with high commercial activity but low residential density"_
+- _"Analyze traffic patterns near shopping centers"_
+- _"Generate a report of all building permits issued this year"_

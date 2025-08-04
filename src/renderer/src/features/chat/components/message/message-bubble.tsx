@@ -34,10 +34,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     return (
       <div
         key={message.id}
-        className={cn(
-          'flex flex-col w-full group',
-          isUser ? 'items-end mt-3' : 'items-start'
-        )}
+        className={cn('flex flex-col w-full group', isUser ? 'items-end mt-3' : 'items-start')}
         ref={isLatestUserMessage ? ref : null}
       >
         <div
@@ -60,27 +57,25 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             ))
           ) : (
             <>
-              <MemoizedMarkdown 
-                content={message.content} 
-                id={message.id} 
-                isAssistant={true} 
-              />
-              
+              <MemoizedMarkdown content={message.content} id={message.id} isAssistant={true} />
+
               {/* Display orchestration UI when metadata is available */}
               {message.orchestration && (
                 <div className="mt-4">
-                  <AgentGroupIndicator 
-                    agents={message.orchestration.agentsInvolved?.map(agentId => ({
-                      id: agentId,
-                      name: agentId,
-                      type: agentId === 'orchestrator-1' ? 'orchestrator' : 'specialized',
-                      isActive: true
-                    })) || []}
-                    size="sm" 
-                    className="mb-2" 
+                  <AgentGroupIndicator
+                    agents={
+                      message.orchestration.agentsInvolved?.map((agentId) => ({
+                        id: agentId,
+                        name: agentId,
+                        type: agentId === 'orchestrator-1' ? 'orchestrator' : 'specialized',
+                        isActive: true
+                      })) || []
+                    }
+                    size="sm"
+                    className="mb-2"
                     showActiveOnly={true}
                   />
-                  <OrchestrationTaskList 
+                  <OrchestrationTaskList
                     subtasks={message.orchestration.subtasks || []}
                     className="mb-2"
                   />

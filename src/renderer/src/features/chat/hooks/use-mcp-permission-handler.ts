@@ -4,13 +4,9 @@ import type { McpServerConfig } from '../../../../../shared/ipc-types'
 
 export const useMcpPermissionHandler = () => {
   const [mcpServerConfigs, setMcpServerConfigs] = useState<McpServerConfig[]>([])
-  
-  const { 
-    pendingPermission, 
-    resolvePendingPermission, 
-    hasPermission, 
-    setPendingPermission 
-  } = useMcpPermissionStore()
+
+  const { pendingPermission, resolvePendingPermission, hasPermission, setPendingPermission } =
+    useMcpPermissionStore()
 
   // Fetch MCP server configurations on mount
   useEffect(() => {
@@ -18,29 +14,27 @@ export const useMcpPermissionHandler = () => {
       try {
         const configs = await window.ctg.settings.getMcpServerConfigs()
         setMcpServerConfigs(configs)
-      } catch (error) {
-        console.error('Failed to fetch MCP server configurations:', error)
-      }
+      } catch (error) {}
     }
-    
+
     fetchMcpConfigs()
   }, [])
 
   // Get server path for a given serverId
   const getServerPath = (serverId: string): string | undefined => {
-    const serverConfig = mcpServerConfigs.find(config => config.id === serverId)
+    const serverConfig = mcpServerConfigs.find((config) => config.id === serverId)
     if (!serverConfig) return undefined
-    
+
     // For HTTP/SSE servers, return the URL
     if (serverConfig.url) {
       return serverConfig.url
     }
-    
+
     // For stdio servers, return the first argument (typically the script path)
     if (serverConfig.args && serverConfig.args.length > 0) {
       return serverConfig.args[0]
     }
-    
+
     // Fallback to command if no args (shouldn't happen in practice)
     return serverConfig.command
   }

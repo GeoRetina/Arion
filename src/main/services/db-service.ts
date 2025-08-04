@@ -56,7 +56,7 @@ export class DBService {
     }
     const dbPath = path.join(dbDir, DB_FILENAME)
 
-    this.db = new Database(dbPath /*, { verbose: console.log } */) // verbose for debugging
+    this.db = new Database(dbPath) // verbose for debugging
     this.initDatabase()
   }
 
@@ -75,9 +75,9 @@ export class DBService {
     // try {
     //   // const spatialitePath = path.join(app.getAppPath(), 'path/to/mod_spatialite'); // Adjust path
     //   this.db.loadExtension('path/to/mod_spatialite'); // Path needs to be robust
-    //   console.log('SpatiaLite extension loaded successfully.');
+    //
     // } catch (error) {
-    //   console.error('Failed to load SpatiaLite extension:', error);
+    //
     //   // Graceful failure as per Rule 5
     // }
   }
@@ -156,7 +156,6 @@ export class DBService {
   public createChat(
     chatData: Pick<Chat, 'id'> & Partial<Omit<Chat, 'id' | 'created_at' | 'updated_at'>>
   ): Chat | null {
-    console.log('[DBService] createChat called with:', chatData)
     const { id, title = null, metadata = null } = chatData
     const stmt = this.db.prepare(
       'INSERT INTO chats (id, title, metadata) VALUES (@id, @title, @metadata)'
@@ -165,16 +164,10 @@ export class DBService {
       const result = stmt.run({ id, title, metadata })
       if (result.changes > 0) {
         const newChat = this.getChatById(id)
-        console.log('[DBService] createChat successful, result:', result, 'returning:', newChat)
         return newChat
       }
-      console.warn(
-        '[DBService] createChat - No changes detected, chat not created or already exists with this ID.',
-        id
-      )
       return null
     } catch (error) {
-      console.error('[DBService] Error creating chat:', error, 'with data:', chatData)
       return null
     }
   }
@@ -237,7 +230,6 @@ export class DBService {
       }
       return currentChat // Return current if no rows affected (e.g. data was same)
     } catch (error) {
-      console.error('Error updating chat:', error)
       return null
     }
   }
@@ -248,7 +240,6 @@ export class DBService {
       const result = stmt.run(id)
       return result.changes > 0
     } catch (error) {
-      console.error('Error deleting chat:', error)
       return false
     }
   }
@@ -259,17 +250,16 @@ export class DBService {
   private runMigrations(): void {
     try {
       // Check if orchestration column exists in messages table
-      const orchestrationColumnExists = this.db.prepare(
-        "SELECT COUNT(*) as count FROM pragma_table_info('messages') WHERE name = 'orchestration'"
-      ).get() as { count: number }
+      const orchestrationColumnExists = this.db
+        .prepare(
+          "SELECT COUNT(*) as count FROM pragma_table_info('messages') WHERE name = 'orchestration'"
+        )
+        .get() as { count: number }
 
       if (orchestrationColumnExists.count === 0) {
-        console.log('[DBService] Adding orchestration column to messages table')
         this.db.prepare('ALTER TABLE messages ADD COLUMN orchestration TEXT').run()
       }
-    } catch (error) {
-      console.error('[DBService] Error running migrations:', error)
-    }
+    } catch (error) {}
   }
 
   // Method to seed core plugins (called from initDatabase or createTables)
@@ -329,7 +319,6 @@ export class DBService {
         })
       }
     })()
-    console.log('[DBService] Core plugins seeded (if table was new/empty).')
   }
 
   // TODO: Add methods for getPluginById, getAllPlugins, addPlugin, updatePlugin, deletePlugin
@@ -375,16 +364,22 @@ export class DBService {
       'INSERT INTO messages (id, chat_id, role, content, name, tool_calls, tool_call_id, orchestration) VALUES (@id, @chat_id, @role, @content, @name, @tool_calls, @tool_call_id, @orchestration)'
     )
     try {
-      const result = stmt.run({ id, chat_id, role, content, name, tool_calls, tool_call_id, orchestration })
+      const result = stmt.run({
+        id,
+        chat_id,
+        role,
+        content,
+        name,
+        tool_calls,
+        tool_call_id,
+        orchestration
+      })
       if (result.changes > 0) {
         const newMessage = this.getMessageById(id)
-        console.log('[DBService] addMessage successful, result:', result, 'returning:', newMessage)
         return newMessage
       }
-      console.warn('[DBService] addMessage - No changes detected, message not added.')
       return null
     } catch (error) {
-      console.error('[DBService] Error adding message:', error, 'with data:', messageData)
       return null
     }
   }
@@ -415,7 +410,6 @@ export class DBService {
       const result = stmt.run(id)
       return result.changes > 0
     } catch (error) {
-      console.error('Error deleting message:', error)
       return false
     }
   }
@@ -425,7 +419,6 @@ export class DBService {
   public close(): void {
     if (this.db && this.db.open) {
       this.db.close()
-      console.log('[DBService] Database connection closed.')
     }
   }
 

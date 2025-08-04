@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
 import { Check, ChevronDown, ChevronUp, Brain, Bot, Workflow, Filter } from 'lucide-react'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from '@/components/ui/command'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -55,33 +58,34 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
 }) => {
   const [open, setOpen] = useState(false)
   const [selectedCapabilities, setSelectedCapabilities] = useState<string[]>([])
-  
+
   const sizeClasses = {
     sm: 'h-7 text-xs px-2',
     md: 'h-9 text-sm px-3',
     lg: 'h-11 text-base px-4'
   }
 
-  const selectedAgent = agents.find(agent => agent.id === selectedAgentId) || null
+  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) || null
 
   // Filter agents by selected capabilities
-  const filteredAgents = selectedCapabilities.length > 0
-    ? agents.filter(agent => {
-        const agentCapabilities = capabilities
-          .filter(cap => cap.agents.includes(agent.id))
-          .map(cap => cap.id)
-        
-        return selectedCapabilities.every(capId => agentCapabilities.includes(capId))
-      })
-    : agents
+  const filteredAgents =
+    selectedCapabilities.length > 0
+      ? agents.filter((agent) => {
+          const agentCapabilities = capabilities
+            .filter((cap) => cap.agents.includes(agent.id))
+            .map((cap) => cap.id)
+
+          return selectedCapabilities.every((capId) => agentCapabilities.includes(capId))
+        })
+      : agents
 
   // Group agents by type
-  const orchestratorAgents = enableOrchestration 
-    ? filteredAgents.filter(agent => agent.type === 'orchestrator')
+  const orchestratorAgents = enableOrchestration
+    ? filteredAgents.filter((agent) => agent.type === 'orchestrator')
     : []
-  
-  const specializedAgents = filteredAgents.filter(agent => agent.type === 'specialized')
-  const generalAgents = filteredAgents.filter(agent => agent.type === 'general')
+
+  const specializedAgents = filteredAgents.filter((agent) => agent.type === 'specialized')
+  const generalAgents = filteredAgents.filter((agent) => agent.type === 'general')
 
   // Get the icon for agent type
   const getAgentTypeIcon = (type: AgentSelectorAgent['type']) => {
@@ -98,9 +102,9 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
 
   // Handle capability selection
   const toggleCapability = (capabilityId: string) => {
-    setSelectedCapabilities(prev => 
+    setSelectedCapabilities((prev) =>
       prev.includes(capabilityId)
-        ? prev.filter(id => id !== capabilityId)
+        ? prev.filter((id) => id !== capabilityId)
         : [...prev, capabilityId]
     )
   }
@@ -140,7 +144,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
       <PopoverContent className="w-[300px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search agents..." />
-          
+
           {capabilities.length > 0 && (
             <div className="border-b border-border p-2">
               <div className="flex items-center justify-between mb-1">
@@ -148,35 +152,29 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
                   <Filter className="h-3 w-3 mr-1" />
                   <span>Filter by capability</span>
                 </div>
-                
+
                 {selectedCapabilities.length > 0 && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 text-xs" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
                     onClick={clearCapabilityFilter}
                   >
                     Clear filters
                   </Button>
                 )}
               </div>
-              
+
               <ScrollArea className="h-24">
                 <div className="space-y-1 px-1">
-                  {capabilities.map(capability => (
-                    <div 
-                      key={capability.id} 
-                      className="flex items-center space-x-2 text-sm"
-                    >
-                      <Checkbox 
+                  {capabilities.map((capability) => (
+                    <div key={capability.id} className="flex items-center space-x-2 text-sm">
+                      <Checkbox
                         id={`cap-${capability.id}`}
                         checked={selectedCapabilities.includes(capability.id)}
                         onCheckedChange={() => toggleCapability(capability.id)}
                       />
-                      <label 
-                        htmlFor={`cap-${capability.id}`}
-                        className="flex-1 cursor-pointer"
-                      >
+                      <label htmlFor={`cap-${capability.id}`} className="flex-1 cursor-pointer">
                         {capability.name}
                         <span className="text-xs text-muted-foreground ml-1">
                           ({capability.agents.length})
@@ -188,16 +186,14 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
               </ScrollArea>
             </div>
           )}
-          
+
           <CommandList>
-            {filteredAgents.length === 0 && (
-              <CommandEmpty>No matching agents found.</CommandEmpty>
-            )}
-            
+            {filteredAgents.length === 0 && <CommandEmpty>No matching agents found.</CommandEmpty>}
+
             {/* Orchestrator Agents */}
             {orchestratorAgents.length > 0 && (
               <CommandGroup heading="Orchestrators">
-                {orchestratorAgents.map(agent => (
+                {orchestratorAgents.map((agent) => (
                   <CommandItem
                     key={agent.id}
                     value={agent.name}
@@ -210,22 +206,22 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
                       <Workflow className="h-4 w-4 text-purple-500" />
                       <span className="truncate">{agent.name}</span>
                     </div>
-                    
+
                     <Check
                       className={cn(
-                        "ml-auto h-4 w-4",
-                        selectedAgentId === agent.id ? "opacity-100" : "opacity-0"
+                        'ml-auto h-4 w-4',
+                        selectedAgentId === agent.id ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                   </CommandItem>
                 ))}
               </CommandGroup>
             )}
-            
+
             {/* Specialized Agents */}
             {specializedAgents.length > 0 && (
               <CommandGroup heading="Specialized Agents">
-                {specializedAgents.map(agent => (
+                {specializedAgents.map((agent) => (
                   <CommandItem
                     key={agent.id}
                     value={agent.name}
@@ -238,47 +234,40 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
                       <Brain className="h-4 w-4 text-blue-500" />
                       <span className="truncate">{agent.name}</span>
                     </div>
-                    
+
                     {agent.capabilities.length > 0 && (
                       <div className="flex flex-wrap gap-1 max-w-32 overflow-hidden mr-2">
-                        {agent.capabilities.slice(0, 1).map(capId => {
-                          const cap = capabilities.find(c => c.id === capId)
+                        {agent.capabilities.slice(0, 1).map((capId) => {
+                          const cap = capabilities.find((c) => c.id === capId)
                           return cap ? (
-                            <Badge 
-                              key={capId}
-                              variant="outline" 
-                              className="px-1 py-0 text-[10px]"
-                            >
+                            <Badge key={capId} variant="outline" className="px-1 py-0 text-[10px]">
                               {cap.name}
                             </Badge>
                           ) : null
                         })}
                         {agent.capabilities.length > 1 && (
-                          <Badge 
-                            variant="outline" 
-                            className="px-1 py-0 text-[10px]"
-                          >
+                          <Badge variant="outline" className="px-1 py-0 text-[10px]">
                             +{agent.capabilities.length - 1}
                           </Badge>
                         )}
                       </div>
                     )}
-                    
+
                     <Check
                       className={cn(
-                        "ml-auto h-4 w-4",
-                        selectedAgentId === agent.id ? "opacity-100" : "opacity-0"
+                        'ml-auto h-4 w-4',
+                        selectedAgentId === agent.id ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                   </CommandItem>
                 ))}
               </CommandGroup>
             )}
-            
+
             {/* General Agents */}
             {generalAgents.length > 0 && (
               <CommandGroup heading="General Agents">
-                {generalAgents.map(agent => (
+                {generalAgents.map((agent) => (
                   <CommandItem
                     key={agent.id}
                     value={agent.name}
@@ -291,11 +280,11 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
                       <Bot className="h-4 w-4 text-green-500" />
                       <span className="truncate">{agent.name}</span>
                     </div>
-                    
+
                     <Check
                       className={cn(
-                        "ml-auto h-4 w-4",
-                        selectedAgentId === agent.id ? "opacity-100" : "opacity-0"
+                        'ml-auto h-4 w-4',
+                        selectedAgentId === agent.id ? 'opacity-100' : 'opacity-0'
                       )}
                     />
                   </CommandItem>

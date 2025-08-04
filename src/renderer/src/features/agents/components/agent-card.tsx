@@ -1,5 +1,12 @@
 import React from 'react'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { type AgentRegistryEntry } from '@/../../shared/types/agent-types'
 import { Edit, Trash, ToggleLeft, ToggleRight, Brain, Server, Settings } from 'lucide-react'
@@ -14,12 +21,19 @@ interface AgentCardProps {
   enabled?: boolean
 }
 
-const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onToggleEnabled, enabled = false }) => {
+const AgentCard: React.FC<AgentCardProps> = ({
+  agent,
+  onEdit,
+  onDelete,
+  onToggleEnabled,
+  enabled = false
+}) => {
   // Generate a background color based on agent type
-  const bgColor = agent.type === 'system' 
-    ? 'bg-indigo-500/10 border-indigo-500/20' 
-    : 'bg-emerald-500/10 border-emerald-500/20'
-  
+  const bgColor =
+    agent.type === 'system'
+      ? 'bg-indigo-500/10 border-indigo-500/20'
+      : 'bg-emerald-500/10 border-emerald-500/20'
+
   // Handle enable/disable toggle
   const handleToggleClick = () => {
     onToggleEnabled(agent.id, !enabled)
@@ -32,7 +46,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onToggle
 
   // Handle delete button click with confirmation
   const handleDeleteClick = () => {
-    if (window.confirm(`Are you sure you want to delete agent "${agent.name}"? This cannot be undone.`)) {
+    if (
+      window.confirm(
+        `Are you sure you want to delete agent "${agent.name}"? This cannot be undone.`
+      )
+    ) {
       onDelete(agent.id)
     }
   }
@@ -54,7 +72,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onToggle
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="text-sm space-y-3">
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-muted-foreground" />
@@ -64,7 +82,9 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onToggle
           <Server className="h-4 w-4 text-muted-foreground" />
           <span>Provider: </span>
           <div className="flex items-center gap-1">
-            <div className={`h-4 w-4 rounded-md ${PROVIDER_BACKGROUNDS[agent.provider]} flex items-center justify-center p-0.5`}>
+            <div
+              className={`h-4 w-4 rounded-md ${PROVIDER_BACKGROUNDS[agent.provider]} flex items-center justify-center p-0.5`}
+            >
               <img
                 src={PROVIDER_LOGOS[agent.provider]}
                 alt={`${agent.provider} logo`}
@@ -79,21 +99,21 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onToggle
           <span>Capabilities: {agent.capabilities.length}</span>
         </div>
       </CardContent>
-      
+
       <CardFooter className="flex justify-between pt-2">
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleEditClick}
             className="flex items-center gap-1"
           >
             <Edit className="h-4 w-4" />
             Edit
           </Button>
-          <Button 
-            variant="destructive" 
-            size="sm" 
+          <Button
+            variant="destructive"
+            size="sm"
             onClick={handleDeleteClick}
             className="flex items-center gap-1"
           >
@@ -101,9 +121,9 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete, onToggle
             Delete
           </Button>
         </div>
-        <Button 
-          variant={enabled ? "outline" : "default"}
-          size="sm" 
+        <Button
+          variant={enabled ? 'outline' : 'default'}
+          size="sm"
           onClick={handleToggleClick}
           className="flex items-center gap-1"
         >

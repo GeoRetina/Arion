@@ -6,7 +6,13 @@ import { Label } from '@/components/ui/label' // Assuming you have a Label compo
 import { Checkbox } from '@/components/ui/checkbox' // Assuming you have a Checkbox component
 import { Textarea } from '@/components/ui/textarea' // Correcting import path for Textarea
 import { ScrollArea } from '@/components/ui/scroll-area' // Added import
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
@@ -41,7 +47,6 @@ export function McpSettingsManager(): React.JSX.Element {
       const fetchedConfigs = await window.ctg.settings.getMcpServerConfigs()
       setConfigs(fetchedConfigs || [])
     } catch (err) {
-      console.error('Error fetching MCP server configs:', err)
       setError('Failed to load configurations.')
       setConfigs([]) // Ensure configs is an array on error
     }
@@ -161,7 +166,6 @@ export function McpSettingsManager(): React.JSX.Element {
       setEditedServerId(null)
       await loadConfigs() // Refresh list
     } catch (err) {
-      console.error('Error saving MCP server config:', err)
       setError(err instanceof Error ? err.message : 'Failed to save configuration.')
     }
     setIsLoading(false)
@@ -174,7 +178,7 @@ export function McpSettingsManager(): React.JSX.Element {
 
   const handleDeleteConfirm = async () => {
     if (!serverToDelete) return
-    
+
     const { id } = serverToDelete
     if (editedServerId === id) {
       setEditingConfig(null)
@@ -192,7 +196,6 @@ export function McpSettingsManager(): React.JSX.Element {
       }
       await loadConfigs() // Refresh list
     } catch (err) {
-      console.error('Error deleting MCP server config:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete configuration.')
     }
     setIsLoading(false)
@@ -296,22 +299,27 @@ export function McpSettingsManager(): React.JSX.Element {
                 placeholder="My Local GDAL Server"
               />
             </div>
-            
+
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="connectionType">
-                  Connection Type
-                </Label>
+                <Label htmlFor="connectionType">Connection Type</Label>
                 <HelpTooltip>
                   <div className="space-y-2">
                     <p className="font-medium">Connection Methods:</p>
                     <div className="text-xs space-y-2">
                       <div>
-                        <p><strong>Local Process (stdio):</strong></p>
-                        <p>For Python scripts, executables, or local MCP servers that run as separate processes</p>
+                        <p>
+                          <strong>Local Process (stdio):</strong>
+                        </p>
+                        <p>
+                          For Python scripts, executables, or local MCP servers that run as separate
+                          processes
+                        </p>
                       </div>
                       <div>
-                        <p><strong>Remote Server (HTTP):</strong></p>
+                        <p>
+                          <strong>Remote Server (HTTP):</strong>
+                        </p>
                         <p>For web-based MCP servers accessible via HTTP endpoints</p>
                       </div>
                     </div>
@@ -334,99 +342,111 @@ export function McpSettingsManager(): React.JSX.Element {
                 Choose how to connect to your MCP server
               </p>
             </div>
-            
+
             {connectionType === 'stdio' && (
-            <>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="command">
-                  Executable Path
-                </Label>
-                <HelpTooltip>
-                  <div className="space-y-2">
-                    <p className="font-medium">Examples:</p>
-                    <div className="text-xs space-y-1">
-                      <p><strong>Python:</strong> /usr/bin/python or C:\Python39\python.exe</p>
-                      <p><strong>Binary:</strong> /usr/local/bin/gdal_mcp_server</p>
-                      <p><strong>Windows:</strong> C:\mcp\server.exe</p>
-                    </div>
+              <>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Label htmlFor="command">Executable Path</Label>
+                    <HelpTooltip>
+                      <div className="space-y-2">
+                        <p className="font-medium">Examples:</p>
+                        <div className="text-xs space-y-1">
+                          <p>
+                            <strong>Python:</strong> /usr/bin/python or C:\Python39\python.exe
+                          </p>
+                          <p>
+                            <strong>Binary:</strong> /usr/local/bin/gdal_mcp_server
+                          </p>
+                          <p>
+                            <strong>Windows:</strong> C:\mcp\server.exe
+                          </p>
+                        </div>
+                      </div>
+                    </HelpTooltip>
                   </div>
-                </HelpTooltip>
-              </div>
-              <Input
-                id="command"
-                name="command"
-                value={editingConfig.command || ''}
-                onChange={handleInputChange}
-                placeholder="e.g., /usr/bin/python, /usr/local/bin/gdal_mcp_server, or C:\\Python39\\python.exe"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Full path to the MCP server executable file. Use this for local servers that run as
-                separate processes.
-              </p>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="argsString">
-                  Command Arguments
-                </Label>
-                <HelpTooltip>
-                  <div className="space-y-2">
-                    <p className="font-medium">Examples:</p>
-                    <div className="text-xs space-y-1">
-                      <p><strong>Python script:</strong> server.py --port 8080</p>
-                      <p><strong>With options:</strong> --verbose --config /path/config.json</p>
-                      <p><strong>Multiple args:</strong> script.py, --host, localhost, --debug</p>
-                    </div>
+                  <Input
+                    id="command"
+                    name="command"
+                    value={editingConfig.command || ''}
+                    onChange={handleInputChange}
+                    placeholder="e.g., /usr/bin/python, /usr/local/bin/gdal_mcp_server, or C:\\Python39\\python.exe"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Full path to the MCP server executable file. Use this for local servers that run
+                    as separate processes.
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Label htmlFor="argsString">Command Arguments</Label>
+                    <HelpTooltip>
+                      <div className="space-y-2">
+                        <p className="font-medium">Examples:</p>
+                        <div className="text-xs space-y-1">
+                          <p>
+                            <strong>Python script:</strong> server.py --port 8080
+                          </p>
+                          <p>
+                            <strong>With options:</strong> --verbose --config /path/config.json
+                          </p>
+                          <p>
+                            <strong>Multiple args:</strong> script.py, --host, localhost, --debug
+                          </p>
+                        </div>
+                      </div>
+                    </HelpTooltip>
                   </div>
-                </HelpTooltip>
-              </div>
-              <Input
-                id="argsString"
-                name="argsString"
-                value={currentArgsString}
-                onChange={handleInputChange}
-                placeholder="server.py, --port, 8080, --verbose"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Command-line arguments to pass to the executable. Separate multiple arguments with
-                commas or new lines.
-              </p>
-            </div>
-            </>
+                  <Input
+                    id="argsString"
+                    name="argsString"
+                    value={currentArgsString}
+                    onChange={handleInputChange}
+                    placeholder="server.py, --port, 8080, --verbose"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Command-line arguments to pass to the executable. Separate multiple arguments
+                    with commas or new lines.
+                  </p>
+                </div>
+              </>
             )}
-            
+
             {connectionType === 'http' && (
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="url">
-                  Server URL
-                </Label>
-                <HelpTooltip>
-                  <div className="space-y-2">
-                    <p className="font-medium">Examples:</p>
-                    <div className="text-xs space-y-1">
-                      <p><strong>Local:</strong> http://localhost:8000/mcp</p>
-                      <p><strong>Custom port:</strong> http://127.0.0.1:3000/api/mcp</p>
-                      <p><strong>Remote:</strong> https://api.example.com/mcp</p>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Label htmlFor="url">Server URL</Label>
+                  <HelpTooltip>
+                    <div className="space-y-2">
+                      <p className="font-medium">Examples:</p>
+                      <div className="text-xs space-y-1">
+                        <p>
+                          <strong>Local:</strong> http://localhost:8000/mcp
+                        </p>
+                        <p>
+                          <strong>Custom port:</strong> http://127.0.0.1:3000/api/mcp
+                        </p>
+                        <p>
+                          <strong>Remote:</strong> https://api.example.com/mcp
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </HelpTooltip>
+                  </HelpTooltip>
+                </div>
+                <Input
+                  id="url"
+                  name="url"
+                  value={editingConfig.url || ''}
+                  onChange={handleInputChange}
+                  placeholder="e.g., http://localhost:8000/mcp"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  HTTP endpoint for remote MCP servers. Use this instead of executable path for
+                  web-based servers.
+                </p>
               </div>
-              <Input
-                id="url"
-                name="url"
-                value={editingConfig.url || ''}
-                onChange={handleInputChange}
-                placeholder="e.g., http://localhost:8000/mcp"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                HTTP endpoint for remote MCP servers. Use this instead of executable path for
-                web-based servers.
-              </p>
-            </div>
             )}
-            
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="enabled"
@@ -523,15 +543,16 @@ export function McpSettingsManager(): React.JSX.Element {
                     </span>
                   </p>
                   {config.command && (
-                    <p 
+                    <p
                       className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
                       title={`${config.command} ${config.args?.join(' ') || ''}`}
                     >
-                      <span className="font-semibold">Command:</span> {config.command} {config.args?.join(' ')}
+                      <span className="font-semibold">Command:</span> {config.command}{' '}
+                      {config.args?.join(' ')}
                     </p>
                   )}
                   {config.url && (
-                    <p 
+                    <p
                       className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
                       title={config.url}
                     >
@@ -539,7 +560,7 @@ export function McpSettingsManager(): React.JSX.Element {
                     </p>
                   )}
                   {config.command && config.args && config.args.length > 0 && (
-                    <p 
+                    <p
                       className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-1"
                       title={config.args[0]}
                     >
@@ -576,7 +597,7 @@ export function McpSettingsManager(): React.JSX.Element {
           )}
         </div>
       </ScrollArea>
-      
+
       <ConfirmationDialog
         isOpen={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}

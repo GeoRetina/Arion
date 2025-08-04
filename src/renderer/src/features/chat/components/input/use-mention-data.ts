@@ -22,7 +22,6 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
   const mentionItems = useMemo<MentionItem[]>(() => {
-    
     if (!enabled) return []
 
     const items: MentionItem[] = []
@@ -30,8 +29,7 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
     // Add imported layers for current chat
     if (currentChatId) {
       const sessionLayers = Array.from(layers.values()).filter((layer) => {
-        return layer.createdBy === 'import' && 
-               layer.metadata.tags?.includes(currentChatId)
+        return layer.createdBy === 'import' && layer.metadata.tags?.includes(currentChatId)
       })
 
       sessionLayers.forEach((layer) => {
@@ -55,7 +53,7 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
         tags: []
       })
     })
-    
+
     // Add test items for debugging if no real data
     if (items.length === 0) {
       items.push(
@@ -67,7 +65,7 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
           tags: ['test']
         },
         {
-          id: 'test-2', 
+          id: 'test-2',
           name: 'Sample Document',
           type: 'document',
           description: 'Test document for mention menu',
@@ -80,9 +78,11 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       const filtered = items.filter((item) => {
-        return item.name.toLowerCase().includes(query) ||
-               item.description?.toLowerCase().includes(query) ||
-               item.tags?.some(tag => tag.toLowerCase().includes(query))
+        return (
+          item.name.toLowerCase().includes(query) ||
+          item.description?.toLowerCase().includes(query) ||
+          item.tags?.some((tag) => tag.toLowerCase().includes(query))
+        )
       })
       return filtered
     }
@@ -90,8 +90,8 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
     return items
   }, [layers, documents, currentChatId, searchQuery, enabled])
 
-  const isLoading = useLayerStore((state) => state.isLoading) || 
-                   useKnowledgeBaseStore((state) => state.isLoading)
+  const isLoading =
+    useLayerStore((state) => state.isLoading) || useKnowledgeBaseStore((state) => state.isLoading)
 
   return {
     items: mentionItems,

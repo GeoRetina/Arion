@@ -1,6 +1,6 @@
 /**
  * Layer Management IPC Handlers
- * 
+ *
  * Handles communication between renderer and main process for layer operations.
  * Provides CRUD operations, persistence, and synchronization with database.
  */
@@ -17,7 +17,7 @@ import type {
   LayerError,
   LayerOperation,
   StylePreset,
-  LayerPerformanceMetrics,
+  LayerPerformanceMetrics
   // LayerImportConfig,
   // LayerExportConfig
 } from '../../shared/types/layer-types'
@@ -31,34 +31,36 @@ interface LayerDatabase {
   createLayer: (layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>) => LayerDefinition
   updateLayer: (id: string, updates: Partial<LayerDefinition>) => LayerDefinition
   deleteLayer: (id: string) => boolean
-  
+
   // Group CRUD
   getAllGroups: () => LayerGroup[]
   getGroupById: (id: string) => LayerGroup | undefined
-  createGroup: (group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>) => LayerGroup
+  createGroup: (
+    group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>
+  ) => LayerGroup
   updateGroup: (id: string, updates: Partial<LayerGroup>) => LayerGroup
   deleteGroup: (id: string, moveLayersTo?: string) => boolean
-  
+
   // Search and filtering
   searchLayers: (criteria: LayerSearchCriteria) => LayerSearchResult
-  
+
   // Operations and errors
   logOperation: (operation: LayerOperation) => void
   getOperations: (layerId?: string) => LayerOperation[]
   logError: (error: LayerError) => void
   getErrors: (layerId?: string) => LayerError[]
   clearErrors: (layerId?: string) => void
-  
+
   // Style presets
   getAllStylePresets: () => StylePreset[]
   getStylePresetById: (id: string) => StylePreset | undefined
   createStylePreset: (preset: Omit<StylePreset, 'id' | 'createdAt' | 'updatedAt'>) => StylePreset
   deleteStylePreset: (id: string) => boolean
-  
+
   // Performance metrics
   recordPerformanceMetrics: (metrics: LayerPerformanceMetrics) => void
   getPerformanceMetrics: (layerId?: string) => LayerPerformanceMetrics[]
-  
+
   // Bulk operations
   bulkUpdateLayers: (updates: Array<{ id: string; changes: Partial<LayerDefinition> }>) => void
   exportLayers: (layerIds: string[]) => string
@@ -67,7 +69,7 @@ interface LayerDatabase {
 
 class LayerDatabaseManager implements LayerDatabase {
   private db: Database.Database
-  
+
   // Prepared statements for performance
   private statements: Record<string, Database.Statement> = {}
 
@@ -82,15 +84,16 @@ class LayerDatabaseManager implements LayerDatabase {
     this.db.pragma('foreign_keys = ON')
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('synchronous = NORMAL')
-    
+
     // Check if migration is needed
-    const migrations = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='layers'").get()
+    const migrations = this.db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='layers'")
+      .get()
     if (!migrations) {
       // Run migration
       const migrationPath = join(__dirname, 'database/migrations/add-layer-tables.sql')
       const migration = require('fs').readFileSync(migrationPath, 'utf8')
       this.db.exec(migration)
-      console.log('[LayerDatabaseManager] Database initialized with layer tables')
     }
   }
 
@@ -99,26 +102,26 @@ class LayerDatabaseManager implements LayerDatabase {
     this.statements.getAllLayers = this.db.prepare(`
       SELECT * FROM layers ORDER BY z_index DESC, created_at DESC
     `)
-    
+
     this.statements.getLayerById = this.db.prepare(`
       SELECT * FROM layers WHERE id = ?
     `)
-    
+
     this.statements.getLayersByType = this.db.prepare(`
       SELECT * FROM layers WHERE type = ? ORDER BY z_index DESC, created_at DESC
     `)
-    
+
     this.statements.getLayersByGroup = this.db.prepare(`
       SELECT * FROM layers WHERE group_id IS ? ORDER BY z_index DESC, created_at DESC
     `)
-    
+
     this.statements.createLayer = this.db.prepare(`
       INSERT INTO layers (
         id, name, type, source_id, source_config, style_config, visibility, 
         opacity, z_index, metadata, group_id, is_locked, created_by
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    
+
     this.statements.updateLayer = this.db.prepare(`
       UPDATE layers SET 
         name = COALESCE(?, name),
@@ -135,25 +138,25 @@ class LayerDatabaseManager implements LayerDatabase {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `)
-    
+
     this.statements.deleteLayer = this.db.prepare(`
       DELETE FROM layers WHERE id = ?
     `)
-    
+
     // Group statements
     this.statements.getAllGroups = this.db.prepare(`
       SELECT * FROM layer_groups ORDER BY display_order, name
     `)
-    
+
     this.statements.getGroupById = this.db.prepare(`
       SELECT * FROM layer_groups WHERE id = ?
     `)
-    
+
     this.statements.createGroup = this.db.prepare(`
       INSERT INTO layer_groups (id, name, parent_id, display_order, expanded, color, description)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
-    
+
     this.statements.updateGroup = this.db.prepare(`
       UPDATE layer_groups SET
         name = COALESCE(?, name),
@@ -165,65 +168,65 @@ class LayerDatabaseManager implements LayerDatabase {
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `)
-    
+
     this.statements.deleteGroup = this.db.prepare(`
       DELETE FROM layer_groups WHERE id = ?
     `)
-    
+
     // Operations and errors
     this.statements.logOperation = this.db.prepare(`
       INSERT INTO layer_operations (layer_id, operation_type, changes, user_id)
       VALUES (?, ?, ?, ?)
     `)
-    
+
     this.statements.getOperations = this.db.prepare(`
       SELECT * FROM layer_operations 
       WHERE layer_id IS ? OR ? IS NULL
       ORDER BY timestamp DESC LIMIT 100
     `)
-    
+
     this.statements.logError = this.db.prepare(`
       INSERT INTO layer_errors (layer_id, error_code, error_message, error_details)
       VALUES (?, ?, ?, ?)
     `)
-    
+
     this.statements.getErrors = this.db.prepare(`
       SELECT * FROM layer_errors 
       WHERE (layer_id IS ? OR ? IS NULL) AND resolved = 0
       ORDER BY timestamp DESC
     `)
-    
+
     this.statements.clearErrors = this.db.prepare(`
       UPDATE layer_errors SET resolved = 1 
       WHERE layer_id IS ? OR ? IS NULL
     `)
-    
+
     // Performance metrics
     this.statements.recordMetrics = this.db.prepare(`
       INSERT INTO layer_performance_metrics (layer_id, load_time, render_time, memory_usage, feature_count)
       VALUES (?, ?, ?, ?, ?)
     `)
-    
+
     this.statements.getMetrics = this.db.prepare(`
       SELECT * FROM layer_performance_metrics 
       WHERE layer_id IS ? OR ? IS NULL
       ORDER BY timestamp DESC LIMIT 100
     `)
-    
+
     // Style presets
     this.statements.getAllPresets = this.db.prepare(`
       SELECT * FROM style_presets ORDER BY is_built_in DESC, name
     `)
-    
+
     this.statements.getPresetById = this.db.prepare(`
       SELECT * FROM style_presets WHERE id = ?
     `)
-    
+
     this.statements.createPreset = this.db.prepare(`
       INSERT INTO style_presets (id, name, description, layer_type, geometry_type, style_config, preview, is_built_in, tags)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    
+
     this.statements.deletePreset = this.db.prepare(`
       DELETE FROM style_presets WHERE id = ? AND is_built_in = 0
     `)
@@ -232,7 +235,7 @@ class LayerDatabaseManager implements LayerDatabase {
   // Layer CRUD implementations
   getAllLayers(): LayerDefinition[] {
     const rows = this.statements.getAllLayers.all()
-    return rows.map(row => this.rowToLayer(row))
+    return rows.map((row) => this.rowToLayer(row))
   }
 
   getLayerById(id: string): LayerDefinition | undefined {
@@ -242,18 +245,18 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getLayersByType(type: 'raster' | 'vector'): LayerDefinition[] {
     const rows = this.statements.getLayersByType.all(type)
-    return rows.map(row => this.rowToLayer(row))
+    return rows.map((row) => this.rowToLayer(row))
   }
 
   getLayersByGroup(groupId: string | null): LayerDefinition[] {
     const rows = this.statements.getLayersByGroup.all(groupId)
-    return rows.map(row => this.rowToLayer(row))
+    return rows.map((row) => this.rowToLayer(row))
   }
 
   createLayer(layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>): LayerDefinition {
     const id = this.generateId()
     const now = new Date()
-    
+
     this.statements.createLayer.run(
       id,
       layer.name,
@@ -269,7 +272,7 @@ class LayerDatabaseManager implements LayerDatabase {
       layer.isLocked ? 1 : 0,
       layer.createdBy
     )
-    
+
     return {
       ...layer,
       id,
@@ -293,12 +296,12 @@ class LayerDatabaseManager implements LayerDatabase {
       updates.isLocked !== undefined ? (updates.isLocked ? 1 : 0) : null,
       id
     )
-    
+
     const updated = this.getLayerById(id)
     if (!updated) {
       throw new Error(`Layer not found after update: ${id}`)
     }
-    
+
     return updated
   }
 
@@ -310,7 +313,7 @@ class LayerDatabaseManager implements LayerDatabase {
   // Group CRUD implementations
   getAllGroups(): LayerGroup[] {
     const rows = this.statements.getAllGroups.all()
-    return rows.map(row => this.rowToGroup(row))
+    return rows.map((row) => this.rowToGroup(row))
   }
 
   getGroupById(id: string): LayerGroup | undefined {
@@ -321,7 +324,7 @@ class LayerDatabaseManager implements LayerDatabase {
   createGroup(group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>): LayerGroup {
     const id = this.generateId()
     const now = new Date()
-    
+
     this.statements.createGroup.run(
       id,
       group.name,
@@ -331,7 +334,7 @@ class LayerDatabaseManager implements LayerDatabase {
       group.color || null,
       group.description || null
     )
-    
+
     return {
       ...group,
       id,
@@ -351,12 +354,12 @@ class LayerDatabaseManager implements LayerDatabase {
       updates.description !== undefined ? updates.description : null,
       id
     )
-    
+
     const updated = this.getGroupById(id)
     if (!updated) {
       throw new Error(`Group not found after update: ${id}`)
     }
-    
+
     return updated
   }
 
@@ -368,11 +371,11 @@ class LayerDatabaseManager implements LayerDatabase {
       } else {
         this.db.prepare('UPDATE layers SET group_id = NULL WHERE group_id = ?').run(id)
       }
-      
+
       // Delete the group
       return this.statements.deleteGroup.run(id)
     })
-    
+
     const result = tx()
     return result.changes > 0
   }
@@ -387,39 +390,39 @@ class LayerDatabaseManager implements LayerDatabase {
       WHERE 1=1
     `
     const params: any[] = []
-    
+
     if (criteria.query) {
       query += ` AND (l.name LIKE ? OR JSON_EXTRACT(l.metadata, '$.description') LIKE ?)`
       const searchTerm = `%${criteria.query}%`
       params.push(searchTerm, searchTerm)
     }
-    
+
     if (criteria.type) {
       query += ` AND l.type = ?`
       params.push(criteria.type)
     }
-    
+
     if (criteria.createdBy) {
       query += ` AND l.created_by = ?`
       params.push(criteria.createdBy)
     }
-    
+
     if (criteria.groupId) {
       query += ` AND l.group_id = ?`
       params.push(criteria.groupId)
     }
-    
+
     if (criteria.dateRange) {
       query += ` AND l.created_at BETWEEN ? AND ?`
       params.push(criteria.dateRange.start.toISOString(), criteria.dateRange.end.toISOString())
     }
-    
+
     query += ` ORDER BY l.z_index DESC, l.created_at DESC`
-    
+
     const stmt = this.db.prepare(query)
     const rows = stmt.all(...params)
-    const layers = rows.map(row => this.rowToLayer(row))
-    
+    const layers = rows.map((row) => this.rowToLayer(row))
+
     return {
       layers,
       totalCount: layers.length,
@@ -440,7 +443,7 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getOperations(layerId?: string): LayerOperation[] {
     const rows = this.statements.getOperations.all(layerId || null, layerId || null)
-    return rows.map(row => this.rowToOperation(row))
+    return rows.map((row) => this.rowToOperation(row))
   }
 
   logError(error: LayerError): void {
@@ -454,7 +457,7 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getErrors(layerId?: string): LayerError[] {
     const rows = this.statements.getErrors.all(layerId || null, layerId || null)
-    return rows.map(row => this.rowToError(row))
+    return rows.map((row) => this.rowToError(row))
   }
 
   clearErrors(layerId?: string): void {
@@ -464,7 +467,7 @@ class LayerDatabaseManager implements LayerDatabase {
   // Style presets
   getAllStylePresets(): StylePreset[] {
     const rows = this.statements.getAllPresets.all()
-    return rows.map(row => this.rowToStylePreset(row))
+    return rows.map((row) => this.rowToStylePreset(row))
   }
 
   getStylePresetById(id: string): StylePreset | undefined {
@@ -475,7 +478,7 @@ class LayerDatabaseManager implements LayerDatabase {
   createStylePreset(preset: Omit<StylePreset, 'id' | 'createdAt' | 'updatedAt'>): StylePreset {
     const id = this.generateId()
     const now = new Date()
-    
+
     this.statements.createPreset.run(
       id,
       preset.name,
@@ -487,7 +490,7 @@ class LayerDatabaseManager implements LayerDatabase {
       preset.isBuiltIn ? 1 : 0,
       JSON.stringify(preset.tags)
     )
-    
+
     return {
       ...preset,
       id,
@@ -513,7 +516,7 @@ class LayerDatabaseManager implements LayerDatabase {
 
   getPerformanceMetrics(layerId?: string): LayerPerformanceMetrics[] {
     const rows = this.statements.getMetrics.all(layerId || null, layerId || null)
-    return rows.map(row => this.rowToMetrics(row))
+    return rows.map((row) => this.rowToMetrics(row))
   }
 
   // Bulk operations
@@ -523,36 +526,47 @@ class LayerDatabaseManager implements LayerDatabase {
         this.updateLayer(id, changes)
       }
     })
-    
+
     tx()
   }
 
   exportLayers(layerIds: string[]): string {
-    const layers = layerIds.map(id => this.getLayerById(id)).filter(Boolean) as LayerDefinition[]
-    const groups = [...new Set(layers.map(l => l.groupId).filter(Boolean))]
-      .map(id => this.getGroupById(id!)).filter(Boolean) as LayerGroup[]
-    
-    return JSON.stringify({
-      version: '1.0',
-      timestamp: new Date().toISOString(),
-      layers,
-      groups
-    }, null, 2)
+    const layers = layerIds.map((id) => this.getLayerById(id)).filter(Boolean) as LayerDefinition[]
+    const groups = [...new Set(layers.map((l) => l.groupId).filter(Boolean))]
+      .map((id) => this.getGroupById(id!))
+      .filter(Boolean) as LayerGroup[]
+
+    return JSON.stringify(
+      {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        layers,
+        groups
+      },
+      null,
+      2
+    )
   }
 
   importLayers(data: string, targetGroupId?: string): string[] {
     const importData = JSON.parse(data)
     const importedIds: string[] = []
-    
+
     const tx = this.db.transaction(() => {
       // Import groups first
       if (importData.groups) {
         for (const groupData of importData.groups) {
-          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, layerIds: _layerIds, ...group } = groupData
+          const {
+            id: _id,
+            createdAt: _createdAt,
+            updatedAt: _updatedAt,
+            layerIds: _layerIds,
+            ...group
+          } = groupData
           this.createGroup(group)
         }
       }
-      
+
       // Import layers
       if (importData.layers) {
         for (const layerData of importData.layers) {
@@ -565,7 +579,7 @@ class LayerDatabaseManager implements LayerDatabase {
         }
       }
     })
-    
+
     tx()
     return importedIds
   }
@@ -597,8 +611,8 @@ class LayerDatabaseManager implements LayerDatabase {
 
   private rowToGroup(row: any): LayerGroup {
     // Get layer IDs for this group
-    const layerIds = this.getLayersByGroup(row.id).map(l => l.id)
-    
+    const layerIds = this.getLayersByGroup(row.id).map((l) => l.id)
+
     return {
       id: row.id,
       name: row.name,
@@ -682,207 +696,256 @@ export function registerLayerHandlers(): void {
     try {
       return getDbManager().getAllLayers()
     } catch (error) {
-      console.error('[LayerHandlers] Failed to get all layers:', error)
       throw error
     }
   })
 
-  ipcMain.handle('layers:getById', async (_event: IpcMainInvokeEvent, id: string): Promise<LayerDefinition | null> => {
-    try {
-      return getDbManager().getLayerById(id) || null
-    } catch (error) {
-      console.error(`[LayerHandlers] Failed to get layer ${id}:`, error)
-      throw error
+  ipcMain.handle(
+    'layers:getById',
+    async (_event: IpcMainInvokeEvent, id: string): Promise<LayerDefinition | null> => {
+      try {
+        return getDbManager().getLayerById(id) || null
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:create', async (_event: IpcMainInvokeEvent, layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>): Promise<LayerDefinition> => {
-    try {
-      const created = getDbManager().createLayer(layer)
-      console.log(`[LayerHandlers] Created layer: ${created.name} (${created.id})`)
-      return created
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to create layer:', error)
-      throw error
+  ipcMain.handle(
+    'layers:create',
+    async (
+      _event: IpcMainInvokeEvent,
+      layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
+    ): Promise<LayerDefinition> => {
+      try {
+        const created = getDbManager().createLayer(layer)
+        return created
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:update', async (_event: IpcMainInvokeEvent, id: string, updates: Partial<LayerDefinition>): Promise<LayerDefinition> => {
-    try {
-      const updated = getDbManager().updateLayer(id, updates)
-      console.log(`[LayerHandlers] Updated layer: ${updated.name} (${id})`)
-      return updated
-    } catch (error) {
-      console.error(`[LayerHandlers] Failed to update layer ${id}:`, error)
-      throw error
+  ipcMain.handle(
+    'layers:update',
+    async (
+      _event: IpcMainInvokeEvent,
+      id: string,
+      updates: Partial<LayerDefinition>
+    ): Promise<LayerDefinition> => {
+      try {
+        const updated = getDbManager().updateLayer(id, updates)
+        return updated
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:delete', async (_event: IpcMainInvokeEvent, id: string): Promise<boolean> => {
-    try {
-      const deleted = getDbManager().deleteLayer(id)
-      console.log(`[LayerHandlers] Deleted layer: ${id}`)
-      return deleted
-    } catch (error) {
-      console.error(`[LayerHandlers] Failed to delete layer ${id}:`, error)
-      throw error
+  ipcMain.handle(
+    'layers:delete',
+    async (_event: IpcMainInvokeEvent, id: string): Promise<boolean> => {
+      try {
+        const deleted = getDbManager().deleteLayer(id)
+        return deleted
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
   // Group handlers
   ipcMain.handle('layers:groups:getAll', async (): Promise<LayerGroup[]> => {
     try {
       return getDbManager().getAllGroups()
     } catch (error) {
-      console.error('[LayerHandlers] Failed to get all groups:', error)
       throw error
     }
   })
 
-  ipcMain.handle('layers:groups:create', async (_event: IpcMainInvokeEvent, group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>): Promise<LayerGroup> => {
-    try {
-      return getDbManager().createGroup(group)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to create group:', error)
-      throw error
+  ipcMain.handle(
+    'layers:groups:create',
+    async (
+      _event: IpcMainInvokeEvent,
+      group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>
+    ): Promise<LayerGroup> => {
+      try {
+        return getDbManager().createGroup(group)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:groups:update', async (_event: IpcMainInvokeEvent, id: string, updates: Partial<LayerGroup>): Promise<LayerGroup> => {
-    try {
-      return getDbManager().updateGroup(id, updates)
-    } catch (error) {
-      console.error(`[LayerHandlers] Failed to update group ${id}:`, error)
-      throw error
+  ipcMain.handle(
+    'layers:groups:update',
+    async (
+      _event: IpcMainInvokeEvent,
+      id: string,
+      updates: Partial<LayerGroup>
+    ): Promise<LayerGroup> => {
+      try {
+        return getDbManager().updateGroup(id, updates)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:groups:delete', async (_event: IpcMainInvokeEvent, id: string, moveLayersTo?: string): Promise<boolean> => {
-    try {
-      return getDbManager().deleteGroup(id, moveLayersTo)
-    } catch (error) {
-      console.error(`[LayerHandlers] Failed to delete group ${id}:`, error)
-      throw error
+  ipcMain.handle(
+    'layers:groups:delete',
+    async (_event: IpcMainInvokeEvent, id: string, moveLayersTo?: string): Promise<boolean> => {
+      try {
+        return getDbManager().deleteGroup(id, moveLayersTo)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
   // Search and filtering
-  ipcMain.handle('layers:search', async (_event: IpcMainInvokeEvent, criteria: LayerSearchCriteria): Promise<LayerSearchResult> => {
-    try {
-      return getDbManager().searchLayers(criteria)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to search layers:', error)
-      throw error
+  ipcMain.handle(
+    'layers:search',
+    async (
+      _event: IpcMainInvokeEvent,
+      criteria: LayerSearchCriteria
+    ): Promise<LayerSearchResult> => {
+      try {
+        return getDbManager().searchLayers(criteria)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
   // Operations and errors
-  ipcMain.handle('layers:logOperation', async (_event: IpcMainInvokeEvent, operation: LayerOperation): Promise<void> => {
-    try {
-      getDbManager().logOperation(operation)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to log operation:', error)
-      throw error
+  ipcMain.handle(
+    'layers:logOperation',
+    async (_event: IpcMainInvokeEvent, operation: LayerOperation): Promise<void> => {
+      try {
+        getDbManager().logOperation(operation)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:getOperations', async (_event: IpcMainInvokeEvent, layerId?: string): Promise<LayerOperation[]> => {
-    try {
-      return getDbManager().getOperations(layerId)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to get operations:', error)
-      throw error
+  ipcMain.handle(
+    'layers:getOperations',
+    async (_event: IpcMainInvokeEvent, layerId?: string): Promise<LayerOperation[]> => {
+      try {
+        return getDbManager().getOperations(layerId)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:logError', async (_event: IpcMainInvokeEvent, error: LayerError): Promise<void> => {
-    try {
-      getDbManager().logError(error)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to log error:', error)
-      throw error
+  ipcMain.handle(
+    'layers:logError',
+    async (_event: IpcMainInvokeEvent, error: LayerError): Promise<void> => {
+      try {
+        getDbManager().logError(error)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:getErrors', async (_event: IpcMainInvokeEvent, layerId?: string): Promise<LayerError[]> => {
-    try {
-      return getDbManager().getErrors(layerId)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to get errors:', error)
-      throw error
+  ipcMain.handle(
+    'layers:getErrors',
+    async (_event: IpcMainInvokeEvent, layerId?: string): Promise<LayerError[]> => {
+      try {
+        return getDbManager().getErrors(layerId)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:clearErrors', async (_event: IpcMainInvokeEvent, layerId?: string): Promise<void> => {
-    try {
-      getDbManager().clearErrors(layerId)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to clear errors:', error)
-      throw error
+  ipcMain.handle(
+    'layers:clearErrors',
+    async (_event: IpcMainInvokeEvent, layerId?: string): Promise<void> => {
+      try {
+        getDbManager().clearErrors(layerId)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
   // Style presets
   ipcMain.handle('layers:presets:getAll', async (): Promise<StylePreset[]> => {
     try {
       return getDbManager().getAllStylePresets()
     } catch (error) {
-      console.error('[LayerHandlers] Failed to get style presets:', error)
       throw error
     }
   })
 
-  ipcMain.handle('layers:presets:create', async (_event: IpcMainInvokeEvent, preset: Omit<StylePreset, 'id' | 'createdAt'>): Promise<StylePreset> => {
-    try {
-      return getDbManager().createStylePreset(preset)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to create style preset:', error)
-      throw error
+  ipcMain.handle(
+    'layers:presets:create',
+    async (
+      _event: IpcMainInvokeEvent,
+      preset: Omit<StylePreset, 'id' | 'createdAt'>
+    ): Promise<StylePreset> => {
+      try {
+        return getDbManager().createStylePreset(preset)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
   // Performance metrics
-  ipcMain.handle('layers:recordMetrics', async (_event: IpcMainInvokeEvent, metrics: LayerPerformanceMetrics): Promise<void> => {
-    try {
-      getDbManager().recordPerformanceMetrics(metrics)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to record metrics:', error)
-      throw error
+  ipcMain.handle(
+    'layers:recordMetrics',
+    async (_event: IpcMainInvokeEvent, metrics: LayerPerformanceMetrics): Promise<void> => {
+      try {
+        getDbManager().recordPerformanceMetrics(metrics)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
   // Bulk operations
-  ipcMain.handle('layers:bulkUpdate', async (_event: IpcMainInvokeEvent, updates: Array<{ id: string; changes: Partial<LayerDefinition> }>): Promise<void> => {
-    try {
-      getDbManager().bulkUpdateLayers(updates)
-      console.log(`[LayerHandlers] Bulk updated ${updates.length} layers`)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to bulk update layers:', error)
-      throw error
+  ipcMain.handle(
+    'layers:bulkUpdate',
+    async (
+      _event: IpcMainInvokeEvent,
+      updates: Array<{ id: string; changes: Partial<LayerDefinition> }>
+    ): Promise<void> => {
+      try {
+        getDbManager().bulkUpdateLayers(updates)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:export', async (_event: IpcMainInvokeEvent, layerIds: string[]): Promise<string> => {
-    try {
-      return getDbManager().exportLayers(layerIds)
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to export layers:', error)
-      throw error
+  ipcMain.handle(
+    'layers:export',
+    async (_event: IpcMainInvokeEvent, layerIds: string[]): Promise<string> => {
+      try {
+        return getDbManager().exportLayers(layerIds)
+      } catch (error) {
+        throw error
+      }
     }
-  })
+  )
 
-  ipcMain.handle('layers:import', async (_event: IpcMainInvokeEvent, data: string, targetGroupId?: string): Promise<string[]> => {
-    try {
-      const importedIds = getDbManager().importLayers(data, targetGroupId)
-      console.log(`[LayerHandlers] Imported ${importedIds.length} layers`)
-      return importedIds
-    } catch (error) {
-      console.error('[LayerHandlers] Failed to import layers:', error)
-      throw error
+  ipcMain.handle(
+    'layers:import',
+    async (_event: IpcMainInvokeEvent, data: string, targetGroupId?: string): Promise<string[]> => {
+      try {
+        const importedIds = getDbManager().importLayers(data, targetGroupId)
+        return importedIds
+      } catch (error) {
+        throw error
+      }
     }
-  })
-
-  console.log('[LayerHandlers] Layer IPC handlers registered')
+  )
 }
 
 // Cleanup function

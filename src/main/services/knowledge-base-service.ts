@@ -37,17 +37,14 @@ export class KnowledgeBaseService {
     }
     this.dbPath = path.join(dbDir, KB_DB_FILENAME)
     this.settingsService = settingsService
-    console.log(`[KnowledgeBaseService] Database path set to: ${this.dbPath}`)
   }
 
   public async initialize(): Promise<void> {
     if (this.db) {
-      console.log('[KnowledgeBaseService] Already initialized.')
       return
     }
 
     try {
-      console.log('[KnowledgeBaseService] Initializing PGlite database...')
       if (!this.dbPath) {
         throw new Error('Database path is not set before initialization.')
       }
@@ -59,15 +56,10 @@ export class KnowledgeBaseService {
       })
 
       await this.db.waitReady
-      console.log('[KnowledgeBaseService] PGlite database is ready.')
 
       await this.initSchema()
       await this.initializeEmbeddingModel()
     } catch (error) {
-      console.error(
-        '[KnowledgeBaseService] Failed to initialize PGlite database or embedding model:',
-        error
-      )
       this.db = undefined
       this.embeddingModel = undefined
       throw error
@@ -78,17 +70,12 @@ export class KnowledgeBaseService {
     if (!this.db) {
       throw new Error('Database not initialized. Call initialize() first.')
     }
-    console.log('[KnowledgeBaseService] Initializing database schema...')
 
     try {
       // Enable pgvector extension
       await this.db.query('CREATE EXTENSION IF NOT EXISTS vector;')
-      console.log('[KnowledgeBaseService] pgvector extension enabled (or already exists).')
 
       // Add a log to confirm the dimensions being used for table creation
-      console.log(
-        `[KnowledgeBaseService] Using EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS} for table schema.`
-      )
 
       // Create a table for document chunks and their embeddings
       // This table will store individual text chunks and their vector embeddings.
@@ -103,7 +90,6 @@ export class KnowledgeBaseService {
         );
       `
       await this.db.query(createChunksTableQuery)
-      console.log('[KnowledgeBaseService] "document_chunks" table created (or already exists).')
 
       // Create a table for document metadata
       const createDocumentsTableQuery = `
@@ -122,7 +108,6 @@ export class KnowledgeBaseService {
         );
       `
       await this.db.query(createDocumentsTableQuery)
-      console.log('[KnowledgeBaseService] "kb_documents" table created (or already exists).')
 
       // Re-create document_chunks with a proper foreign key if it exists from an older schema without it.
       // This is a bit heavy-handed for a migration, but ensures the FK for this dev phase.
@@ -138,9 +123,6 @@ export class KnowledgeBaseService {
         );
       `
       await this.db.query(createChunksTableWithFKQuery)
-      console.log(
-        '[KnowledgeBaseService] "document_chunks" table re-created with foreign key to kb_documents.'
-      )
 
       // Create an HNSW index on the embedding column for faster similarity search
       // Using cosine distance as it's common for sentence embeddings.
@@ -153,13 +135,7 @@ export class KnowledgeBaseService {
       // Note: PGlite might have specific syntax or support levels for HNSW index parameters.
       // For now, using a basic HNSW index creation. Advanced parameters might require checking PGlite docs.
       await this.db.query(createIndexQuery)
-      console.log(
-        '[KnowledgeBaseService] HNSW index on "embedding" column created (or already exists).'
-      )
-
-      console.log('[KnowledgeBaseService] Database schema initialized successfully.')
     } catch (error) {
-      console.error('[KnowledgeBaseService] Error initializing schema:', error)
       throw error
     }
   }
@@ -168,20 +144,13 @@ export class KnowledgeBaseService {
     try {
       const openaiConfig = await this.settingsService.getOpenAIConfig()
       if (!openaiConfig?.apiKey) {
-        console.warn(
-          '[KnowledgeBaseService] OpenAI API key not configured. Embedding model not initialized.'
-        )
         this.embeddingModel = undefined
         return
       }
       // const embeddingModelId = 'text-embedding-ada-002' // MOVED to llm.constants.ts
       const openai = createOpenAI({ apiKey: openaiConfig.apiKey })
       this.embeddingModel = openai.embedding(DEFAULT_EMBEDDING_MODEL_ID)
-      console.log(
-        `[KnowledgeBaseService] OpenAI Embedding model '${DEFAULT_EMBEDDING_MODEL_ID}' initialized.`
-      )
     } catch (error) {
-      console.error('[KnowledgeBaseService] Failed to initialize OpenAI embedding model:', error)
       this.embeddingModel = undefined
     }
   }
@@ -219,21 +188,10 @@ export class KnowledgeBaseService {
       }
     }
 
-    console.log(
-      `[KnowledgeBaseService] Adding document: ${documentId}`,
-      documentContent.substring(0, 100)
-    )
-
     const chunks = this.generateChunks(documentContent)
     if (chunks.length === 0) {
-      console.warn(
-        `[KnowledgeBaseService] No chunks generated for document ${documentId}. Skipping.`
-      )
       return 0
     }
-    console.log(
-      `[KnowledgeBaseService] Generated ${chunks.length} chunks for document ${documentId}.`
-    )
 
     try {
       const { embeddings } = await embedMany({
@@ -242,13 +200,8 @@ export class KnowledgeBaseService {
       })
 
       if (embeddings.length !== chunks.length) {
-        console.error(
-          '[KnowledgeBaseService] Mismatch between number of chunks and embeddings received.'
-        )
         throw new Error('Embedding generation failed: counts mismatch.')
       }
-
-      console.log(`[KnowledgeBaseService] Generated ${embeddings.length} embeddings.`)
 
       // Use standard SQL transactions with PGlite
       await this.db.query('BEGIN;')
@@ -264,20 +217,12 @@ export class KnowledgeBaseService {
           )
         }
         await this.db.query('COMMIT;')
-        console.log(
-          `[KnowledgeBaseService] Successfully added ${chunks.length} chunks for document ${documentId} to the database.`
-        )
         return chunks.length
       } catch (txError) {
         await this.db.query('ROLLBACK;')
-        console.error('[KnowledgeBaseService] Transaction error, rolled back:', txError)
         throw txError
       }
     } catch (error) {
-      console.error(
-        `[KnowledgeBaseService] Error during embedding or DB insertion for document ${documentId}:`,
-        error
-      )
       if (
         !(
           error instanceof Error &&
@@ -321,7 +266,6 @@ export class KnowledgeBaseService {
     } else if (fileType === 'text/plain' || fileType.startsWith('text/')) {
       rawText = nodeBuffer.toString('utf8')
     } else {
-      console.warn(`[KnowledgeBaseService] Unsupported file type for text extraction: ${fileType}`)
       throw new Error(`Unsupported file type: ${fileType}`)
     }
     return rawText
@@ -340,10 +284,6 @@ export class KnowledgeBaseService {
 
     let filePathToStore: string | null = payload.filePath || null
     const localPayloadFilePath = payload.filePath // Keep a copy of original payload.filePath for extractTextFromFile
-
-    console.log(
-      `[KnowledgeBaseService] Adding document to PGlite. ID: ${documentId}, Name: ${originalName}, Original Path: ${localPayloadFilePath || 'N/A'}`
-    )
 
     if (!this.db) {
       throw new Error('[KnowledgeBaseService] Database not initialized.')
@@ -370,11 +310,7 @@ export class KnowledgeBaseService {
       try {
         fs.writeFileSync(cachedFilePath, Buffer.from(fileBuffer)) // Convert ArrayBuffer to Node.js Buffer
         filePathToStore = cachedFilePath
-        console.log(`[KnowledgeBaseService] File buffer saved to cache: ${filePathToStore}`)
       } catch (writeError) {
-        console.error(
-          `[KnowledgeBaseService] Error saving file buffer to cache for ${documentId}: ${writeError}. Proceeding without a filePath.`
-        )
         filePathToStore = null // Fallback if saving fails, though this means 'View' won't work.
       }
     }
@@ -385,20 +321,13 @@ export class KnowledgeBaseService {
       fileBuffer
     })
     if (!documentContent) {
-      console.warn('[KnowledgeBaseService] No content extracted from file, skipping.')
       throw new Error('No content extracted from file.')
     }
 
     const chunks = this.generateChunks(documentContent)
     if (chunks.length === 0) {
-      console.warn(
-        `[KnowledgeBaseService] No chunks generated for document ${documentId}. Skipping.`
-      )
       throw new Error('No chunks generated from document content.')
     }
-    console.log(
-      `[KnowledgeBaseService] Generated ${chunks.length} chunks for document ${documentId}.`
-    )
 
     const now = new Date()
     const createdAtISO = now.toISOString()
@@ -428,7 +357,6 @@ export class KnowledgeBaseService {
         createdAtISO,
         updatedAtISO
       ])
-      console.log(`[KnowledgeBaseService] Inserted metadata for ${documentId} into kb_documents.`)
 
       // 2. Generate embeddings and insert chunks
       const { embeddings } = await embedMany({
@@ -438,12 +366,8 @@ export class KnowledgeBaseService {
 
       if (embeddings.length !== chunks.length) {
         await this.db.query('ROLLBACK;') // Rollback on error
-        console.error(
-          '[KnowledgeBaseService] Mismatch between number of chunks and embeddings. Rolled back.'
-        )
         throw new Error('Embedding generation failed: counts mismatch.')
       }
-      console.log(`[KnowledgeBaseService] Generated ${embeddings.length} embeddings.`)
 
       for (let i = 0; i < chunks.length; i++) {
         const chunkId = nanoid()
@@ -455,12 +379,8 @@ export class KnowledgeBaseService {
           [chunkId, documentId, chunkText, embeddingString, createdAtISO] // Use same createdAt for chunks
         )
       }
-      console.log(`[KnowledgeBaseService] Inserted ${chunks.length} chunks for ${documentId}.`)
 
       await this.db.query('COMMIT;') // Commit transaction
-      console.log(
-        `[KnowledgeBaseService] Successfully added document ${documentId} and its ${chunks.length} chunks to PGlite.`
-      )
 
       // Construct and return the client document object from the committed data
       const documentForClient: KnowledgeBaseDocumentForClient = {
@@ -482,17 +402,7 @@ export class KnowledgeBaseService {
       // Note: Some errors (like db connection issues) might prevent rollback query from executing.
       try {
         await this.db.query('ROLLBACK;')
-        console.log('[KnowledgeBaseService] Transaction rolled back due to error.')
-      } catch (rollbackError) {
-        console.error(
-          '[KnowledgeBaseService] Error attempting to rollback transaction:',
-          rollbackError
-        )
-      }
-      console.error(
-        `[KnowledgeBaseService] Error during PGlite transaction for document ${documentId}:`,
-        error
-      )
+      } catch (rollbackError) {}
       throw error // Re-throw the original error
     }
   }
@@ -512,7 +422,6 @@ export class KnowledgeBaseService {
       })
       return embedding
     } catch (error) {
-      console.error('[KnowledgeBaseService] Error generating embedding for text:', error)
       throw error
     }
   }
@@ -521,9 +430,6 @@ export class KnowledgeBaseService {
     if (!this.db) {
       throw new Error('Database not initialized.')
     }
-    console.log(
-      `[KnowledgeBaseService] Finding similar chunks for a pre-computed embedding (limit ${limit})`
-    )
 
     const queryEmbeddingString = JSON.stringify(queryEmbedding)
     const query = `
@@ -553,7 +459,6 @@ export class KnowledgeBaseService {
       }
       return []
     } catch (error) {
-      console.error('[KnowledgeBaseService] Error finding similar chunks:', error)
       throw error
     }
   }
@@ -571,22 +476,18 @@ export class KnowledgeBaseService {
       }
       return 0
     } catch (error) {
-      console.error('[KnowledgeBaseService] Error getting chunk count:', error)
       return 0
     }
   }
 
   public async close(): Promise<void> {
     if (this.db) {
-      console.log('[KnowledgeBaseService] Closing PGlite database.')
       this.db = undefined
-      console.log('[KnowledgeBaseService] PGlite database connection (conceptually) closed.')
     }
   }
 
   public async getAllKnowledgeBaseDocuments(): Promise<KnowledgeBaseDocumentForClient[]> {
     if (!this.db) {
-      console.warn('[KnowledgeBaseService] Database not initialized. Cannot get all documents.')
       return []
     }
     try {
@@ -611,14 +512,12 @@ export class KnowledgeBaseService {
         })) || []
       )
     } catch (error) {
-      console.error('[KnowledgeBaseService] Error getting all knowledge base documents:', error)
       return []
     }
   }
 
   public async deleteKnowledgeBaseDocument(documentId: string): Promise<boolean> {
     if (!this.db) {
-      console.warn('[KnowledgeBaseService] Database not initialized. Cannot delete document.')
       return false
     }
     try {
@@ -635,9 +534,6 @@ export class KnowledgeBaseService {
         documentId
       ])
       const affectedRows = deleteDbResult.affectedRows || 0
-      console.log(
-        `[KnowledgeBaseService] Deleted document ${documentId} from DB. Affected rows: ${affectedRows}. Chunks via CASCADE.`
-      )
 
       // If a file path exists and it seems to be a cached file, attempt to delete it
       if (filePathToDelete) {
@@ -647,35 +543,18 @@ export class KnowledgeBaseService {
           try {
             if (fs.existsSync(filePathToDelete)) {
               fs.unlinkSync(filePathToDelete)
-              console.log(
-                `[KnowledgeBaseService] Deleted cached file: ${filePathToDelete} for document ${documentId}`
-              )
             } else {
-              console.warn(
-                `[KnowledgeBaseService] Cached file not found for deletion, but path was stored: ${filePathToDelete}`
-              )
             }
           } catch (fileDeleteError) {
-            console.error(
-              `[KnowledgeBaseService] Error deleting cached file ${filePathToDelete} for document ${documentId}:`,
-              fileDeleteError
-            )
             // Do not re-throw or return false for this; DB deletion was the primary goal.
             // Log the error and continue.
           }
         } else {
-          console.log(
-            `[KnowledgeBaseService] Document ${documentId} filePath ${filePathToDelete} is not in the app's cache directory. Not deleting from filesystem.`
-          )
         }
       }
 
       return affectedRows > 0
     } catch (error) {
-      console.error(
-        `[KnowledgeBaseService] Error deleting document ${documentId} from kb_documents:`,
-        error
-      )
       throw error
     }
   }

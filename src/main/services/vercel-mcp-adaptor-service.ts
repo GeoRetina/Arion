@@ -25,33 +25,20 @@ export async function setupVercelMcpIntegration(
   const activeClients: Array<{ close: () => Promise<void> }> = []
   let aggregatedTools: Record<string, any> = {}
 
-  console.log(
-    `[VercelMcpUtils] Setting up Vercel MCP integration for ${activeMcpConfigs.length} active configurations.`
-  )
-
   for (const config of activeMcpConfigs) {
     let transport
     if (config.command) {
-      console.log(
-        `[VercelMcpUtils] Configuring Vercel MCP client for Stdio server: ${config.name} (Command: ${config.command} ${config.args?.join(' ') || ''})`
-      )
       transport = new Experimental_StdioMCPTransport({
         command: config.command,
         args: config.args || []
       })
     } else if (config.url) {
-      console.log(
-        `[VercelMcpUtils] Configuring Vercel MCP client for SSE server: ${config.name} (URL: ${config.url})`
-      )
       transport = {
         type: 'sse',
         url: config.url
         // TODO: Add headers from config if Vercel SDK supports it & we add to McpServerConfig
       }
     } else {
-      console.warn(
-        `[VercelMcpUtils] Skipping MCP server ${config.name} due to missing transport info (command or URL).`
-      )
       continue
     }
 
@@ -61,22 +48,11 @@ export async function setupVercelMcpIntegration(
         activeClients.push(mcpClient)
         const toolsFromServer = await mcpClient.tools() // Returns tools in the format expected by Vercel AI SDK
         aggregatedTools = { ...aggregatedTools, ...toolsFromServer }
-        console.log(
-          `[VercelMcpUtils] Successfully connected to Vercel MCP client for ${config.name} and fetched ${Object.keys(toolsFromServer).length} tools.`
-        )
-      } catch (mcpClientError) {
-        console.error(
-          `[VercelMcpUtils] Failed to create Vercel MCP client or get tools for ${config.name}:`,
-          mcpClientError
-        )
-      }
+      } catch (mcpClientError) {}
     }
   }
 
   if (Object.keys(aggregatedTools).length > 0) {
-    console.log(
-      `[VercelMcpUtils] Aggregated ${Object.keys(aggregatedTools).length} MCP tools for Vercel AI SDK.`
-    )
   }
 
   return { tools: aggregatedTools, activeClients }
@@ -93,13 +69,9 @@ export async function cleanupVercelMcpClients(
   if (clients.length === 0) {
     return
   }
-  console.log(`[VercelMcpUtils] Cleaning up ${clients.length} Vercel MCP clients.`)
   for (const client of clients) {
     try {
       await client.close()
-      console.log('[VercelMcpUtils] Closed a Vercel MCP client.')
-    } catch (closeError) {
-      console.error('[VercelMcpUtils] Error closing Vercel MCP client:', closeError)
-    }
+    } catch (closeError) {}
   }
 }

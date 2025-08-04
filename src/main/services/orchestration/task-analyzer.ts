@@ -1,9 +1,11 @@
 import { v4 as uuidv4 } from 'uuid'
-import type { 
-  TaskAnalysis, 
-  Subtask 
-} from '../types/orchestration-types'
-import { ITaskAnalyzer, IPromptManager, IAgentSelector, IExecutionManager } from './types/orchestration-interfaces'
+import type { TaskAnalysis, Subtask } from '../types/orchestration-types'
+import {
+  ITaskAnalyzer,
+  IPromptManager,
+  IAgentSelector,
+  IExecutionManager
+} from './types/orchestration-interfaces'
 
 export class TaskAnalyzer implements ITaskAnalyzer {
   constructor(
@@ -12,13 +14,7 @@ export class TaskAnalyzer implements ITaskAnalyzer {
     private executionManager: IExecutionManager
   ) {}
 
-  public async analyzeQuery(
-    query: string,
-    agentId: string,
-    chatId: string
-  ): Promise<TaskAnalysis> {
-    console.log(`[TaskAnalyzer] Analyzing query: ${query}`)
-
+  public async analyzeQuery(query: string, agentId: string, chatId: string): Promise<TaskAnalysis> {
     // Get available agents info
     const agentsInfo = await this.agentSelector.getAvailableAgentsInfo()
 
@@ -29,10 +25,13 @@ export class TaskAnalyzer implements ITaskAnalyzer {
     })
 
     // Use the agent to analyze the query
-    const executionResult = await this.executionManager.executeAgentWithPrompt(agentId, chatId, analysisPrompt)
+    const executionResult = await this.executionManager.executeAgentWithPrompt(
+      agentId,
+      chatId,
+      analysisPrompt
+    )
 
     if (!executionResult.success) {
-      console.error('[TaskAnalyzer] Error in query analysis:', executionResult.error)
       // Return default analysis if execution failed
       return {
         taskType: 'unknown',
@@ -61,10 +60,8 @@ export class TaskAnalyzer implements ITaskAnalyzer {
         analysis.complexity = 'moderate' // Default to moderate if invalid
       }
 
-      console.log(`[TaskAnalyzer] Query analysis:`, analysis)
       return analysis
     } catch (error) {
-      console.error('[TaskAnalyzer] Error analyzing query:', error)
       // Return default analysis if parsing fails
       return {
         taskType: 'unknown',
@@ -80,14 +77,11 @@ export class TaskAnalyzer implements ITaskAnalyzer {
     orchestratorAgentId: string,
     chatId: string
   ): Promise<Subtask[]> {
-    console.log(`[TaskAnalyzer] Decomposing task: ${query}`)
-
     // First analyze the query to determine if task decomposition is needed
     const taskAnalysis = await this.analyzeQuery(query, orchestratorAgentId, chatId)
 
     // If the task is simple, return a single subtask
     if (taskAnalysis.complexity === 'simple') {
-      console.log('[TaskAnalyzer] Task is simple, no decomposition needed')
       const subtask: Subtask = {
         id: uuidv4(),
         description: query,
@@ -115,15 +109,16 @@ export class TaskAnalyzer implements ITaskAnalyzer {
     )
 
     if (!executionResult.success) {
-      console.error('[TaskAnalyzer] Error in task decomposition:', executionResult.error)
       // Fallback to a single task
-      return [{
-        id: uuidv4(),
-        description: query,
-        requiredCapabilities: taskAnalysis.requiredCapabilities,
-        dependencies: [],
-        status: 'pending'
-      }]
+      return [
+        {
+          id: uuidv4(),
+          description: query,
+          requiredCapabilities: taskAnalysis.requiredCapabilities,
+          dependencies: [],
+          status: 'pending'
+        }
+      ]
     }
 
     try {
@@ -153,10 +148,8 @@ export class TaskAnalyzer implements ITaskAnalyzer {
         status: 'pending'
       }))
 
-      console.log(`[TaskAnalyzer] Decomposed task into ${subtasks.length} subtasks`)
       return subtasks
     } catch (error) {
-      console.error('[TaskAnalyzer] Error parsing subtasks:', error)
       // Fallback to a single task if parsing fails
       return [
         {

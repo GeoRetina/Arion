@@ -39,7 +39,7 @@ interface ChatInputBoxProps {
 
   // New prop for database modal
   onOpenDatabase?: () => void
-  
+
   // New prop for orchestration
   enableOrchestration?: boolean
 }
@@ -68,11 +68,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const [internalText, setInternalText] = useState(inputValue) // Local state for editor content
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
   // Agent orchestration store
-  const { 
-    initialize: initializeOrchestration,
-    startOrchestration
-  } = useAgentOrchestrationStore()
-  
+  const { initialize: initializeOrchestration, startOrchestration } = useAgentOrchestrationStore()
+
   // Initialize the orchestration store
   useEffect(() => {
     initializeOrchestration()
@@ -90,7 +87,6 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     searchQuery: mentionTrigger.searchQuery,
     enabled: mentionTrigger.isActive
   })
-
 
   // Sync internalText and editor when inputValue prop changes (e.g., after submit)
   useEffect(() => {
@@ -134,7 +130,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       // Update internal state first
       setInternalText(currentText)
       onValueChange(currentText)
-      
+
       // Trigger mention detection on input change
       setTimeout(() => mentionTrigger.detectMentionTrigger(), 0)
     },
@@ -146,17 +142,16 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     // Submit based on internalText to ensure it matches what user sees,
     // though inputValue should ideally be in sync.
     if (isSubmitting || isStreaming || !internalText.trim()) return
-    
+
     try {
       setIsSubmitting(true)
-      
+
       // Use regular handleSubmit - orchestration will be handled internally
       // based on the selected model/agent
       handleSubmit()
-      
+
       // After successful submit, inputValue will change via useChat, triggering useEffect to clear editor
     } catch (error) {
-      console.error('Error submitting message:', error)
       // Show error to user?
     } finally {
       setIsSubmitting(false)
@@ -173,16 +168,17 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         mentionTrigger.setSelectedIndex(nextIndex)
         return
       }
-      
+
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        const prevIndex = mentionTrigger.selectedIndex === 0 
-          ? mentionData.items.length - 1 
-          : mentionTrigger.selectedIndex - 1
+        const prevIndex =
+          mentionTrigger.selectedIndex === 0
+            ? mentionData.items.length - 1
+            : mentionTrigger.selectedIndex - 1
         mentionTrigger.setSelectedIndex(prevIndex)
         return
       }
-      
+
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         const selectedItem = mentionData.items[mentionTrigger.selectedIndex]
@@ -191,7 +187,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         }
         return
       }
-      
+
       if (e.key === 'Escape') {
         e.preventDefault()
         mentionTrigger.closeMention()
@@ -207,12 +203,15 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     // Allow default behavior for other keys, which will trigger mutation/selection observers
   }
 
-  const handleMentionSelect = useCallback((item: MentionItem) => {
-    const mentionText = `@${item.name}`
-    
-    // Insert the mention - this handles everything including caret positioning
-    mentionTrigger.insertMention(mentionText)
-  }, [mentionTrigger])
+  const handleMentionSelect = useCallback(
+    (item: MentionItem) => {
+      const mentionText = `@${item.name}`
+
+      // Insert the mention - this handles everything including caret positioning
+      mentionTrigger.insertMention(mentionText)
+    },
+    [mentionTrigger]
+  )
 
   // Simplified banner closing, just clears the visual banner part
   // Actual logic for clearing selected ROI would be in useChatLogic or parent
@@ -330,11 +329,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           {/* Added mt-auto and shrink-0 */}
           <div className="flex items-center gap-2">
             {/* Plus dropdown moved to the left side */}
-            <PlusDropdown 
-              disabled={isStreaming}
-              onOpenDatabase={onOpenDatabase}
-            />
-            
+            <PlusDropdown disabled={isStreaming} onOpenDatabase={onOpenDatabase} />
+
             <ModelSelector
               availableProviders={availableProviders}
               activeProvider={activeProvider}

@@ -33,21 +33,15 @@ export class AgentRunnerService {
   ) {
     this.mcpClientService = mcpClientService
     // this.llmProviderService = llmProviderService;
-    console.log('[AgentRunnerService] Initialized')
   }
 
   public async spawnAgent(config: AgentConfig): Promise<string | null> {
     if (this.runningAgents.has(config.agentId)) {
-      console.warn(`[AgentRunnerService] Agent with ID ${config.agentId} is already running.`)
       return config.agentId
     }
 
     const pythonPath = config.pythonExecutable || 'python3' // Default to python3
     const scriptArgs = [config.scriptPath] // Python script is the first arg to python interpreter
-
-    console.log(
-      `[AgentRunnerService] Spawning agent ${config.agentId}: ${pythonPath} ${scriptArgs.join(' ')}`
-    )
 
     try {
       const agentProcess = spawn(pythonPath, scriptArgs, {
@@ -59,32 +53,23 @@ export class AgentRunnerService {
         this.handleAgentStdioMessage(config.agentId, data, 'stdout')
       })
 
-      agentProcess.stderr?.on('data', (data) => {
-        console.error(
-          `[AgentRunnerService] Stderr from agent ${config.agentId}: ${data.toString()}`
-        )
-      })
+      agentProcess.stderr?.on('data', (data) => {})
 
       agentProcess.on('error', (err) => {
-        console.error(`[AgentRunnerService] Failed to start agent ${config.agentId}:`, err)
         this.runningAgents.delete(config.agentId)
         // TODO: Notify renderer or manage state about this failure
       })
 
       agentProcess.on('close', (code) => {
-        console.log(`[AgentRunnerService] Agent ${config.agentId} exited with code ${code}`)
         this.runningAgents.delete(config.agentId)
         // TODO: Notify renderer or manage state
       })
-
-      console.log(`[AgentRunnerService] Agent ${config.agentId} spawned successfully.`)
 
       // Send initial MCP tool definitions to the agent
       await this.sendMcpToolsToAgent(config.agentId)
 
       return config.agentId
     } catch (error) {
-      console.error(`[AgentRunnerService] Error spawning agent ${config.agentId}:`, error)
       return null
     }
   }
@@ -92,9 +77,6 @@ export class AgentRunnerService {
   private async sendMcpToolsToAgent(agentId: string): Promise<void> {
     const agentProcess = this.runningAgents.get(agentId)
     if (!agentProcess || !agentProcess.stdin) {
-      console.error(
-        `[AgentRunnerService] Cannot send tools to agent ${agentId}: process or stdin not available.`
-      )
       return
     }
 
@@ -108,14 +90,7 @@ export class AgentRunnerService {
 
     try {
       agentProcess.stdin.write(JSON.stringify(message) + '\n')
-      console.log(
-        `[AgentRunnerService] Sent MCP tools list to agent ${agentId}:`,
-        mcpTools.length,
-        'tools'
-      )
-    } catch (error) {
-      console.error(`[AgentRunnerService] Error writing tools to agent ${agentId} stdin:`, error)
-    }
+    } catch (error) {}
   }
 
   private handleAgentStdioMessage(
@@ -129,28 +104,22 @@ export class AgentRunnerService {
       if (!line) return
       try {
         const message: AgentStdioMessage = JSON.parse(line)
-        console.log(`[AgentRunnerService] Received from agent ${agentId} (${streamType}):`, message)
 
         switch (message.type) {
           case 'log':
-            console.log(`[Agent ${agentId} Log]:`, message.payload)
             break
           case 'tool_call_request':
             await this.handleAgentToolCallRequest(agentId, message)
             break
           // Handle other message types like 'agent_response', 'error' from agent, etc.
           default:
-            console.warn(
-              `[AgentRunnerService] Unknown message type from agent ${agentId}: ${message.type}`
-            )
         }
       } catch (error) {
         // If not JSON, treat as plain log from stdout
         if (streamType === 'stdout') {
-          console.log(`[Agent ${agentId} Raw Output]: ${line}`)
         } else {
           // stderr is already logged raw
-          // console.error(`[AgentRunnerService] Error parsing message from agent ${agentId} or non-JSON output on stderr: ${line}`, error);
+          //
         }
       }
     })
@@ -162,9 +131,6 @@ export class AgentRunnerService {
   ): Promise<void> {
     const agentProcess = this.runningAgents.get(agentId)
     if (!agentProcess || !agentProcess.stdin) {
-      console.error(
-        `[AgentRunnerService] Agent ${agentId} not found or stdin not available for tool call response.`
-      )
       return
     }
 
@@ -173,29 +139,13 @@ export class AgentRunnerService {
     let success = false
 
     if (!serverId || !toolName) {
-      console.error(
-        '[AgentRunnerService] Invalid tool_call_request from agent: missing serverId or toolName',
-        requestMessage.payload
-      )
       responsePayload = { error: 'Invalid tool_call_request: missing serverId or toolName' }
     } else {
       try {
-        console.log(
-          `[AgentRunnerService] Agent ${agentId} requesting tool call: ${toolName} on server ${serverId} with args:`,
-          args
-        )
         const result = await this.mcpClientService.callTool(serverId, toolName, args)
         responsePayload = result
         success = true // Assuming callTool doesn't throw for operational errors but returns them in result if needed
-        console.log(
-          `[AgentRunnerService] Tool call ${toolName} for agent ${agentId} result:`,
-          result
-        )
       } catch (error) {
-        console.error(
-          `[AgentRunnerService] Error calling MCP tool ${toolName} for agent ${agentId}:`,
-          error
-        )
         responsePayload = {
           error: error instanceof Error ? error.message : 'Failed to execute MCP tool'
         }
@@ -210,31 +160,22 @@ export class AgentRunnerService {
 
     try {
       agentProcess.stdin.write(JSON.stringify(responseMsg) + '\n')
-    } catch (error) {
-      console.error(
-        `[AgentRunnerService] Error writing tool response to agent ${agentId} stdin:`,
-        error
-      )
-    }
+    } catch (error) {}
   }
 
   public terminateAgent(agentId: string): boolean {
     const agentProcess = this.runningAgents.get(agentId)
     if (agentProcess) {
-      console.log(`[AgentRunnerService] Terminating agent ${agentId}...`)
       agentProcess.kill() // Sends SIGTERM
       this.runningAgents.delete(agentId)
       return true
     }
-    console.warn(`[AgentRunnerService] Attempted to terminate non-existent agent ${agentId}.`)
     return false
   }
 
   public terminateAllAgents(): void {
-    console.log('[AgentRunnerService] Terminating all running agents...')
     this.runningAgents.forEach((_process, agentId) => {
       this.terminateAgent(agentId)
     })
-    console.log('[AgentRunnerService] All agents terminated.')
   }
 }

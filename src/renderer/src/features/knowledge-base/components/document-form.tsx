@@ -110,13 +110,10 @@ export function DocumentForm({
     }))
 
     if (!file.path) {
-      console.log('[DocumentForm] file.path is undefined. Reading file as ArrayBuffer.')
       try {
         const buffer = await file.arrayBuffer()
         setFileBuffer(buffer)
-        console.log('[DocumentForm] File read into ArrayBuffer successfully.')
       } catch (error) {
-        console.error('[DocumentForm] Error reading file into ArrayBuffer:', error)
         toast.error('Error Reading File', {
           description: 'Could not read the file content. Please try again.'
         })
@@ -126,36 +123,12 @@ export function DocumentForm({
     }
 
     if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-      console.log(
-        '[DocumentForm processFile] Text file processed, path:',
-        file.path,
-        'buffer available:',
-        !!fileBuffer
-      )
     } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-      console.log(
-        '[DocumentForm processFile] PDF file processed, path:',
-        file.path,
-        'buffer available:',
-        !!fileBuffer
-      )
     } else if (
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       file.name.endsWith('.docx')
     ) {
-      console.log(
-        '[DocumentForm processFile] DOCX file processed, path:',
-        file.path,
-        'buffer available:',
-        !!fileBuffer
-      )
     } else {
-      console.warn(
-        '[DocumentForm processFile] Selected file type may not be directly supported for RAG. Path:',
-        file.path,
-        'buffer available:',
-        !!fileBuffer
-      )
     }
   }
 
@@ -243,9 +216,7 @@ export function DocumentForm({
             ...(fileBuffer && { fileBuffer: fileBuffer })
           }
 
-          console.log('[DocumentForm handleSubmit] Sending payload to backend:', payload)
           const result = await window.ctg.knowledgeBase.addDocument(payload)
-          console.log('[DocumentForm handleSubmit] Received result from backend:', result)
 
           if (result.success && result.documentId && result.document) {
             toast.success('Document Processed Successfully', {
@@ -261,10 +232,6 @@ export function DocumentForm({
             })
           }
         } catch (error) {
-          console.error(
-            '[DocumentForm handleSubmit] Error during document processing IPC call:',
-            error
-          )
           toast.error('IPC Communication Error', {
             description: `Error communicating with backend to process "${formData.name}": ${(error as Error).message}`
           })

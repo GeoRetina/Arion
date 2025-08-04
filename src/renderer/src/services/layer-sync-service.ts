@@ -1,6 +1,6 @@
 /**
  * Layer Synchronization Service
- * 
+ *
  * Manages bidirectional synchronization between LayerStore and MapLibre GL.
  * Ensures the map rendering always reflects the layer store state while
  * maintaining optimal performance through batching and debouncing.
@@ -30,11 +30,11 @@ export class LayerSyncService {
   private isProcessing = false
   private debounceTimer: NodeJS.Timeout | null = null
   private options: SyncOptions
-  
+
   // Track which layers are managed by this service
   private managedLayers = new Set<string>()
   private managedSources = new Set<string>()
-  
+
   // Performance tracking
   private syncStats = {
     totalSyncs: 0,
@@ -51,7 +51,7 @@ export class LayerSyncService {
       enableLogging: true,
       ...options
     }
-    
+
     this.log('LayerSyncService initialized with options:', this.options)
   }
 
@@ -62,14 +62,14 @@ export class LayerSyncService {
     if (this.mapInstance) {
       this.destroy()
     }
-    
+
     this.mapInstance = mapInstance
     this.setupStoreSubscription()
     this.setupMapEventListeners()
-    
+
     // Initial sync of existing layers
     this.performInitialSync()
-    
+
     this.log('LayerSyncService initialized with map instance')
   }
 
@@ -81,17 +81,17 @@ export class LayerSyncService {
       this.unsubscribeStore()
       this.unsubscribeStore = null
     }
-    
+
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = null
     }
-    
+
     this.removeMapEventListeners()
     this.mapInstance = null
     this.managedLayers.clear()
     this.managedSources.clear()
-    
+
     this.log('LayerSyncService destroyed')
   }
 
@@ -119,7 +119,7 @@ export class LayerSyncService {
     try {
       // Remove all managed layers first
       this.clearManagedLayers()
-      
+
       // Add all layers back
       for (const layer of layers) {
         await this.syncLayerToMapLibre(layer)
@@ -130,7 +130,7 @@ export class LayerSyncService {
 
       const duration = performance.now() - startTime
       this.updateSyncStats(duration, false)
-      
+
       this.log(`Force sync completed in ${duration.toFixed(2)}ms`)
     } catch (error) {
       this.updateSyncStats(performance.now() - startTime, true)
@@ -154,10 +154,7 @@ export class LayerSyncService {
       {
         equalityFn: (a: any, b: any) => {
           // Custom equality check for performance
-          return (
-            a.layers === b.layers &&
-            a.selectedLayerId === b.selectedLayerId
-          )
+          return a.layers === b.layers && a.selectedLayerId === b.selectedLayerId
         }
       }
     )
@@ -192,7 +189,7 @@ export class LayerSyncService {
    * Handle store state changes
    */
   private handleStoreChange(
-    current: { layers: Map<string, LayerDefinition>; selectedLayerId: string | null }, 
+    current: { layers: Map<string, LayerDefinition>; selectedLayerId: string | null },
     previous: { layers: Map<string, LayerDefinition>; selectedLayerId: string | null }
   ): void {
     if (!this.mapInstance || !this.mapInstance.isStyleLoaded()) {
@@ -241,10 +238,10 @@ export class LayerSyncService {
     // Check if layer order changed
     const currentOrder = Array.from(currentLayers.values())
       .sort((a, b) => b.zIndex - a.zIndex)
-      .map(l => l.id)
+      .map((l) => l.id)
     const previousOrder = Array.from(previousLayers.values())
       .sort((a, b) => b.zIndex - a.zIndex)
-      .map(l => l.id)
+      .map((l) => l.id)
 
     if (JSON.stringify(currentOrder) !== JSON.stringify(previousOrder)) {
       this.queueSyncOperation({
@@ -278,9 +275,9 @@ export class LayerSyncService {
   private queueSyncOperation(operation: SyncOperation): void {
     // Avoid duplicate operations for the same layer
     const existingIndex = this.syncQueue.findIndex(
-      op => op.layerId === operation.layerId && op.type === operation.type
+      (op) => op.layerId === operation.layerId && op.type === operation.type
     )
-    
+
     if (existingIndex >= 0) {
       // Replace existing operation with newer one
       this.syncQueue[existingIndex] = operation
@@ -328,7 +325,6 @@ export class LayerSyncService {
 
       const duration = performance.now() - startTime
       this.updateSyncStats(duration, false)
-
     } catch (error) {
       this.updateSyncStats(performance.now() - startTime, true)
       this.log('Sync operation failed:', error)
@@ -390,7 +386,7 @@ export class LayerSyncService {
 
       // Create layer specifications based on layer type and geometry
       const layerSpecs = this.createLayerSpecifications(layer)
-      
+
       for (const layerSpec of layerSpecs) {
         if (!this.mapInstance.getLayer(layerSpec.id)) {
           this.mapInstance.addLayer(layerSpec)
@@ -401,7 +397,6 @@ export class LayerSyncService {
 
       // Apply initial styling and properties
       await this.syncLayerProperties(layer)
-
     } catch (error) {
       this.log(`Failed to sync layer ${layer.id} to MapLibre:`, error)
       throw error
@@ -412,8 +407,8 @@ export class LayerSyncService {
    * Update an existing layer in MapLibre
    */
   private async updateLayerInMapLibre(
-    layerId: string, 
-    current: LayerDefinition, 
+    layerId: string,
+    current: LayerDefinition,
     previous: LayerDefinition
   ): Promise<void> {
     if (!this.mapInstance) return
@@ -423,14 +418,13 @@ export class LayerSyncService {
       if (JSON.stringify(current.sourceConfig) !== JSON.stringify(previous.sourceConfig)) {
         const source = this.mapInstance.getSource(current.sourceId)
         if (source && source.type === 'geojson') {
-          (source as any).setData(current.sourceConfig.data)
+          ;(source as any).setData(current.sourceConfig.data)
           this.log(`Updated source data: ${current.sourceId}`)
         }
       }
 
       // Update layer properties
       await this.syncLayerProperties(current)
-
     } catch (error) {
       this.log(`Failed to update layer ${layerId}:`, error)
       throw error
@@ -446,9 +440,10 @@ export class LayerSyncService {
     try {
       // Find all MapLibre layers associated with this layer definition
       const style = this.mapInstance.getStyle()
-      const layersToRemove = style.layers.filter(layer => 
-        layer.id.startsWith(layerId) || 
-        ('source' in layer && this.managedSources.has(layer.source as string))
+      const layersToRemove = style.layers.filter(
+        (layer) =>
+          layer.id.startsWith(layerId) ||
+          ('source' in layer && this.managedSources.has(layer.source as string))
       )
 
       // Remove layers
@@ -461,22 +456,22 @@ export class LayerSyncService {
       }
 
       // Remove source if no other layers use it
-      const sourceId = layersToRemove[0] && 'source' in layersToRemove[0] 
-        ? layersToRemove[0].source as string 
-        : null
-      
+      const sourceId =
+        layersToRemove[0] && 'source' in layersToRemove[0]
+          ? (layersToRemove[0].source as string)
+          : null
+
       if (sourceId && this.managedSources.has(sourceId)) {
-        const remainingLayers = style.layers.filter(layer => 
-          'source' in layer && layer.source === sourceId
+        const remainingLayers = style.layers.filter(
+          (layer) => 'source' in layer && layer.source === sourceId
         )
-        
+
         if (remainingLayers.length === 0 && this.mapInstance.getSource(sourceId)) {
           this.mapInstance.removeSource(sourceId)
           this.managedSources.delete(sourceId)
           this.log(`Removed source: ${sourceId}`)
         }
       }
-
     } catch (error) {
       this.log(`Failed to remove layer ${layerId}:`, error)
       throw error
@@ -491,8 +486,8 @@ export class LayerSyncService {
 
     try {
       const style = this.mapInstance.getStyle()
-      const layersToUpdate = style.layers.filter(mapLayer => 
-        'source' in mapLayer && mapLayer.source === layer.sourceId
+      const layersToUpdate = style.layers.filter(
+        (mapLayer) => 'source' in mapLayer && mapLayer.source === layer.sourceId
       )
 
       for (const mapLayer of layersToUpdate) {
@@ -503,7 +498,6 @@ export class LayerSyncService {
         // Sync layer-specific styling based on layer type
         this.applyLayerStyle(mapLayer.id, mapLayer.type, layer.style, layer.opacity)
       }
-
     } catch (error) {
       this.log(`Failed to sync properties for layer ${layer.id}:`, error)
       throw error
@@ -514,9 +508,9 @@ export class LayerSyncService {
    * Apply style properties to a specific MapLibre layer
    */
   private applyLayerStyle(
-    mapLayerId: string, 
-    mapLayerType: string, 
-    style: LayerStyle, 
+    mapLayerId: string,
+    mapLayerType: string,
+    style: LayerStyle,
     opacity: number
   ): void {
     if (!this.mapInstance) return
@@ -531,16 +525,32 @@ export class LayerSyncService {
             this.mapInstance.setPaintProperty(mapLayerId, 'circle-radius', style.pointRadius)
           }
           if (style.pointOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-opacity', style.pointOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-opacity',
+              style.pointOpacity * opacity
+            )
           }
           if (style.pointStrokeColor) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-stroke-color', style.pointStrokeColor)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-stroke-color',
+              style.pointStrokeColor
+            )
           }
           if (style.pointStrokeWidth !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-stroke-width', style.pointStrokeWidth)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-stroke-width',
+              style.pointStrokeWidth
+            )
           }
           if (style.pointStrokeOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'circle-stroke-opacity', style.pointStrokeOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'circle-stroke-opacity',
+              style.pointStrokeOpacity * opacity
+            )
           }
           break
 
@@ -552,7 +562,11 @@ export class LayerSyncService {
             this.mapInstance.setPaintProperty(mapLayerId, 'line-width', style.lineWidth)
           }
           if (style.lineOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'line-opacity', style.lineOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'line-opacity',
+              style.lineOpacity * opacity
+            )
           }
           if (style.lineDasharray) {
             this.mapInstance.setPaintProperty(mapLayerId, 'line-dasharray', style.lineDasharray)
@@ -567,25 +581,49 @@ export class LayerSyncService {
             this.mapInstance.setPaintProperty(mapLayerId, 'fill-color', style.fillColor)
           }
           if (style.fillOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'fill-opacity', style.fillOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'fill-opacity',
+              style.fillOpacity * opacity
+            )
           }
           if (style.fillOutlineColor) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'fill-outline-color', style.fillOutlineColor)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'fill-outline-color',
+              style.fillOutlineColor
+            )
           }
           break
 
         case 'raster':
           if (style.rasterOpacity !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-opacity', style.rasterOpacity * opacity)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-opacity',
+              style.rasterOpacity * opacity
+            )
           }
           if (style.rasterBrightnessMin !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-brightness-min', style.rasterBrightnessMin)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-brightness-min',
+              style.rasterBrightnessMin
+            )
           }
           if (style.rasterBrightnessMax !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-brightness-max', style.rasterBrightnessMax)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-brightness-max',
+              style.rasterBrightnessMax
+            )
           }
           if (style.rasterSaturation !== undefined) {
-            this.mapInstance.setPaintProperty(mapLayerId, 'raster-saturation', style.rasterSaturation)
+            this.mapInstance.setPaintProperty(
+              mapLayerId,
+              'raster-saturation',
+              style.rasterSaturation
+            )
           }
           if (style.rasterContrast !== undefined) {
             this.mapInstance.setPaintProperty(mapLayerId, 'raster-contrast', style.rasterContrast)
@@ -610,7 +648,6 @@ export class LayerSyncService {
           }
           break
       }
-
     } catch (error) {
       this.log(`Failed to apply style to layer ${mapLayerId}:`, error)
       throw error
@@ -630,7 +667,7 @@ export class LayerSyncService {
           data: sourceConfig.data as any,
           ...(sourceConfig.options?.buffer && { buffer: sourceConfig.options.buffer }),
           ...(sourceConfig.options?.tolerance && { tolerance: sourceConfig.options.tolerance }),
-          ...(sourceConfig.options?.cluster && { 
+          ...(sourceConfig.options?.cluster && {
             cluster: sourceConfig.options.cluster,
             clusterMaxZoom: sourceConfig.options.clusterMaxZoom,
             clusterRadius: sourceConfig.options.clusterRadius
@@ -643,7 +680,9 @@ export class LayerSyncService {
           type: 'raster',
           tiles: [sourceConfig.data as string],
           tileSize: sourceConfig.options?.tileSize || 256,
-          ...(sourceConfig.options?.attribution && { attribution: sourceConfig.options.attribution }),
+          ...(sourceConfig.options?.attribution && {
+            attribution: sourceConfig.options.attribution
+          }),
           ...(sourceConfig.options?.minZoom && { minzoom: sourceConfig.options.minZoom }),
           ...(sourceConfig.options?.maxZoom && { maxzoom: sourceConfig.options.maxZoom })
         }
@@ -652,13 +691,28 @@ export class LayerSyncService {
         return {
           type: 'image',
           url: sourceConfig.data as string,
-          coordinates: sourceConfig.options?.bounds ? 
-            [
-              [sourceConfig.options.bounds[0], sourceConfig.options.bounds[1]] as [number, number],
-              [sourceConfig.options.bounds[2], sourceConfig.options.bounds[1]] as [number, number],
-              [sourceConfig.options.bounds[2], sourceConfig.options.bounds[3]] as [number, number],
-              [sourceConfig.options.bounds[0], sourceConfig.options.bounds[3]] as [number, number]
-            ] : [[0,0],[1,0],[1,1],[0,1]]
+          coordinates: sourceConfig.options?.bounds
+            ? [
+                [sourceConfig.options.bounds[0], sourceConfig.options.bounds[1]] as [
+                  number,
+                  number
+                ],
+                [sourceConfig.options.bounds[2], sourceConfig.options.bounds[1]] as [
+                  number,
+                  number
+                ],
+                [sourceConfig.options.bounds[2], sourceConfig.options.bounds[3]] as [
+                  number,
+                  number
+                ],
+                [sourceConfig.options.bounds[0], sourceConfig.options.bounds[3]] as [number, number]
+              ]
+            : [
+                [0, 0],
+                [1, 0],
+                [1, 1],
+                [0, 1]
+              ]
         }
 
       case 'vector-tiles':
@@ -667,7 +721,9 @@ export class LayerSyncService {
           tiles: [sourceConfig.data as string],
           ...(sourceConfig.options?.minZoom && { minzoom: sourceConfig.options.minZoom }),
           ...(sourceConfig.options?.maxZoom && { maxzoom: sourceConfig.options.maxZoom }),
-          ...(sourceConfig.options?.attribution && { attribution: sourceConfig.options.attribution })
+          ...(sourceConfig.options?.attribution && {
+            attribution: sourceConfig.options.attribution
+          })
         }
 
       default:
@@ -737,13 +793,13 @@ export class LayerSyncService {
     try {
       // Sort layers by zIndex (ascending for proper ordering)
       const sortedLayers = [...layers].sort((a, b) => a.zIndex - b.zIndex)
-      
+
       // Move layers to correct positions
       for (let i = 0; i < sortedLayers.length; i++) {
         const layer = sortedLayers[i]
         const style = this.mapInstance.getStyle()
-        const mapLayers = style.layers.filter(ml => 
-          'source' in ml && ml.source === layer.sourceId
+        const mapLayers = style.layers.filter(
+          (ml) => 'source' in ml && ml.source === layer.sourceId
         )
 
         for (const mapLayer of mapLayers) {
@@ -753,7 +809,6 @@ export class LayerSyncService {
           }
         }
       }
-
     } catch (error) {
       this.log('Failed to sync layer order:', error)
       throw error
@@ -768,8 +823,8 @@ export class LayerSyncService {
     if (!layer || !this.mapInstance) return
 
     const style = this.mapInstance.getStyle()
-    const layersToUpdate = style.layers.filter(ml => 
-      'source' in ml && ml.source === layer.sourceId
+    const layersToUpdate = style.layers.filter(
+      (ml) => 'source' in ml && ml.source === layer.sourceId
     )
 
     const visibility = visible ? 'visible' : 'none'
@@ -883,12 +938,13 @@ export class LayerSyncService {
   private updateSyncStats(duration: number, isError: boolean): void {
     this.syncStats.totalSyncs++
     this.syncStats.lastSyncTime = duration
-    
+
     if (isError) {
       this.syncStats.errors++
     } else {
       this.syncStats.totalTime += duration
-      this.syncStats.averageTime = this.syncStats.totalTime / (this.syncStats.totalSyncs - this.syncStats.errors)
+      this.syncStats.averageTime =
+        this.syncStats.totalTime / (this.syncStats.totalSyncs - this.syncStats.errors)
     }
   }
 
@@ -897,7 +953,6 @@ export class LayerSyncService {
    */
   private log(message: string, ...args: any[]): void {
     if (this.options.enableLogging) {
-      console.log(`[LayerSyncService] ${message}`, ...args)
     }
   }
 }

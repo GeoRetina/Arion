@@ -348,9 +348,7 @@ export const useLayerStore = create<LayerStore>()(
         for (const layer of visibleLayers) {
           try {
             await integration.syncLayerToMap(layer)
-          } catch (error) {
-            console.error(`[LayerStore] Failed to sync layer ${layer.id} to new map:`, error)
-          }
+          } catch (error) {}
         }
       }
     },
@@ -365,7 +363,6 @@ export const useLayerStore = create<LayerStore>()(
       try {
         await state.mapLibreIntegration.syncLayerToMap(layer)
       } catch (error) {
-        console.error(`[LayerStore] Failed to sync layer ${layer.id} to map:`, error)
         throw error
       }
     },
@@ -377,7 +374,6 @@ export const useLayerStore = create<LayerStore>()(
       try {
         await state.mapLibreIntegration.removeLayerFromMap(layerId)
       } catch (error) {
-        console.error(`[LayerStore] Failed to remove layer ${layerId} from map:`, error)
         throw error
       }
     },
@@ -389,7 +385,6 @@ export const useLayerStore = create<LayerStore>()(
       try {
         await state.mapLibreIntegration.syncLayerProperties(layer)
       } catch (error) {
-        console.error(`[LayerStore] Failed to sync properties for layer ${layer.id}:`, error)
         throw error
       }
     },
@@ -443,7 +438,6 @@ export const useLayerStore = create<LayerStore>()(
           const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
           await window.ctg.layers.create(layerData)
         } catch (error) {
-          console.error('[LayerStore] Failed to persist layer to database:', error)
           throw error
         }
       }
@@ -464,12 +458,6 @@ export const useLayerStore = create<LayerStore>()(
         timestamp: now
       })
 
-      console.log(`[LayerStore] Added layer: ${layer.name} (${id})`, {
-        createdBy: layer.createdBy,
-        sessionOnly: !shouldPersist,
-        tags: layer.metadata.tags,
-        context: context || 'none'
-      })
       return id
     },
 
@@ -501,7 +489,6 @@ export const useLayerStore = create<LayerStore>()(
         try {
           await window.ctg.layers.update(id, updates)
         } catch (error) {
-          console.error('[LayerStore] Failed to persist layer update to database:', error)
           throw error
         }
       }
@@ -522,8 +509,6 @@ export const useLayerStore = create<LayerStore>()(
         changes: updates,
         timestamp: new Date()
       })
-
-      console.log(`[LayerStore] Updated layer: ${updatedLayer.name} (${id})`)
     },
 
     removeLayer: async (id) => {
@@ -538,7 +523,6 @@ export const useLayerStore = create<LayerStore>()(
         try {
           await window.ctg.layers.delete(id)
         } catch (error) {
-          console.error('[LayerStore] Failed to delete layer from database:', error)
           throw error
         }
       }
@@ -564,8 +548,6 @@ export const useLayerStore = create<LayerStore>()(
         layerId: id,
         timestamp: new Date()
       })
-
-      console.log(`[LayerStore] Removed layer: ${layer.name} (${id})`)
     },
 
     getLayer: (id) => {
@@ -599,13 +581,10 @@ export const useLayerStore = create<LayerStore>()(
 
       const updatedStyle = { ...layer.style, ...style }
       await get().updateLayer(id, { style: updatedStyle })
-
-      console.log(`[LayerStore] Updated style for layer: ${layer.name} (${id})`)
     },
 
     setLayerVisibility: async (id, visible) => {
       await get().updateLayer(id, { visibility: visible })
-      console.log(`[LayerStore] Set visibility for layer ${id}: ${visible}`)
     },
 
     setLayerOpacity: async (id, opacity) => {
@@ -613,7 +592,6 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error('Opacity must be between 0 and 1')
       }
       await get().updateLayer(id, { opacity })
-      console.log(`[LayerStore] Set opacity for layer ${id}: ${opacity}`)
     },
 
     resetLayerStyle: async (id) => {
@@ -623,12 +601,10 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       await get().updateLayer(id, { style: { ...DEFAULT_LAYER_STYLE } })
-      console.log(`[LayerStore] Reset style for layer: ${layer.name} (${id})`)
     },
 
     applyStylePreset: async (id, presetId) => {
       // This will be implemented when style presets are added
-      console.warn(`[LayerStore] Style presets not yet implemented: ${presetId} for layer ${id}`)
     },
 
     // Layer Organization
@@ -653,8 +629,6 @@ export const useLayerStore = create<LayerStore>()(
         layerId: layerIds[0] || 'unknown', // Reference first layer
         timestamp: new Date()
       })
-
-      console.log(`[LayerStore] Reordered ${layerIds.length} layers`)
     },
 
     moveLayerToGroup: async (layerId, groupId) => {
@@ -665,13 +639,10 @@ export const useLayerStore = create<LayerStore>()(
         layerId,
         timestamp: new Date()
       })
-
-      console.log(`[LayerStore] Moved layer ${layerId} to group ${groupId || 'none'}`)
     },
 
     setLayerZIndex: async (id, zIndex) => {
       await get().updateLayer(id, { zIndex })
-      console.log(`[LayerStore] Set z-index for layer ${id}: ${zIndex}`)
     },
 
     bulkUpdateLayers: async (updates) => {
@@ -690,7 +661,6 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       set({ layers: newLayers, isDirty: true })
-      console.log(`[LayerStore] Bulk updated ${updates.length} layers`)
     },
 
     // Group Management
@@ -720,7 +690,6 @@ export const useLayerStore = create<LayerStore>()(
         } = group
         await window.ctg.layers.groups.create(groupData)
       } catch (error) {
-        console.error('[LayerStore] Failed to persist group to database:', error)
         throw error
       }
 
@@ -730,7 +699,6 @@ export const useLayerStore = create<LayerStore>()(
         isDirty: false // We just persisted, so state is clean
       }))
 
-      console.log(`[LayerStore] Created group: ${name} (${id})`)
       return id
     },
 
@@ -751,8 +719,6 @@ export const useLayerStore = create<LayerStore>()(
         groups: new Map(state.groups).set(id, updatedGroup),
         isDirty: true
       }))
-
-      console.log(`[LayerStore] Updated group: ${updatedGroup.name} (${id})`)
     },
 
     deleteGroup: async (id, moveLayersTo) => {
@@ -772,8 +738,6 @@ export const useLayerStore = create<LayerStore>()(
         newGroups.delete(id)
         return { groups: newGroups, isDirty: true }
       })
-
-      console.log(`[LayerStore] Deleted group: ${group.name} (${id})`)
     },
 
     getGroup: (id) => {
@@ -805,7 +769,6 @@ export const useLayerStore = create<LayerStore>()(
     // Selection Management
     selectLayer: (id) => {
       set({ selectedLayerId: id })
-      console.log(`[LayerStore] Selected layer: ${id}`)
     },
 
     getSelectedLayer: () => {
@@ -849,9 +812,6 @@ export const useLayerStore = create<LayerStore>()(
     searchLayers: async (criteria) => {
       const result = searchLayersImpl(get().layers, criteria)
       set({ searchResults: result })
-      console.log(
-        `[LayerStore] Search completed: ${result.layers.length} results in ${result.searchTime.toFixed(2)}ms`
-      )
       return result
     },
 
@@ -877,10 +837,6 @@ export const useLayerStore = create<LayerStore>()(
     // Performance Monitoring
     recordPerformanceMetrics: (metrics) => {
       // Performance metrics will be stored separately or in a performance store
-      console.log(
-        `[LayerStore] Performance metrics recorded for layer ${metrics.layerId}:`,
-        metrics
-      )
     },
 
     getPerformanceMetrics: (_layerId) => {
@@ -888,16 +844,12 @@ export const useLayerStore = create<LayerStore>()(
       return []
     },
 
-    clearPerformanceMetrics: () => {
-      console.log('[LayerStore] Performance metrics cleared')
-    },
+    clearPerformanceMetrics: () => {},
 
     // Persistence Operations
     saveToPersistence: async () => {
       set({ isLoading: true })
       try {
-        console.log('[LayerStore] Saving to persistence...')
-
         // Save non-imported layers to database (imported layers are session-only)
         const layers = Array.from(get().layers.values()).filter(
           (layer) => layer.createdBy !== 'import'
@@ -914,7 +866,6 @@ export const useLayerStore = create<LayerStore>()(
               const { id, createdAt, updatedAt, ...layerData } = layer
               await window.ctg.layers.create(layerData)
             } catch (createError) {
-              console.error(`[LayerStore] Failed to save layer ${layer.id}:`, createError)
               throw createError
             }
           }
@@ -930,18 +881,13 @@ export const useLayerStore = create<LayerStore>()(
               const { id, createdAt, updatedAt, layerIds, ...groupData } = group
               await window.ctg.layers.groups.create(groupData)
             } catch (createError) {
-              console.error(`[LayerStore] Failed to save group ${group.id}:`, createError)
               throw createError
             }
           }
         }
 
         set({ isDirty: false, lastSyncTimestamp: Date.now() })
-        console.log(
-          `[LayerStore] Successfully saved ${layers.length} layers and ${groups.length} groups`
-        )
       } catch (error) {
-        console.error('[LayerStore] Failed to save to persistence:', error)
         throw error
       } finally {
         set({ isLoading: false })
@@ -951,8 +897,6 @@ export const useLayerStore = create<LayerStore>()(
     loadFromPersistence: async (includeImported = false) => {
       set({ isLoading: true })
       try {
-        console.log('[LayerStore] Loading from persistence...')
-
         const [layers, groups] = await Promise.all([
           window.ctg.layers.getAll(),
           window.ctg.layers.groups.getAll()
@@ -963,22 +907,13 @@ export const useLayerStore = create<LayerStore>()(
           ? layers
           : layers.filter((layer) => layer.createdBy !== 'import')
 
-        console.log(
-          `[LayerStore] Filtered layers: ${layers.length} total, ${layersToLoad.length} loaded, ${layers.length - layersToLoad.length} filtered out, includeImported: ${includeImported}`
-        )
-
         set({
           layers: new Map(layersToLoad.map((l) => [l.id, l])),
           groups: new Map(groups.map((g) => [g.id, g])),
           isDirty: false,
           lastSyncTimestamp: Date.now()
         })
-
-        console.log(
-          `[LayerStore] Loaded ${layersToLoad.length} layers and ${groups.length} groups from persistence`
-        )
       } catch (error) {
-        console.error('[LayerStore] Failed to load from persistence:', error)
         throw error
       } finally {
         set({ isLoading: false })
@@ -1008,10 +943,8 @@ export const useLayerStore = create<LayerStore>()(
           }
         }
 
-        console.log(`[LayerStore] Imported ${importedIds.length} layers`)
         return importedIds
       } catch (error) {
-        console.error('[LayerStore] Failed to import layers:', error)
         throw new Error('Invalid import data format')
       }
     },
@@ -1095,8 +1028,6 @@ export const useLayerStore = create<LayerStore>()(
           (error) => !sessionLayers.some(([layerId, _]) => error.layerId === layerId)
         )
       })
-
-      console.log(`[LayerStore] Cleared ${sessionLayers.length} session-imported layers`)
     },
 
     clearSessionLayersForChat: (chatId: string) => {
@@ -1123,8 +1054,6 @@ export const useLayerStore = create<LayerStore>()(
           (error) => !chatLayers.some(([layerId, _]) => error.layerId === layerId)
         )
       })
-
-      console.log(`[LayerStore] Cleared ${chatLayers.length} layers for chat: ${chatId}`)
     },
 
     // Cleanup
@@ -1148,7 +1077,6 @@ export const useLayerStore = create<LayerStore>()(
         lastSyncTimestamp: 0,
         mapLibreIntegration: null
       })
-      console.log('[LayerStore] Store reset')
     },
 
     cleanup: () => {

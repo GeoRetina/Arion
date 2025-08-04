@@ -90,12 +90,8 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ isVisible }) => {
         }
       })
 
-      currentMapInstance.on('error', (e) => {
-        console.error('MapLibre GL error:', e)
-      })
-    } catch (error) {
-      console.error('Failed to initialize MapLibre GL:', error)
-    }
+      currentMapInstance.on('error', (e) => {})
+    } catch (error) {}
   }, [])
 
   // Handle visibility changes and resizing

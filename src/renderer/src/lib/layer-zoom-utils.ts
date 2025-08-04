@@ -1,6 +1,6 @@
 /**
  * Layer Zoom Utilities
- * 
+ *
  * Utilities for zooming to layers on the map, including bounds calculation
  * and map view manipulation. Provides a centralized location for zoom-related
  * functionality to improve maintainability.
@@ -45,33 +45,33 @@ export class LayerZoomService {
     if (!bounds && layer.sourceConfig.data) {
       try {
         const sourceData = layer.sourceConfig.data
-        
+
         if (typeof sourceData === 'object') {
           if (sourceData.type === 'FeatureCollection') {
             // Calculate bounds from GeoJSON FeatureCollection
             bounds = turf.bbox(sourceData) as [number, number, number, number]
-            
+
             // Determine if this is primarily a point layer
-            const pointFeatures = sourceData.features?.filter(f => 
-              f.geometry?.type === 'Point' || f.geometry?.type === 'MultiPoint'
-            ) || []
+            const pointFeatures =
+              sourceData.features?.filter(
+                (f) => f.geometry?.type === 'Point' || f.geometry?.type === 'MultiPoint'
+              ) || []
             isPoint = pointFeatures.length === sourceData.features?.length
-            
           } else if (sourceData.type === 'Feature') {
             // Single feature
             bounds = turf.bbox(sourceData) as [number, number, number, number]
-            isPoint = sourceData.geometry?.type === 'Point' || sourceData.geometry?.type === 'MultiPoint'
+            isPoint =
+              sourceData.geometry?.type === 'Point' || sourceData.geometry?.type === 'MultiPoint'
           }
         }
-      } catch (error) {
-        console.error('[LayerZoomService] Error calculating bounds from source data:', error)
-      }
+      } catch (error) {}
     }
 
     // Validate bounds
-    const isValid = bounds && 
-      bounds.length === 4 && 
-      bounds.every(b => typeof b === 'number' && isFinite(b)) &&
+    const isValid =
+      bounds &&
+      bounds.length === 4 &&
+      bounds.every((b) => typeof b === 'number' && isFinite(b)) &&
       (isPoint || bounds[0] !== bounds[2] || bounds[1] !== bounds[3]) // Allow zero-area for points
 
     return {
@@ -103,22 +103,13 @@ export class LayerZoomService {
   ): Promise<boolean> {
     try {
       if (!map || !layer) {
-        console.warn('[LayerZoomService] Invalid map or layer provided:', { 
-          hasMap: !!map, 
-          layerId: layer?.id 
-        })
         return false
       }
 
       // Calculate layer bounds
       const layerBounds = this.calculateLayerBounds(layer)
-      
+
       if (!layerBounds.isValid) {
-        console.warn('[LayerZoomService] Layer has no valid bounds for zooming:', {
-          layerId: layer.id,
-          bounds: layerBounds.bounds,
-          geometryType: layer.metadata.geometryType
-        })
         return false
       }
 
@@ -142,26 +133,15 @@ export class LayerZoomService {
           (layerBounds.bounds[0] + layerBounds.bounds[2]) / 2,
           (layerBounds.bounds[1] + layerBounds.bounds[3]) / 2
         ] as [number, number]
-        
+
         map.jumpTo({
           center,
           zoom: Math.min(zoomOptions.maxZoom!, 18)
         })
       }
 
-      console.log('[LayerZoomService] Successfully zoomed to layer:', {
-        layerId: layer.id,
-        bounds: layerBounds.bounds,
-        isPoint: layerBounds.isPoint,
-        options: zoomOptions
-      })
-
       return true
-
     } catch (error) {
-      console.error('[LayerZoomService] Error zooming to layer:', error, {
-        layerId: layer?.id
-      })
       return false
     }
   }
@@ -176,7 +156,6 @@ export class LayerZoomService {
   ): Promise<boolean> {
     try {
       if (!map || !layers || layers.length === 0) {
-        console.warn('[LayerZoomService] Invalid map or layers provided')
         return false
       }
 
@@ -195,16 +174,15 @@ export class LayerZoomService {
       }
 
       if (allBounds.length === 0) {
-        console.warn('[LayerZoomService] No valid bounds found for any layers')
         return false
       }
 
       // Calculate combined bounds
       const combinedBounds: [number, number, number, number] = [
-        Math.min(...allBounds.map(b => b[0])), // minLng
-        Math.min(...allBounds.map(b => b[1])), // minLat
-        Math.max(...allBounds.map(b => b[2])), // maxLng
-        Math.max(...allBounds.map(b => b[3]))  // maxLat
+        Math.min(...allBounds.map((b) => b[0])), // minLng
+        Math.min(...allBounds.map((b) => b[1])), // minLat
+        Math.max(...allBounds.map((b) => b[2])), // maxLng
+        Math.max(...allBounds.map((b) => b[3])) // maxLat
       ]
 
       // Merge options with defaults
@@ -218,16 +196,8 @@ export class LayerZoomService {
         duration: zoomOptions.animate ? zoomOptions.duration! : 0
       })
 
-      console.log('[LayerZoomService] Successfully zoomed to multiple layers:', {
-        layerCount: layers.length,
-        bounds: combinedBounds,
-        options: zoomOptions
-      })
-
       return true
-
     } catch (error) {
-      console.error('[LayerZoomService] Error zooming to multiple layers:', error)
       return false
     }
   }

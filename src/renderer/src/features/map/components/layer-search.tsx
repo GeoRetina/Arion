@@ -1,6 +1,6 @@
 /**
  * Layer Search Component
- * 
+ *
  * Provides search and filtering capabilities for layers with advanced
  * search syntax support and filter options.
  */
@@ -17,7 +17,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import type { LayerSearchCriteria } from '../../../../../shared/types/layer-types'
 
@@ -49,27 +49,36 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
   const [isFilterOpen, setIsFilterOpen] = useState(false)
   const [searchInput, setSearchInput] = useState(searchCriteria.query || '')
 
-  const handleSearchInputChange = useCallback((value: string) => {
-    setSearchInput(value)
-    onSearchChange({
-      ...searchCriteria,
-      query: value.trim() || undefined
-    })
-  }, [searchCriteria, onSearchChange])
+  const handleSearchInputChange = useCallback(
+    (value: string) => {
+      setSearchInput(value)
+      onSearchChange({
+        ...searchCriteria,
+        query: value.trim() || undefined
+      })
+    },
+    [searchCriteria, onSearchChange]
+  )
 
-  const handleTypeToggle = useCallback((type: 'raster' | 'vector') => {
-    onSearchChange({
-      ...searchCriteria,
-      type: searchCriteria.type === type ? undefined : type
-    })
-  }, [searchCriteria, onSearchChange])
+  const handleTypeToggle = useCallback(
+    (type: 'raster' | 'vector') => {
+      onSearchChange({
+        ...searchCriteria,
+        type: searchCriteria.type === type ? undefined : type
+      })
+    },
+    [searchCriteria, onSearchChange]
+  )
 
-  const handleOriginToggle = useCallback((origin: 'user' | 'tool' | 'mcp' | 'import') => {
-    onSearchChange({
-      ...searchCriteria,
-      createdBy: searchCriteria.createdBy === origin ? undefined : origin
-    })
-  }, [searchCriteria, onSearchChange])
+  const handleOriginToggle = useCallback(
+    (origin: 'user' | 'tool' | 'mcp' | 'import') => {
+      onSearchChange({
+        ...searchCriteria,
+        createdBy: searchCriteria.createdBy === origin ? undefined : origin
+      })
+    },
+    [searchCriteria, onSearchChange]
+  )
 
   const handleGeometryFilterToggle = useCallback(() => {
     onSearchChange({
@@ -120,15 +129,12 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn(
-                  'h-6 px-2 relative',
-                  hasActiveFilters && 'text-primary'
-                )}
+                className={cn('h-6 px-2 relative', hasActiveFilters && 'text-primary')}
               >
                 <Filter className="h-3 w-3" />
                 {activeFilterCount > 0 && (
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center"
                   >
                     {activeFilterCount}
@@ -140,7 +146,7 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Filter Layers</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
+
               {/* Layer Type Filter */}
               <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Layer Type
@@ -154,9 +160,9 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
                   {type.label}
                 </DropdownMenuCheckboxItem>
               ))}
-              
+
               <DropdownMenuSeparator />
-              
+
               {/* Origin Filter */}
               <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Created By
@@ -170,9 +176,9 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
                   {origin.label}
                 </DropdownMenuCheckboxItem>
               ))}
-              
+
               <DropdownMenuSeparator />
-              
+
               {/* Other Filters */}
               <DropdownMenuCheckboxItem
                 checked={searchCriteria.hasGeometry === true}
@@ -202,8 +208,8 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
       {hasActiveFilters && (
         <div className="flex flex-wrap gap-1">
           {searchCriteria.type && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className="text-xs cursor-pointer hover:bg-secondary/80"
               onClick={() => handleTypeToggle(searchCriteria.type!)}
             >
@@ -212,8 +218,8 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
             </Badge>
           )}
           {searchCriteria.createdBy && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className="text-xs cursor-pointer hover:bg-secondary/80"
               onClick={() => handleOriginToggle(searchCriteria.createdBy!)}
             >
@@ -222,8 +228,8 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
             </Badge>
           )}
           {searchCriteria.hasGeometry === true && (
-            <Badge 
-              variant="secondary" 
+            <Badge
+              variant="secondary"
               className="text-xs cursor-pointer hover:bg-secondary/80"
               onClick={handleGeometryFilterToggle}
             >
@@ -232,14 +238,16 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
             </Badge>
           )}
           {searchCriteria.tags?.map((tag) => (
-            <Badge 
+            <Badge
               key={tag}
-              variant="secondary" 
+              variant="secondary"
               className="text-xs cursor-pointer hover:bg-secondary/80"
-              onClick={() => onSearchChange({
-                ...searchCriteria,
-                tags: searchCriteria.tags?.filter(t => t !== tag)
-              })}
+              onClick={() =>
+                onSearchChange({
+                  ...searchCriteria,
+                  tags: searchCriteria.tags?.filter((t) => t !== tag)
+                })
+              }
             >
               Tag: {tag}
               <X className="h-3 w-3 ml-1" />
@@ -251,7 +259,10 @@ export const LayerSearch: React.FC<LayerSearchProps> = ({
       {/* Search Syntax Help */}
       {searchInput.length > 0 && (
         <div className="text-xs text-muted-foreground">
-          <div>Search syntax: <code>type:vector</code>, <code>tag:roads</code>, <code>createdBy:user</code></div>
+          <div>
+            Search syntax: <code>type:vector</code>, <code>tag:roads</code>,{' '}
+            <code>createdBy:user</code>
+          </div>
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 /**
  * AttachButton Component
- * 
+ *
  * Button for importing vector and raster layers via file upload.
  * Provides file validation, progress indication, and error handling.
  */
@@ -22,17 +22,16 @@ interface AttachButtonProps {
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error'
 
-export const AttachButton: React.FC<AttachButtonProps> = ({
-  disabled = false,
-  className
-}) => {
+export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, className }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadState, setUploadState] = useState<UploadState>('idle')
   const { addLayer, addError } = useLayerStore()
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
   // Generate accepted file types for input element
-  const acceptedTypes = Object.keys(SUPPORTED_FORMATS).join(',') + ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
+  const acceptedTypes =
+    Object.keys(SUPPORTED_FORMATS).join(',') +
+    ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
 
   const handleButtonClick = () => {
     if (disabled || uploadState === 'uploading') return
@@ -55,7 +54,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
 
       // Process file and create layer
       const layerDefinition = await LayerImportService.processFile(file, validation.format)
-      
+
       // Add to layer store with chat context for session tracking
       await addLayer(layerDefinition, {
         chatId: currentChatId,
@@ -65,7 +64,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
           fileSize: file.size
         }
       })
-      
+
       setUploadState('success')
       toast.success(`Layer "${layerDefinition.name}" imported successfully`, {
         description: `Added to current chat session`
@@ -75,17 +74,15 @@ export const AttachButton: React.FC<AttachButtonProps> = ({
       setTimeout(() => {
         setUploadState('idle')
       }, 1500)
-
     } catch (error) {
-      console.error('[AttachButton] Import failed:', error)
       setUploadState('error')
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to import layer'
-      
+
       toast.error('Layer import failed', {
         description: errorMessage
       })
-      
+
       // Add error to layer store for display in UI
       addError({
         code: 'UNSUPPORTED_FORMAT',

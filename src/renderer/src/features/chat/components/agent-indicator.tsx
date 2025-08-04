@@ -44,13 +44,13 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
     md: 'h-8 text-sm',
     lg: 'h-10 text-base'
   }
-  
+
   const iconSizes = {
     sm: 'h-3 w-3',
     md: 'h-4 w-4',
     lg: 'h-5 w-5'
   }
-  
+
   // Get appropriate icon based on agent type
   const getAgentIcon = () => {
     switch (agent.type) {
@@ -63,13 +63,13 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
         return <Bot className={iconSizes[size]} />
     }
   }
-  
+
   // Get color scheme based on agent type
   const getColorScheme = () => {
     if (!agent.isActive) {
       return 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
     }
-    
+
     switch (agent.type) {
       case 'orchestrator':
         return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
@@ -87,13 +87,13 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
       <div className="text-sm">
         <p className="font-medium">{agent.name}</p>
         <p className="text-xs capitalize mt-1">Type: {agent.type}</p>
-        
+
         {agent.capabilities && agent.capabilities.length > 0 && (
           <div className="mt-2">
             <p className="text-xs font-medium mb-1">Capabilities:</p>
             <div className="flex flex-wrap gap-1">
               {agent.capabilities.map((capability) => (
-                <span 
+                <span
                   key={capability}
                   className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 rounded"
                 >
@@ -103,8 +103,12 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
             </div>
           </div>
         )}
-        
-        {agent.isActive && <p className="text-xs mt-2 flex items-center gap-1"><Zap className="h-3 w-3" /> Active</p>}
+
+        {agent.isActive && (
+          <p className="text-xs mt-2 flex items-center gap-1">
+            <Zap className="h-3 w-3" /> Active
+          </p>
+        )}
       </div>
     )
   }
@@ -112,7 +116,7 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
   return (
     <Tooltip delayDuration={300}>
       <TooltipTrigger asChild>
-        <div 
+        <div
           className={cn(
             'flex items-center gap-2 px-3 py-1 rounded-full border transition-colors',
             getColorScheme(),
@@ -124,7 +128,7 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
         >
           {getAgentIcon()}
           {showName && <span className="font-medium">{agent.name}</span>}
-          
+
           {agent.isActive && (
             <span className="flex-shrink-0 relative">
               <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-green-400 dark:bg-green-500"></span>
@@ -133,9 +137,7 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
           )}
         </div>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {getTooltipContent()}
-      </TooltipContent>
+      <TooltipContent side="bottom">{getTooltipContent()}</TooltipContent>
     </Tooltip>
   )
 }
@@ -159,14 +161,14 @@ export const AgentGroupIndicator: React.FC<AgentGroupIndicatorProps> = ({
   showActiveOnly = false
 }) => {
   // Filter agents based on showActiveOnly prop
-  const displayAgents = showActiveOnly ? agents.filter(a => a.isActive) : agents
-  
+  const displayAgents = showActiveOnly ? agents.filter((a) => a.isActive) : agents
+
   if (displayAgents.length === 0) return null
-  
+
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
       {displayAgents.map((agent) => (
-        <AgentIndicator 
+        <AgentIndicator
           key={agent.id}
           agent={agent}
           size={size}

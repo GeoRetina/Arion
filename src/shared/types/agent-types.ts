@@ -31,7 +31,13 @@ export type ContextStrategy = 'full' | 'summary' | 'windowed'
  */
 export interface AgentRelationship {
   agentId: string
-  relationshipType: 'orchestrates' | 'supervised_by' | 'collaborates_with' | 'evaluates' | 'routes_to' | 'receives_from'
+  relationshipType:
+    | 'orchestrates'
+    | 'supervised_by'
+    | 'collaborates_with'
+    | 'evaluates'
+    | 'routes_to'
+    | 'receives_from'
 }
 
 /**
@@ -100,10 +106,7 @@ export interface AgentDefinition {
 /**
  * Agent creation parameters (without auto-generated fields)
  */
-export type CreateAgentParams = Omit<
-  AgentDefinition,
-  'id' | 'createdAt' | 'updatedAt'
->
+export type CreateAgentParams = Omit<AgentDefinition, 'id' | 'createdAt' | 'updatedAt'>
 
 /**
  * Agent update parameters

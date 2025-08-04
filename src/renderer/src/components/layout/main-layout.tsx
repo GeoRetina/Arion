@@ -27,7 +27,7 @@ export default function MainLayout({ children }: MainLayoutProps): React.JSX.Ele
         {/* Children will be the ChatInterface, which should handle its own scrolling and height */}
         {children}
       </main>
-      
+
       {/* Toast notifications */}
       <Toaster richColors position="bottom-right" />
     </div>

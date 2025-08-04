@@ -37,8 +37,6 @@ export class AgentRoutingService {
       return
     }
 
-    console.log('[AgentRoutingService] Initializing...')
-
     await this.orchestrationService.initialize()
     // Ensure dependent services are initialized
     // These services will handle their own initialization if needed
@@ -46,7 +44,6 @@ export class AgentRoutingService {
     // chatService and llmToolService are expected to be initialized by the main process
 
     this.initialized = true
-    console.log('[AgentRoutingService] Initialized successfully')
   }
 
   /**
@@ -102,7 +99,6 @@ export class AgentRoutingService {
         capabilities: Array.from(capabilityMap.values())
       }
     } catch (error) {
-      console.error('[AgentRoutingService] Error getting agent capabilities:', error)
       return {
         success: false,
         capabilities: [],

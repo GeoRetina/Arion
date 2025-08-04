@@ -1,6 +1,6 @@
 /**
  * Layer Utilities
- * 
+ *
  * Common utility functions for layer management, validation, and processing.
  * Provides helpers for layer operations, data transformation, and calculations.
  */
@@ -26,18 +26,16 @@ export class ColorUtils {
    */
   static hexToRgb(hex: string): [number, number, number] | null {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-    return result ? [
-      parseInt(result[1], 16),
-      parseInt(result[2], 16),
-      parseInt(result[3], 16)
-    ] : null
+    return result
+      ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+      : null
   }
 
   /**
    * Convert RGB array to hex string
    */
   static rgbToHex(r: number, g: number, b: number): string {
-    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
   }
 
   /**
@@ -45,8 +43,16 @@ export class ColorUtils {
    */
   static randomColor(): string {
     const colors = [
-      '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
-      '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6366f1'
+      '#3b82f6',
+      '#ef4444',
+      '#10b981',
+      '#f59e0b',
+      '#8b5cf6',
+      '#06b6d4',
+      '#f97316',
+      '#84cc16',
+      '#ec4899',
+      '#6366f1'
     ]
     return colors[Math.floor(Math.random() * colors.length)]
   }
@@ -57,7 +63,7 @@ export class ColorUtils {
   static withOpacity(color: string, opacity: number): string {
     const rgb = ColorUtils.hexToRgb(color)
     if (!rgb) return color
-    
+
     return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${opacity})`
   }
 
@@ -102,7 +108,7 @@ export class GeometryUtils {
     }
 
     coordinates.forEach(processCoordinates)
-    
+
     return [minLng, minLat, maxLng, maxLat]
   }
 
@@ -120,7 +126,7 @@ export class GeometryUtils {
   static boundsIntersect(bounds1: BoundingBox, bounds2: BoundingBox): boolean {
     const [minLng1, minLat1, maxLng1, maxLat1] = bounds1
     const [minLng2, minLat2, maxLng2, maxLat2] = bounds2
-    
+
     return !(maxLng1 < minLng2 || minLng1 > maxLng2 || maxLat1 < minLat2 || minLat1 > maxLat2)
   }
 
@@ -131,13 +137,8 @@ export class GeometryUtils {
     const [minLng, minLat, maxLng, maxLat] = bounds
     const lngPadding = (maxLng - minLng) * factor
     const latPadding = (maxLat - minLat) * factor
-    
-    return [
-      minLng - lngPadding,
-      minLat - latPadding,
-      maxLng + lngPadding,
-      maxLat + latPadding
-    ]
+
+    return [minLng - lngPadding, minLat - latPadding, maxLng + lngPadding, maxLat + latPadding]
   }
 
   /**
@@ -146,7 +147,8 @@ export class GeometryUtils {
   static calculateBoundsArea(bounds: BoundingBox): number {
     const [minLng, minLat, maxLng, maxLat] = bounds
     const degreeToKm = 111 // Approximate km per degree
-    const width = (maxLng - minLng) * degreeToKm * Math.cos((minLat + maxLat) / 2 * Math.PI / 180)
+    const width =
+      (maxLng - minLng) * degreeToKm * Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180)
     const height = (maxLat - minLat) * degreeToKm
     return width * height
   }
@@ -263,16 +265,25 @@ export class LayerValidationUtils {
 
     // Validate options
     if (config.options) {
-      if (config.options.maxZoom !== undefined && (config.options.maxZoom < 0 || config.options.maxZoom > 24)) {
+      if (
+        config.options.maxZoom !== undefined &&
+        (config.options.maxZoom < 0 || config.options.maxZoom > 24)
+      ) {
         warnings.push('Max zoom should be between 0 and 24')
       }
 
-      if (config.options.minZoom !== undefined && (config.options.minZoom < 0 || config.options.minZoom > 24)) {
+      if (
+        config.options.minZoom !== undefined &&
+        (config.options.minZoom < 0 || config.options.minZoom > 24)
+      ) {
         warnings.push('Min zoom should be between 0 and 24')
       }
 
-      if (config.options.maxZoom !== undefined && config.options.minZoom !== undefined && 
-          config.options.maxZoom < config.options.minZoom) {
+      if (
+        config.options.maxZoom !== undefined &&
+        config.options.minZoom !== undefined &&
+        config.options.maxZoom < config.options.minZoom
+      ) {
         errors.push({
           code: 'INVALID_LAYER_DATA',
           message: 'Max zoom must be greater than or equal to min zoom',
@@ -331,7 +342,15 @@ export class LayerValidationUtils {
     }
 
     // Color validations
-    const colorFields = ['pointColor', 'pointStrokeColor', 'lineColor', 'fillColor', 'fillOutlineColor', 'textColor', 'textHaloColor']
+    const colorFields = [
+      'pointColor',
+      'pointStrokeColor',
+      'lineColor',
+      'fillColor',
+      'fillOutlineColor',
+      'textColor',
+      'textHaloColor'
+    ]
     for (const field of colorFields) {
       const color = style[field as keyof LayerStyle] as string
       if (color && !this.isValidColor(color)) {
@@ -357,17 +376,31 @@ export class LayerValidationUtils {
   static isValidColor(color: string): boolean {
     // Check hex format
     if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color)) return true
-    
+
     // Check rgb/rgba format
     if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*(,\s*[0-1]?\.?\d+)?\s*\)$/.test(color)) return true
-    
+
     // Check hsl/hsla format
     if (/^hsla?\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%\s*(,\s*[0-1]?\.?\d+)?\s*\)$/.test(color)) return true
-    
+
     // Check named colors (basic set)
     const namedColors = [
-      'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown',
-      'black', 'white', 'gray', 'grey', 'cyan', 'magenta', 'lime', 'navy'
+      'red',
+      'blue',
+      'green',
+      'yellow',
+      'orange',
+      'purple',
+      'pink',
+      'brown',
+      'black',
+      'white',
+      'gray',
+      'grey',
+      'cyan',
+      'magenta',
+      'lime',
+      'navy'
     ]
     return namedColors.includes(color.toLowerCase())
   }
@@ -389,7 +422,7 @@ export class LayerTransformUtils {
     } = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
     const now = new Date()
-    
+
     return {
       name,
       type,
@@ -414,7 +447,10 @@ export class LayerTransformUtils {
   /**
    * Get default style for layer type
    */
-  static getDefaultStyleForType(type: 'raster' | 'vector', geometryType?: GeometryType): LayerStyle {
+  static getDefaultStyleForType(
+    type: 'raster' | 'vector',
+    geometryType?: GeometryType
+  ): LayerStyle {
     if (type === 'raster') {
       return {
         rasterOpacity: 1,
@@ -434,17 +470,17 @@ export class LayerTransformUtils {
       pointStrokeColor: '#ffffff',
       pointStrokeWidth: 2,
       pointStrokeOpacity: 1,
-      
+
       lineColor: ColorUtils.randomColor(),
       lineWidth: 2,
       lineOpacity: 0.8,
       lineCap: 'round',
       lineJoin: 'round',
-      
+
       fillColor: ColorUtils.randomColor(),
       fillOpacity: 0.3,
       fillOutlineColor: '#000000',
-      
+
       textSize: 12,
       textColor: '#000000',
       textHaloColor: '#ffffff',
@@ -482,7 +518,7 @@ export class LayerTransformUtils {
     modifications: Partial<LayerDefinition> = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
     const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
-    
+
     return {
       ...layerData,
       name: modifications.name || `${layer.name} Copy`,
@@ -516,7 +552,7 @@ export class LayerTransformUtils {
     }
 
     const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = data.layer
-    
+
     // Convert date strings back to Date objects if they exist
     return layerData
   }
@@ -529,33 +565,33 @@ export class LayerSearchUtils {
    */
   static parseSearchQuery(query: string): LayerSearchCriteria {
     const criteria: LayerSearchCriteria = {}
-    
+
     // Extract type filter
     const typeMatch = query.match(/type:(\w+)/)
     if (typeMatch) {
       criteria.type = typeMatch[1] as 'raster' | 'vector'
       query = query.replace(typeMatch[0], '').trim()
     }
-    
+
     // Extract tag filters
     const tagMatches = query.match(/tag:(\w+)/g)
     if (tagMatches) {
-      criteria.tags = tagMatches.map(match => match.replace('tag:', ''))
+      criteria.tags = tagMatches.map((match) => match.replace('tag:', ''))
       query = query.replace(/tag:\w+/g, '').trim()
     }
-    
+
     // Extract created by filter
     const createdByMatch = query.match(/createdBy:(\w+)/)
     if (createdByMatch) {
       criteria.createdBy = createdByMatch[1] as 'user' | 'tool' | 'mcp' | 'import'
       query = query.replace(createdByMatch[0], '').trim()
     }
-    
+
     // Remaining text is the general search query
     if (query.trim()) {
       criteria.query = query.trim()
     }
-    
+
     return criteria
   }
 
@@ -563,7 +599,7 @@ export class LayerSearchUtils {
    * Filter layers by criteria
    */
   static filterLayers(layers: LayerDefinition[], criteria: LayerSearchCriteria): LayerDefinition[] {
-    return layers.filter(layer => {
+    return layers.filter((layer) => {
       // Text search
       if (criteria.query) {
         const query = criteria.query.toLowerCase()
@@ -571,23 +607,25 @@ export class LayerSearchUtils {
           layer.name,
           layer.metadata.description || '',
           ...layer.metadata.tags
-        ].join(' ').toLowerCase()
-        
+        ]
+          .join(' ')
+          .toLowerCase()
+
         if (!searchableText.includes(query)) return false
       }
-      
+
       // Type filter
       if (criteria.type && layer.type !== criteria.type) return false
-      
+
       // Tags filter
       if (criteria.tags?.length) {
-        const hasAnyTag = criteria.tags.some(tag => layer.metadata.tags.includes(tag))
+        const hasAnyTag = criteria.tags.some((tag) => layer.metadata.tags.includes(tag))
         if (!hasAnyTag) return false
       }
-      
+
       // Created by filter
       if (criteria.createdBy && layer.createdBy !== criteria.createdBy) return false
-      
+
       // Date range filter
       if (criteria.dateRange) {
         const layerDate = layer.createdAt
@@ -595,25 +633,25 @@ export class LayerSearchUtils {
           return false
         }
       }
-      
+
       // Bounds filter
       if (criteria.bounds && layer.metadata.bounds) {
         if (!GeometryUtils.boundsIntersect(criteria.bounds, layer.metadata.bounds)) {
           return false
         }
       }
-      
+
       // Group filter
       if (criteria.groupId !== undefined && layer.groupId !== criteria.groupId) {
         return false
       }
-      
+
       // Geometry filter
       if (criteria.hasGeometry !== undefined) {
         const hasGeometry = layer.metadata.geometryType !== undefined
         if (criteria.hasGeometry !== hasGeometry) return false
       }
-      
+
       return true
     })
   }
@@ -629,16 +667,16 @@ export class LayerSearchUtils {
         return b.createdAt.getTime() - a.createdAt.getTime()
       })
     }
-    
+
     const queryLower = query.toLowerCase()
-    
+
     return layers.sort((a, b) => {
       // Calculate relevance scores
       const scoreA = this.calculateRelevanceScore(a, queryLower)
       const scoreB = this.calculateRelevanceScore(b, queryLower)
-      
+
       if (scoreA !== scoreB) return scoreB - scoreA
-      
+
       // Tie-breaker: z-index then creation date
       if (a.zIndex !== b.zIndex) return b.zIndex - a.zIndex
       return b.createdAt.getTime() - a.createdAt.getTime()
@@ -650,30 +688,30 @@ export class LayerSearchUtils {
    */
   private static calculateRelevanceScore(layer: LayerDefinition, query: string): number {
     let score = 0
-    
+
     // Name matches (highest weight)
     if (layer.name.toLowerCase().includes(query)) {
       score += 10
       if (layer.name.toLowerCase().startsWith(query)) score += 5
     }
-    
+
     // Description matches
     if (layer.metadata.description?.toLowerCase().includes(query)) {
       score += 3
     }
-    
+
     // Tag matches
     for (const tag of layer.metadata.tags) {
       if (tag.toLowerCase().includes(query)) {
         score += 2
       }
     }
-    
+
     // Type matches
     if (layer.type.toLowerCase().includes(query)) {
       score += 1
     }
-    
+
     return score
   }
 }
@@ -698,11 +736,12 @@ export class LayerStatsUtils {
     const sortedValues = [...values].sort((a, b) => a - b)
     const sum = values.reduce((acc, val) => acc + val, 0)
     const mean = sum / values.length
-    
-    const median = values.length % 2 === 0
-      ? (sortedValues[values.length / 2 - 1] + sortedValues[values.length / 2]) / 2
-      : sortedValues[Math.floor(values.length / 2)]
-    
+
+    const median =
+      values.length % 2 === 0
+        ? (sortedValues[values.length / 2 - 1] + sortedValues[values.length / 2]) / 2
+        : sortedValues[Math.floor(values.length / 2)]
+
     const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / values.length
     const stdDev = Math.sqrt(variance)
 
@@ -722,20 +761,20 @@ export class LayerStatsUtils {
   static calculateSpatialStats(bounds: BoundingBox, coordinates?: number[][]): SpatialStats {
     const envelope = bounds
     let centroid: [number, number] = GeometryUtils.getBoundsCenter(bounds)
-    
+
     // Calculate more accurate centroid if coordinates provided
     if (coordinates && coordinates.length > 0) {
       const flatCoords = coordinates.flat()
       let lngSum = 0
       let latSum = 0
       let count = 0
-      
+
       for (let i = 0; i < flatCoords.length; i += 2) {
         lngSum += flatCoords[i]
         latSum += flatCoords[i + 1]
         count++
       }
-      
+
       if (count > 0) {
         centroid = [lngSum / count, latSum / count]
       }
@@ -771,17 +810,17 @@ export class LayerStatsUtils {
     for (const layer of layers) {
       // Count by type
       summary.byType[layer.type] = (summary.byType[layer.type] || 0) + 1
-      
+
       // Count by origin
       summary.byOrigin[layer.createdBy] = (summary.byOrigin[layer.createdBy] || 0) + 1
-      
+
       // Count by group
       const groupKey = layer.groupId || 'ungrouped'
       summary.byGroup[groupKey] = (summary.byGroup[groupKey] || 0) + 1
-      
+
       // Count visible layers
       if (layer.visibility) summary.visible++
-      
+
       // Count layers with errors (would need error tracking)
       // summary.withErrors += hasErrors ? 1 : 0
     }

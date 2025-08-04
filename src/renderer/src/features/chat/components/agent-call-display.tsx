@@ -82,7 +82,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
   }
 
   const currentStyles = statusStyles[status]
-  
+
   // For loading state without agent name, format the ID nicely
   // For completed state, we should have the agent name from the result
   const displayName = agentName || (status === 'loading' ? `Agent ${agentId}` : agentId)
@@ -107,9 +107,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
             Calling agent: {displayName}
           </div>
           {status === 'loading' && (
-            <div className="text-xs text-muted-foreground">
-              Processing...
-            </div>
+            <div className="text-xs text-muted-foreground">Processing...</div>
           )}
         </div>
 
@@ -120,9 +118,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
           {status === 'completed' && (
             <CheckCircle className={cn('h-3.5 w-3.5', currentStyles.accent)} />
           )}
-          {status === 'error' && (
-            <XCircle className={cn('h-3.5 w-3.5', currentStyles.accent)} />
-          )}
+          {status === 'error' && <XCircle className={cn('h-3.5 w-3.5', currentStyles.accent)} />}
 
           {expanded ? (
             <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -138,9 +134,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
           <div>
             <div className="font-medium text-muted-foreground mb-1">Task</div>
             <div className="rounded border border-border/40 bg-muted/20 p-2">
-              <div className="whitespace-pre-wrap break-words text-foreground">
-                {message}
-              </div>
+              <div className="whitespace-pre-wrap break-words text-foreground">{message}</div>
             </div>
           </div>
 
@@ -192,9 +186,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
           {status === 'loading' && (
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
               <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-              <div className="font-medium">
-                Processing request...
-              </div>
+              <div className="font-medium">Processing request...</div>
             </div>
           )}
         </div>

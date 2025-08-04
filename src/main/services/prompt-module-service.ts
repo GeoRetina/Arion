@@ -1,28 +1,35 @@
 import { v4 as uuidv4 } from 'uuid'
 import { dbService } from './db-service'
 import * as better_sqlite3 from 'better-sqlite3'
-import { PromptModule, PromptModuleType, PromptCondition, PromptAssemblyRequest, PromptAssemblyResult, CreatePromptModuleParams, UpdatePromptModuleParams, PromptModuleInfo } from '../../shared/types/prompt-types'
+import {
+  PromptModule,
+  PromptModuleType,
+  PromptCondition,
+  PromptAssemblyRequest,
+  PromptAssemblyResult,
+  CreatePromptModuleParams,
+  UpdatePromptModuleParams,
+  PromptModuleInfo
+} from '../../shared/types/prompt-types'
 
 /**
  * Service for managing prompt modules and assembling system prompts
  */
 export class PromptModuleService {
   private initialized = false
-  
+
   // Helper to get the database
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
     // This is necessary because the db property is private in DBService
     return (dbService as any).db
   }
-  
+
   // In-memory cache of prompt modules
   private moduleCache: Map<string, PromptModule> = new Map()
-  
-  constructor() {
-    console.log('[PromptModuleService] Constructed')
-  }
-  
+
+  constructor() {}
+
   /**
    * Initialize the service and database schema
    */
@@ -30,59 +37,49 @@ export class PromptModuleService {
     if (this.initialized) {
       return
     }
-    
-    console.log('[PromptModuleService] Initializing...')
-    
+
     // Create tables if they don't exist
     await this.ensureDatabaseSchema()
-    
+
     // Load modules into cache
     await this.refreshCache()
-    
+
     // Ensure default modules exist
     await this.ensureDefaultModules()
-    
+
     this.initialized = true
-    console.log('[PromptModuleService] Initialized successfully')
   }
-  
+
   /**
    * Ensure default prompt modules exist
    */
   private async ensureDefaultModules(): Promise<void> {
-    console.log('[PromptModuleService] Checking for default modules...')
-    console.log(`[PromptModuleService] Current module cache size: ${this.moduleCache.size}`)
-    
     // Check for user-defined-prompt module
     const userDefinedPromptExists = Array.from(this.moduleCache.values()).some(
-      module => module.id === 'user-defined-prompt'
+      (module) => module.id === 'user-defined-prompt'
     )
-    
-    console.log(`[PromptModuleService] user-defined-prompt module exists: ${userDefinedPromptExists}`)
-    
+
     if (!userDefinedPromptExists) {
-      console.log('[PromptModuleService] Creating default user-defined-prompt module')
-      
-      await this.createModule({
-        name: 'User-Defined Prompt',
-        description: 'Custom prompt content provided by the user for agent definition',
-        type: 'agent',
-        content: '{{content}}',
-        parameters: ['content'],
-        priority: 100,
-        author: 'system'
-      }, 'user-defined-prompt', true)
-      
-      console.log('[PromptModuleService] Created default user-defined-prompt module')
+      await this.createModule(
+        {
+          name: 'User-Defined Prompt',
+          description: 'Custom prompt content provided by the user for agent definition',
+          type: 'agent',
+          content: '{{content}}',
+          parameters: ['content'],
+          priority: 100,
+          author: 'system'
+        },
+        'user-defined-prompt',
+        true
+      )
     }
   }
-  
+
   /**
    * Ensure database schema exists for prompt modules
    */
   private async ensureDatabaseSchema(): Promise<void> {
-    console.log('[PromptModuleService] Ensuring database schema...')
-    
     // This would normally be in a migration file, but for simplicity creating here
     const createTablesSQL = `
       CREATE TABLE IF NOT EXISTS prompt_modules (
@@ -103,30 +100,26 @@ export class PromptModuleService {
       
       CREATE INDEX IF NOT EXISTS idx_prompt_modules_type ON prompt_modules(type);
     `
-    
+
     try {
       const db = this.getDb()
       db.exec(createTablesSQL)
-      console.log('[PromptModuleService] Database schema ensured')
     } catch (error) {
-      console.error('[PromptModuleService] Error ensuring database schema:', error)
       throw error
     }
   }
-  
+
   /**
    * Refresh the in-memory cache from database
    */
   private async refreshCache(): Promise<void> {
-    console.log('[PromptModuleService] Refreshing module cache...')
-    
     try {
       const db = this.getDb()
       const modules = db.prepare('SELECT * FROM prompt_modules').all() as any[]
-      
+
       // Clear existing cache
       this.moduleCache.clear()
-      
+
       // Parse JSON fields and add to cache
       for (const moduleRow of modules) {
         const module: PromptModule = {
@@ -144,24 +137,21 @@ export class PromptModuleService {
           updatedAt: moduleRow.updated_at,
           author: moduleRow.author
         }
-        
+
         this.moduleCache.set(module.id, module)
       }
-      
-      console.log(`[PromptModuleService] Cache refreshed with ${this.moduleCache.size} modules`)
     } catch (error) {
-      console.error('[PromptModuleService] Error refreshing cache:', error)
       throw error
     }
   }
-  
+
   /**
    * Get all prompt modules as lightweight info objects
    */
   public async getAllModules(): Promise<PromptModuleInfo[]> {
     await this.ensureInitialized()
-    
-    return Array.from(this.moduleCache.values()).map(module => ({
+
+    return Array.from(this.moduleCache.values()).map((module) => ({
       id: module.id,
       name: module.name,
       description: module.description,
@@ -170,7 +160,7 @@ export class PromptModuleService {
       parameters: module.parameters
     }))
   }
-  
+
   /**
    * Get a prompt module by ID
    */
@@ -178,20 +168,24 @@ export class PromptModuleService {
     await this.ensureInitialized()
     return this.moduleCache.get(id) || null
   }
-  
+
   /**
    * Create a new prompt module
    */
-  public async createModule(params: CreatePromptModuleParams, specificId?: string, skipInitCheck: boolean = false): Promise<PromptModule> {
+  public async createModule(
+    params: CreatePromptModuleParams,
+    specificId?: string,
+    skipInitCheck: boolean = false
+  ): Promise<PromptModule> {
     // Only perform initialization check if not explicitly skipped
     if (!skipInitCheck) {
       await this.ensureInitialized()
     }
-    
+
     const id = specificId || uuidv4()
     const now = new Date().toISOString()
     const version = '1.0.0'
-    
+
     const newModule: PromptModule = {
       id,
       name: params.name,
@@ -207,29 +201,28 @@ export class PromptModuleService {
       updatedAt: now,
       author: params.author
     }
-    
+
     try {
-      console.log(`[PromptModuleService] Creating module with ID ${id}: ${params.name}`)
-      
       // Check if module with this ID already exists in the database
       const db = this.getDb()
       const existingModule = db.prepare('SELECT id FROM prompt_modules WHERE id = ?').get(id)
-      
+
       if (existingModule) {
-        console.log(`[PromptModuleService] Module with ID ${id} already exists in database, skipping creation`)
         // Just update the cache if needed
         if (!this.moduleCache.has(id)) {
           this.moduleCache.set(newModule.id, newModule)
         }
         return newModule
       }
-      
+
       // Insert the new module
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO prompt_modules 
         (id, name, description, type, content, parameters, dependencies, conditions, priority, version, created_at, updated_at, author) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
+      `
+      ).run(
         newModule.id,
         newModule.name,
         newModule.description,
@@ -244,166 +237,159 @@ export class PromptModuleService {
         newModule.updatedAt,
         newModule.author
       )
-      
+
       // Add to cache
       this.moduleCache.set(newModule.id, newModule)
-      
-      console.log(`[PromptModuleService] Created new module: ${newModule.id} - ${newModule.name}`)
+
       return newModule
     } catch (error) {
-      console.error('[PromptModuleService] Error creating module:', error)
       throw error
     }
   }
-  
+
   /**
    * Update an existing prompt module
    */
   public async updateModule(id: string, updates: UpdatePromptModuleParams): Promise<PromptModule> {
     await this.ensureInitialized()
-    
+
     // Check if module exists
     const existingModule = this.moduleCache.get(id)
     if (!existingModule) {
       throw new Error(`Prompt module with ID ${id} not found`)
     }
-    
+
     // Create updated module
     const now = new Date().toISOString()
-    
+
     // Calculate version bump (simple approach - real versioning would be more sophisticated)
     const currentVersion = existingModule.version.split('.')
     const minorVersion = parseInt(currentVersion[1] || '0') + 1
     const newVersion = `${currentVersion[0] || '1'}.${minorVersion}.0`
-    
+
     const updatedModule: PromptModule = {
       ...existingModule,
       ...updates,
       version: newVersion,
       updatedAt: now
     }
-    
+
     try {
       // Build update SQL dynamically based on provided fields
       const db = this.getDb()
       const fields: string[] = []
       const values: any[] = []
-      
+
       if (updates.name !== undefined) {
         fields.push('name = ?')
         values.push(updates.name)
       }
-      
+
       if (updates.description !== undefined) {
         fields.push('description = ?')
         values.push(updates.description)
       }
-      
+
       if (updates.type !== undefined) {
         fields.push('type = ?')
         values.push(updates.type)
       }
-      
+
       if (updates.content !== undefined) {
         fields.push('content = ?')
         values.push(updates.content)
       }
-      
+
       if (updates.parameters !== undefined) {
         fields.push('parameters = ?')
         values.push(JSON.stringify(updates.parameters))
       }
-      
+
       if (updates.dependencies !== undefined) {
         fields.push('dependencies = ?')
         values.push(JSON.stringify(updates.dependencies))
       }
-      
+
       if (updates.conditions !== undefined) {
         fields.push('conditions = ?')
         values.push(JSON.stringify(updates.conditions))
       }
-      
+
       if (updates.priority !== undefined) {
         fields.push('priority = ?')
         values.push(updates.priority)
       }
-      
+
       // Always update version and updated_at
       fields.push('version = ?')
       values.push(newVersion)
-      
+
       fields.push('updated_at = ?')
       values.push(now)
-      
+
       // Execute update
       if (fields.length > 0) {
         const updateSQL = `UPDATE prompt_modules SET ${fields.join(', ')} WHERE id = ?`
         db.prepare(updateSQL).run(...values, id)
       }
-      
+
       // Update cache
       this.moduleCache.set(id, updatedModule)
-      
-      console.log(`[PromptModuleService] Updated module: ${id} - ${updatedModule.name} (version ${newVersion})`)
+
       return updatedModule
     } catch (error) {
-      console.error(`[PromptModuleService] Error updating module ${id}:`, error)
       throw error
     }
   }
-  
+
   /**
    * Delete a prompt module
    */
   public async deleteModule(id: string): Promise<boolean> {
     await this.ensureInitialized()
-    
+
     try {
       const db = this.getDb()
       const result = db.prepare('DELETE FROM prompt_modules WHERE id = ?').run(id)
-      
+
       const success = result.changes > 0
-      
+
       if (success) {
         // Remove from cache
         this.moduleCache.delete(id)
-        console.log(`[PromptModuleService] Deleted module: ${id}`)
       } else {
-        console.warn(`[PromptModuleService] No module found to delete with id: ${id}`)
       }
-      
+
       return success
     } catch (error) {
-      console.error(`[PromptModuleService] Error deleting module ${id}:`, error)
       throw error
     }
   }
-  
+
   /**
    * Assemble a system prompt from modules
    */
   public async assemblePrompt(request: PromptAssemblyRequest): Promise<PromptAssemblyResult> {
     await this.ensureInitialized()
-    
-    console.log('[PromptModuleService] Assembling prompt...', request)
-    
+
     try {
       // Collect and validate all modules
       const modulesToInclude: PromptModule[] = []
       const warnings: string[] = []
       const includedModuleIds: string[] = []
-      
+
       // Helper to collect modules with validation
-      const collectModules = async (moduleParams: { moduleId: string, parameters: Record<string, string> }[]) => {
+      const collectModules = async (
+        moduleParams: { moduleId: string; parameters: Record<string, string> }[]
+      ) => {
         for (const { moduleId, parameters } of moduleParams) {
           const module = this.moduleCache.get(moduleId)
-          
+
           if (!module) {
             warnings.push(`Module not found: ${moduleId}`)
             continue
           }
-          
+
           // Check dependencies
           if (module.dependencies) {
             for (const dependencyId of module.dependencies) {
@@ -414,11 +400,13 @@ export class PromptModuleService {
                 const dependency = this.moduleCache.get(dependencyId)!
                 modulesToInclude.push(dependency)
                 includedModuleIds.push(dependencyId)
-                warnings.push(`Automatically added dependency ${dependency.name} for module ${module.name}`)
+                warnings.push(
+                  `Automatically added dependency ${dependency.name} for module ${module.name}`
+                )
               }
             }
           }
-          
+
           // Check conditions (if context provided)
           if (module.conditions && request.context) {
             const shouldInclude = this.evaluateConditions(module.conditions, request.context)
@@ -427,7 +415,7 @@ export class PromptModuleService {
               continue
             }
           }
-          
+
           // Validate parameters
           if (module.parameters) {
             for (const param of module.parameters) {
@@ -436,57 +424,59 @@ export class PromptModuleService {
               }
             }
           }
-          
+
           modulesToInclude.push(module)
           includedModuleIds.push(moduleId)
         }
       }
-      
+
       // Collect all requested modules
       await collectModules(request.coreModules)
       await collectModules(request.taskModules || [])
       await collectModules(request.agentModules)
       await collectModules(request.ruleModules || [])
-      
+
       // Sort modules by type and priority
       modulesToInclude.sort((a, b) => {
         // First sort by module type order
         const typeOrder: Record<PromptModuleType, number> = {
-          'core': 0,
-          'capability': 1,
-          'task': 2,
-          'agent': 3,
-          'rule': 4
+          core: 0,
+          capability: 1,
+          task: 2,
+          agent: 3,
+          rule: 4
         }
-        
+
         const typeComparison = typeOrder[a.type] - typeOrder[b.type]
         if (typeComparison !== 0) return typeComparison
-        
+
         // Then by priority (higher numbers come first)
         return (b.priority || 0) - (a.priority || 0)
       })
-      
+
       // Extract parameter values by module ID
       const allParams: Record<string, Record<string, string>> = {}
-      
-      const addParams = (moduleRefs: { moduleId: string, parameters: Record<string, string> }[]) => {
+
+      const addParams = (
+        moduleRefs: { moduleId: string; parameters: Record<string, string> }[]
+      ) => {
         for (const { moduleId, parameters } of moduleRefs) {
           allParams[moduleId] = parameters
         }
       }
-      
+
       addParams(request.coreModules)
       addParams(request.taskModules || [])
       addParams(request.agentModules)
       addParams(request.ruleModules || [])
-      
+
       // Assemble the final prompt
       let assembledPrompt = ''
-      
+
       // Process each module's content with parameter substitution
       for (const module of modulesToInclude) {
         let moduleContent = module.content
-        
+
         // Apply parameter substitution
         if (module.parameters && allParams[module.id]) {
           const params = allParams[module.id]
@@ -497,20 +487,20 @@ export class PromptModuleService {
             }
           }
         }
-        
+
         // Add separator between modules
         if (assembledPrompt) {
           assembledPrompt += '\n\n'
         }
-        
+
         // Add module header as comment
         assembledPrompt += `<!-- Module: ${module.name} (${module.type}) -->\n`
         assembledPrompt += moduleContent
       }
-      
+
       // Estimate token count (very rough approximation)
       const tokenCount = Math.ceil(assembledPrompt.length / 4)
-      
+
       // Result
       const result: PromptAssemblyResult = {
         assembledPrompt,
@@ -518,16 +508,13 @@ export class PromptModuleService {
         tokenCount,
         warnings: warnings.length > 0 ? warnings : undefined
       }
-      
-      console.log(`[PromptModuleService] Assembled prompt with ${includedModuleIds.length} modules, ~${tokenCount} tokens, and ${warnings.length} warnings`)
+
       return result
-      
     } catch (error) {
-      console.error('[PromptModuleService] Error assembling prompt:', error)
       throw error
     }
   }
-  
+
   /**
    * Evaluate conditions against context
    */
@@ -536,30 +523,40 @@ export class PromptModuleService {
     if (!conditions || conditions.length === 0) {
       return true
     }
-    
+
     // All conditions must pass (AND logic)
-    return conditions.every(condition => {
+    return conditions.every((condition) => {
       const { field, operator, value } = condition
-      
+
       // Check if field exists in context
       const fieldExists = field in context
       const fieldValue = fieldExists ? context[field] : undefined
-      
+
       switch (operator) {
         case 'equals':
           return fieldValue === value
         case 'not_equals':
           return fieldValue !== value
         case 'contains':
-          return typeof fieldValue === 'string' ? fieldValue.includes(value) : 
-                 Array.isArray(fieldValue) ? fieldValue.includes(value) : false
+          return typeof fieldValue === 'string'
+            ? fieldValue.includes(value)
+            : Array.isArray(fieldValue)
+              ? fieldValue.includes(value)
+              : false
         case 'not_contains':
-          return typeof fieldValue === 'string' ? !fieldValue.includes(value) : 
-                 Array.isArray(fieldValue) ? !fieldValue.includes(value) : true
+          return typeof fieldValue === 'string'
+            ? !fieldValue.includes(value)
+            : Array.isArray(fieldValue)
+              ? !fieldValue.includes(value)
+              : true
         case 'greater_than':
-          return typeof fieldValue === 'number' && typeof value === 'number' ? fieldValue > value : false
+          return typeof fieldValue === 'number' && typeof value === 'number'
+            ? fieldValue > value
+            : false
         case 'less_than':
-          return typeof fieldValue === 'number' && typeof value === 'number' ? fieldValue < value : false
+          return typeof fieldValue === 'number' && typeof value === 'number'
+            ? fieldValue < value
+            : false
         case 'exists':
           return fieldExists
         case 'not_exists':
@@ -569,7 +566,7 @@ export class PromptModuleService {
       }
     })
   }
-  
+
   /**
    * Ensure the service is initialized before operations
    */

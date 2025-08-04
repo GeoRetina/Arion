@@ -1,6 +1,6 @@
 /**
  * Plus Dropdown Component
- * 
+ *
  * Dropdown menu triggered by a plus button that contains various
  * import and database options for the chat input.
  */
@@ -13,7 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useLayerStore } from '@/stores/layer-store'
@@ -42,7 +42,9 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
   // Generate accepted file types for input element
-  const acceptedTypes = Object.keys(SUPPORTED_FORMATS).join(',') + ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
+  const acceptedTypes =
+    Object.keys(SUPPORTED_FORMATS).join(',') +
+    ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
 
   const handleFileImport = () => {
     if (disabled || uploadState === 'uploading') return
@@ -66,7 +68,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
 
       // Process file and create layer
       const layerDefinition = await LayerImportService.processFile(file, validation.format)
-      
+
       // Add to layer store with chat context for session tracking
       await addLayer(layerDefinition, {
         chatId: currentChatId,
@@ -76,7 +78,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
           fileSize: file.size
         }
       })
-      
+
       setUploadState('success')
       toast.success(`Layer "${layerDefinition.name}" imported successfully`, {
         description: `Added to current chat session`
@@ -86,17 +88,15 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
       setTimeout(() => {
         setUploadState('idle')
       }, 1500)
-
     } catch (error) {
-      console.error('[PlusDropdown] Import failed:', error)
       setUploadState('error')
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Failed to import layer'
-      
+
       toast.error('Layer import failed', {
         description: errorMessage
       })
-      
+
       // Add error to layer store for display in UI
       addError({
         code: 'UNSUPPORTED_FORMAT',
@@ -176,15 +176,18 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
             <p>{getButtonTitle()}</p>
           </TooltipContent>
         </Tooltip>
-        
+
         <DropdownMenuContent align="center" side="top" className="w-56">
-          <DropdownMenuItem onClick={handleFileImport} disabled={disabled || uploadState === 'uploading'}>
+          <DropdownMenuItem
+            onClick={handleFileImport}
+            disabled={disabled || uploadState === 'uploading'}
+          >
             <Paperclip className="h-5 w-5 mr-2" />
             Import File
           </DropdownMenuItem>
-          
+
           <DropdownMenuSeparator />
-          
+
           <DropdownMenuItem onClick={handleDatabaseOpen} disabled={disabled}>
             <Database className="h-5 w-5 mr-2" />
             Layer Database

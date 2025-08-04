@@ -6,7 +6,11 @@ import { AgentRegistryService } from './agent-registry-service'
 import { LLMProviderFactory } from './llm-provider-factory'
 import { AgentToolManager } from './agent-tool-manager'
 import { MessagePreparationService } from './message-preparation-service'
-import { StreamingHandlerService, type StreamingCallbacks, type StructuredExecutionResult } from './streaming-handler-service'
+import {
+  StreamingHandlerService,
+  type StreamingCallbacks,
+  type StructuredExecutionResult
+} from './streaming-handler-service'
 
 // Interface for the request body from the renderer
 interface ChatRequestBody {
@@ -25,23 +29,23 @@ export class ChatService {
   private llmToolService: LlmToolService
 
   constructor(
-    settingsService: SettingsService, 
+    settingsService: SettingsService,
     llmToolService: LlmToolService,
     modularPromptManager: ModularPromptManager,
     agentRegistryService?: AgentRegistryService
   ) {
     this.llmToolService = llmToolService
-    
+
     // Initialize the new services
     this.llmProviderFactory = new LLMProviderFactory(settingsService, agentRegistryService)
     this.agentToolManager = new AgentToolManager(llmToolService, agentRegistryService)
-    this.messagePreparationService = new MessagePreparationService(settingsService, modularPromptManager, agentRegistryService)
+    this.messagePreparationService = new MessagePreparationService(
+      settingsService,
+      modularPromptManager,
+      agentRegistryService
+    )
     this.streamingHandlerService = new StreamingHandlerService()
-    
   }
-
-  
-
 
   /**
    * Execute agent and collect structured result including both text and tool results
@@ -59,7 +63,11 @@ export class ChatService {
 
     try {
       const { processedMessages, finalSystemPrompt } =
-        await this.messagePreparationService.prepareMessagesAndSystemPrompt(messages, chatId, agentId)
+        await this.messagePreparationService.prepareMessagesAndSystemPrompt(
+          messages,
+          chatId,
+          agentId
+        )
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
@@ -95,9 +103,11 @@ export class ChatService {
     }
   }
 
-  async handleSendMessageStream(body: ChatRequestBody & { id?: string, agentId?: string }): Promise<Uint8Array[]> {
+  async handleSendMessageStream(
+    body: ChatRequestBody & { id?: string; agentId?: string }
+  ): Promise<Uint8Array[]> {
     const { messages: rendererMessages, agentId } = body
-    
+
     // Set the chat ID in the LlmToolService for permission tracking
     if (body.id) {
       this.llmToolService.setCurrentChatId(body.id)
@@ -106,7 +116,11 @@ export class ChatService {
 
     try {
       const { processedMessages, finalSystemPrompt } =
-        await this.messagePreparationService.prepareMessagesAndSystemPrompt(rendererMessages, body.id, agentId)
+        await this.messagePreparationService.prepareMessagesAndSystemPrompt(
+          rendererMessages,
+          body.id,
+          agentId
+        )
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
@@ -120,7 +134,6 @@ export class ChatService {
           ]
         }
       }
-
 
       if (!processedMessages || processedMessages.length === 0) {
         return [
@@ -143,9 +156,7 @@ export class ChatService {
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
-      return [
-        textEncoder.encode(JSON.stringify({ streamError: errorMessage }))
-      ]
+      return [textEncoder.encode(JSON.stringify({ streamError: errorMessage }))]
     }
   }
 
@@ -154,11 +165,11 @@ export class ChatService {
    * Uses callbacks to send data immediately as it becomes available
    */
   async handleStreamingMessage(
-    body: ChatRequestBody & { id?: string, agentId?: string },
+    body: ChatRequestBody & { id?: string; agentId?: string },
     callbacks: StreamingCallbacks
   ): Promise<void> {
     const { messages: rendererMessages, agentId } = body
-    
+
     // Set the chat ID in the LlmToolService for permission tracking
     if (body.id) {
       this.llmToolService.setCurrentChatId(body.id)
@@ -166,7 +177,11 @@ export class ChatService {
 
     try {
       const { processedMessages, finalSystemPrompt } =
-        await this.messagePreparationService.prepareMessagesAndSystemPrompt(rendererMessages, body.id, agentId)
+        await this.messagePreparationService.prepareMessagesAndSystemPrompt(
+          rendererMessages,
+          body.id,
+          agentId
+        )
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
@@ -177,7 +192,6 @@ export class ChatService {
           return
         }
       }
-
 
       // Create LLM using agent-specific configuration or global settings
       const llm = await this.llmProviderFactory.createLLMFromAgentConfig(agentId)

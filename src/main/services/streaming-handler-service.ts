@@ -1,9 +1,4 @@
-import {
-  streamText,
-  smoothStream,
-  type CoreMessage,
-  type LanguageModel
-} from 'ai'
+import { streamText, smoothStream, type CoreMessage, type LanguageModel } from 'ai'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
 
 export interface StreamingCallbacks {
@@ -28,8 +23,7 @@ export interface StructuredExecutionResult {
 }
 
 export class StreamingHandlerService {
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * Execute agent and collect structured result including both text and tool results
@@ -86,8 +80,7 @@ export class StreamingHandlerService {
             }
           }
         }
-      } catch (error) {
-      }
+      } catch (error) {}
 
       return {
         textResponse,
@@ -167,7 +160,7 @@ export class StreamingHandlerService {
       // Check if we have any tools to provide
       if (options.tools && Object.keys(options.tools).length === 0) {
       }
-      
+
       const streamTextOptions: Parameters<typeof streamText>[0] = {
         model: options.model,
         messages: options.messages,
@@ -175,8 +168,7 @@ export class StreamingHandlerService {
         ...(options.tools && Object.keys(options.tools).length > 0 && { tools: options.tools }),
         maxSteps: options.maxSteps || MAX_LLM_STEPS,
         toolCallStreaming: true, // Enable tool call streaming
-        onFinish: async (_event) => {
-        }
+        onFinish: async (_event) => {}
       }
 
       // Execute the streamText call and handle stream events in real-time
@@ -237,8 +229,7 @@ export class StreamingHandlerService {
       ...(options.tools && Object.keys(options.tools).length > 0 && { tools: options.tools }),
       maxSteps: options.maxSteps || MAX_LLM_STEPS,
       experimental_transform: smoothStream({}),
-      onFinish: async (_event) => {
-      }
+      onFinish: async (_event) => {}
     }
 
     return streamTextOptions

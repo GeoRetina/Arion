@@ -1,18 +1,18 @@
 /**
  * Layers Database Modal
- * 
+ *
  * Modal dialog that displays all available layers in the system database.
  * Users can browse, search, and import layers to their current chat session.
  */
 
 import React, { useState, useEffect } from 'react'
-import { 
-  Search, 
-  Download, 
-  Database, 
-  Layers3 as Layer3, 
-  Filter, 
-  Grid, 
+import {
+  Search,
+  Download,
+  Database,
+  Layers3 as Layer3,
+  Filter,
+  Grid,
   List,
   Image as ImageIcon,
   Trash2,
@@ -24,7 +24,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogDescription
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,7 +35,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useLayerStore } from '@/stores/layer-store'
@@ -63,18 +63,12 @@ const LayerTypeIcon = ({ type }: { type: LayerType }) => {
   if (type === 'raster') {
     return <ImageIcon className="h-4 w-4" />
   }
-  
+
   // Vector types - no icon, return null
   return null
 }
 
-const LayerCard = ({ 
-  layer, 
-  viewMode, 
-  isSelected,
-  onImport,
-  onToggleSelect 
-}: LayerCardProps) => {
+const LayerCard = ({ layer, viewMode, isSelected, onImport, onToggleSelect }: LayerCardProps) => {
   const [isImporting, setIsImporting] = useState(false)
 
   const handleImport = async () => {
@@ -99,7 +93,9 @@ const LayerCard = ({
 
   if (viewMode === 'list') {
     return (
-      <div className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg hover:bg-muted/50 transition-colors ${isSelected ? 'bg-accent/10 border-accent/30 dark:bg-accent/10 dark:border-accent/30' : ''}`}>
+      <div
+        className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg hover:bg-muted/50 transition-colors ${isSelected ? 'bg-accent/10 border-accent/30 dark:bg-accent/10 dark:border-accent/30' : ''}`}
+      >
         <button
           onClick={() => onToggleSelect(layer.id)}
           className="flex-shrink-0 hover:bg-muted rounded p-1 transition-colors"
@@ -115,19 +111,24 @@ const LayerCard = ({
           <div className="flex-1 min-w-0">
             <div className="font-medium truncate text-sm sm:text-base">{layer.name}</div>
             <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 sm:gap-2 flex-wrap">
-              <Badge variant="secondary" className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}>
+              <Badge
+                variant="secondary"
+                className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}
+              >
                 {layer.type}
               </Badge>
               {layer.metadata.geometryType && (
                 <span className="text-xs hidden sm:inline">{layer.metadata.geometryType}</span>
               )}
               {layer.metadata.featureCount && (
-                <span className="text-xs hidden md:inline">{layer.metadata.featureCount.toLocaleString()} features</span>
+                <span className="text-xs hidden md:inline">
+                  {layer.metadata.featureCount.toLocaleString()} features
+                </span>
               )}
             </div>
           </div>
         </div>
-        
+
         <Button
           variant="ghost"
           size="sm"
@@ -144,7 +145,9 @@ const LayerCard = ({
 
   // Grid view
   return (
-    <div className={`border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors space-y-2 sm:space-y-3 h-full flex flex-col ${isSelected ? 'bg-accent/10 border-accent/30 dark:bg-accent/10 dark:border-accent/30' : ''}`}>
+    <div
+      className={`border rounded-lg p-3 sm:p-4 hover:bg-muted/50 transition-colors space-y-2 sm:space-y-3 h-full flex flex-col ${isSelected ? 'bg-accent/10 border-accent/30 dark:bg-accent/10 dark:border-accent/30' : ''}`}
+    >
       <div className="flex items-start gap-2">
         <button
           onClick={() => onToggleSelect(layer.id)}
@@ -160,7 +163,10 @@ const LayerCard = ({
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate text-sm sm:text-base">{layer.name}</div>
           <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-            <Badge variant="secondary" className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}>
+            <Badge
+              variant="secondary"
+              className={cn('text-xs px-1.5 py-0', getLayerTypeColor(layer.type))}
+            >
               {layer.type}
             </Badge>
           </div>
@@ -218,41 +224,32 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
   // Load layers from persistence when modal opens
   useEffect(() => {
     if (isOpen && !hasLoadedOnOpen) {
-      console.log('[LayersDatabaseModal] Modal opened, loading layers from persistence')
-      console.log('[LayersDatabaseModal] Current layers in store:', layers.size)
       loadFromPersistence(true) // Include imported layers for database modal
         .then(() => {
-          console.log('[LayersDatabaseModal] Layers loaded from persistence, total count:', layers.size)
           const allLayers = Array.from(layers.values())
-          const persistentLayers = allLayers.filter(l => l.createdBy !== 'import')
-          const importedLayers = allLayers.filter(l => l.createdBy === 'import')
-          console.log('[LayersDatabaseModal] Breakdown:', {
-            total: allLayers.length,
-            persistent: persistentLayers.length,
-            imported: importedLayers.length,
-            persistentLayerNames: persistentLayers.map(l => `${l.name} (${l.createdBy})`)
-          })
+          const persistentLayers = allLayers.filter((l) => l.createdBy !== 'import')
+          const importedLayers = allLayers.filter((l) => l.createdBy === 'import')
           setHasLoadedOnOpen(true)
         })
-        .catch(error => {
-          console.error('[LayersDatabaseModal] Failed to load layers:', error)
+        .catch((error) => {
           // Still mark as loaded to prevent repeated attempts
           setHasLoadedOnOpen(true)
         })
     }
-    
+
     // Reset loaded flag when modal closes
     if (!isOpen && hasLoadedOnOpen) {
       setHasLoadedOnOpen(false)
     }
   }, [isOpen, hasLoadedOnOpen, loadFromPersistence, layers.size])
-  
+
   // Show all layers from the database
   const databaseLayers = Array.from(layers.values())
-  
+
   // Filter layers based on search and filter type
-  const filteredLayers = databaseLayers.filter(layer => {
-    const matchesSearch = !searchQuery || layer.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredLayers = databaseLayers.filter((layer) => {
+    const matchesSearch =
+      !searchQuery || layer.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesFilter = filterType === 'all' || layer.type === filterType
     return matchesSearch && matchesFilter
   })
@@ -261,7 +258,6 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     try {
       // Only allow import if there's a current chat session
       if (!currentChatId) {
-        console.warn('[LayersDatabaseModal] Cannot import layer: no active chat session')
         return
       }
 
@@ -294,18 +290,15 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           originalName: layer.name
         }
       })
-      
+
       toast.success(`Layer "${layer.name}" imported to chat`, {
         description: 'Added to current session'
       })
-      console.log('[LayersDatabaseModal] Successfully imported layer:', layer.name)
     } catch (error) {
-      console.error('[LayersDatabaseModal] Failed to import layer:', error)
-      
       toast.error('Failed to import layer from database', {
         description: error instanceof Error ? error.message : 'An unknown error occurred'
       })
-      
+
       addError({
         code: 'INVALID_LAYER_DATA',
         message: `Failed to import layer: ${layer.name}`,
@@ -316,7 +309,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
   }
 
   const handleToggleLayerSelection = (layerId: string) => {
-    setSelectedLayerIds(prev => {
+    setSelectedLayerIds((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(layerId)) {
         newSet.delete(layerId)
@@ -328,7 +321,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
   }
 
   const handleSelectAll = () => {
-    const allLayerIds = new Set(filteredLayers.map(l => l.id))
+    const allLayerIds = new Set(filteredLayers.map((l) => l.id))
     setSelectedLayerIds(allLayerIds)
   }
 
@@ -347,15 +340,11 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
 
     setIsDeleting(true)
     try {
-      console.log(`[LayersDatabaseModal] Deleting ${selectedLayerIds.size} selected layers`)
-      
       // Delete layers one by one
       for (const layerId of selectedLayerIds) {
         try {
           await removeLayer(layerId)
-          console.log(`[LayersDatabaseModal] Successfully deleted layer: ${layerId}`)
         } catch (error) {
-          console.error(`[LayersDatabaseModal] Failed to delete layer ${layerId}:`, error)
           toast.error(`Failed to delete layer: ${layerId}`, {
             description: error instanceof Error ? error.message : 'Unknown error'
           })
@@ -364,13 +353,14 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
 
       // Clear selection
       setSelectedLayerIds(new Set())
-      
-      toast.success(`Successfully deleted ${selectedLayerIds.size} layer${selectedLayerIds.size > 1 ? 's' : ''}`, {
-        description: 'Layers have been permanently removed from the database'
-      })
 
+      toast.success(
+        `Successfully deleted ${selectedLayerIds.size} layer${selectedLayerIds.size > 1 ? 's' : ''}`,
+        {
+          description: 'Layers have been permanently removed from the database'
+        }
+      )
     } catch (error) {
-      console.error('[LayersDatabaseModal] Bulk delete operation failed:', error)
       toast.error('Failed to delete selected layers', {
         description: 'Some layers may not have been deleted. Please try again.'
       })
@@ -383,7 +373,6 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     if (selectedLayerIds.size === 0) return
 
     if (!currentChatId) {
-      console.warn('[LayersDatabaseModal] Cannot bulk import layers: no active chat session')
       toast.error('Cannot import layers', {
         description: 'No active chat session'
       })
@@ -396,16 +385,13 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     const errors: string[] = []
 
     try {
-      console.log(`[LayersDatabaseModal] Starting bulk import of ${selectedLayerIds.size} layers`)
-      
       // Import layers one by one
       for (const layerId of selectedLayerIds) {
         try {
-          const layer = databaseLayers.find(l => l.id === layerId)
+          const layer = databaseLayers.find((l) => l.id === layerId)
           if (layer) {
             await handleImportLayer(layer)
             successCount++
-            console.log(`[LayersDatabaseModal] Successfully imported layer: ${layer.name}`)
           } else {
             errorCount++
             errors.push(`Layer ${layerId} not found`)
@@ -414,7 +400,6 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           errorCount++
           const errorMsg = error instanceof Error ? error.message : 'Unknown error'
           errors.push(errorMsg)
-          console.error(`[LayersDatabaseModal] Failed to import layer ${layerId}:`, error)
         }
       }
 
@@ -435,9 +420,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           description: errors.length > 0 ? errors[0] : 'All import operations failed'
         })
       }
-
     } catch (error) {
-      console.error('[LayersDatabaseModal] Bulk import operation failed:', error)
       toast.error('Bulk import failed', {
         description: 'An unexpected error occurred during import'
       })
@@ -448,8 +431,8 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
 
   const stats = {
     total: databaseLayers.length,
-    vector: databaseLayers.filter(l => l.type === 'vector').length,
-    raster: databaseLayers.filter(l => l.type === 'raster').length
+    vector: databaseLayers.filter((l) => l.type === 'vector').length,
+    raster: databaseLayers.filter((l) => l.type === 'raster').length
   }
 
   return (
@@ -490,7 +473,9 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           <div className="flex items-center justify-between gap-2 p-3 bg-accent/10 border border-accent/30 rounded-lg">
             <div className="flex items-center gap-2 text-sm">
               <CheckSquare className="h-4 w-4 text-accent" />
-              <span className="font-medium">{selectedLayerIds.size} layer{selectedLayerIds.size > 1 ? 's' : ''} selected</span>
+              <span className="font-medium">
+                {selectedLayerIds.size} layer{selectedLayerIds.size > 1 ? 's' : ''} selected
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -536,7 +521,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
               className="pl-10 h-9"
             />
           </div>
-          
+
           <div className="flex items-center gap-2 sm:gap-3">
             <Select value={filterType} onValueChange={(value: FilterType) => setFilterType(value)}>
               <SelectTrigger className="w-24 sm:w-32 h-9">
@@ -555,7 +540,11 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={selectedLayerIds.size === filteredLayers.length ? handleDeselectAll : handleSelectAll}
+                  onClick={
+                    selectedLayerIds.size === filteredLayers.length
+                      ? handleDeselectAll
+                      : handleSelectAll
+                  }
                   className="h-9 px-2 sm:px-3 text-xs sm:text-sm whitespace-nowrap"
                 >
                   {selectedLayerIds.size === filteredLayers.length ? (
@@ -571,7 +560,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
                   )}
                 </Button>
               )}
-              
+
               <div className="flex items-center border rounded-lg">
                 <Button
                   variant={viewMode === 'grid' ? 'default' : 'ghost'}
@@ -608,22 +597,25 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Database className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <div className="text-lg font-medium mb-2">
-                {searchQuery || filterType !== 'all' ? 'No layers match your criteria' : 'No layers in database'}
+                {searchQuery || filterType !== 'all'
+                  ? 'No layers match your criteria'
+                  : 'No layers in database'}
               </div>
               <div className="text-muted-foreground">
-                {searchQuery || filterType !== 'all' 
+                {searchQuery || filterType !== 'all'
                   ? 'Try adjusting your search or filter settings'
-                  : 'Create persistent layers using LLM tools or import files to the database first'
-                }
+                  : 'Create persistent layers using LLM tools or import files to the database first'}
               </div>
             </div>
           ) : (
             <div className="p-2">
-              <div className={cn(
-                viewMode === 'grid' 
-                  ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4'
-                  : 'space-y-2'
-              )}>
+              <div
+                className={cn(
+                  viewMode === 'grid'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4'
+                    : 'space-y-2'
+                )}
+              >
                 {filteredLayers.map((layer) => (
                   <LayerCard
                     key={layer.id}

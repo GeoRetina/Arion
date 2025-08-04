@@ -48,7 +48,10 @@ export class MessagePreparationService {
     finalSystemPrompt = await this.constructSystemPrompt(chatId, agentId)
 
     // Remove any existing system message from coreMessages as it will be passed separately
-    const { messages, systemPrompt } = this.removeExistingSystemMessage(coreMessages, finalSystemPrompt)
+    const { messages, systemPrompt } = this.removeExistingSystemMessage(
+      coreMessages,
+      finalSystemPrompt
+    )
     coreMessages = messages
     finalSystemPrompt = systemPrompt
 
@@ -69,18 +72,18 @@ export class MessagePreparationService {
       // Get the basic system prompt configuration
       const systemPromptConfig = await this.settingsService.getSystemPromptConfig()
       let baseSystemPrompt = systemPromptConfig.defaultSystemPrompt
-      
+
       // Add user system prompt if provided
       if (systemPromptConfig.userSystemPrompt) {
         baseSystemPrompt = `${baseSystemPrompt}\n\n${systemPromptConfig.userSystemPrompt}`
       }
-      
+
       // Get available agents information if the registry is available
       const availableAgentsInfo = await this.getAvailableAgentsInfo()
-      
+
       // Use the modular prompt manager to get a system prompt if available
       let finalSystemPrompt = await this.getModularSystemPrompt(chatId, baseSystemPrompt, agentId)
-      
+
       // Add available agents info to the system prompt if we have any
       if (availableAgentsInfo) {
         finalSystemPrompt += availableAgentsInfo
@@ -102,37 +105,37 @@ export class MessagePreparationService {
     }
 
     try {
-      
       // Get all agents from the registry
       const allAgents = await this.agentRegistryService.getAllAgents()
       if (!allAgents || allAgents.length === 0) {
         return ''
       }
 
-      let availableAgentsInfo = "\n\nAVAILABLE SPECIALIZED AGENTS:\n\n"
-      
+      let availableAgentsInfo = '\n\nAVAILABLE SPECIALIZED AGENTS:\n\n'
+
       // Process each agent to create a formatted agent info section
       for (const agentEntry of allAgents) {
         const agentDef = await this.agentRegistryService.getAgentById(agentEntry.id)
         if (!agentDef) continue
-        
+
         // Skip agents that are orchestrators (to avoid recursion)
-        const isOrchestrator = agentDef.capabilities.some(cap => 
-          cap.name.toLowerCase().includes('orchestrat') ||
-          cap.description.toLowerCase().includes('orchestrat')
+        const isOrchestrator = agentDef.capabilities.some(
+          (cap) =>
+            cap.name.toLowerCase().includes('orchestrat') ||
+            cap.description.toLowerCase().includes('orchestrat')
         )
-        
+
         if (!isOrchestrator) {
           const capabilitiesList = agentDef.capabilities
-            .map(cap => `- ${cap.name}: ${cap.description}`)
+            .map((cap) => `- ${cap.name}: ${cap.description}`)
             .join('\n')
-          
+
           availableAgentsInfo += `Agent: ${agentDef.name} (ID: ${agentDef.id})\n`
           availableAgentsInfo += `Description: ${agentDef.description || 'No description'}\n`
           availableAgentsInfo += `Capabilities:\n${capabilitiesList}\n\n`
         }
       }
-      
+
       return availableAgentsInfo
     } catch (error) {
       return ''
@@ -156,17 +159,17 @@ export class MessagePreparationService {
       try {
         const context = {
           chatId: chatId || 'default',
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString()
           // Add any other context that would be useful for prompt assembly
         }
-        
+
         const moduleBasedPrompt = await this.modularPromptManager.getSystemPrompt(
           chatId || 'default',
           baseSystemPrompt || '',
           agentId,
           context
         )
-        
+
         // Use the assembled prompt if it was successfully generated
         if (moduleBasedPrompt) {
           return moduleBasedPrompt
@@ -191,7 +194,7 @@ export class MessagePreparationService {
   private removeExistingSystemMessage(
     coreMessages: CoreMessage[],
     finalSystemPrompt: string | null
-  ): { messages: CoreMessage[], systemPrompt: string | null } {
+  ): { messages: CoreMessage[]; systemPrompt: string | null } {
     let updatedSystemPrompt = finalSystemPrompt
 
     if (coreMessages.length > 0 && coreMessages[0].role === 'system') {

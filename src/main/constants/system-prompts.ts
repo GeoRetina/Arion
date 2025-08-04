@@ -10,15 +10,13 @@ function loadSystemPromptFromFile(fileName: string): string {
   try {
     const promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
     const promptPath = path.join(promptsBasePath, fileName)
-    
+
     if (fs.existsSync(promptPath)) {
       return fs.readFileSync(promptPath, 'utf8')
     } else {
-      console.error(`[SystemPrompts] Could not find prompt file at: ${promptPath}`)
       return fallbackSystemPrompt
     }
   } catch (error) {
-    console.error('[SystemPrompts] Error loading system prompt from file:', error)
     return fallbackSystemPrompt
   }
 }

@@ -28,11 +28,7 @@ export function HelpTooltip({
           )}
         />
       </TooltipTrigger>
-      <TooltipContent
-        className={cn('max-w-sm', className)}
-        side={side}
-        sideOffset={sideOffset}
-      >
+      <TooltipContent className={cn('max-w-sm', className)} side={side} sideOffset={sideOffset}>
         {children}
       </TooltipContent>
     </Tooltip>

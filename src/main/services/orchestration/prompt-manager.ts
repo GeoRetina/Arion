@@ -8,7 +8,6 @@ export class PromptManager implements IPromptManager {
 
   constructor() {
     this.promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
-    console.log('[PromptManager] Initialized with prompts path:', this.promptsBasePath)
   }
 
   public getPromptsBasePath(): string {
@@ -39,7 +38,6 @@ export class PromptManager implements IPromptManager {
 
       return promptTemplate
     } catch (error) {
-      console.error(`[PromptManager] Error loading prompt ${promptName}:`, error)
       return `Unable to load prompt ${promptName}. Please provide a response.`
     }
   }

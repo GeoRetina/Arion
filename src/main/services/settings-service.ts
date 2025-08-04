@@ -44,7 +44,6 @@ export class SettingsService {
 
     this.db = new Database(dbPath)
     this.initializeDatabase()
-    console.log(`[SettingsService] Database initialized at ${dbPath}`)
   }
 
   private initializeDatabase(): void {
@@ -77,26 +76,20 @@ export class SettingsService {
     // --- Add missing columns to llm_configs if they don't exist (simple migration) ---
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN project TEXT;')
-      console.log('[SettingsService] Added missing column: project')
     } catch (e: any) {
       if (!e.message.includes('duplicate column name')) {
-        console.error('[SettingsService] Error adding project column:', e)
       } // Ignore if column already exists
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN location TEXT;')
-      console.log('[SettingsService] Added missing column: location')
     } catch (e: any) {
       if (!e.message.includes('duplicate column name')) {
-        console.error('[SettingsService] Error adding location column:', e)
       }
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
-      console.log('[SettingsService] Added missing column: baseURL')
     } catch (e: any) {
       if (!e.message.includes('duplicate column name')) {
-        console.error('[SettingsService] Error adding baseURL column:', e)
       }
     }
     // --- End simple migration ---
@@ -126,12 +119,7 @@ export class SettingsService {
       this.db
         .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
         .run('systemPromptConfig', JSON.stringify(initialConfig))
-      console.log('[SettingsService] Initialized default system prompt configuration')
     }
-
-    console.log(
-      '[SettingsService] Database tables ensured (including mcp_server_configs). Asian columns for Vertex and Ollama.'
-    )
   }
 
   // --- Generic Keytar Helper --- (can be moved to a secure key storage utility later)
@@ -190,7 +178,6 @@ export class SettingsService {
         'INSERT OR REPLACE INTO llm_configs (provider, model, project, location, baseURL, endpoint, deploymentName) VALUES (?, ?, ?, ?, NULL, NULL, NULL)'
       )
       .run('vertex', config.model, config.project, config.location)
-    console.log('[SettingsService] Set Vertex config:', config)
   }
 
   async setOllamaConfig(config: OllamaConfig): Promise<void> {
@@ -200,7 +187,6 @@ export class SettingsService {
         'INSERT OR REPLACE INTO llm_configs (provider, model, baseURL, project, location, endpoint, deploymentName) VALUES (?, ?, ?, NULL, NULL, NULL, NULL)'
       )
       .run('ollama', config.model, config.baseURL)
-    console.log('[SettingsService] Set Ollama config:', config)
   }
 
   // --- Provider Specific Getters ---
@@ -309,7 +295,7 @@ export class SettingsService {
       ollama: ollama || undefined,
       activeProvider: activeProvider || null
     }
-    // console.log('[SettingsService:getAllLLMConfigs] Configurations retrieved:', allConfigs)
+    //
     return allConfigs
   }
 
@@ -325,7 +311,6 @@ export class SettingsService {
         enabled: row.enabled === 1
       }))
     } catch (error) {
-      console.error('[SettingsService] Error fetching MCP server configurations:', error)
       return []
     }
   }
@@ -346,10 +331,8 @@ export class SettingsService {
           newConfig.args ? JSON.stringify(newConfig.args) : null,
           newConfig.enabled ? 1 : 0
         )
-      console.log('[SettingsService] Added MCP server configuration:', newConfig)
       return newConfig
     } catch (error) {
-      console.error('[SettingsService] Error adding MCP server configuration:', error)
       throw error // Re-throw to allow caller to handle
     }
   }
@@ -363,10 +346,6 @@ export class SettingsService {
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
         .get(configId) as McpServerConfig | undefined
       if (!current) {
-        console.warn(
-          '[SettingsService] Attempted to update non-existent MCP server configuration with ID:',
-          configId
-        )
         return null
       }
 
@@ -394,18 +373,12 @@ export class SettingsService {
       const updatedConfigRow = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
         .get(configId) as any
-      console.log('[SettingsService] Updated MCP server configuration with ID:', configId)
       return {
         ...updatedConfigRow,
         args: updatedConfigRow.args ? JSON.parse(updatedConfigRow.args) : undefined,
         enabled: updatedConfigRow.enabled === 1
       }
     } catch (error) {
-      console.error(
-        '[SettingsService] Error updating MCP server configuration with ID:',
-        configId,
-        error
-      )
       throw error
     }
   }
@@ -415,15 +388,9 @@ export class SettingsService {
       const result = this.db.prepare('DELETE FROM mcp_server_configs WHERE id = ?').run(configId)
       const success = result.changes > 0
       if (success) {
-        console.log('[SettingsService] Deleted MCP server configuration with ID:', configId)
       }
       return success
     } catch (error) {
-      console.error(
-        '[SettingsService] Error deleting MCP server configuration with ID:',
-        configId,
-        error
-      )
       return false
     }
   }
@@ -432,37 +399,31 @@ export class SettingsService {
   async clearOpenAIConfig(): Promise<void> {
     await this.deleteApiKey('openai')
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('openai')
-    console.log('[SettingsService] Cleared OpenAI configuration and API key.')
   }
 
   async clearGoogleConfig(): Promise<void> {
     await this.deleteApiKey('google')
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('google')
-    console.log('[SettingsService] Cleared Google configuration and API key.')
   }
 
   async clearAzureConfig(): Promise<void> {
     await this.deleteApiKey('azure')
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('azure')
-    console.log('[SettingsService] Cleared Azure OpenAI configuration and API key.')
   }
 
   async clearAnthropicConfig(): Promise<void> {
     await this.deleteApiKey('anthropic')
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('anthropic')
-    console.log('[SettingsService] Cleared Anthropic configuration and API key.')
   }
 
   async clearVertexConfig(): Promise<void> {
     await this.deleteApiKey('vertex') // It's okay if this fails if no key was set
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('vertex')
-    console.log('[SettingsService] Cleared Vertex AI configuration and API key (if set).')
   }
 
   async clearOllamaConfig(): Promise<void> {
     // No API key to delete from keytar for Ollama
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('ollama')
-    console.log('[SettingsService] Cleared Ollama configuration.')
   }
 
   // --- System Prompt Configuration ---
@@ -471,9 +432,7 @@ export class SettingsService {
       this.db
         .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
         .run('systemPromptConfig', JSON.stringify(config))
-      console.log('[SettingsService] Updated system prompt configuration')
     } catch (error) {
-      console.error('[SettingsService] Error updating system prompt configuration:', error)
       throw error
     }
   }
@@ -495,7 +454,6 @@ export class SettingsService {
 
       return JSON.parse(row.value) as SystemPromptConfig
     } catch (error) {
-      console.error('[SettingsService] Error getting system prompt configuration:', error)
       // Return default values if there's an error
       return {
         defaultSystemPrompt: ARION_SYSTEM_PROMPT,

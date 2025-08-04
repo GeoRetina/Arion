@@ -12,19 +12,19 @@ export const integrationRegistry: IntegrationConfig[] = [
 
 // Helper functions for integration management
 export const getIntegrationById = (id: string): IntegrationConfig | undefined => {
-  return integrationRegistry.find(config => config.integration.id === id)
+  return integrationRegistry.find((config) => config.integration.id === id)
 }
 
 export const getIntegrationsByType = (type: string): IntegrationConfig[] => {
-  return integrationRegistry.filter(config => config.integration.type === type)
+  return integrationRegistry.filter((config) => config.integration.type === type)
 }
 
 export const getIntegrationsByStatus = (status: string): IntegrationConfig[] => {
-  return integrationRegistry.filter(config => config.integration.status === status)
+  return integrationRegistry.filter((config) => config.integration.status === status)
 }
 
 export const getIntegrationsByCategory = (category: string): IntegrationConfig[] => {
-  return integrationRegistry.filter(config => config.integration.category === category)
+  return integrationRegistry.filter((config) => config.integration.category === category)
 }
 
 // Export all integrations for convenience

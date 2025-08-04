@@ -1,5 +1,10 @@
 import type { AgentExecutionContext } from '../types/orchestration-types'
-import { IResultSynthesizer, IPromptManager, IAgentSelector, IExecutionManager } from './types/orchestration-interfaces'
+import {
+  IResultSynthesizer,
+  IPromptManager,
+  IAgentSelector,
+  IExecutionManager
+} from './types/orchestration-interfaces'
 
 export class ResultSynthesizer implements IResultSynthesizer {
   constructor(
@@ -13,8 +18,6 @@ export class ResultSynthesizer implements IResultSynthesizer {
     context: AgentExecutionContext,
     orchestratorAgentId: string
   ): Promise<string> {
-    console.log(`[ResultSynthesizer] Synthesizing results for session ${sessionId}`)
-
     // Get all subtask results
     const subtaskResults = context.subtasks.map((subtask) => ({
       description: subtask.description,
@@ -40,11 +43,9 @@ export class ResultSynthesizer implements IResultSynthesizer {
     )
 
     if (!executionResult.success) {
-      console.error('[ResultSynthesizer] Error in result synthesis:', executionResult.error)
       return `Error synthesizing results: ${executionResult.error}`
     }
 
-    console.log(`[ResultSynthesizer] Results synthesized for session ${sessionId}`)
     return executionResult.textResponse
   }
 }

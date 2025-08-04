@@ -1,9 +1,18 @@
 import React from 'react'
 import { MemoizedMarkdown } from '@/components/markdown-renderer'
 import ToolCallDisplay from '../tool-call-display'
-import { detectToolUIComponent, detectNestedToolCalls } from '../../utils/tool-ui-component-detection'
+import {
+  detectToolUIComponent,
+  detectNestedToolCalls
+} from '../../utils/tool-ui-component-detection'
 import type { ToolInvocation } from '../../utils/tool-ui-component-detection'
-import { COMPONENT_TYPES, TOOL_STATES, TOOL_STATUS, CALL_AGENT_TOOL_NAME, type ToolStatus } from '../../constants/message-constants'
+import {
+  COMPONENT_TYPES,
+  TOOL_STATES,
+  TOOL_STATUS,
+  CALL_AGENT_TOOL_NAME,
+  type ToolStatus
+} from '../../constants/message-constants'
 import type { MessagePartRendererProps } from '../../types/message-types'
 
 /**
@@ -13,13 +22,16 @@ function determineToolStatus(toolInvocation: ToolInvocation): ToolStatus {
   if (toolInvocation.state === TOOL_STATES.ERROR) {
     return TOOL_STATUS.ERROR
   }
-  
+
   if (toolInvocation.state === TOOL_STATES.RESULT) {
-    const isError = toolInvocation.isError || 
-                   (toolInvocation.result && typeof toolInvocation.result === 'object' && toolInvocation.result.isError)
+    const isError =
+      toolInvocation.isError ||
+      (toolInvocation.result &&
+        typeof toolInvocation.result === 'object' &&
+        toolInvocation.result.isError)
     return isError ? TOOL_STATUS.ERROR : TOOL_STATUS.COMPLETED
   }
-  
+
   return TOOL_STATUS.LOADING
 }
 
@@ -32,16 +44,16 @@ function renderNestedToolCall(
   index: number
 ): React.ReactElement {
   const key = `${parentToolCallId}-${nestedTool.toolCallId}-${index}`
-  
+
   try {
     // Check if this nested tool should render a special UI component
     const nestedToolUIComponent = detectToolUIComponent(nestedTool)
     const status = determineToolStatus(nestedTool)
-    
+
     if (nestedToolUIComponent) {
       // Render both the tool call display AND the special UI component
       const NestedComponent = nestedToolUIComponent.component
-      
+
       return (
         <div key={key} className="space-y-2">
           {/* Show the tool call display */}
@@ -70,7 +82,6 @@ function renderNestedToolCall(
       )
     }
   } catch (error) {
-    console.error(`[renderNestedToolCall] Error rendering nested tool:`, error, nestedTool)
     // Fallback to basic display
     return (
       <div key={key} className="p-2 border border-red-200 rounded bg-red-50 dark:bg-red-950/20">
@@ -93,29 +104,28 @@ function renderNestedToolCalls(
   if (!toolResult) {
     return parentComponent
   }
-  
+
   try {
     const nestedToolCalls = detectNestedToolCalls(toolResult)
-    
+
     if (nestedToolCalls.length === 0) {
       return parentComponent
     }
-    
+
     return (
       <div className="space-y-4">
         {/* Render the parent component (agent call display) */}
         {parentComponent}
-        
+
         {/* Render nested tool calls with indentation */}
         <div className="ml-4 space-y-2" role="group" aria-label="Nested tool calls">
-          {nestedToolCalls.map((nestedTool, index) => 
+          {nestedToolCalls.map((nestedTool, index) =>
             renderNestedToolCall(nestedTool, parentToolCallId, index)
           )}
         </div>
       </div>
     )
   } catch (error) {
-    console.error(`[renderNestedToolCalls] Error rendering nested tools:`, error)
     return parentComponent // Fallback to just showing the parent component
   }
 }
@@ -123,7 +133,6 @@ function renderNestedToolCalls(
 export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRendererProps) => {
   // Input validation
   if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
-    console.warn('[MessagePartRenderer] Invalid part provided:', part)
     return null
   }
 
@@ -140,10 +149,9 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
             />
           )
         } else {
-          console.warn('[MessagePartRenderer] Text part missing valid text content:', part)
           return null
         }
-        
+
       case COMPONENT_TYPES.TOOL_INVOCATION:
         const toolInvocation = part.toolInvocation
         if (
@@ -152,7 +160,6 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
           typeof toolInvocation.toolCallId !== 'string' ||
           typeof toolInvocation.toolName !== 'string'
         ) {
-          console.warn('[MessagePartRenderer] Invalid tool invocation:', toolInvocation)
           return null
         }
 
@@ -167,29 +174,25 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
               <Component {...toolUIComponent.props} />
             </div>
           )
-          
+
           // Special handling for call_agent tool to also show nested tool calls
           if (toolName === CALL_AGENT_TOOL_NAME && state === TOOL_STATES.RESULT) {
-            const nestedResult = renderNestedToolCalls(toolInvocation.result, toolCallId, baseComponent)
-            return (
-              <div key={toolUIComponent.key}>
-                {nestedResult}
-              </div>
+            const nestedResult = renderNestedToolCalls(
+              toolInvocation.result,
+              toolCallId,
+              baseComponent
             )
+            return <div key={toolUIComponent.key}>{nestedResult}</div>
           }
-          
+
           // Default rendering for other special UI components
-          return (
-            <div key={toolUIComponent.key}>
-              {baseComponent}
-            </div>
-          )
+          return <div key={toolUIComponent.key}>{baseComponent}</div>
         }
 
         // Check for nested tool results that should render special UI components
         if (state === 'result' && toolInvocation.result) {
           const nestedToolCalls = detectNestedToolCalls(toolInvocation.result)
-          
+
           if (nestedToolCalls.length > 0) {
             // Render the main tool call display and nested components
             return (
@@ -204,7 +207,7 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
                 />
                 {/* Render nested tool calls using the proper rendering function */}
                 <div className="ml-4 space-y-2">
-                  {nestedToolCalls.map((nestedTool, index) => 
+                  {nestedToolCalls.map((nestedTool, index) =>
                     renderNestedToolCall(nestedTool, toolCallId, index)
                   )}
                 </div>
@@ -235,17 +238,13 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
         )
 
       default:
-        console.warn(`[MessagePartRenderer] Unknown part type: ${part.type}`)
         return null
     }
   } catch (error) {
-    console.error('[MessagePartRenderer] Error rendering message part:', error, part)
     // Fallback UI for rendering errors
     return (
       <div className="p-2 border border-red-200 rounded bg-red-50 dark:bg-red-950/20">
-        <p className="text-red-700 dark:text-red-400 text-sm">
-          Failed to render message part
-        </p>
+        <p className="text-red-700 dark:text-red-400 text-sm">Failed to render message part</p>
       </div>
     )
   }

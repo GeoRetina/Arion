@@ -14,16 +14,15 @@ export default defineConfig({
         writeBundle() {
           const srcDir = resolve('src/main/database/migrations')
           const outDir = resolve('out/main/database/migrations')
-          
+
           // Create output directory
           mkdirSync(outDir, { recursive: true })
-          
+
           // Copy all .sql files if source directory exists
           if (existsSync(srcDir)) {
             const files = readdirSync(srcDir).filter((file: string) => file.endsWith('.sql'))
             files.forEach((file: string) => {
               copyFileSync(resolve(srcDir, file), resolve(outDir, file))
-              console.log(`[Build] Copied migration: ${file}`)
             })
           }
         }
