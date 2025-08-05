@@ -1,15 +1,11 @@
-export type IntegrationStatus = 
+export type IntegrationStatus =
   | 'connected'
   | 'disconnected'
   | 'not-configured'
   | 'coming-soon'
   | 'error'
 
-export type IntegrationType = 
-  | 'api'
-  | 'cloud'
-  | 'database'
-  | 'cloud-platform'
+export type IntegrationType = 'api' | 'cloud' | 'database' | 'cloud-platform'
 
 export interface Integration {
   id: string

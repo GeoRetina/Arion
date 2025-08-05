@@ -263,21 +263,9 @@ export function DocumentsTable({
                               try {
                                 const result = await window.ctg.shell.openPath(document.filePath)
                                 if (!result.success) {
-                                  console.error(
-                                    'Failed to open file via shell:',
-                                    result.error,
-                                    'Path:',
-                                    document.filePath
-                                  )
                                   // Optionally show a toast or alert to the user here
                                 }
                               } catch (error) {
-                                console.error(
-                                  'Error calling window.ctg.shell.openPath:',
-                                  error,
-                                  'Path:',
-                                  document.filePath
-                                )
                                 // Optionally show a toast or alert to the user here
                               }
                             }

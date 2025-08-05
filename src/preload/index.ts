@@ -1,4 +1,3 @@
-console.log('[Preload Script] Preload script starting to execute. CONSOLE LOG')
 process.stderr.write('[Preload Script] Preload script executing.\n')
 
 // REMOVED: throw new Error('[Preload Script] INTENTIONAL CRASH TO TEST EXECUTION')
@@ -40,7 +39,17 @@ import {
   type PostgreSQLConfig,
   type PostgreSQLConnectionResult,
   type PostgreSQLQueryResult,
-  type PostgreSQLConnectionInfo
+  type PostgreSQLConnectionInfo,
+  type AgentApi,
+  type PromptModuleApi,
+  type AgentDefinition,
+  type AgentRegistryEntry,
+  type CreateAgentParams,
+  type UpdateAgentParams,
+  type PromptModuleInfo,
+  type OrchestrationResult,
+  type OrchestrationStatus,
+  type AgentCapabilitiesResult
 } from '../shared/ipc-types' // Corrected relative path
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react Message
@@ -64,13 +73,44 @@ const streamEmitters = new Map<string, EventEmitter>()
 
 // Custom APIs for renderer
 const ctgApi = {
+  orchestration: {
+    orchestrateMessage: async (
+      chatId: string,
+      message: string,
+      orchestratorAgentId: string
+    ): Promise<OrchestrationResult> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.orchestrateMessage, {
+          chatId,
+          message,
+          orchestratorAgentId
+        })
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
+        }
+      }
+    },
+
+    getStatus: async (sessionId?: string): Promise<OrchestrationStatus> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error ? error.message : 'Unknown error getting orchestration status'
+        }
+      }
+    }
+  },
   settings: {
     getSetting: async (key: string): Promise<unknown> => {
       try {
         const result = await ipcRenderer.invoke('ctg:settings:get', key)
         return result
       } catch (error) {
-        console.error(`[Preload Script] Error invoking 'ctg:settings:get' for key ${key}:`, error)
         throw error
       }
     },
@@ -82,7 +122,6 @@ const ctgApi = {
         const result = await ipcRenderer.invoke('ctg:settings:set', key, value)
         return result
       } catch (error) {
-        console.error(`[Preload Script] Error invoking 'ctg:settings:set' for key ${key}:`, error)
         throw error
       }
     },
@@ -136,16 +175,10 @@ const ctgApi = {
     sendMessageStream: async (body: PreloadChatRequestBody | undefined): Promise<Uint8Array[]> => {
       if (!body) {
         const errorMsg = '[Preload Chat] Request body is undefined in sendMessageStream'
-        console.error(errorMsg)
         const textEncoder = new TextEncoder()
         return [textEncoder.encode(JSON.stringify({ streamError: errorMsg }))]
       }
       try {
-        console.log(
-          '[Preload Chat] Invoking ctg:chat:sendMessageStreamHandler with body:',
-          JSON.stringify(body).substring(0, 200) + '...'
-        )
-
         // This will still collect all chunks and return them at once
         const responseChunks = (await ipcRenderer.invoke(
           'ctg:chat:sendMessageStreamHandler',
@@ -153,23 +186,14 @@ const ctgApi = {
         )) as Uint8Array[]
 
         if (Array.isArray(responseChunks)) {
-          console.log(
-            '[Preload Chat] Received responseChunks (should be Uint8Array[]):',
-            responseChunks
-          )
           return responseChunks
         } else {
-          console.error(
-            '[Preload Chat] Expected Uint8Array[] from main process, but received:',
-            responseChunks
-          )
           const errorMsg = 'Invalid data structure received from main process.'
           const textEncoder = new TextEncoder()
           return [textEncoder.encode(JSON.stringify({ streamError: errorMsg }))]
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error)
-        console.error('[Preload Chat] Error in sendMessageStream:', errorMsg)
         const textEncoder = new TextEncoder()
         return [textEncoder.encode(JSON.stringify({ streamError: errorMsg }))]
       }
@@ -183,10 +207,6 @@ const ctgApi = {
 
       // Create a unique ID for this stream
       const streamId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
-      console.log(
-        '[Preload Chat] Invoking ctg:chat:startMessageStream with body:',
-        JSON.stringify(body).substring(0, 200) + '...'
-      )
 
       // Create an event emitter for this stream
       const emitter = new EventEmitter()
@@ -198,27 +218,22 @@ const ctgApi = {
           if (chunk instanceof Uint8Array) {
             emitter.emit('chunk', chunk)
           } else {
-            console.error('[Preload Chat] Invalid chunk type:', typeof chunk)
             emitter.emit('error', new Error('Invalid chunk type received'))
           }
         } catch (error) {
-          console.error('[Preload Chat] Error processing stream chunk:', error)
           emitter.emit('error', error)
         }
       })
 
       ipcRenderer.on(`ctg:chat:stream:error:${streamId}`, (_event, error: string) => {
-        console.error('[Preload Chat] Stream error for stream:', streamId, error)
         emitter.emit('error', new Error(error))
       })
 
       ipcRenderer.on(`ctg:chat:stream:start:${streamId}`, () => {
-        console.log('[Preload Chat] Stream started:', streamId)
         emitter.emit('start')
       })
 
       ipcRenderer.on(`ctg:chat:stream:end:${streamId}`, () => {
-        console.log('[Preload Chat] Stream ended:', streamId)
         emitter.emit('end')
       })
 
@@ -226,11 +241,9 @@ const ctgApi = {
       ipcRenderer
         .invoke('ctg:chat:startMessageStream', streamId, JSON.stringify(body))
         .catch((error) => {
-          console.error('[Preload Chat] Failed to start stream:', error)
           emitter.emit('error', error)
         })
 
-      console.log('[Preload Chat] Real-time stream started with ID:', streamId)
       return streamId
     },
 
@@ -249,8 +262,6 @@ const ctgApi = {
         throw new Error(`No stream found with ID ${streamId}`)
       }
 
-      console.log('[Preload Chat] Subscribing to stream events for ID:', streamId)
-
       // Add listeners
       emitter.on('chunk', callbacks.onChunk)
       if (callbacks.onError) emitter.on('error', callbacks.onError)
@@ -259,7 +270,6 @@ const ctgApi = {
 
       // Return unsubscribe function
       return () => {
-        console.log('[Preload Chat] Unsubscribing from stream events for ID:', streamId)
         emitter.removeListener('chunk', callbacks.onChunk)
         if (callbacks.onError) emitter.removeListener('error', callbacks.onError)
         if (callbacks.onStart) emitter.removeListener('start', callbacks.onStart)
@@ -338,9 +348,6 @@ const ctgApi = {
   } as DbApi,
   knowledgeBase: {
     addDocument: (payload: KBAddDocumentPayload): Promise<KBAddDocumentResult> => {
-      console.log(
-        `[Preload KB] Invoking ${IpcChannels.kbAddDocument} with docId: ${payload.documentId}, filePath: ${payload.filePath}`
-      )
       // Ensure documentId is set if not provided by the frontend,
       // though the new flow might always provide it from the store.
       // const fullPayload = { ...payload, documentId: payload.documentId || nanoid() };
@@ -452,6 +459,159 @@ const ctgApi = {
     getConnectionInfo: (id: string): Promise<PostgreSQLConnectionInfo> =>
       ipcRenderer.invoke(IpcChannels.postgresqlGetConnectionInfo, id)
   } as PostgreSQLApi,
+  layers: {
+    // Layer CRUD operations
+    getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:getAll'),
+    getById: (id: string): Promise<any | null> => ipcRenderer.invoke('layers:getById', id),
+    create: (layer: any): Promise<any> => ipcRenderer.invoke('layers:create', layer),
+    update: (id: string, updates: any): Promise<any> =>
+      ipcRenderer.invoke('layers:update', id, updates),
+    delete: (id: string): Promise<boolean> => ipcRenderer.invoke('layers:delete', id),
+
+    // Group operations
+    groups: {
+      getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:groups:getAll'),
+      create: (group: any): Promise<any> => ipcRenderer.invoke('layers:groups:create', group),
+      update: (id: string, updates: any): Promise<any> =>
+        ipcRenderer.invoke('layers:groups:update', id, updates),
+      delete: (id: string, moveLayersTo?: string): Promise<boolean> =>
+        ipcRenderer.invoke('layers:groups:delete', id, moveLayersTo)
+    },
+
+    // Search and operations
+    search: (criteria: any): Promise<any> => ipcRenderer.invoke('layers:search', criteria),
+    logOperation: (operation: any): Promise<void> =>
+      ipcRenderer.invoke('layers:logOperation', operation),
+    getOperations: (layerId?: string): Promise<any[]> =>
+      ipcRenderer.invoke('layers:getOperations', layerId),
+    logError: (error: any): Promise<void> => ipcRenderer.invoke('layers:logError', error),
+    getErrors: (layerId?: string): Promise<any[]> =>
+      ipcRenderer.invoke('layers:getErrors', layerId),
+    clearErrors: (layerId?: string): Promise<void> =>
+      ipcRenderer.invoke('layers:clearErrors', layerId),
+
+    // Style presets
+    presets: {
+      getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:presets:getAll'),
+      create: (preset: any): Promise<any> => ipcRenderer.invoke('layers:presets:create', preset)
+    },
+
+    // Performance and bulk operations
+    recordMetrics: (metrics: any): Promise<void> =>
+      ipcRenderer.invoke('layers:recordMetrics', metrics),
+    bulkUpdate: (updates: any[]): Promise<void> => ipcRenderer.invoke('layers:bulkUpdate', updates),
+    export: (layerIds: string[]): Promise<string> => ipcRenderer.invoke('layers:export', layerIds),
+    import: (data: string, targetGroupId?: string): Promise<string[]> =>
+      ipcRenderer.invoke('layers:import', data, targetGroupId),
+
+    // Generic invoke method for additional operations
+    invoke: (channel: string, ...args: any[]): Promise<any> => ipcRenderer.invoke(channel, ...args)
+  },
+  // Agent API for managing agents
+  agents: {
+    getAll: (): Promise<AgentRegistryEntry[]> =>
+      ipcRenderer.invoke(IpcChannels.getAgents).then((res) => (res.success ? res.data : [])),
+    getById: (id: string): Promise<AgentDefinition | null> =>
+      ipcRenderer
+        .invoke(IpcChannels.getAgentById, id)
+        .then((res) => (res.success ? res.data : null)),
+    create: (agent: CreateAgentParams): Promise<AgentDefinition> =>
+      ipcRenderer.invoke(IpcChannels.createAgent, agent).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to create agent')
+        return res.data
+      }),
+    update: (id: string, updates: UpdateAgentParams): Promise<AgentDefinition> =>
+      ipcRenderer.invoke(IpcChannels.updateAgent, id, updates).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to update agent')
+        return res.data
+      }),
+    delete: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.deleteAgent, id).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to delete agent')
+        return res.data
+      }),
+    executeAgent: (agentId: string, chatId: string): Promise<string> => {
+      // This will be implemented when agent execution is supported
+      return Promise.resolve('')
+    },
+    stopExecution: (executionId: string): Promise<boolean> => {
+      // This will be implemented when agent execution is supported
+      return Promise.resolve(false)
+    },
+
+    // Agent orchestration
+    orchestrateMessage: async (
+      chatId: string,
+      message: string,
+      orchestratorAgentId: string
+    ): Promise<OrchestrationResult> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.orchestrateMessage, {
+          chatId,
+          message,
+          orchestratorAgentId
+        })
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
+        }
+      }
+    },
+
+    getCapabilities: async (): Promise<AgentCapabilitiesResult> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.getAgentCapabilities)
+      } catch (error) {
+        return {
+          success: false,
+          capabilities: [],
+          error: error instanceof Error ? error.message : 'Unknown error getting agent capabilities'
+        }
+      }
+    },
+
+    getOrchestrationStatus: async (sessionId?: string): Promise<OrchestrationStatus> => {
+      try {
+        return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error ? error.message : 'Unknown error getting orchestration status'
+        }
+      }
+    }
+  } as AgentApi,
+  // Prompt Module API for managing prompt modules
+  promptModules: {
+    getAll: (): Promise<PromptModuleInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.getPromptModules).then((res) => (res.success ? res.data : [])),
+    getById: (id: string): Promise<any | null> =>
+      ipcRenderer
+        .invoke(IpcChannels.getPromptModuleById, id)
+        .then((res) => (res.success ? res.data : null)),
+    create: (promptModule: any): Promise<any> =>
+      ipcRenderer.invoke(IpcChannels.createPromptModule, promptModule).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to create prompt module')
+        return res.data
+      }),
+    update: (id: string, updates: any): Promise<any> =>
+      ipcRenderer.invoke(IpcChannels.updatePromptModule, id, updates).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to update prompt module')
+        return res.data
+      }),
+    delete: (id: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.deletePromptModule, id).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to delete prompt module')
+        return res.data
+      }),
+    assemble: (request: any): Promise<any> =>
+      ipcRenderer.invoke(IpcChannels.assemblePrompt, request).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to assemble prompt')
+        return res.data
+      })
+  } as PromptModuleApi,
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
 
@@ -469,7 +629,6 @@ if (process.contextIsolated) {
     process.stderr.write('[Preload Script] ctg API exposure call completed. STDERR WRITE\n')
   } catch (error) {
     process.stderr.write(`[Preload Script] Error exposing API: ${error}\n`)
-    console.error('[Preload Script] Error exposing API:', error) // Keep console.error for richer object logging if it works
   }
 } else {
   process.stderr.write(
@@ -480,5 +639,3 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.ctg = ctgApi
 }
-
-console.log('[Preload Script] Preload script finished execution.')

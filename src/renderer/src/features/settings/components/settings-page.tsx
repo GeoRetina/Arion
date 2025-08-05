@@ -41,7 +41,6 @@ const SettingsPage: React.FC = () => {
         setSystemPromptConfig(config)
         setIsLoading(false)
       } catch (error) {
-        console.error('Failed to fetch system prompt configuration:', error)
         setIsLoading(false)
       }
     }
@@ -62,7 +61,6 @@ const SettingsPage: React.FC = () => {
       await window.ctg.settings.setSystemPromptConfig(systemPromptConfig)
       alert('System prompt settings saved successfully!')
     } catch (error) {
-      console.error('Failed to save system prompt settings:', error)
       alert('Failed to save system prompt settings.')
     }
   }
@@ -81,7 +79,6 @@ const SettingsPage: React.FC = () => {
         const version = await window.ctg.getAppVersion()
         setAppVersion(version ? `v${version}` : 'N/A')
       } catch (error) {
-        console.error('Failed to fetch app version:', error)
         setAppVersion('Error')
       }
     }

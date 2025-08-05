@@ -51,25 +51,18 @@ export function initializeMapIpcListeners(): void {
     addGeoreferencedImageLayerCleanupListener
   ) {
     // + Check all listeners
-    console.warn(
-      '[MapIpcManager] Map IPC listeners (or some) already initialized. Ensuring all are set.'
-    )
     // To be more robust, one could re-register only if not already registered.
   }
 
   if (window.ctg?.map?.onAddFeature && !addFeatureCleanupListener) {
     addFeatureCleanupListener = window.ctg.map.onAddFeature(handleAddFeatureToMapCallback)
-    console.log('[MapIpcManager] Subscribed to ctg:map:addFeature IPC events.')
   } else if (!window.ctg?.map?.onAddFeature && !addFeatureCleanupListener) {
-    console.error('[MapIpcManager] window.ctg.map.onAddFeature not found.')
   }
 
   // + Initialize listener for setPaintProperties
   if (window.ctg?.map?.onSetPaintProperties && !setPaintCleanupListener) {
     setPaintCleanupListener = window.ctg.map.onSetPaintProperties(handleSetPaintPropertiesCallback)
-    console.log('[MapIpcManager] Subscribed to ctg:map:setPaintProperties IPC events.')
   } else if (!window.ctg?.map?.onSetPaintProperties && !setPaintCleanupListener) {
-    console.error('[MapIpcManager] window.ctg.map.onSetPaintProperties not found.')
   }
 
   // + Initialize listener for removeSourceAndLayers
@@ -77,17 +70,13 @@ export function initializeMapIpcListeners(): void {
     removeSourceCleanupListener = window.ctg.map.onRemoveSourceAndLayers(
       handleRemoveSourceAndLayersCallback
     )
-    console.log('[MapIpcManager] Subscribed to ctg:map:removeSourceAndLayers IPC events.')
   } else if (!window.ctg?.map?.onRemoveSourceAndLayers && !removeSourceCleanupListener) {
-    console.error('[MapIpcManager] window.ctg.map.onRemoveSourceAndLayers not found.')
   }
 
   // + Initialize listener for setView
   if (window.ctg?.map?.onSetView && !setViewCleanupListener) {
     setViewCleanupListener = window.ctg.map.onSetView(handleSetViewCallback)
-    console.log('[MapIpcManager] Subscribed to ctn:map:setView IPC events.')
   } else if (!window.ctg?.map?.onSetView && !setViewCleanupListener) {
-    console.error('[MapIpcManager] window.ctg.map.onSetView not found.')
   }
 
   // Initialize listener for addGeoreferencedImageLayer
@@ -95,12 +84,10 @@ export function initializeMapIpcListeners(): void {
     addGeoreferencedImageLayerCleanupListener = window.ctg.map.onAddGeoreferencedImageLayer(
       handleAddGeoreferencedImageLayerCallback
     )
-    console.log('[MapIpcManager] Subscribed to ctg:map:addGeoreferencedImageLayer IPC events.')
   } else if (
     !window.ctg?.map?.onAddGeoreferencedImageLayer &&
     !addGeoreferencedImageLayerCleanupListener
   ) {
-    console.error('[MapIpcManager] window.ctg.map.onAddGeoreferencedImageLayer not found.')
   }
 }
 
@@ -112,34 +99,29 @@ export function cleanupMapIpcListeners(): void {
   if (addFeatureCleanupListener) {
     addFeatureCleanupListener()
     addFeatureCleanupListener = null
-    console.log('[MapIpcManager] Cleaned up ctg:map:addFeature IPC listener.')
   }
   // + Cleanup listener for setPaintProperties
   if (setPaintCleanupListener) {
     setPaintCleanupListener()
     setPaintCleanupListener = null
-    console.log('[MapIpcManager] Cleaned up ctg:map:setPaintProperties IPC listener.')
   }
 
   // + Cleanup listener for removeSourceAndLayers
   if (removeSourceCleanupListener) {
     removeSourceCleanupListener()
     removeSourceCleanupListener = null
-    console.log('[MapIpcManager] Cleaned up ctg:map:removeSourceAndLayers IPC listener.')
   }
 
   // + Cleanup listener for setView
   if (setViewCleanupListener) {
     setViewCleanupListener()
     setViewCleanupListener = null
-    console.log('[MapIpcManager] Cleaned up ctg:map:setView IPC listener.')
   }
 
   // Cleanup listener for addGeoreferencedImageLayer
   if (addGeoreferencedImageLayerCleanupListener) {
     addGeoreferencedImageLayerCleanupListener()
     addGeoreferencedImageLayerCleanupListener = null
-    console.log('[MapIpcManager] Cleaned up ctg:map:addGeoreferencedImageLayer IPC listener.')
   }
 }
 

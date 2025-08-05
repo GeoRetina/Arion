@@ -65,7 +65,8 @@ export const McpPermissionDialog: React.FC<McpPermissionDialogProps> = ({
                 </p>
               )}
               <p className="text-sm text-foreground mt-1">
-                This tool can perform actions on your system or access external resources. Take your time to review this request.
+                This tool can perform actions on your system or access external resources. Take your
+                time to review this request.
               </p>
             </div>
           </DialogDescription>

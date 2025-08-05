@@ -44,10 +44,6 @@ export function createGeoJSONBuffer(params: CreateMapBufferParams): Feature<Poly
   if (bufferedPolygon.geometry.type !== 'Polygon') {
     // This case should ideally not happen for a simple point buffer with valid positive radius.
     // If it does, we might need to handle MultiPolygon or throw a more specific error.
-    console.warn(
-      '[BufferTool] Unexpected geometry type from turf.buffer. Expected Polygon, got:',
-      bufferedPolygon.geometry.type
-    )
     // Fallback or throw: for now, let's try to return it as is, but this might cause issues downstream if only Polygon is expected.
     // A more robust solution would be to ensure the output is always a simple Polygon or handle MultiPolygon explicitly.
   }

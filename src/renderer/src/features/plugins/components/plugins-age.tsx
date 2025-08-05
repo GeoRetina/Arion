@@ -116,9 +116,7 @@ const PluginsPage: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 shrink-0"
-                      onClick={() => {
-                        console.log(`Open settings for ${plugin.id}`)
-                      }}
+                      onClick={() => {}}
                       title={`Settings for ${plugin.name}`}
                     >
                       <Settings className="h-4 w-4" />

@@ -41,7 +41,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
   const [isTestingConnection, setIsTestingConnection] = useState(false)
 
   const handleInputChange = (field: keyof PostgreSQLConfig, value: string | number | boolean) => {
-    setConfig(prev => ({ ...prev, [field]: value }))
+    setConfig((prev) => ({ ...prev, [field]: value }))
     // Clear test result when config changes
     setTestResult(null)
   }
@@ -49,7 +49,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
   const handleTestConnection = async () => {
     setIsTestingConnection(true)
     setTestResult(null)
-    
+
     try {
       const result = await onTest(config)
       setTestResult(result)
@@ -81,7 +81,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
             {title}
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* Connection Settings */}
           <Card>
@@ -113,7 +113,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="database">Database</Label>
                 <Input
@@ -123,7 +123,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                   placeholder="Database name"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
@@ -145,7 +145,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="ssl"
@@ -164,9 +164,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Connection Test</CardTitle>
-              <CardDescription>
-                Test your connection settings before saving
-              </CardDescription>
+              <CardDescription>Test your connection settings before saving</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button
@@ -189,24 +187,26 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
               </Button>
 
               {testResult && (
-                <div className={`p-4 rounded-md border ${
-                  testResult.success 
-                    ? 'border-green-200 bg-green-50' 
-                    : 'border-red-200 bg-red-50'
-                }`}>
+                <div
+                  className={`p-4 rounded-md border ${
+                    testResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-2">
                     {testResult.success ? (
                       <CheckCircle className="h-5 w-5 text-green-500" />
                     ) : (
                       <AlertCircle className="h-5 w-5 text-red-500" />
                     )}
-                    <span className={`font-medium ${
-                      testResult.success ? 'text-green-700' : 'text-red-700'
-                    }`}>
+                    <span
+                      className={`font-medium ${
+                        testResult.success ? 'text-green-700' : 'text-red-700'
+                      }`}
+                    >
                       {testResult.success ? 'Connection Successful' : 'Connection Failed'}
                     </span>
                   </div>
-                  
+
                   {testResult.success && (
                     <div className="space-y-2 text-sm">
                       {testResult.version && (
@@ -222,16 +222,16 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                         </div>
                       )}
                       {!testResult.postgisVersion && (
-                        <div className="text-amber-600">
-                          ⚠️ PostGIS extension not detected
-                        </div>
+                        <div className="text-amber-600">⚠️ PostGIS extension not detected</div>
                       )}
                     </div>
                   )}
-                  
-                  <p className={`text-sm mt-2 ${
-                    testResult.success ? 'text-green-600' : 'text-red-600'
-                  }`}>
+
+                  <p
+                    className={`text-sm mt-2 ${
+                      testResult.success ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
                     {testResult.message}
                   </p>
                 </div>
@@ -244,10 +244,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={!testResult?.success}
-            >
+            <Button onClick={handleSave} disabled={!testResult?.success}>
               Save Configuration
             </Button>
           </div>

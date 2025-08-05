@@ -22,19 +22,15 @@ export const googleEarthEngineIntegration: Integration = {
 export const googleEarthEngineConfig: IntegrationConfig = {
   integration: googleEarthEngineIntegration,
   onConnect: () => {
-    console.log('Google Earth Engine integration coming soon...')
     // TODO: Implement when ready
   },
   onDisconnect: () => {
-    console.log('Google Earth Engine integration coming soon...')
     // TODO: Implement when ready
   },
   onConfigure: () => {
-    console.log('Google Earth Engine integration coming soon...')
     // TODO: Implement when ready
   },
   onTest: () => {
-    console.log('Google Earth Engine integration coming soon...')
     // TODO: Implement when ready
   }
 }

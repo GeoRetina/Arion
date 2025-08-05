@@ -9,7 +9,8 @@ import {
   Server,
   PlugZap,
   Link2,
-  Database
+  Database,
+  Bot
 } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -32,7 +33,6 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
         const version = await window.ctg.getAppVersion()
         setAppVersion(version ? `v${version}` : 'N/A')
       } catch (error) {
-        console.error('Failed to fetch app version for sidebar:', error)
         setAppVersion('Error')
       }
     }
@@ -137,6 +137,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
 
         <NavGroup title="Tools">
           <NavButton path="/models" title="Models" icon={Brain} />
+          <NavButton path="/agents" title="Agents" icon={Bot} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
           <NavButton path="/plugins" title="Plugins" icon={PlugZap} />
         </NavGroup>

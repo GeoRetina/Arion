@@ -19,3 +19,8 @@ export const EMBEDDING_DIMENSIONS = 1536
  * Default embedding model ID, e.g., OpenAI's text-embedding-3-small.
  */
 export const DEFAULT_EMBEDDING_MODEL_ID = 'text-embedding-3-small'
+
+/**
+ * Tool name for calling/delegating to specialized agents
+ */
+export const CALL_AGENT_TOOL_NAME = 'call_agent'

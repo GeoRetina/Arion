@@ -20,39 +20,27 @@ export function registerSettingsIpcHandlers(
 ): void {
   // --- Generic SettingsService IPC Handlers (if still needed) ---
   ipcMain.handle('ctg:settings:get', async (_event, key: string) => {
-    console.log(`[Settings Handlers IPC] Received 'ctg:settings:get' for key: ${key}`)
     try {
       if (typeof (settingsService as any).getSetting === 'function') {
         return (settingsService as any).getSetting(key)
       }
-      console.warn('[Settings Handlers IPC] settingsService.getSetting is not a function')
       return undefined
     } catch (error) {
-      console.error(`[Settings Handlers IPC] Error getting setting for key ${key}:`, error)
       return undefined
     }
   })
 
   ipcMain.handle('ctg:settings:set', async (_event, key: string, value: unknown) => {
-    console.log(
-      `[Settings Handlers IPC] Received 'ctg:settings:set' for key: ${key} with value:`,
-      value
-    )
     try {
       if (typeof (settingsService as any).setSetting === 'function') {
         ;(settingsService as any).setSetting(key, value)
         return { success: true }
       }
-      console.warn('[Settings Handlers IPC] settingsService.setSetting is not a function')
       return { success: false, error: 'setSetting not available' }
     } catch (error) {
-      console.error(`[Settings Handlers IPC] Error setting for key ${key}:`, error)
       return { success: false, error: (error as Error).message }
     }
   })
-  console.log(
-    '[Main Process] Generic SettingsService IPC handlers registered by settings.handlers.ts.'
-  )
 
   // --- LLM Specific IPC Handlers ---
   ipcMain.handle(IpcChannels.setOpenAIConfig, async (_event, config: OpenAIConfig) => {
@@ -64,7 +52,6 @@ export function registerSettingsIpcHandlers(
       }
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setOpenAIConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -73,7 +60,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getOpenAIConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getOpenAIConfig:', error)
       return null
     }
   })
@@ -87,7 +73,6 @@ export function registerSettingsIpcHandlers(
       }
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setGoogleConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -96,7 +81,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getGoogleConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getGoogleConfig:', error)
       return null
     }
   })
@@ -110,7 +94,6 @@ export function registerSettingsIpcHandlers(
       }
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setAzureConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -119,7 +102,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getAzureConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getAzureConfig:', error)
       return null
     }
   })
@@ -133,7 +115,6 @@ export function registerSettingsIpcHandlers(
       }
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setAnthropicConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -142,7 +123,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getAnthropicConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getAnthropicConfig:', error)
       return null
     }
   })
@@ -157,7 +137,6 @@ export function registerSettingsIpcHandlers(
       }
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setVertexConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -166,7 +145,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getVertexConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getVertexConfig:', error)
       return null
     }
   })
@@ -181,7 +159,6 @@ export function registerSettingsIpcHandlers(
       }
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setOllamaConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -190,7 +167,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getOllamaConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getOllamaConfig:', error)
       return null
     }
   })
@@ -202,7 +178,6 @@ export function registerSettingsIpcHandlers(
         await settingsService.setActiveLLMProvider(provider)
         return { success: true }
       } catch (error) {
-        console.error('[Settings Handlers IPC] Error in setActiveLLMProvider:', error)
         return { success: false, error: (error as Error).message }
       }
     }
@@ -212,7 +187,6 @@ export function registerSettingsIpcHandlers(
     try {
       return await settingsService.getActiveLLMProvider()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getActiveLLMProvider:', error)
       return null
     }
   })
@@ -222,18 +196,15 @@ export function registerSettingsIpcHandlers(
       const configsToReturn = await settingsService.getAllLLMConfigs()
       return configsToReturn
     } catch (error) {
-      console.error('[Settings Handlers IPC:getAllLLMConfigs] Error in getAllLLMConfigs:', error)
       return { openai: null, google: null, azure: null, anthropic: null, activeProvider: null }
     }
   })
-  console.log('[Main Process] LLM specific IPC handlers registered by settings.handlers.ts.')
 
   // --- MCP Server Configuration IPC Handlers ---
   ipcMain.handle(IpcChannels.getMcpServerConfigs, async () => {
     try {
       return await settingsService.getMcpServerConfigurations()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getMcpServerConfigs:', error)
       return []
     }
   })
@@ -245,7 +216,6 @@ export function registerSettingsIpcHandlers(
         const newConfig = await settingsService.addMcpServerConfiguration(config)
         return newConfig
       } catch (error) {
-        console.error('[Settings Handlers IPC] Error in addMcpServerConfig:', error)
         return null
       }
     }
@@ -258,7 +228,6 @@ export function registerSettingsIpcHandlers(
         const updatedConfig = await settingsService.updateMcpServerConfiguration(configId, updates)
         return updatedConfig
       } catch (error) {
-        console.error('[Settings Handlers IPC] Error in updateMcpServerConfig:', error)
         return null
       }
     }
@@ -269,20 +238,15 @@ export function registerSettingsIpcHandlers(
       const success = await settingsService.deleteMcpServerConfiguration(configId)
       return success
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in deleteMcpServerConfig:', error)
       return false
     }
   })
-  console.log(
-    '[Main Process] MCP Server Configuration IPC handlers registered by settings.handlers.ts.'
-  )
 
   // --- System Prompt Configuration IPC Handlers ---
   ipcMain.handle(IpcChannels.getSystemPromptConfig, async () => {
     try {
       return await settingsService.getSystemPromptConfig()
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in getSystemPromptConfig:', error)
       return {
         defaultSystemPrompt: ARION_SYSTEM_PROMPT,
         userSystemPrompt: ''
@@ -295,12 +259,7 @@ export function registerSettingsIpcHandlers(
       await settingsService.setSystemPromptConfig(config)
       return { success: true }
     } catch (error) {
-      console.error('[Settings Handlers IPC] Error in setSystemPromptConfig:', error)
       return { success: false, error: (error as Error).message }
     }
   })
-
-  console.log(
-    '[Main Process] System Prompt Configuration IPC handlers registered by settings.handlers.ts.'
-  )
 }

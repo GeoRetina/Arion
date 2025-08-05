@@ -65,49 +65,76 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
     return 'Tool execution failed'
   }, [status, result])
 
-  // Determine status colors
-  const statusColor =
-    status === 'loading'
-      ? 'border-primary/50 bg-primary/5'
-      : status === 'completed'
-        ? 'border-secondary-500/50 bg-secondary-500/5'
-        : 'border-red-500/50 bg-red-500/5'
+  // Determine status colors and styling
+  const statusStyles = {
+    loading: {
+      border: 'border-border',
+      bg: 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10',
+      icon: 'text-amber-600 dark:text-amber-400'
+    },
+    completed: {
+      border: 'border-border',
+      bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10',
+      icon: 'text-emerald-600 dark:text-emerald-400'
+    },
+    error: {
+      border: 'border-border',
+      bg: 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/20 dark:to-red-900/10',
+      icon: 'text-red-600 dark:text-red-400'
+    }
+  }
+
+  const currentStyles = statusStyles[status]
 
   return (
     <div
       className={cn(
-        'my-2 w-full max-w-[300px] sm:max-w-xs min-w-36 text-sm rounded-md border shadow-sm',
-        statusColor,
+        'mb-4 w-full max-w-[350px] rounded-lg border shadow-sm transition-all duration-150',
+        currentStyles.border,
+        currentStyles.bg,
         className
       )}
     >
       <div
-        className="flex items-center gap-2 cursor-pointer p-2 border-b border-border/10 transition-colors hover:bg-muted/30"
+        className="flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
         onClick={() => setExpanded(!expanded)}
       >
-        <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
+        <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
 
-        <span className="font-medium text-xs text-foreground mr-1 truncate flex-1">{toolName}</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-xs text-foreground truncate">
+            <span className="text-muted-foreground">Calling tool:</span> {toolName}
+          </div>
+          {status === 'loading' && (
+            <div className="text-xs text-muted-foreground">Executing...</div>
+          )}
+        </div>
 
-        {status === 'loading' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-        {status === 'completed' && <CheckCircle className="h-3 w-3 text-secondary-500" />}
-        {status === 'error' && <XCircle className="h-3 w-3 text-red-500" />}
+        <div className="flex items-center gap-1.5">
+          {status === 'loading' && (
+            <Loader2 className={cn('h-3.5 w-3.5 animate-spin', currentStyles.icon)} />
+          )}
+          {status === 'completed' && (
+            <CheckCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />
+          )}
+          {status === 'error' && <XCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />}
 
-        {expanded ? (
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-        )}
+          {expanded ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          )}
+        </div>
       </div>
 
       {expanded && (
-        <div className="p-2 text-xs">
-          {/* Arguments ScrollArea */}
-          <div className="mb-2">
-            <div className="text-xs text-muted-foreground mb-1">Arguments</div>
-            <div className="rounded-md border border-border/30 bg-background">
-              <ScrollArea className="h-24 w-full">
-                <div className="p-2 bg-background">
+        <div className="border-t border-border/20 p-2.5 space-y-2.5 text-xs">
+          {/* Arguments */}
+          <div>
+            <div className="font-medium text-muted-foreground mb-1">Arguments</div>
+            <div className="rounded border border-border/40 bg-muted/20">
+              <ScrollArea className="h-24 max-h-32 w-full">
+                <div className="p-2">
                   <div className="whitespace-pre-wrap break-words text-foreground">
                     {formattedArgs}
                   </div>
@@ -118,29 +145,30 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
 
           {/* Error Message - show if in error state */}
           {status === 'error' && errorMessage && (
-            <div className="mt-2">
-              <div className="text-xs text-red-500 mb-1 flex items-center">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                <span className="font-medium">Error</span>
+            <div>
+              <div className="font-medium mb-1 flex items-center gap-1 text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-3 w-3" />
+                Error
               </div>
-              <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 p-2">
-                <div className="text-red-700 dark:text-red-400 whitespace-pre-wrap break-words">
+              <div className="rounded border border-red-200/60 bg-red-50/60 dark:border-red-800/40 dark:bg-red-950/20 p-2">
+                <div className="text-red-700 dark:text-red-300 whitespace-pre-wrap break-words">
                   {errorMessage}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Results ScrollArea - only shown when completed with results */}
+          {/* Results - only shown when completed with results */}
           {status === 'completed' && result && (
-            <div className="mt-2">
-              <div className="text-xs text-muted-foreground mb-1 flex items-center">
-                <span className="text-secondary-500 font-medium">Result</span>
+            <div>
+              <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle className="h-3 w-3" />
+                Result
               </div>
-              <div className="rounded-md border border-border/30 bg-background">
-                <ScrollArea className="h-40 w-full">
-                  <div className="p-2 bg-background">
-                    <div className="whitespace-pre-wrap break-words text-foreground">
+              <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
+                <ScrollArea className="h-24 max-h-32 w-full">
+                  <div className="p-2">
+                    <div className="whitespace-pre-wrap break-words text-emerald-800 dark:text-emerald-200">
                       {formattedResult}
                     </div>
                   </div>
@@ -149,19 +177,11 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
             </div>
           )}
 
-          {/* Missing Required Parameters Check */}
+          {/* Tool execution in progress */}
           {status === 'loading' && (
-            <div className="mt-2 text-amber-500 flex items-start gap-1.5 text-xs">
-              <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-              <div>
-                <p>Tool may be missing required parameters.</p>
-                <p className="mt-1 text-muted-foreground">
-                  The <code className="bg-muted px-1 py-0.5 rounded text-xs">set_layer_style</code>{' '}
-                  tool requires both{' '}
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs">source_id</code> and
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs">paint</code> parameters.
-                </p>
-              </div>
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
+              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+              <div className="font-medium">Executing tool...</div>
             </div>
           )}
         </div>

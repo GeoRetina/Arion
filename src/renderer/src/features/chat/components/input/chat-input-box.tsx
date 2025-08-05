@@ -2,12 +2,18 @@
 // TODO: Resolve TypeScript errors after full refactor, especially around contentEditable syncing
 
 import React, { useRef, useState, useEffect, useCallback } from 'react'
-import { X, AlertTriangle, Map as MapIcon } from 'lucide-react' // Added MapIcon
+import { X, AlertTriangle, Map as MapIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LLMProvider } from '@/stores/llm-store'
 import ModelSelector, { ProviderOption } from './model-selector'
 import { ChatInputButtons } from './chat-input-buttons'
-import { ScrollArea } from '@/components/ui/scroll-area' // Added ScrollArea import
+import { PlusDropdown } from './plus-dropdown'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { MentionMenu } from './mention-menu'
+import { useMentionTrigger } from './use-mention-trigger'
+import { useMentionData, type MentionItem } from './use-mention-data'
+import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 
 interface ChatInputBoxProps {
   inputValue: string // Controlled input value from useChat
@@ -19,7 +25,7 @@ interface ChatInputBoxProps {
   // isProgressActive?: boolean; // For button state, deferred for now
   setStoppingRequested?: (isRequested: boolean) => void // From useChatLogic
   // maxAreaLimit?: number; // Deferred, no area checks for now
-  // chatId?: string; // Not directly used by input box UI itself
+  chatId?: string // Added for orchestration
   isStoppingRequestedRef?: React.RefObject<boolean> // Added prop for the ref
 
   // New props for LLM provider selection
@@ -30,6 +36,12 @@ interface ChatInputBoxProps {
   // New props for map sidebar control
   isMapSidebarExpanded?: boolean
   onToggleMapSidebar?: () => void
+
+  // New prop for database modal
+  onOpenDatabase?: () => void
+
+  // New prop for orchestration
+  enableOrchestration?: boolean
 }
 
 const ChatInputBox: React.FC<ChatInputBoxProps> = ({
@@ -41,17 +53,40 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   onStopStreaming,
   setStoppingRequested, // This function updates the ref in useChatLogic
   isStoppingRequestedRef, // This is the ref itself
+  chatId,
   availableProviders,
   activeProvider,
   onSelectProvider,
   // New props for map sidebar control
   isMapSidebarExpanded = false,
-  onToggleMapSidebar
+  onToggleMapSidebar,
+  onOpenDatabase,
+  enableOrchestration = true
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
   const [internalText, setInternalText] = useState(inputValue) // Local state for editor content
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
+  // Agent orchestration store
+  const { initialize: initializeOrchestration, startOrchestration } = useAgentOrchestrationStore()
+
+  // Initialize the orchestration store
+  useEffect(() => {
+    initializeOrchestration()
+  }, [initializeOrchestration])
+
+  // Mention system integration
+  const mentionTrigger = useMentionTrigger({
+    editorRef,
+    onTriggerChange: (isActive, searchQuery) => {
+      // Optional: additional logic when mention state changes
+    }
+  })
+
+  const mentionData = useMentionData({
+    searchQuery: mentionTrigger.searchQuery,
+    enabled: mentionTrigger.isActive
+  })
 
   // Sync internalText and editor when inputValue prop changes (e.g., after submit)
   useEffect(() => {
@@ -59,19 +94,15 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     // This is because inputValue is the "source of truth" from the parent.
     setInternalText(inputValue)
 
-    // Now, ensure the DOM (editorRef) matches this inputValue.
+    // Now, ensure the DOM (editorRef) matches this inputValue with highlighting.
     if (editorRef.current) {
       if (inputValue === '') {
-        // If inputValue is empty, ensure the editor's innerHTML is also empty
-        // to clear any residual <br> tags, etc.
+        // If inputValue is empty, clear the editor
         if (editorRef.current.innerHTML !== '') {
           editorRef.current.innerHTML = ''
         }
       } else {
-        // If inputValue is not empty, and the editor's current textContent
-        // doesn't match, then update the editor's textContent.
-        // This avoids unnecessary DOM manipulation if they already match,
-        // which helps preserve caret position.
+        // If inputValue is not empty, just set the text content
         if (editorRef.current.textContent !== inputValue) {
           editorRef.current.textContent = inputValue
         }
@@ -81,34 +112,29 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   const onActualInput = useCallback(
     (event: React.FormEvent<HTMLDivElement>) => {
-      let currentText = ''
       const editorNode = event.currentTarget
+      if (!editorNode) return
 
-      if (editorNode) {
-        // Browsers insert <br> into an empty contentEditable or if you press Enter then delete.
-        // Check for this or if textContent is just whitespace.
-        if (
-          editorNode.innerHTML === '<br>' ||
-          editorNode.innerHTML === '<div><br></div>' || // Sometimes nested
-          (editorNode.textContent !== null && editorNode.textContent.trim() === '')
-        ) {
-          currentText = ''
-          // If we determine it's empty, and visually it's not (e.g. still has <br>)
-          // ensure it becomes visually empty for next check.
-          if (editorNode.innerHTML !== '' && editorNode.innerHTML !== '<br>') {
-            // Avoid loop if already <br>
-            // editorNode.innerHTML = ""; // This might be too aggressive here and fight with user typing
-          }
-        } else {
-          currentText = editorNode.textContent || ''
-        }
+      // Get the plain text content
+      let currentText = editorNode.textContent || ''
+
+      // Handle empty content
+      if (
+        editorNode.innerHTML === '<br>' ||
+        editorNode.innerHTML === '<div><br></div>' ||
+        currentText.trim() === ''
+      ) {
+        currentText = ''
       }
 
+      // Update internal state first
       setInternalText(currentText)
       onValueChange(currentText)
-      // updateCaretPosition(); // Called by selectionchange or mutation observer
+
+      // Trigger mention detection on input change
+      setTimeout(() => mentionTrigger.detectMentionTrigger(), 0)
     },
-    [onValueChange]
+    [mentionTrigger, setInternalText, onValueChange]
   )
 
   const onInternalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -116,10 +142,17 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     // Submit based on internalText to ensure it matches what user sees,
     // though inputValue should ideally be in sync.
     if (isSubmitting || isStreaming || !internalText.trim()) return
+
     try {
       setIsSubmitting(true)
-      handleSubmit() // Call useChat's handleSubmit
+
+      // Use regular handleSubmit - orchestration will be handled internally
+      // based on the selected model/agent
+      handleSubmit()
+
       // After successful submit, inputValue will change via useChat, triggering useEffect to clear editor
+    } catch (error) {
+      // Show error to user?
     } finally {
       setIsSubmitting(false)
       editorRef.current?.focus()
@@ -127,12 +160,58 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   }
 
   const handleCombinedKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Handle mention menu navigation when active
+    if (mentionTrigger.isActive && mentionData.items.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const nextIndex = (mentionTrigger.selectedIndex + 1) % mentionData.items.length
+        mentionTrigger.setSelectedIndex(nextIndex)
+        return
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const prevIndex =
+          mentionTrigger.selectedIndex === 0
+            ? mentionData.items.length - 1
+            : mentionTrigger.selectedIndex - 1
+        mentionTrigger.setSelectedIndex(prevIndex)
+        return
+      }
+
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        const selectedItem = mentionData.items[mentionTrigger.selectedIndex]
+        if (selectedItem) {
+          handleMentionSelect(selectedItem)
+        }
+        return
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        mentionTrigger.closeMention()
+        return
+      }
+    }
+
+    // Regular input handling
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       onInternalSubmit()
     }
     // Allow default behavior for other keys, which will trigger mutation/selection observers
   }
+
+  const handleMentionSelect = useCallback(
+    (item: MentionItem) => {
+      const mentionText = `@${item.name}`
+
+      // Insert the mention - this handles everything including caret positioning
+      mentionTrigger.insertMention(mentionText)
+    },
+    [mentionTrigger]
+  )
 
   // Simplified banner closing, just clears the visual banner part
   // Actual logic for clearing selected ROI would be in useChatLogic or parent
@@ -190,13 +269,20 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               {/* Icon placeholder if needed */}
               {activeBanner}
               {/* Removed area limit display */}
-              <button
-                onClick={handleCloseBanner}
-                className="ml-1 relative -top-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Remove selection banner"
-              >
-                <X size={11} />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleCloseBanner}
+                    className="ml-1 relative -top-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Remove selection banner"
+                  >
+                    <X size={11} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Clear context</p>
+                </TooltipContent>
+              </Tooltip>
             </span>
           </div>
         )}
@@ -213,7 +299,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               Type a message...
             </span>
           )}
-          {/* ContentEditable Div wrapped with ScrollArea */}
+          {/* ContentEditable Div with Highlighting Overlay */}
           <ScrollArea
             className="flex-grow w-full" // Ensure it takes available width and can grow
             style={{ maxHeight: `${maxInputHeight}px` }}
@@ -221,15 +307,16 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           >
             <div
               ref={editorRef}
-              contentEditable={true} // Always editable
+              contentEditable={true}
               onInput={onActualInput}
               onKeyDown={handleCombinedKeyDown}
               role="textbox"
               aria-multiline="true"
-              className={`relative w-full py-3 px-4 bg-transparent focus:outline-none leading-snug`} // Use py-3 for symmetrical padding, pb-12 on parent handles button bar space
+              className="relative w-full py-3 px-4 bg-transparent focus:outline-none leading-snug"
               style={{
-                caretColor: 'auto', // Use native caret
-                minHeight: editorMinHeight // Keep minHeight for initial rendering
+                caretColor: 'auto',
+                minHeight: editorMinHeight,
+                color: 'var(--foreground)' // Normal text color
               }}
               suppressContentEditableWarning={true}
             />
@@ -241,6 +328,9 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           {' '}
           {/* Added mt-auto and shrink-0 */}
           <div className="flex items-center gap-2">
+            {/* Plus dropdown moved to the left side */}
+            <PlusDropdown disabled={isStreaming} onOpenDatabase={onOpenDatabase} />
+
             <ModelSelector
               availableProviders={availableProviders}
               activeProvider={activeProvider}
@@ -249,20 +339,26 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
             {/* Map toggle button */}
             {onToggleMapSidebar && (
-              <Button
-                variant="custom"
-                size="icon"
-                onClick={onToggleMapSidebar}
-                type="button"
-                className={`
-                  h-8 w-8 flex items-center justify-center ml-1 border-[1px] rounded-md
-                  border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
-                  ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
-                `}
-                title={isMapSidebarExpanded ? 'Hide Map' : 'Show Map'}
-              >
-                <MapIcon className="h-4 w-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="custom"
+                    size="icon"
+                    onClick={onToggleMapSidebar}
+                    type="button"
+                    className={`
+                      h-8 w-8 flex items-center justify-center ml-1 border-[1px] rounded-md
+                      border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
+                      ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
+                    `}
+                  >
+                    <MapIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isMapSidebarExpanded ? 'Hide Map' : 'Show Map'}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           <ChatInputButtons
@@ -274,7 +370,17 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           />
         </div>
       </form>
-      {/* Mention menu and file dialog are deferred */}
+
+      {/* Mention Menu */}
+      <MentionMenu
+        items={mentionData.items}
+        isVisible={mentionTrigger.isActive}
+        position={mentionTrigger.position}
+        selectedIndex={mentionTrigger.selectedIndex}
+        searchQuery={mentionTrigger.searchQuery}
+        onSelect={handleMentionSelect}
+        onClose={mentionTrigger.closeMention}
+      />
     </div>
   )
 }

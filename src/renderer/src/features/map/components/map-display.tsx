@@ -3,10 +3,10 @@ import maplibregl, { Map, StyleSpecification, NavigationControl, ScaleControl } 
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useMapStore } from '../../../stores/map-store'
 import { initializeMapIpcListeners, cleanupMapIpcListeners } from '../../../lib/ipc/map-ipc-manager'
+import { useLayerSync } from '../../../hooks/use-layer-sync'
 
 interface MapDisplayProps {
   isVisible: boolean
-  preload?: boolean // Optional prop to preload the map even when not visible
 }
 
 // Define the OSM Raster Tile style
@@ -36,23 +36,22 @@ const osmRasterStyle: StyleSpecification = {
   ]
 }
 
-export const MapDisplay: React.FC<MapDisplayProps> = ({
-  isVisible,
-  preload = false // Default to false if not provided
-}) => {
+export const MapDisplay: React.FC<MapDisplayProps> = ({ isVisible }) => {
   const mapContainer = useRef<HTMLDivElement | null>(null)
   const map = useRef<Map | null>(null)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const setMapInstanceInStore = useMapStore((state) => state.setMapInstance)
   const setMapReadyForOperations = useMapStore((state) => state.setMapReadyForOperations)
 
-  // Initialize map once on component mount or when preload becomes true
+  // Initialize layer synchronization
+  useLayerSync()
+
+  // Initialize map once on component mount
   useEffect(() => {
-    // Initialize map if container exists and either it should be preloaded or is visible
+    // Always initialize map if container exists and map doesn't already exist
     if (!mapContainer.current || map.current !== null) return
 
     try {
-      console.log('Initializing MapLibre GL map')
       map.current = new maplibregl.Map({
         container: mapContainer.current,
         style: osmRasterStyle,
@@ -64,12 +63,12 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
 
       const currentMapInstance = map.current
       setMapInstanceInStore(currentMapInstance)
-      setMapReadyForOperations(false)
 
       currentMapInstance.on('load', () => {
-        console.log('MapLibre GL map loaded.')
         setIsMapLoaded(true)
-        // Readiness will be fully determined by the visibility useEffect after resize
+
+        // Map is ready for operations once loaded, regardless of visibility
+        setMapReadyForOperations(true)
 
         // Ensure map is sized correctly
         if (currentMapInstance) {
@@ -91,15 +90,11 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         }
       })
 
-      currentMapInstance.on('error', (e) => {
-        console.error('MapLibre GL error:', e)
-      })
-    } catch (error) {
-      console.error('Failed to initialize MapLibre GL:', error)
-    }
+      currentMapInstance.on('error', (e) => {})
+    } catch (error) {}
   }, [])
 
-  // Handle visibility changes
+  // Handle visibility changes and resizing
   useEffect(() => {
     if (!map.current || !isMapLoaded) return
 
@@ -111,14 +106,8 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         mapContainer.current.offsetWidth > 0 && // Check if width is > 0
         mapContainer.current.offsetHeight > 0 // Check if height is > 0
       ) {
-        console.log('[MapDisplay] Resizing map instance.')
         map.current.resize()
-        setMapReadyForOperations(true)
-      } else {
-        console.warn(
-          '[MapDisplay] Skipping resize: map instance or container not ready, or container has zero dimensions.'
-        )
-        setMapReadyForOperations(false)
+        // Map remains ready for operations regardless of visibility
       }
     }
 
@@ -129,17 +118,17 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       }, 100) // Adjust delay as needed, 100ms is a common starting point
 
       return () => clearTimeout(resizeTimeout)
-    } else {
-      setMapReadyForOperations(false)
     }
-  }, [isVisible, isMapLoaded, setMapReadyForOperations])
+    // Note: We don't set map operations to false when not visible
+    // The map should remain available for layer operations even when hidden
+    return undefined
+  }, [isVisible, isMapLoaded])
 
   // Clean up on component unmount
   useEffect(() => {
     const mapToClean = map.current
     return () => {
       if (mapToClean) {
-        console.log('Destroying MapLibre GL map instance.')
         setMapInstanceInStore(null)
         mapToClean.remove()
         setIsMapLoaded(false)
@@ -148,14 +137,12 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
         map.current = null
       }
     }
-  }, [setMapInstanceInStore, setMapReadyForOperations])
+  }, [setMapInstanceInStore])
 
   // Effect for initializing and cleaning up IPC listeners
   useEffect(() => {
-    console.log('[MapDisplay] Initializing IPC listeners for map features.')
     initializeMapIpcListeners()
     return () => {
-      console.log('[MapDisplay] Cleaning up IPC listeners for map features.')
       cleanupMapIpcListeners()
     }
   }, [])
@@ -167,8 +154,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({
       style={{
         opacity: isVisible ? 1 : 0,
         transition: 'opacity 300ms ease-in-out',
-        visibility: isVisible ? 'visible' : 'hidden',
-        position: 'relative'
+        position: 'relative',
+        // Always keep the container in the layout flow to maintain dimensions
+        // This ensures the map can initialize properly even when visually hidden
+        pointerEvents: isVisible ? 'auto' : 'none'
       }}
     />
   )

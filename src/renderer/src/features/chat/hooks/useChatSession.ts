@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat-history-store'
+import { resetChatStores, prepareChatSwitch } from '@/lib/chat-store-reset'
 import { v4 as uuidv4 } from 'uuid'
 import type { Message as SDKMessage } from '@ai-sdk/react'
 
@@ -29,49 +30,31 @@ export function useChatSession(): UseChatSessionReturn {
 
   // Effect to synchronize URL chatId with chat history store
   useEffect(() => {
-    console.log(
-      '[useChatSession] URL Sync Effect. URL:',
-      chatIdFromUrl,
-      'StoreChatID:',
-      currentChatIdFromStore,
-      'ProcessingNewRef:',
-      processingNewChatUrlRef.current
-    )
-
     if (chatIdFromUrl === 'new') {
       if (!processingNewChatUrlRef.current) {
         processingNewChatUrlRef.current = true
 
         if (currentChatIdFromStore !== null) {
-          console.log('[useChatSession] Navigated to /new, clearing current chat in store.')
-          clearCurrentChat() // Clears messages and currentChatId from store
+          resetChatStores() // Use centralized reset for all chat-related stores
         }
         const newSessionId = uuidv4()
-        console.log(
-          `[useChatSession] Detected 'new' chat URL, navigating to /chat/${newSessionId}. Chat record will be created on first message.`
-        )
         navigate(`/chat/${newSessionId}`, { replace: true })
         // processingNewChatUrlRef.current will be reset when chatIdFromUrl is no longer 'new'
       }
     } else if (chatIdFromUrl && chatIdFromUrl !== 'new') {
       if (processingNewChatUrlRef.current) {
-        console.log("[useChatSession] URL is no longer 'new'. Resetting processingNewChatUrlRef.")
         processingNewChatUrlRef.current = false
       }
 
       if (chatIdFromUrl !== currentChatIdFromStore) {
-        console.log(
-          `[useChatSession] URL chatId ${chatIdFromUrl} differs from store ${currentChatIdFromStore}. Loading chat (won't create if not found).`
-        )
+        // Use centralized chat switch preparation
+        prepareChatSwitch(currentChatIdFromStore || undefined, chatIdFromUrl)
         // loadChat should set currentChatId and messages in the store if found
         loadChat(chatIdFromUrl)
       }
     } else if (!chatIdFromUrl && currentChatIdFromStore) {
       // If there's no chat ID in the URL, but there is one in the store (e.g., after a hot reload or returning to the app)
       // navigate to the stored chat ID.
-      console.log(
-        `[useChatSession] No URL chatId, but store has ${currentChatIdFromStore}. Navigating.`
-      )
       navigate(`/chat/${currentChatIdFromStore}`, { replace: true })
     }
     // If !chatIdFromUrl && !currentChatIdFromStore, we do nothing, user might be on a different page or app just loaded.

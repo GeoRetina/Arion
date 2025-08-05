@@ -13,26 +13,14 @@ export function registerDbIpcHandlers(
       _event,
       chatData: Pick<Chat, 'id'> & Partial<Omit<Chat, 'id' | 'created_at' | 'updated_at'>>
     ) => {
-      console.log(`[DB Handlers IPC] Received ${IpcChannels.dbCreateChat} with data:`, chatData)
       try {
         const chat = dbService.createChat(chatData)
         if (chat) {
-          console.log(`[DB Handlers IPC] ${IpcChannels.dbCreateChat} success, returning:`, chat)
           return { success: true, data: chat }
         } else {
-          console.error(
-            `[DB Handlers IPC] ${IpcChannels.dbCreateChat} failed in DBService. chatData:`,
-            chatData
-          )
           return { success: false, error: 'Failed to create chat in DBService.' }
         }
       } catch (error) {
-        console.error(
-          `[DB Handlers IPC] Error in ${IpcChannels.dbCreateChat}:`,
-          error,
-          'with data:',
-          chatData
-        )
         return { success: false, error: (error as Error).message }
       }
     }
@@ -43,7 +31,6 @@ export function registerDbIpcHandlers(
       const chat = dbService.getChatById(id)
       return { success: true, data: chat } // chat can be null if not found, which is a valid success case
     } catch (error) {
-      console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbGetChatById}:`, error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -55,7 +42,6 @@ export function registerDbIpcHandlers(
         const chats = dbService.getAllChats(orderBy, order)
         return { success: true, data: chats }
       } catch (error) {
-        console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbGetAllChats}:`, error)
         return { success: false, error: (error as Error).message }
       }
     }
@@ -78,7 +64,6 @@ export function registerDbIpcHandlers(
           error: `Failed to update chat with id ${id}. It might not exist or an error occurred.`
         }
       } catch (error) {
-        console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbUpdateChat}:`, error)
         return { success: false, error: (error as Error).message }
       }
     }
@@ -89,7 +74,6 @@ export function registerDbIpcHandlers(
       const deleted = dbService.deleteChat(id)
       return { success: deleted }
     } catch (error) {
-      console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbDeleteChat}:`, error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -108,7 +92,6 @@ export function registerDbIpcHandlers(
         }
         return { success: false, error: 'Failed to add message in DBService.' }
       } catch (error) {
-        console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbAddMessage}:`, error)
         return { success: false, error: (error as Error).message }
       }
     }
@@ -119,7 +102,6 @@ export function registerDbIpcHandlers(
       const message = dbService.getMessageById(id)
       return { success: true, data: message }
     } catch (error) {
-      console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbGetMessageById}:`, error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -131,7 +113,6 @@ export function registerDbIpcHandlers(
         const messages = dbService.getMessagesByChatId(chat_id, orderBy, order)
         return { success: true, data: messages }
       } catch (error) {
-        console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbGetMessagesByChatId}:`, error)
         return { success: false, error: (error as Error).message }
       }
     }
@@ -142,7 +123,6 @@ export function registerDbIpcHandlers(
       const deleted = dbService.deleteMessage(id)
       return { success: deleted }
     } catch (error) {
-      console.error(`[DB Handlers IPC] Error in ${IpcChannels.dbDeleteMessage}:`, error)
       return { success: false, error: (error as Error).message }
     }
   })
@@ -151,6 +131,4 @@ export function registerDbIpcHandlers(
   // ipcMain.handle(IpcChannels.dbGetAllKnowledgeBaseDocuments, async (_event) => { ... })
   // ipcMain.handle(IpcChannels.dbDeleteKnowledgeBaseDocument, async (_event, id: string) => { ... })
   // Add other handlers for KB documents as needed
-
-  console.log('[Main Process] DBService IPC handlers registered by db.handlers.ts.')
 }

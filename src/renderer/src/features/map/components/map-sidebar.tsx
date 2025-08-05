@@ -2,6 +2,7 @@ import React, { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { PanelRightClose } from 'lucide-react'
 import { MapDisplay } from './map-display'
+import { LayersPanel } from './layers-panel'
 
 interface MapSidebarProps {
   isMapSidebarExpanded: boolean
@@ -47,8 +48,9 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
 
       {/* Map container */}
       <div className="flex-grow h-[calc(100%-48px)] w-full p-3 pt-0">
-        <div className="h-full w-full rounded-md overflow-hidden">
+        <div className="h-full w-full rounded-md overflow-hidden relative">
           <MapDisplay isVisible={isMapSidebarExpanded} />
+          <LayersPanel />
         </div>
       </div>
     </div>

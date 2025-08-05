@@ -18,7 +18,6 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
   // Expand tilde to home directory if present
   if (resolvedImagePath.startsWith('~/')) {
     resolvedImagePath = path.join(os.homedir(), resolvedImagePath.substring(2))
-    console.log(`[ImageProcessing] Expanded tilde path to: ${resolvedImagePath}`)
   }
 
   if (!path.isAbsolute(resolvedImagePath)) {
@@ -39,16 +38,11 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
   }
 
   if (mimeType === 'image/tiff') {
-    console.log(`[ImageProcessing] Reading GeoTIFF: ${resolvedImagePath}`)
     const tiff = await geoTiffFromFile(resolvedImagePath)
     const image = await tiff.getImage() // Get the first image from the TIFF
     const width = image.getWidth()
     const height = image.getHeight()
     const samplesPerPixel = image.getSamplesPerPixel()
-
-    console.log(
-      `[ImageProcessing] TIFF properties - Width: ${width}, Height: ${height}, SamplesPerPixel: ${samplesPerPixel}`
-    )
 
     const rawRasterData = (await image.readRasters({
       interleave: false
@@ -72,17 +66,9 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
         bandData instanceof Uint8Array
 
       if (!isProcessableNumericType) {
-        console.error(
-          `[ImageProcessing] Band ${i} is not a supported numeric TypedArray. Actual type: ${Object.prototype.toString.call(
-            bandData
-          )}. Cannot perform normalization.`
-        )
         const blackBand = new Uint8Array(width * height)
         blackBand.fill(0)
         scaledBands.push(blackBand)
-        console.warn(
-          `[ImageProcessing] Band ${i} was not a processable numeric type, a black band was substituted.`
-        )
         continue
       }
 
@@ -107,7 +93,7 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
         if (bandData[j] < minVal) minVal = bandData[j]
         if (bandData[j] > maxVal) maxVal = bandData[j]
       }
-      // console.log(`[ImageProcessing] Band ${i} (${Object.prototype.toString.call(bandData)}) - Min: ${minVal}, Max: ${maxVal}`)
+      // }) - Min: ${minVal}, Max: ${maxVal}`)
 
       const bandData8bit = new Uint8Array(bandData.length)
       if (maxVal === minVal) {
@@ -153,9 +139,6 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
       }
     }
 
-    console.log(
-      `[ImageProcessing] Successfully normalized TIFF bands. Encoding to PNG. Dimensions: ${width}x${height}, Channels: ${numOutputChannels}`
-    )
     const pngBuffer = encodePng({
       data: finalPixelData,
       width,
@@ -165,9 +148,6 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
     return `data:image/png;base64,${Buffer.from(pngBuffer).toString('base64')}`
   } else if (mimeType === 'image/png' || mimeType === 'image/jpeg' || mimeType === 'image/gif') {
     const imageBuffer = fs.readFileSync(resolvedImagePath)
-    console.log(
-      `[ImageProcessing] Converted local image ${resolvedImagePath} (${mimeType}) to data URI.`
-    )
     return `data:${mimeType};base64,${imageBuffer.toString('base64')}`
   } else {
     throw new Error(

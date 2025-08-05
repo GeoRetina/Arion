@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<prompt>
+<![CDATA[
+You need to decompose the following task into specific subtasks that can be assigned to different specialized agents.
+
+USER TASK: {{query}}
+
+You have access to the following specialized agents that can help accomplish tasks:
+
+{{agents_info}}
+
+Using these available agents, generate a list of subtasks in JSON format. For each subtask include:
+1. A clear, specific description of what needs to be done
+2. A list of capabilities required to complete it
+3. Dependencies (IDs of other subtasks this one depends on)
+
+Example format:
+[
+  {
+    "description": "Analyze the spatial data to identify areas with high vegetation density",
+    "requiredCapabilities": ["raster-analysis", "vector-analysis"],
+    "dependencies": []
+  },
+  {
+    "description": "Visualize vegetation density on the map",
+    "requiredCapabilities": ["visualization", "map-control"],
+    "dependencies": ["1"] 
+  }
+]
+
+Make sure to break down the task logically and include all steps needed to complete the original task.
+]]>
+</prompt>

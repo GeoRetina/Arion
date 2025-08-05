@@ -28,22 +28,27 @@ mcp-servers/
 ### Geospatial Analysis
 
 #### Raster Tools
+
 - **Metadata Tools**: Extract raster metadata, band statistics, histograms, unique value analysis
 - **Spectral Indices**: Calculate NDVI, NDWI, EVI, SAVI, MNDWI and other vegetation/water indices
 - **Spatial Analysis**: Focal statistics (mean, max, min, std), Gaussian smoothing, median filtering, edge detection
 
 #### Vector Tools
+
 - **Metadata Tools**: Vector dataset information, attribute statistics, geometry validity analysis
 - **Spatial Operations**: Buffer analysis, dissolve operations, spatial joins, proximity analysis
 - **Geometry Analysis**: Area/perimeter calculations, length measurements, centroid analysis, bounding boxes, point pattern analysis
 
 ### File Operations
+
 - **File System**: Read-only filesystem operations, directory listing, file finding
 
 ### Web Scraping
+
 - **Web Scraper**: Web page content extraction, link and image extraction, API requests, robots.txt checking
 
 ### Data Processing
+
 - **Data Processor**: CSV/JSON/Excel processing, data filtering, grouping, merging, pivot tables
 
 ## Usage

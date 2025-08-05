@@ -54,6 +54,16 @@ export type FormattableProviderConfig = {
   // Add any other properties used in name formatting here
 }
 
+// Map of provider IDs to their configuration key
+export const PROVIDER_CONFIG_KEYS: Record<NonNullable<LLMProvider>, string> = {
+  openai: 'model',
+  google: 'model',
+  azure: 'deploymentName',
+  anthropic: 'model',
+  vertex: 'model',
+  ollama: 'model'
+}
+
 export const getFormattedProviderName = (
   providerId: NonNullable<LLMProvider>,
   config: FormattableProviderConfig | undefined,

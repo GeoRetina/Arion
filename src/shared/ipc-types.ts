@@ -1,4 +1,37 @@
 import type { Feature, Geometry } from 'geojson' // Ensure geojson types are imported
+import type { OrchestrationResult, Subtask } from '../main/services/types/orchestration-types'
+import type {
+  AgentDefinition,
+  CreateAgentParams,
+  UpdateAgentParams,
+  PromptModuleInfo,
+  AgentCapability
+} from './types/agent-types'
+export type {
+  AgentDefinition,
+  AgentRegistryEntry,
+  CreateAgentParams,
+  UpdateAgentParams,
+  PromptModuleInfo,
+  AgentCapability
+} from './types/agent-types'
+
+// Re-export orchestration types
+export type { OrchestrationResult, Subtask } from '../main/services/types/orchestration-types'
+import type {
+  PromptModule,
+  PromptAssemblyRequest,
+  PromptAssemblyResult,
+  CreatePromptModuleParams,
+  UpdatePromptModuleParams
+} from './types/prompt-types'
+export type {
+  PromptModule,
+  PromptAssemblyRequest,
+  PromptAssemblyResult,
+  CreatePromptModuleParams,
+  UpdatePromptModuleParams
+} from './types/prompt-types'
 
 export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
 
@@ -74,6 +107,26 @@ export interface SystemPromptConfig {
 }
 
 export const IpcChannels = {
+  // Agent System IPC Channels
+  getAgents: 'agents:getAll',
+  getAgentById: 'agents:getById',
+  createAgent: 'agents:create',
+  updateAgent: 'agents:update',
+  deleteAgent: 'agents:delete',
+
+  // Agent Orchestration IPC Channels
+  orchestrateMessage: 'chat:orchestrateMessage',
+  getAgentCapabilities: 'agents:getCapabilities',
+  getOrchestrationStatus: 'orchestration:getStatus',
+
+  // Prompt Module IPC Channels
+  getPromptModules: 'prompts:getAll',
+  getPromptModuleById: 'prompts:getById',
+  createPromptModule: 'prompts:create',
+  updatePromptModule: 'prompts:update',
+  deletePromptModule: 'prompts:delete',
+  assemblePrompt: 'prompts:assemble',
+
   // Setters
   setOpenAIConfig: 'settings:set-openai-config',
   setGoogleConfig: 'settings:set-google-config',
@@ -134,12 +187,12 @@ export const IpcChannels = {
 
   // Shell operations
   shellOpenPath: 'ctg:shell:openPath',
-  
+
   // MCP Permission System
   mcpRequestPermission: 'ctg:mcp:requestPermission',
   mcpShowPermissionDialog: 'ctg:mcp:showPermissionDialog',
   mcpPermissionResponse: 'ctg:mcp:permissionResponse',
-  
+
   // PostgreSQL Integration IPC Channels
   postgresqlTestConnection: 'ctg:postgresql:testConnection',
   postgresqlCreateConnection: 'ctg:postgresql:createConnection',
@@ -147,7 +200,38 @@ export const IpcChannels = {
   postgresqlExecuteQuery: 'ctg:postgresql:executeQuery',
   postgresqlExecuteTransaction: 'ctg:postgresql:executeTransaction',
   postgresqlGetActiveConnections: 'ctg:postgresql:getActiveConnections',
-  postgresqlGetConnectionInfo: 'ctg:postgresql:getConnectionInfo'
+  postgresqlGetConnectionInfo: 'ctg:postgresql:getConnectionInfo',
+
+  // Layer Management IPC Channels
+  layersGetAll: 'layers:getAll',
+  layersGetById: 'layers:getById',
+  layersCreate: 'layers:create',
+  layersUpdate: 'layers:update',
+  layersDelete: 'layers:delete',
+  layersSearch: 'layers:search',
+  layersBulkUpdate: 'layers:bulkUpdate',
+  layersExport: 'layers:export',
+  layersImport: 'layers:import',
+
+  // Layer Group IPC Channels
+  layerGroupsGetAll: 'layers:groups:getAll',
+  layerGroupsCreate: 'layers:groups:create',
+  layerGroupsUpdate: 'layers:groups:update',
+  layerGroupsDelete: 'layers:groups:delete',
+
+  // Layer Operations and Errors
+  layersLogOperation: 'layers:logOperation',
+  layersGetOperations: 'layers:getOperations',
+  layersLogError: 'layers:logError',
+  layersGetErrors: 'layers:getErrors',
+  layersClearErrors: 'layers:clearErrors',
+
+  // Style Presets
+  layerPresetsGetAll: 'layers:presets:getAll',
+  layerPresetsCreate: 'layers:presets:create',
+
+  // Performance Metrics
+  layersRecordMetrics: 'layers:recordMetrics'
 } as const
 
 // Generic IPC Response wrapper
@@ -250,6 +334,7 @@ export interface Message {
   tool_calls?: string | null
   tool_call_id?: string | null
   created_at: string // ISO8601 date string
+  orchestration?: string | null // JSON string containing orchestration data
 }
 
 // --- API Interface Definitions for Preload ---
@@ -426,6 +511,14 @@ export interface McpPermissionApi {
 declare global {
   interface Window {
     ctg: {
+      orchestration?: {
+        getStatus: (sessionId?: string) => Promise<OrchestrationStatus>
+        orchestrateMessage: (
+          chatId: string,
+          message: string,
+          orchestratorAgentId: string
+        ) => Promise<OrchestrationResult>
+      }
       settings: SettingsApi
       chat: ChatApi
       db: DbApi
@@ -435,9 +528,64 @@ declare global {
       shell: ExposedShellApi // Added shell API
       mcp: McpPermissionApi // Added MCP permission API
       postgresql: PostgreSQLApi // Added PostgreSQL API
+      layers: LayerApi // Added Layer Management API
+      agents: AgentApi // Added Agent System API
+      promptModules: PromptModuleApi // Added Prompt Module API
       getAppVersion: () => Promise<string>
     }
   }
+}
+
+export interface AgentCapabilitiesResult {
+  success: boolean
+  capabilities: (Omit<AgentCapability, 'tools' | 'exampleTasks'> & { agents?: string[] })[]
+  error?: string
+}
+
+export interface OrchestrationStatus {
+  success: boolean
+  activeSessions?: string[]
+  subtasks?: Record<string, Subtask[]>
+  error?: string
+}
+
+// Import needed for the interface
+import type { AgentRegistryEntry } from './types/agent-types'
+
+// Agent System API for preload script
+export interface AgentApi {
+  // Agent CRUD operations
+  getAll: () => Promise<AgentRegistryEntry[]>
+  getById: (id: string) => Promise<AgentDefinition | null>
+  create: (agent: CreateAgentParams) => Promise<AgentDefinition>
+  update: (id: string, updates: UpdateAgentParams) => Promise<AgentDefinition>
+  delete: (id: string) => Promise<boolean>
+
+  // Agent execution
+  executeAgent: (agentId: string, chatId: string) => Promise<string> // Returns execution ID
+  stopExecution: (executionId: string) => Promise<boolean>
+
+  // Orchestration
+  orchestrateMessage: (
+    chatId: string,
+    message: string,
+    orchestratorAgentId: string
+  ) => Promise<OrchestrationResult>
+  getCapabilities: () => Promise<AgentCapabilitiesResult>
+  getOrchestrationStatus: (sessionId?: string) => Promise<OrchestrationStatus>
+}
+
+// Prompt Module API for preload script
+export interface PromptModuleApi {
+  // Prompt module CRUD operations
+  getAll: () => Promise<PromptModuleInfo[]>
+  getById: (id: string) => Promise<PromptModule | null>
+  create: (promptModule: CreatePromptModuleParams) => Promise<PromptModule>
+  update: (id: string, updates: UpdatePromptModuleParams) => Promise<PromptModule>
+  delete: (id: string) => Promise<boolean>
+
+  // Prompt assembly
+  assemble: (request: PromptAssemblyRequest) => Promise<PromptAssemblyResult>
 }
 
 // Define KnowledgeBaseDocument for client-side usage if different from DBService one,
@@ -507,6 +655,63 @@ export interface PostgreSQLQueryResult {
 export interface PostgreSQLConnectionInfo {
   connected: boolean
   config?: PostgreSQLConfig
+}
+
+// Layer Management API for preload script
+export interface LayerApi {
+  // Layer CRUD operations
+  getAll: () => Promise<import('./types/layer-types').LayerDefinition[]>
+  getById: (id: string) => Promise<import('./types/layer-types').LayerDefinition | null>
+  create: (
+    layer: Omit<import('./types/layer-types').LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
+  ) => Promise<import('./types/layer-types').LayerDefinition>
+  update: (
+    id: string,
+    updates: Partial<import('./types/layer-types').LayerDefinition>
+  ) => Promise<import('./types/layer-types').LayerDefinition>
+  delete: (id: string) => Promise<boolean>
+  search: (
+    criteria: import('./types/layer-types').LayerSearchCriteria
+  ) => Promise<import('./types/layer-types').LayerSearchResult>
+  bulkUpdate: (
+    updates: Array<{ id: string; changes: Partial<import('./types/layer-types').LayerDefinition> }>
+  ) => Promise<void>
+  export: (layerIds: string[]) => Promise<string>
+  import: (data: string, targetGroupId?: string) => Promise<string[]>
+
+  // Group operations
+  groups: {
+    getAll: () => Promise<import('./types/layer-types').LayerGroup[]>
+    create: (
+      group: Omit<
+        import('./types/layer-types').LayerGroup,
+        'id' | 'createdAt' | 'updatedAt' | 'layerIds'
+      >
+    ) => Promise<import('./types/layer-types').LayerGroup>
+    update: (
+      id: string,
+      updates: Partial<import('./types/layer-types').LayerGroup>
+    ) => Promise<import('./types/layer-types').LayerGroup>
+    delete: (id: string, moveLayersTo?: string) => Promise<boolean>
+  }
+
+  // Operations and errors
+  logOperation: (operation: import('./types/layer-types').LayerOperation) => Promise<void>
+  getOperations: (layerId?: string) => Promise<import('./types/layer-types').LayerOperation[]>
+  logError: (error: import('./types/layer-types').LayerError) => Promise<void>
+  getErrors: (layerId?: string) => Promise<import('./types/layer-types').LayerError[]>
+  clearErrors: (layerId?: string) => Promise<void>
+
+  // Style presets
+  presets: {
+    getAll: () => Promise<import('./types/layer-types').StylePreset[]>
+    create: (
+      preset: Omit<import('./types/layer-types').StylePreset, 'id' | 'createdAt'>
+    ) => Promise<import('./types/layer-types').StylePreset>
+  }
+
+  // Performance metrics
+  recordMetrics: (metrics: import('./types/layer-types').LayerPerformanceMetrics) => Promise<void>
 }
 
 // PostgreSQL API for preload script

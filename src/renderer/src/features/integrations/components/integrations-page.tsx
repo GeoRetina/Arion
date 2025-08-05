@@ -17,12 +17,16 @@ import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
 import { PostgreSQLConfig } from '../../../shared/ipc-types'
 
 const IntegrationsPage: React.FC = () => {
-  const [integrationConfigs, setIntegrationConfigs] = useState<IntegrationConfig[]>(integrationRegistry)
+  const [integrationConfigs, setIntegrationConfigs] =
+    useState<IntegrationConfig[]>(integrationRegistry)
   const [isPostgreSQLConfigOpen, setIsPostgreSQLConfigOpen] = useState(false)
   const [selectedIntegration, setSelectedIntegration] = useState<IntegrationConfig | null>(null)
 
-  const handleIntegrationAction = (integrationId: string, action: 'connect' | 'disconnect' | 'configure' | 'test') => {
-    const config = integrationConfigs.find(c => c.integration.id === integrationId)
+  const handleIntegrationAction = (
+    integrationId: string,
+    action: 'connect' | 'disconnect' | 'configure' | 'test'
+  ) => {
+    const config = integrationConfigs.find((c) => c.integration.id === integrationId)
     if (!config) return
 
     switch (action) {
@@ -58,9 +62,10 @@ const IntegrationsPage: React.FC = () => {
     try {
       await config.onConnect?.()
       // Refresh the integration configs to update the UI
-      setIntegrationConfigs(prev => prev.map(c => c.integration.id === config.integration.id ? config : c))
+      setIntegrationConfigs((prev) =>
+        prev.map((c) => (c.integration.id === config.integration.id ? config : c))
+      )
     } catch (error) {
-      console.error('Failed to connect to PostgreSQL:', error)
       // Handle error - could show a toast notification
     }
   }
@@ -69,9 +74,10 @@ const IntegrationsPage: React.FC = () => {
     try {
       await config.onDisconnect?.()
       // Refresh the integration configs to update the UI
-      setIntegrationConfigs(prev => prev.map(c => c.integration.id === config.integration.id ? config : c))
+      setIntegrationConfigs((prev) =>
+        prev.map((c) => (c.integration.id === config.integration.id ? config : c))
+      )
     } catch (error) {
-      console.error('Failed to disconnect from PostgreSQL:', error)
       // Handle error - could show a toast notification
     }
   }
@@ -80,14 +86,14 @@ const IntegrationsPage: React.FC = () => {
     if (selectedIntegration) {
       // Update the integration's connection settings
       selectedIntegration.integration.connectionSettings = newConfig
-      
+
       // Update the integration configs
-      setIntegrationConfigs(prev => prev.map(c => 
-        c.integration.id === selectedIntegration.integration.id 
-          ? selectedIntegration 
-          : c
-      ))
-      
+      setIntegrationConfigs((prev) =>
+        prev.map((c) =>
+          c.integration.id === selectedIntegration.integration.id ? selectedIntegration : c
+        )
+      )
+
       // Update the integration status
       selectedIntegration.integration.status = 'not-configured'
     }
@@ -178,15 +184,18 @@ const IntegrationsPage: React.FC = () => {
                       </div>
                     </CardContent>
                     <div className="px-5 py-3 border-t border-border/40 flex justify-between items-center">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-xs"
                         disabled={integration.status === 'coming-soon'}
                         onClick={() => {
                           if (integration.status === 'connected') {
                             handleIntegrationAction(integration.id, 'disconnect')
-                          } else if (integration.status === 'not-configured' || integration.status === 'disconnected') {
+                          } else if (
+                            integration.status === 'not-configured' ||
+                            integration.status === 'disconnected'
+                          ) {
                             handleIntegrationAction(integration.id, 'connect')
                           } else if (integration.status === 'error') {
                             handleIntegrationAction(integration.id, 'test')
@@ -202,9 +211,9 @@ const IntegrationsPage: React.FC = () => {
                               ? 'Coming Soon'
                               : 'Retry'}
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="flex items-center gap-1 text-xs"
                         onClick={() => handleIntegrationAction(integration.id, 'configure')}
                         disabled={integration.status === 'coming-soon'}
@@ -222,7 +231,7 @@ const IntegrationsPage: React.FC = () => {
           {/* Documentation section REMOVED */}
         </div>
       </div>
-      
+
       {/* PostgreSQL Configuration Dialog */}
       {selectedIntegration && selectedIntegration.integration.id === 'postgresql-postgis' && (
         <PostgreSQLConfigDialog

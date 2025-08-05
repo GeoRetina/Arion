@@ -30,7 +30,6 @@ export const electronChatFetch = async (
 ): Promise<Response> => {
   // Ensure the IPC bridge is available on the window object
   if (!window.ctg || !window.ctg.chat || !window.ctg.chat.sendMessageStream) {
-    console.error('Chat API bridge not available on window.ctg.chat.sendMessageStream')
     // Return a Response object indicating an error
     const errorResponse = JSON.stringify({ error: 'Chat service not available.' })
     return new Response(errorResponse, {
@@ -51,7 +50,6 @@ export const electronChatFetch = async (
       headers: { 'Content-Type': 'text/plain' } // Or 'application/octet-stream' if more appropriate
     })
   } catch (error) {
-    console.error('Error calling sendMessageStream via IPC:', error)
     // Return a Response object indicating an error
     const errorResponse = JSON.stringify({ error: (error as Error).message })
     return new Response(errorResponse, {
