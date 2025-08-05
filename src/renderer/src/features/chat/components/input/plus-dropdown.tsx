@@ -132,7 +132,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-500" />
       default:
-        return <Plus className="!h-6 !w-6" />
+        return <Plus className="h-5 w-5 />
     }
   }
 
