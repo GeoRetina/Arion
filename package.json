@@ -1,6 +1,6 @@
 {
   "name": "arion",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Arion is an AI agentic desktop application for geospatial analysis.",
   "main": "./out/main/index.js",
   "author": "example.com",
