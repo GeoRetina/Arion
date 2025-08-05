@@ -68,17 +68,17 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
   // Determine status colors and styling
   const statusStyles = {
     loading: {
-      border: 'border-amber-200 dark:border-amber-800/50',
+      border: 'border-border',
       bg: 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10',
       icon: 'text-amber-600 dark:text-amber-400'
     },
     completed: {
-      border: 'border-emerald-200 dark:border-emerald-800/50',
+      border: 'border-border',
       bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10',
       icon: 'text-emerald-600 dark:text-emerald-400'
     },
     error: {
-      border: 'border-red-200 dark:border-red-800/50',
+      border: 'border-border',
       bg: 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/20 dark:to-red-900/10',
       icon: 'text-red-600 dark:text-red-400'
     }
@@ -89,7 +89,7 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
   return (
     <div
       className={cn(
-        'my-2 w-full max-w-[350px] rounded-lg border shadow-sm transition-all duration-150',
+        'mb-4 w-full max-w-[350px] rounded-lg border shadow-sm transition-all duration-150',
         currentStyles.border,
         currentStyles.bg,
         className
@@ -102,7 +102,9 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
         <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
 
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-xs text-foreground truncate">{toolName}</div>
+          <div className="font-semibold text-xs text-foreground truncate">
+            <span className="text-muted-foreground">Calling tool:</span> {toolName}
+          </div>
           {status === 'loading' && (
             <div className="text-xs text-muted-foreground">Executing...</div>
           )}

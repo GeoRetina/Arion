@@ -117,8 +117,8 @@ function renderNestedToolCalls(
         {/* Render the parent component (agent call display) */}
         {parentComponent}
 
-        {/* Render nested tool calls with indentation */}
-        <div className="ml-4 space-y-2" role="group" aria-label="Nested tool calls">
+        {/* Render nested tool calls */}
+        <div className="space-y-2" role="group" aria-label="Nested tool calls">
           {nestedToolCalls.map((nestedTool, index) =>
             renderNestedToolCall(nestedTool, parentToolCallId, index)
           )}
@@ -206,7 +206,7 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
                   className="w-full text-left"
                 />
                 {/* Render nested tool calls using the proper rendering function */}
-                <div className="ml-4 space-y-2">
+                <div className="space-y-2">
                   {nestedToolCalls.map((nestedTool, index) =>
                     renderNestedToolCall(nestedTool, toolCallId, index)
                   )}
