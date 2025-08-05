@@ -129,7 +129,10 @@ export function detectNestedToolUIComponents(toolResult: any): ToolUIComponent[]
  * @param toolResult - The result object from a tool execution that may contain nested tool results
  * @returns Array of ToolInvocation objects representing nested tool calls
  */
-export function detectNestedToolCalls(toolResult: any): ToolInvocation[] {
+export function detectNestedToolCalls(
+  toolResult: any,
+  parentToolCallId: string
+): ToolInvocation[] {
   // Guard clause: ensure we have valid nested tool results
   if (!toolResult || typeof toolResult !== 'object') {
     return []
@@ -150,7 +153,7 @@ export function detectNestedToolCalls(toolResult: any): ToolInvocation[] {
 
     try {
       const mockInvocation: ToolInvocation = {
-        toolCallId: `nested-tool-${Date.now()}-${index}`, // More unique ID
+        toolCallId: `${parentToolCallId}-nested-${nestedTool.toolName}-${index}`, // Stable ID
         toolName: nestedTool.toolName,
         args: nestedTool.args && typeof nestedTool.args === 'object' ? nestedTool.args : {},
         state: 'result',

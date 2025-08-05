@@ -106,7 +106,7 @@ function renderNestedToolCalls(
   }
 
   try {
-    const nestedToolCalls = detectNestedToolCalls(toolResult)
+    const nestedToolCalls = detectNestedToolCalls(toolResult, parentToolCallId)
 
     if (nestedToolCalls.length === 0) {
       return parentComponent
@@ -191,7 +191,7 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
 
         // Check for nested tool results that should render special UI components
         if (state === 'result' && toolInvocation.result) {
-          const nestedToolCalls = detectNestedToolCalls(toolInvocation.result)
+          const nestedToolCalls = detectNestedToolCalls(toolInvocation.result, toolCallId)
 
           if (nestedToolCalls.length > 0) {
             // Render the main tool call display and nested components
