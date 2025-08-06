@@ -45,7 +45,6 @@ async function processMentions(messages: Array<{ role: string; content: any; par
       lastUserMessage.parts = enhanced.parts
     }
   } catch (error) {
-    console.error('Error processing mentions:', error)
     // Continue without enhancement on error
   }
 }

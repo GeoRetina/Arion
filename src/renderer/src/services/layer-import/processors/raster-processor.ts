@@ -22,11 +22,32 @@ export class RasterProcessor {
         throw new Error(validation.error)
       }
 
-      // Create a blob URL for the file - simple and works with existing image processing
-      const blobUrl = URL.createObjectURL(file)
+      const fileInfo = RasterMetadataExtractor.getFileTypeInfo(file)
+      let imageUrl: string
+      let bounds: [number, number, number, number] | undefined
+
+      // Process GeoTIFF files for proper display, use blob URL for others
+      if (fileInfo.isGeoTIFF) {
+        try {
+          const fileBuffer = await file.arrayBuffer()
+          const result = await window.ctg.layers.processGeotiff(fileBuffer, fileName)
+          imageUrl = result.imageUrl
+          bounds = result.bounds
+        } catch (error) {
+          // Fallback to blob URL if processing fails
+          imageUrl = URL.createObjectURL(file)
+        }
+      } else {
+        imageUrl = URL.createObjectURL(file)
+      }
       
       // Extract metadata
       const metadata = RasterMetadataExtractor.extractEnhancedMetadata(file, fileName)
+      
+      // Add bounds to metadata for zoom-to-layer functionality
+      if (bounds) {
+        metadata.bounds = bounds
+      }
       
       // Create default raster style
       const style = LayerStyleFactory.createRasterStyle()
@@ -37,8 +58,9 @@ export class RasterProcessor {
         type: 'raster' as LayerType,
         sourceId: `source-${uuidv4()}`,
         sourceConfig: {
-          type: 'raster',
-          data: blobUrl // Blob URL for the raster file
+          type: 'image',
+          data: imageUrl,
+          options: bounds ? { bounds } : undefined
         } as LayerSourceConfig,
         style,
         visibility: true,
@@ -46,7 +68,7 @@ export class RasterProcessor {
         zIndex: 0,
         metadata,
         isLocked: false,
-        createdBy: 'import',
+        createdBy: 'import' as const,
         createdAt: new Date(),
         updatedAt: new Date()
       }

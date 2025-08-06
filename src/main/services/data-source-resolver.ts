@@ -48,7 +48,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
    */
   private async resolveLayerByName(mentionId: string): Promise<MentionMetadata | null> {
     try {
-      console.log('[LAYER RESOLVER] Attempting to resolve layer:', mentionId)
       
       // Get all layers from the layer store (if available)
       // Note: In main process, we need to access layers through IPC or service
@@ -63,16 +62,13 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       )
       
       if (!matchingLayer) {
-        console.log('[LAYER RESOLVER] No layer match found for:', mentionId)
         return null
       }
       
-      console.log('[LAYER RESOLVER] Found layer match:', matchingLayer.name)
       
       // Extract metadata from the layer using existing utilities
       return await this.extractLayerMetadata(matchingLayer, mentionId)
     } catch (error) {
-      console.error('Error resolving layer mention:', error)
       return null
     }
   }
@@ -127,7 +123,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
         }
       }
     } catch (error) {
-      console.error('Error resolving document mention:', error)
       return null
     }
   }
@@ -155,14 +150,12 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
    */
   private async getAllLayers(): Promise<LayerDefinition[]> {
     if (!this.layerDbManager) {
-      console.warn('[LAYER RESOLVER] No layer database manager available')
       return []
     }
     
     try {
       return this.layerDbManager.getAllLayers()
     } catch (error) {
-      console.error('[LAYER RESOLVER] Error getting layers from database:', error)
       return []
     }
   }
@@ -198,7 +191,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
 
       return baseMetadata
     } catch (error) {
-      console.error('Error extracting layer metadata:', error)
       
       // Return basic metadata if extraction fails
       return {
@@ -301,7 +293,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
           }
           
         } catch (error) {
-          console.error('Error extracting GeoTIFF metadata:', error)
           metadata.extractionError = 'Failed to read GeoTIFF metadata'
         }
       } 

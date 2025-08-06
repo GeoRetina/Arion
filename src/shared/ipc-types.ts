@@ -712,6 +712,9 @@ export interface LayerApi {
 
   // Performance metrics
   recordMetrics: (metrics: import('./types/layer-types').LayerPerformanceMetrics) => Promise<void>
+
+  // GeoTIFF processing
+  processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) => Promise<{imageUrl: string, bounds?: [number, number, number, number]}>
 }
 
 // PostgreSQL API for preload script

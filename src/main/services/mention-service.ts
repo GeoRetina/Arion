@@ -126,7 +126,6 @@ export class MentionService {
           ])
           return result
         } catch (error) {
-          console.warn(`Failed to resolve mention @${mentionId}:`, error)
           return null
         }
       })
@@ -137,7 +136,6 @@ export class MentionService {
       const validMentions = resolvedMentions.filter(Boolean) as MentionMetadata[]
 
       if (validMentions.length === 0) {
-        console.info('No valid mentions resolved, returning original message')
         return message
       }
 
@@ -146,7 +144,6 @@ export class MentionService {
 
       // Validate enhanced content isn't too large (prevent DoS)
       if (enhancedContent.length > 50000) {
-        console.warn('Enhanced content too large, truncating metadata')
         return this.buildTruncatedEnhancedContent(message.content, validMentions)
       }
 
@@ -169,7 +166,6 @@ export class MentionService {
       return enhancedMessage
 
     } catch (error) {
-      console.error('Error enhancing message with mentions:', error)
       return message // Return original message on error
     }
   }
@@ -341,7 +337,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       
       return null
     } catch (error) {
-      console.error('Error resolving layer mention:', error)
       return null
     }
   }
@@ -363,7 +358,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       
       return null
     } catch (error) {
-      console.error('Error resolving document mention:', error)
       return null
     }
   }
