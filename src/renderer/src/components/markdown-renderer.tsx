@@ -168,43 +168,48 @@ const MarkdownBlock = memo(
       },
       table: (props) => {
         const { node, ...rest } = props
-        // Wrap table in a div for overflow and rounded borders
+        // Minimalist table wrapper with subtle styling
         return (
-          <div className="my-6 w-full overflow-x-auto rounded-lg border border-border shadow-sm">
-            <table className="w-full divide-y divide-border" {...rest} />
+          <div className="my-6 w-full overflow-x-auto rounded-md border-0">
+            <table className="w-full border-separate border-spacing-0" {...rest} />
           </div>
         )
       },
       thead: (props) => {
         const { node, ...rest } = props
-        return <thead className="bg-muted/50" {...rest} />
+        return <thead {...rest} />
       },
       tbody: (props) => {
         const { node, ...rest } = props
-        return (
-          <tbody
-            className="divide-y divide-border bg-background dark:bg-card dark:brightness-95"
-            {...rest}
-          />
-        )
+        return <tbody {...rest} />
       },
       tr: (props) => {
         const { node, ...rest } = props
-        return <tr className="hover:bg-muted/30" {...rest} />
+        return (
+          <tr 
+            className="group transition-colors duration-150 hover:bg-muted/20 border-b border-border/30 last:border-b-0" 
+            {...rest} 
+          />
+        )
       },
       th: (props) => {
         const { node, ...rest } = props
         return (
           <th
             scope="col"
-            className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground"
+            className="px-6 py-3 text-left text-sm font-semibold tracking-wide text-muted-foreground/80 bg-muted/20 first:rounded-tl-md last:rounded-tr-md border-b border-border/40"
             {...rest}
           />
         )
       },
       td: (props) => {
         const { node, ...rest } = props
-        return <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground/90" {...rest} />
+        return (
+          <td 
+            className="px-6 py-3 text-sm text-foreground/90 group-hover:text-foreground transition-colors duration-150" 
+            {...rest} 
+          />
+        )
       },
       // MODIFIED 'pre' RENDERER
       pre: (props) => {

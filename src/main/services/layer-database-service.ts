@@ -86,11 +86,41 @@ export class LayerDatabaseService implements LayerDatabase {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='layers'")
       .get()
     if (!migrations) {
-      // Run migration
-      const migrationPath = join(__dirname, '../database/migrations/add-layer-tables.sql')
-      const migration = require('fs').readFileSync(migrationPath, 'utf8')
-      this.db.exec(migration)
+      this.runMigration('add-layer-tables.sql')
     }
+  }
+
+  private runMigration(migrationFile: string): void {
+    const fs = require('fs')
+    const migrationPath = this.getMigrationPath(migrationFile)
+    
+    try {
+      const migration = fs.readFileSync(migrationPath, 'utf8')
+      this.db.exec(migration)
+      console.log(`Successfully applied migration: ${migrationFile}`)
+    } catch (error) {
+      console.error(`Failed to apply migration ${migrationFile}:`, error)
+      throw new Error(`Database migration failed: ${migrationFile}`)
+    }
+  }
+
+  private getMigrationPath(migrationFile: string): string {
+    // In production builds, migration files are copied to out/database/migrations/
+    // In development, they're in src/main/database/migrations/
+    const possiblePaths = [
+      join(process.cwd(), 'out/database/migrations', migrationFile),
+      join(__dirname, '../../database/migrations', migrationFile),
+      join(__dirname, '../database/migrations', migrationFile)
+    ]
+
+    const fs = require('fs')
+    for (const path of possiblePaths) {
+      if (fs.existsSync(path)) {
+        return path
+      }
+    }
+
+    throw new Error(`Migration file not found: ${migrationFile}. Searched paths: ${possiblePaths.join(', ')}`)
   }
 
   private prepareStatements(): void {
@@ -584,6 +614,7 @@ export class LayerDatabaseService implements LayerDatabase {
   private generateId(): string {
     return `layer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
   }
+
 
   private rowToLayer(row: any): LayerDefinition {
     return {

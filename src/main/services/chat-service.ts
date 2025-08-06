@@ -82,6 +82,7 @@ export class ChatService {
 
       // Create LLM using agent-specific configuration or global settings
       const llm = await this.llmProviderFactory.createLLMFromAgentConfig(agentId)
+      const llmConfig = await this.llmProviderFactory.getLLMConfig(agentId)
 
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)
       const combinedTools = await this.agentToolManager.getToolsForAgent(agentId)
@@ -91,7 +92,8 @@ export class ChatService {
         model: llm,
         messages: processedMessages,
         system: finalSystemPrompt || '',
-        tools: combinedTools
+        tools: combinedTools,
+        providerId: llmConfig.provider
       })
     } catch (error) {
       return {
@@ -195,6 +197,7 @@ export class ChatService {
 
       // Create LLM using agent-specific configuration or global settings
       const llm = await this.llmProviderFactory.createLLMFromAgentConfig(agentId)
+      const llmConfig = await this.llmProviderFactory.getLLMConfig(agentId)
 
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)
       const combinedTools = await this.agentToolManager.getToolsForAgent(agentId)
@@ -205,7 +208,8 @@ export class ChatService {
           model: llm,
           messages: processedMessages,
           system: finalSystemPrompt || '',
-          tools: combinedTools
+          tools: combinedTools,
+          providerId: llmConfig.provider
         },
         callbacks
       )
