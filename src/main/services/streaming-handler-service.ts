@@ -1,5 +1,6 @@
 import { streamText, smoothStream, type CoreMessage, type LanguageModel } from 'ai'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
+import { shouldDisableToolsForReasoningModel, extractReasoningFromText, isToolSchemaError } from './reasoning-model-detector'
 
 export interface StreamingCallbacks {
   onChunk: (chunk: Uint8Array) => void
@@ -13,6 +14,7 @@ export interface StreamingOptions {
   system?: string
   tools?: Record<string, any>
   maxSteps?: number
+  providerId?: string // Add provider ID for reasoning detection
 }
 
 export interface StructuredExecutionResult {
@@ -24,6 +26,8 @@ export interface StructuredExecutionResult {
 
 export class StreamingHandlerService {
   constructor() {}
+
+
 
   /**
    * Execute agent and collect structured result including both text and tool results
@@ -82,8 +86,11 @@ export class StreamingHandlerService {
         }
       } catch (error) {}
 
+      // Extract reasoning content if present
+      const { content } = extractReasoningFromText(textResponse)
+
       return {
-        textResponse,
+        textResponse: content || textResponse,
         toolResults,
         success: true
       }
@@ -157,58 +164,93 @@ export class StreamingHandlerService {
     callbacks: StreamingCallbacks
   ): Promise<void> {
     try {
-      // Check if we have any tools to provide
-      if (options.tools && Object.keys(options.tools).length === 0) {
-      }
+      // Detect reasoning model and determine tool compatibility
+      const reasoningInfo = shouldDisableToolsForReasoningModel(
+        options.model?.modelId,
+        options.providerId
+      )
 
       const streamTextOptions: Parameters<typeof streamText>[0] = {
         model: options.model,
         messages: options.messages,
         system: options.system || '',
-        ...(options.tools && Object.keys(options.tools).length > 0 && { tools: options.tools }),
-        maxSteps: options.maxSteps || MAX_LLM_STEPS,
-        toolCallStreaming: true, // Enable tool call streaming
-        onFinish: async (_event) => {}
+        // Conditionally disable tools for Ollama reasoning models due to schema conversion issues
+        ...(options.tools && Object.keys(options.tools).length > 0 && !reasoningInfo.shouldDisableTools && { tools: options.tools }),
+        maxSteps: reasoningInfo.isReasoningModel ? 1 : (options.maxSteps || MAX_LLM_STEPS),
+        toolCallStreaming: true,
+        onError: async (errorEvent) => {
+          const errorMessage = errorEvent.error instanceof Error ? errorEvent.error.message : String(errorEvent.error)
+          
+          // If tools cause schema errors, retry without tools
+          if (isToolSchemaError(errorMessage) && options.tools && Object.keys(options.tools).length > 0) {
+            return this.handleRealTimeStreaming({ ...options, tools: undefined }, callbacks)
+          }
+          
+          console.error('[StreamingHandlerService] AI SDK Error:', errorEvent.error)
+          callbacks.onError(errorEvent.error instanceof Error ? errorEvent.error : new Error(String(errorEvent.error)))
+        }
       }
 
       // Execute the streamText call and handle stream events in real-time
-      const result = streamText(streamTextOptions)
-
-      // Instead of directly iterating result.fullStream, use toDataStreamResponse() and adapt
-      // For the IPC bridge, we manually send Uint8Array chunks.
-      const reader = result
-        .toDataStreamResponse({
-          getErrorMessage: (error) => {
-            if (error == null) {
-              return 'unknown error'
-            }
-            if (typeof error === 'string') {
-              return error
-            }
-            if (error instanceof Error) {
-              return error.message
-            }
-            return JSON.stringify(error)
-          }
-        })
-        .body?.getReader() // Get a reader for the data stream
-      if (!reader) {
-        throw new Error('Could not get reader from data stream response.')
+      let result
+      try {
+        result = streamText(streamTextOptions)
+      } catch (error) {
+        console.error('[StreamingHandlerService] Error creating streamText:', error)
+        callbacks.onError(error instanceof Error ? error : new Error(String(error)))
+        callbacks.onComplete()
+        return
       }
+      
+      let fullText = '' // Accumulate text for reasoning extraction
+      const textEncoder = new TextEncoder()
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) {
-          break
+      // Use fullStream to handle text-delta events directly with error handling
+      try {
+        for await (const part of result.fullStream) {
+          switch (part.type) {
+            case 'text-delta':
+              fullText += part.textDelta
+              // Format chunk for AI SDK compatibility
+              const formattedChunk = `0:${JSON.stringify(part.textDelta)}\n`
+              callbacks.onChunk(textEncoder.encode(formattedChunk))
+              break
+            case 'reasoning':
+              // Include reasoning content in the stream
+              const reasoningChunk = `0:${JSON.stringify(part.textDelta)}\n`
+              callbacks.onChunk(textEncoder.encode(reasoningChunk))
+              break
+            case 'error':
+              console.error('[StreamingHandlerService] Stream error:', part.error)
+              // Send error in AI SDK format
+              const errorChunk = `3:${JSON.stringify({error: part.error instanceof Error ? part.error.message : String(part.error)})}\n`
+              callbacks.onChunk(textEncoder.encode(errorChunk))
+              callbacks.onError(part.error instanceof Error ? part.error : new Error(String(part.error)))
+              return
+            case 'finish':
+              // Send completion marker for AI SDK
+              const finishData = {
+                finishReason: part.finishReason,
+                usage: part.usage
+              }
+              const finishChunk = `d:${JSON.stringify(finishData)}\n`
+              callbacks.onChunk(textEncoder.encode(finishChunk))
+              break
+            default:
+              // Handle other part types as needed
+              break
+          }
         }
-        if (value) {
-          // value is Uint8Array, send it as a chunk
-          callbacks.onChunk(value)
-        }
+      } catch (streamError) {
+        console.error('[StreamingHandlerService] Stream iteration error:', streamError)
+        callbacks.onError(streamError instanceof Error ? streamError : new Error(String(streamError)))
+        callbacks.onComplete()
+        return
       }
 
       callbacks.onComplete()
     } catch (error) {
+      console.error('[StreamingHandlerService] Error in handleRealTimeStreaming:', error)
       callbacks.onError(
         error instanceof Error ? error : new Error('Unknown error in streaming handler')
       )
@@ -222,12 +264,19 @@ export class StreamingHandlerService {
    * @returns Parameters for streamText function
    */
   private buildStreamTextOptions(options: StreamingOptions): Parameters<typeof streamText>[0] {
+    // Detect reasoning model and determine tool compatibility
+    const reasoningInfo = shouldDisableToolsForReasoningModel(
+      options.model?.modelId,
+      options.providerId
+    )
+
     const streamTextOptions: Parameters<typeof streamText>[0] = {
       model: options.model,
       messages: options.messages,
       system: options.system || '',
-      ...(options.tools && Object.keys(options.tools).length > 0 && { tools: options.tools }),
-      maxSteps: options.maxSteps || MAX_LLM_STEPS,
+      // Conditionally disable tools for Ollama reasoning models
+      ...(options.tools && Object.keys(options.tools).length > 0 && !reasoningInfo.shouldDisableTools && { tools: options.tools }),
+      maxSteps: reasoningInfo.isReasoningModel ? 1 : (options.maxSteps || MAX_LLM_STEPS),
       experimental_transform: smoothStream({}),
       onFinish: async (_event) => {}
     }
