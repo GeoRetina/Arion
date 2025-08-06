@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { ChevronRight, Layers, PanelLeftClose } from 'lucide-react'
+import { Layers } from 'lucide-react'
 import { useMapStore } from '@/stores/map-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { LayerItem } from './layer-item'
 import { LayerStyleEditor } from './layer-style-editor'
@@ -15,10 +13,10 @@ import type { LayerStyle } from '../../../../../shared/types/layer-types'
 
 interface LayersPanelProps {
   className?: string
+  isExpanded: boolean
 }
 
-export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
-  const [isExpanded, setIsExpanded] = useState(false)
+export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded }) => {
   const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
   const [styleEditorLayerId, setStyleEditorLayerId] = useState<string | null>(null)
 
@@ -102,10 +100,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
     await zoomToLayer(mapInstance, layer)
   }
 
-  const togglePanel = () => {
-    setIsExpanded(!isExpanded)
-  }
-
   return (
     <>
       {/* Panel */}
@@ -125,21 +119,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="p-3 border-b border-border/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Layers</span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={togglePanel}>
-                    <PanelLeftClose className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Close layers panel</p>
-                </TooltipContent>
-              </Tooltip>
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Layers</span>
             </div>
           </div>
 
@@ -180,36 +162,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
           </div>
         </div>
       </div>
-
-      {/* Open Button - Only show when panel is closed */}
-      {!isExpanded && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={togglePanel}
-              className={cn(
-                'absolute z-5 bg-card/95 backdrop-blur-sm border border-border/50 hover:bg-muted/50',
-                'w-8 h-16 flex items-center rounded-r-lg shadow-md',
-                className
-              )}
-              style={{
-                top: '50%',
-                left: 0,
-                transform: 'translateY(-50%) translateX(-21px)',
-                borderTopLeftRadius: 0,
-                borderBottomLeftRadius: 0,
-                transition: 'transform 300ms ease-in-out',
-                paddingLeft: '12px'
-              }}
-            >
-              <ChevronRight className="h-5 w-5 text-muted-foreground ml-2" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>Open layers panel</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
 
       {/* Style Editor */}
       <LayerStyleEditor
