@@ -1,6 +1,7 @@
 import ChartDisplay from '../../visualization/components/chart-display'
 import type { ChartDisplayProps } from '../../visualization/components/chart-display'
 import AgentCallDisplay from '../components/agent-call-display'
+import { useAgentStore } from '@/stores/agent-store'
 
 export interface ToolUIComponent {
   component: React.ComponentType<any>
@@ -52,8 +53,11 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
   if (toolName === 'call_agent') {
     const { message, agent_id, agent_name } = toolInvocation.args || {}
 
-    // Extract agent name from result if available, otherwise try from args, fallback to agent_id
-    const agentName = result?.agent_name || agent_name || agent_id
+    // Extract agent name with priority: result > args > store lookup > formatted ID
+    let agentName = result?.agent_name || agent_name
+    if (!agentName) {
+      agentName = useAgentStore.getState().getAgentName(agent_id) || `Agent ${agent_id}`
+    }
 
     // Determine status based on tool state
     let status: 'loading' | 'completed' | 'error' = 'loading'
