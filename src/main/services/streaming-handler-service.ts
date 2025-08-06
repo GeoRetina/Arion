@@ -1,6 +1,10 @@
 import { streamText, smoothStream, type CoreMessage, type LanguageModel } from 'ai'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
-import { shouldDisableToolsForReasoningModel, extractReasoningFromText, isToolSchemaError } from './reasoning-model-detector'
+import {
+  shouldDisableToolsForReasoningModel,
+  extractReasoningFromText,
+  isToolSchemaError
+} from './reasoning-model-detector'
 
 export interface StreamingCallbacks {
   onChunk: (chunk: Uint8Array) => void
@@ -15,6 +19,7 @@ export interface StreamingOptions {
   tools?: Record<string, any>
   maxSteps?: number
   providerId?: string // Add provider ID for reasoning detection
+  abortSignal?: AbortSignal
 }
 
 export interface StructuredExecutionResult {
@@ -175,19 +180,31 @@ export class StreamingHandlerService {
         messages: options.messages,
         system: options.system || '',
         // Conditionally disable tools for Ollama reasoning models due to schema conversion issues
-        ...(options.tools && Object.keys(options.tools).length > 0 && !reasoningInfo.shouldDisableTools && { tools: options.tools }),
-        maxSteps: reasoningInfo.isReasoningModel ? 1 : (options.maxSteps || MAX_LLM_STEPS),
+        ...(options.tools &&
+          Object.keys(options.tools).length > 0 &&
+          !reasoningInfo.shouldDisableTools && { tools: options.tools }),
+        maxSteps: reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS,
         toolCallStreaming: true,
+        // Add abort signal support
+        ...(options.abortSignal && { abortSignal: options.abortSignal }),
         onError: async (errorEvent) => {
-          const errorMessage = errorEvent.error instanceof Error ? errorEvent.error.message : String(errorEvent.error)
-          
+          const errorMessage =
+            errorEvent.error instanceof Error ? errorEvent.error.message : String(errorEvent.error)
+
           // If tools cause schema errors, retry without tools
-          if (isToolSchemaError(errorMessage) && options.tools && Object.keys(options.tools).length > 0) {
+          if (
+            isToolSchemaError(errorMessage) &&
+            options.tools &&
+            Object.keys(options.tools).length > 0
+          ) {
             return this.handleRealTimeStreaming({ ...options, tools: undefined }, callbacks)
           }
-          
-          console.error('[StreamingHandlerService] AI SDK Error:', errorEvent.error)
-          callbacks.onError(errorEvent.error instanceof Error ? errorEvent.error : new Error(String(errorEvent.error)))
+
+          callbacks.onError(
+            errorEvent.error instanceof Error
+              ? errorEvent.error
+              : new Error(String(errorEvent.error))
+          )
         }
       }
 
@@ -196,12 +213,14 @@ export class StreamingHandlerService {
       try {
         result = streamText(streamTextOptions)
       } catch (error) {
-        console.error('[StreamingHandlerService] Error creating streamText:', error)
         callbacks.onError(error instanceof Error ? error : new Error(String(error)))
         callbacks.onComplete()
         return
       }
       
+      let fullText = '' // Accumulate text for reasoning extraction
+      const textEncoder = new TextEncoder()
+
       let fullText = '' // Accumulate text for reasoning extraction
       const textEncoder = new TextEncoder()
 
@@ -221,11 +240,12 @@ export class StreamingHandlerService {
               callbacks.onChunk(textEncoder.encode(reasoningChunk))
               break
             case 'error':
-              console.error('[StreamingHandlerService] Stream error:', part.error)
               // Send error in AI SDK format
-              const errorChunk = `3:${JSON.stringify({error: part.error instanceof Error ? part.error.message : String(part.error)})}\n`
+              const errorChunk = `3:${JSON.stringify({ error: part.error instanceof Error ? part.error.message : String(part.error) })}\n`
               callbacks.onChunk(textEncoder.encode(errorChunk))
-              callbacks.onError(part.error instanceof Error ? part.error : new Error(String(part.error)))
+              callbacks.onError(
+                part.error instanceof Error ? part.error : new Error(String(part.error))
+              )
               return
             case 'finish':
               // Send completion marker for AI SDK
@@ -236,14 +256,18 @@ export class StreamingHandlerService {
               const finishChunk = `d:${JSON.stringify(finishData)}\n`
               callbacks.onChunk(textEncoder.encode(finishChunk))
               break
+            case 'abort':
+              callbacks.onComplete()
+              return
             default:
               // Handle other part types as needed
               break
           }
         }
       } catch (streamError) {
-        console.error('[StreamingHandlerService] Stream iteration error:', streamError)
-        callbacks.onError(streamError instanceof Error ? streamError : new Error(String(streamError)))
+        callbacks.onError(
+          streamError instanceof Error ? streamError : new Error(String(streamError))
+        )
         callbacks.onComplete()
         return
       }
@@ -275,10 +299,14 @@ export class StreamingHandlerService {
       messages: options.messages,
       system: options.system || '',
       // Conditionally disable tools for Ollama reasoning models
-      ...(options.tools && Object.keys(options.tools).length > 0 && !reasoningInfo.shouldDisableTools && { tools: options.tools }),
-      maxSteps: reasoningInfo.isReasoningModel ? 1 : (options.maxSteps || MAX_LLM_STEPS),
+      ...(options.tools &&
+        Object.keys(options.tools).length > 0 &&
+        !reasoningInfo.shouldDisableTools && { tools: options.tools }),
+      maxSteps: reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS,
       experimental_transform: smoothStream({}),
-      onFinish: async (_event) => {}
+      onFinish: async (_event) => {},
+      // Add abort signal support
+      ...(options.abortSignal && { abortSignal: options.abortSignal })
     }
 
     return streamTextOptions

@@ -308,7 +308,7 @@ export default function ModelsPage(): React.JSX.Element {
               {createProviderCard(
                 'openai',
                 'OpenAI',
-                'gpt-4.1/4.5, o3/o4-mini, and more',
+                'gpt-series, o-series',
                 openaiConfig,
                 handleOpenAIOpenModal
               )}
@@ -329,7 +329,7 @@ export default function ModelsPage(): React.JSX.Element {
               {createProviderCard(
                 'anthropic',
                 'Anthropic',
-                'Claude 3 Opus, Sonnet, Haiku',
+                'Claude Opus, Sonnet, Haiku',
                 anthropicConfig,
                 handleAnthropicOpenModal
               )}
@@ -343,7 +343,7 @@ export default function ModelsPage(): React.JSX.Element {
               {createProviderCard(
                 'ollama',
                 'Ollama',
-                'Run local LLMs (Llama, Mistral, etc)',
+                'Run local LLMs (gpt-oss, Llama, Mistral, etc)',
                 ollamaConfig,
                 handleOllamaOpenModal
               )}
