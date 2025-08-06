@@ -460,10 +460,17 @@ code {
 /* End Custom Scrollbar Styles */
 
 /* LLM Provider Logo Dark Mode Styles */
-.dark [src*="ollama.svg"] {
-  filter: brightness(0) saturate(100%) invert(97%) sepia(3%) saturate(394%) hue-rotate(353deg) brightness(106%) contrast(103%);
+.dark [src*='ollama.svg'] {
+  filter: brightness(0) saturate(100%) invert(97%) sepia(3%) saturate(394%) hue-rotate(353deg)
+    brightness(106%) contrast(103%);
 }
 
-.dark [src*="openai.svg"] {
-  filter: brightness(0) saturate(100%) invert(97%) sepia(3%) saturate(394%) hue-rotate(353deg) brightness(106%) contrast(103%);
+.dark [src*='openai.svg'] {
+  filter: brightness(0) saturate(100%) invert(97%) sepia(3%) saturate(394%) hue-rotate(353deg)
+    brightness(106%) contrast(103%);
+}
+
+/* Model Card Ollama Icon Background in Dark Mode */
+.dark .bg-gray-100:has([src*='ollama.svg']) {
+  background-color: var(--muted) !important;
 }
