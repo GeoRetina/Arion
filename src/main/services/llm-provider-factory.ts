@@ -7,6 +7,7 @@ import { createVertex } from '@ai-sdk/google-vertex'
 import { createOllama } from 'ollama-ai-provider'
 import { SettingsService } from './settings-service'
 import { AgentRegistryService } from './agent-registry-service'
+import { detectReasoningModel } from './reasoning-model-detector'
 
 export interface LLMProviderConfig {
   provider: string
@@ -243,6 +244,16 @@ export class LLMProviderFactory {
     const customOllama = createOllama({
       baseURL: baseURL
     })
+    
+    // Only use simulateStreaming for regular models, not reasoning models
+    // Reasoning models have tool schema issues that simulateStreaming doesn't fix
+    const isReasoningModel = detectReasoningModel(model)
+    if (!isReasoningModel) {
+      return customOllama(model as any, {
+        simulateStreaming: true
+      })
+    }
+    
     return customOllama(model as any)
   }
 }
