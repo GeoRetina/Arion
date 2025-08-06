@@ -32,6 +32,8 @@ export interface StructuredExecutionResult {
 export class StreamingHandlerService {
   constructor() {}
 
+
+
   /**
    * Execute agent and collect structured result including both text and tool results
    * Used by OrchestrationService to preserve tool results from specialized agents
@@ -215,6 +217,9 @@ export class StreamingHandlerService {
         callbacks.onComplete()
         return
       }
+      
+      let fullText = '' // Accumulate text for reasoning extraction
+      const textEncoder = new TextEncoder()
 
       let fullText = '' // Accumulate text for reasoning extraction
       const textEncoder = new TextEncoder()
@@ -269,6 +274,7 @@ export class StreamingHandlerService {
 
       callbacks.onComplete()
     } catch (error) {
+      console.error('[StreamingHandlerService] Error in handleRealTimeStreaming:', error)
       callbacks.onError(
         error instanceof Error ? error : new Error('Unknown error in streaming handler')
       )
