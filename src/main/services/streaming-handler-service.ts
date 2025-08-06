@@ -221,9 +221,6 @@ export class StreamingHandlerService {
       let fullText = '' // Accumulate text for reasoning extraction
       const textEncoder = new TextEncoder()
 
-      let fullText = '' // Accumulate text for reasoning extraction
-      const textEncoder = new TextEncoder()
-
       // Use fullStream to handle text-delta events directly with error handling
       try {
         for await (const part of result.fullStream) {
