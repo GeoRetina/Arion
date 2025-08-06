@@ -1,6 +1,6 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { PanelRightClose } from 'lucide-react'
+import { ArrowRight, Menu } from 'lucide-react'
 import { MapDisplay } from './map-display'
 import { LayersPanel } from './layers-panel'
 
@@ -15,6 +15,12 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
 }) => {
   // Reference to the map container for triggering resize events
   const containerRef = useRef<HTMLDivElement>(null)
+  // State for layers panel visibility
+  const [isLayersPanelExpanded, setIsLayersPanelExpanded] = useState(false)
+
+  const handleToggleLayersPanel = () => {
+    setIsLayersPanelExpanded(!isLayersPanelExpanded)
+  }
 
   // Effect to trigger resize when sidebar visibility changes
   // useEffect(() => {
@@ -33,16 +39,26 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       ref={containerRef}
       className="h-full w-full flex flex-col bg-card/70 backdrop-blur-sm border-l border-border/50"
     >
-      {/* Header with collapse button */}
-      <div className="p-3 flex justify-start items-center z-10 bg-card/95 backdrop-blur-sm">
+      {/* Header with buttons */}
+      <div className="p-3 flex items-center z-10 bg-card/95 backdrop-blur-sm">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleToggleLayersPanel}
+          className="h-7 w-7 rounded-md hover:!bg-muted"
+          title="Toggle layers panel"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+        <div className="flex-1"></div>
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggleMapSidebar}
-          className="h-7 w-7 rounded-md hover:!bg-muted"
-          title="Collapse map panel"
+          className="h-7 w-7 rounded-md hover:!bg-muted mr-3"
+          title="Close map panel"
         >
-          <PanelRightClose className="h-4 w-4" />
+          <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
 
@@ -50,7 +66,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       <div className="flex-grow h-[calc(100%-48px)] w-full p-3 pt-0">
         <div className="h-full w-full rounded-md overflow-hidden relative">
           <MapDisplay isVisible={isMapSidebarExpanded} />
-          <LayersPanel />
+          <LayersPanel isExpanded={isLayersPanelExpanded} />
         </div>
       </div>
     </div>
