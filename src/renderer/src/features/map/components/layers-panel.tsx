@@ -160,7 +160,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className }) => {
                 ) : (
                   <div className="space-y-1">
                     {displayLayers
-                      .sort((a, b) => b.zIndex - a.zIndex)
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                       .map((layer) => (
                         <LayerItem
                           key={layer.id}
