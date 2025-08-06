@@ -32,8 +32,6 @@ export interface StructuredExecutionResult {
 export class StreamingHandlerService {
   constructor() {}
 
-
-
   /**
    * Execute agent and collect structured result including both text and tool results
    * Used by OrchestrationService to preserve tool results from specialized agents
@@ -217,7 +215,7 @@ export class StreamingHandlerService {
         callbacks.onComplete()
         return
       }
-      
+
       let fullText = '' // Accumulate text for reasoning extraction
       const textEncoder = new TextEncoder()
 
@@ -235,6 +233,26 @@ export class StreamingHandlerService {
               // Include reasoning content in the stream
               const reasoningChunk = `0:${JSON.stringify(part.textDelta)}\n`
               callbacks.onChunk(textEncoder.encode(reasoningChunk))
+              break
+            case 'tool-call':
+              // Send tool call as AI SDK format
+              const toolCallChunk = `9:${JSON.stringify(part)}\n`
+              callbacks.onChunk(textEncoder.encode(toolCallChunk))
+              break
+            case 'tool-result':
+              // Send tool result as AI SDK format
+              const toolResultChunk = `a:${JSON.stringify(part)}\n`
+              callbacks.onChunk(textEncoder.encode(toolResultChunk))
+              break
+            case 'tool-call-streaming-start':
+              // Send tool call streaming start
+              const toolCallStartChunk = `b:${JSON.stringify(part)}\n`
+              callbacks.onChunk(textEncoder.encode(toolCallStartChunk))
+              break
+            case 'tool-call-delta':
+              // Send tool call delta for streaming tool inputs
+              const toolCallDeltaChunk = `c:${JSON.stringify(part)}\n`
+              callbacks.onChunk(textEncoder.encode(toolCallDeltaChunk))
               break
             case 'error':
               // Send error in AI SDK format

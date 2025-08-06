@@ -11,7 +11,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useState } from 'react'
 
 interface ToolCallDisplayProps {
@@ -132,13 +132,14 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
           {/* Arguments */}
           <div>
             <div className="font-medium text-muted-foreground mb-1">Arguments</div>
-            <div className="rounded border border-border/40 bg-muted/20">
+            <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
               <ScrollArea className="h-24 max-h-32 w-full">
                 <div className="p-2">
-                  <div className="whitespace-pre-wrap break-words text-foreground">
+                  <pre className="text-foreground font-mono text-xs whitespace-pre">
                     {formattedArgs}
-                  </div>
+                  </pre>
                 </div>
+                <ScrollBar orientation="horizontal" />
               </ScrollArea>
             </div>
           </div>
