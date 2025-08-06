@@ -10,18 +10,21 @@ const mentionService = MentionService.getInstance()
 // Will be initialized with real services in the registration function
 let dataSourceResolver: ProductionDataSourceResolver
 
+// Registry for active streams and their abort controllers
+const activeStreams = new Map<string, AbortController>()
+
 /**
  * Process mentions in message content if they exist
  */
-async function processMentions(messages: Array<{ role: string; content: any; parts?: any[] }>): Promise<void> {
+async function processMentions(
+  messages: Array<{ role: string; content: any; parts?: any[] }>
+): Promise<void> {
   if (!messages || messages.length === 0) {
     return
   }
 
   // Find the last user message
-  const lastUserMessage = messages
-    .filter((m) => m.role === 'user')
-    .pop()
+  const lastUserMessage = messages.filter((m) => m.role === 'user').pop()
 
   if (!lastUserMessage?.content || typeof lastUserMessage.content !== 'string') {
     return
@@ -236,6 +239,10 @@ export function registerChatIpcHandlers(
     }
 
     try {
+      // Create an abort controller for this stream
+      const abortController = new AbortController()
+      activeStreams.set(streamId, abortController)
+
       // Send start notification
       event.sender.send(`ctg:chat:stream:start:${streamId}`)
 
@@ -295,17 +302,25 @@ export function registerChatIpcHandlers(
       }
 
       // Process stream in real-time, sending chunks to the renderer if orchestration wasn't used
-      await chatService.handleStreamingMessage(parsedBody as any, {
-        onChunk: (chunk: Uint8Array) => {
-          event.sender.send(`ctg:chat:stream:chunk:${streamId}`, chunk)
+      await chatService.handleStreamingMessage(
+        parsedBody as any,
+        {
+          onChunk: (chunk: Uint8Array) => {
+            event.sender.send(`ctg:chat:stream:chunk:${streamId}`, chunk)
+          },
+          onError: (error: Error) => {
+            event.sender.send(`ctg:chat:stream:error:${streamId}`, error.message)
+            // Clean up abort controller on error
+            activeStreams.delete(streamId)
+          },
+          onComplete: () => {
+            event.sender.send(`ctg:chat:stream:end:${streamId}`)
+            // Clean up abort controller on completion
+            activeStreams.delete(streamId)
+          }
         },
-        onError: (error: Error) => {
-          event.sender.send(`ctg:chat:stream:error:${streamId}`, error.message)
-        },
-        onComplete: () => {
-          event.sender.send(`ctg:chat:stream:end:${streamId}`)
-        }
-      })
+        abortController.signal
+      )
 
       return true
     } catch (error) {
@@ -313,8 +328,21 @@ export function registerChatIpcHandlers(
         error instanceof Error ? error.message : 'Unknown error in chat stream handler'
       event.sender.send(`ctg:chat:stream:error:${streamId}`, errorMessage)
       event.sender.send(`ctg:chat:stream:end:${streamId}`)
+      // Clean up abort controller on exception
+      activeStreams.delete(streamId)
       return false
     }
+  })
+
+  // Add handler for canceling streams
+  ipcMain.handle('ctg:chat:cancelStream', async (_event, streamId: string) => {
+    const abortController = activeStreams.get(streamId)
+    if (abortController) {
+      abortController.abort()
+      activeStreams.delete(streamId)
+      return true
+    }
+    return false
   })
 
   // Add new handler for orchestrated chat messages

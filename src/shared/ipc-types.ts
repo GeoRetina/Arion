@@ -305,6 +305,7 @@ export interface ChatRequestBodyForPreload {
 export interface ChatApi {
   sendMessageStream: (body?: ChatRequestBodyForPreload) => Promise<Uint8Array[]>
   startMessageStream: (body?: ChatRequestBodyForPreload) => Promise<string>
+  cancelStream: (streamId: string) => Promise<boolean>
   subscribeToStream: (
     streamId: string,
     callbacks: {
@@ -714,7 +715,10 @@ export interface LayerApi {
   recordMetrics: (metrics: import('./types/layer-types').LayerPerformanceMetrics) => Promise<void>
 
   // GeoTIFF processing
-  processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) => Promise<{imageUrl: string, bounds?: [number, number, number, number]}>
+  processGeotiff: (
+    fileBuffer: ArrayBuffer,
+    fileName: string
+  ) => Promise<{ imageUrl: string; bounds?: [number, number, number, number] }>
 }
 
 // PostgreSQL API for preload script

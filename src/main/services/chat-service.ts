@@ -168,7 +168,8 @@ export class ChatService {
    */
   async handleStreamingMessage(
     body: ChatRequestBody & { id?: string; agentId?: string },
-    callbacks: StreamingCallbacks
+    callbacks: StreamingCallbacks,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     const { messages: rendererMessages, agentId } = body
 
@@ -209,7 +210,8 @@ export class ChatService {
           messages: processedMessages,
           system: finalSystemPrompt || '',
           tools: combinedTools,
-          providerId: llmConfig.provider
+          providerId: llmConfig.provider,
+          abortSignal
         },
         callbacks
       )

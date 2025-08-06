@@ -3,7 +3,9 @@
  * via IPC communication with the main process
  */
 export const createStreamingFetch = () => {
-  return async (url: string, options: { body?: any }) => {
+  let currentStreamId: string | null = null
+
+  const streamingFetch = async (url: string, options: { body?: any; signal?: AbortSignal }) => {
     if (url.endsWith('/api/chat')) {
       if (!window.ctg?.chat?.startMessageStream || !window.ctg?.chat?.subscribeToStream) {
         return new Response(JSON.stringify({ error: 'Streaming chat API not available' }), {
@@ -17,6 +19,7 @@ export const createStreamingFetch = () => {
 
         // Create a stream ID that will be used for this request
         const streamId = await window.ctg.chat.startMessageStream(body)
+        currentStreamId = streamId
 
         // Create a ReadableStream that will receive chunks from the IPC channel
         const stream = new ReadableStream({
@@ -34,15 +37,43 @@ export const createStreamingFetch = () => {
               onError: (error: Error) => {
                 // Propagate the error to the stream controller
                 controller.error(error)
+                currentStreamId = null
               },
               onEnd: () => {
                 controller.close()
                 unsubscribe()
+                currentStreamId = null
               }
             })
+
+            // Handle abort signal if provided
+            if (options.signal) {
+              options.signal.addEventListener('abort', async () => {
+                if (currentStreamId && window.ctg?.chat?.cancelStream) {
+                  try {
+                    await window.ctg.chat.cancelStream(currentStreamId)
+                    controller.close()
+                    unsubscribe()
+                    currentStreamId = null
+                  } catch (error) {
+                    // Silently handle cancellation errors
+                  }
+                }
+              })
+            }
           },
           cancel() {
-            // TODO: Inform the backend to potentially cancel the stream if possible?
+            // Cancel the stream when the ReadableStream is canceled
+            if (currentStreamId && window.ctg?.chat?.cancelStream) {
+              window.ctg.chat
+                .cancelStream(currentStreamId)
+                .then(() => {
+                  currentStreamId = null
+                })
+                .catch(() => {
+                  // Silently handle cancellation errors
+                })
+            }
           }
         })
 
@@ -64,4 +95,6 @@ export const createStreamingFetch = () => {
       headers: { 'Content-Type': 'application/json' }
     })
   }
+
+  return streamingFetch
 }

@@ -252,6 +252,15 @@ const ctgApi = {
       return streamId
     },
 
+    // Method to cancel a stream
+    cancelStream: async (streamId: string): Promise<boolean> => {
+      try {
+        return await ipcRenderer.invoke('ctg:chat:cancelStream', streamId)
+      } catch (error) {
+        return false
+      }
+    },
+
     // Methods to subscribe/unsubscribe from stream events
     subscribeToStream: (
       streamId: string,
@@ -510,7 +519,10 @@ const ctgApi = {
       ipcRenderer.invoke('layers:import', data, targetGroupId),
 
     // Process GeoTIFF files for display
-    processGeotiff: (fileBuffer: ArrayBuffer, fileName: string): Promise<{imageUrl: string, bounds?: [number, number, number, number]}> =>
+    processGeotiff: (
+      fileBuffer: ArrayBuffer,
+      fileName: string
+    ): Promise<{ imageUrl: string; bounds?: [number, number, number, number] }> =>
       ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName),
 
     // Generic invoke method for additional operations
