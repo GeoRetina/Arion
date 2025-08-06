@@ -24,7 +24,7 @@ import { registerKnowledgeBaseIpcHandlers } from './ipc/knowledge-base-handlers'
 import { registerShellHandlers } from './ipc/shell-handlers'
 import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
 import { registerPostgreSQLIpcHandlers } from './ipc/postgresql-handlers'
-import { registerLayerHandlers } from './ipc/layer-handlers'
+import { registerLayerHandlers, getLayerDbManager } from './ipc/layer-handlers'
 import { registerAgentIpcHandlers } from './ipc/agent-handlers'
 
 // Keep a reference to the service instance
@@ -102,7 +102,7 @@ app.whenReady().then(async () => {
       "worker-src 'self' blob:",
       "child-src 'self' blob:",
       "font-src 'self' data:",
-      "connect-src 'self' data: http://localhost:* ws://localhost:* https://*",
+      "connect-src 'self' data: blob: http://localhost:* ws://localhost:* https://*",
       "frame-src 'none'"
     ]
     callback({
@@ -188,7 +188,7 @@ app.whenReady().then(async () => {
 
   // --- Register IPC Handlers ---
   registerSettingsIpcHandlers(ipcMain, settingsServiceInstance)
-  registerChatIpcHandlers(ipcMain, chatServiceInstance, agentRoutingServiceInstance) // Pass routing service
+  registerChatIpcHandlers(ipcMain, chatServiceInstance, agentRoutingServiceInstance, knowledgeBaseServiceInstance, getLayerDbManager()) // Pass routing service, knowledge base, and layer db manager
   registerDbIpcHandlers(ipcMain)
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)
   registerShellHandlers(ipcMain)

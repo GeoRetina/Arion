@@ -689,6 +689,9 @@ function getDbManager(): LayerDatabaseManager {
   return dbManager
 }
 
+// Export for use in other services
+export { getDbManager as getLayerDbManager }
+
 // IPC Handler implementations
 export function registerLayerHandlers(): void {
   // Layer CRUD handlers

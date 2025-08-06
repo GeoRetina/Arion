@@ -2,12 +2,63 @@ import { type IpcMain } from 'electron'
 import { type ChatService } from '../services/chat-service'
 import { dbService } from '../services/db-service' // Import dbService for chat existence check
 import { AgentRoutingService } from '../services/agent-routing-service'
+import { MentionService, type MessageContent } from '../services/mention-service'
+import { ProductionDataSourceResolver } from '../services/data-source-resolver'
+
+// Initialize mention processing services
+const mentionService = MentionService.getInstance()
+// Will be initialized with real services in the registration function
+let dataSourceResolver: ProductionDataSourceResolver
+
+/**
+ * Process mentions in message content if they exist
+ */
+async function processMentions(messages: Array<{ role: string; content: any; parts?: any[] }>): Promise<void> {
+  if (!messages || messages.length === 0) {
+    return
+  }
+
+  // Find the last user message
+  const lastUserMessage = messages
+    .filter((m) => m.role === 'user')
+    .pop()
+
+  if (!lastUserMessage?.content || typeof lastUserMessage.content !== 'string') {
+    return
+  }
+
+  // Check if message has mentions
+  if (!mentionService.hasMentions(lastUserMessage.content)) {
+    return
+  }
+
+  try {
+    // Enhance the message with mention metadata
+    const enhanced = await mentionService.enhanceMessage(
+      lastUserMessage as MessageContent,
+      dataSourceResolver
+    )
+
+    // Update the message in place
+    lastUserMessage.content = enhanced.content
+    if (enhanced.parts) {
+      lastUserMessage.parts = enhanced.parts
+    }
+  } catch (error) {
+    console.error('Error processing mentions:', error)
+    // Continue without enhancement on error
+  }
+}
 
 export function registerChatIpcHandlers(
   ipcMain: IpcMain,
   chatService: ChatService,
-  agentRoutingService?: AgentRoutingService
+  agentRoutingService?: AgentRoutingService,
+  knowledgeBaseService?: any,
+  layerDbManager?: any
 ): void {
+  // Initialize production resolver with real services
+  dataSourceResolver = new ProductionDataSourceResolver(knowledgeBaseService, layerDbManager)
   ipcMain.handle('ctg:chat:sendMessageStreamHandler', async (_event, jsonBodyString) => {
     let parsedBody: {
       id?: string
@@ -54,6 +105,11 @@ export function registerChatIpcHandlers(
     } else {
     }
     // --- END FIX ---
+
+    // Process mentions in messages
+    if (parsedBody?.messages) {
+      await processMentions(parsedBody.messages)
+    }
 
     if (!chatService) {
       const textEncoder = new TextEncoder()
@@ -143,6 +199,11 @@ export function registerChatIpcHandlers(
         'Invalid request format from renderer.'
       )
       return false
+    }
+
+    // Process mentions in messages
+    if (parsedBody?.messages) {
+      await processMentions(parsedBody.messages)
     }
 
     // Ensure chat exists (similar to sendMessageStreamHandler)

@@ -265,20 +265,11 @@ export interface LayerImportConfig {
 export type ImportFormat =
   | 'geojson'
   | 'shapefile'
-  | 'kml'
-  | 'kmz'
-  | 'gpx'
   | 'geotiff'
-  | 'csv'
-  | 'excel'
 
 export interface ImportOptions {
   encoding?: string // Text encoding for files
-  delimiter?: string // CSV delimiter
-  coordinateColumns?: string[] // CSV coordinate column names
   crs?: string // Source coordinate system
-  skipRows?: number // Rows to skip (CSV/Excel)
-  sheetName?: string // Excel sheet name
   geometryColumn?: string // Geometry column name
 }
 
@@ -290,7 +281,7 @@ export interface LayerExportConfig {
   clipToBounds?: BoundingBox // Optional spatial clipping
 }
 
-export type ExportFormat = 'geojson' | 'shapefile' | 'kml' | 'gpx' | 'csv' | 'geopackage'
+export type ExportFormat = 'geojson' | 'shapefile' | 'geotiff'
 
 export interface ExportOptions {
   precision?: number // Coordinate precision

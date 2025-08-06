@@ -26,9 +26,12 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
 
     const items: MentionItem[] = []
 
-    // Add imported layers for current chat
+    // Add all available layers (both persistent and session-imported)
+    const allLayers = Array.from(layers.values())
+
+    // Add session-imported layers for current chat
     if (currentChatId) {
-      const sessionLayers = Array.from(layers.values()).filter((layer) => {
+      const sessionLayers = allLayers.filter((layer) => {
         return layer.createdBy === 'import' && layer.metadata.tags?.includes(currentChatId)
       })
 
@@ -43,6 +46,21 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
       })
     }
 
+    // Add persistent layers (created by user, tool, or mcp)
+    const persistentLayers = allLayers.filter((layer) => {
+      return layer.createdBy !== 'import'
+    })
+
+    persistentLayers.forEach((layer) => {
+      items.push({
+        id: layer.id,
+        name: layer.name,
+        type: layer.type === 'vector' ? 'layer-vector' : 'layer-raster',
+        description: layer.metadata.description,
+        tags: layer.metadata.tags
+      })
+    })
+
     // Add knowledge base documents
     documents.forEach((doc) => {
       items.push({
@@ -53,26 +71,6 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
         tags: []
       })
     })
-
-    // Add test items for debugging if no real data
-    if (items.length === 0) {
-      items.push(
-        {
-          id: 'test-1',
-          name: 'Sample Vector Layer',
-          type: 'layer-vector',
-          description: 'Test vector layer for mention menu',
-          tags: ['test']
-        },
-        {
-          id: 'test-2',
-          name: 'Sample Document',
-          type: 'document',
-          description: 'Test document for mention menu',
-          tags: ['test']
-        }
-      )
-    }
 
     // Filter by search query if provided
     if (searchQuery.trim()) {
