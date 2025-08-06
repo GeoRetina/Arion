@@ -5,13 +5,14 @@ import type {
   CreateAgentParams,
   UpdateAgentParams
 } from '@/../../shared/types/agent-types'
-
 interface AgentState {
   // State
   agents: AgentRegistryEntry[]
   selectedAgentId: string | null
   isLoading: boolean
   error: string | null
+  // Agent name lookup table for fast ID → name resolution
+  agentNameLookup: Map<string, string>
 
   // Actions
   loadAgents: () => Promise<void>
@@ -21,6 +22,8 @@ interface AgentState {
   deleteAgent: (id: string) => Promise<boolean>
   setSelectedAgentId: (id: string | null) => void
   resetError: () => void
+  // Lookup utility functions
+  getAgentName: (agentId: string) => string | undefined
 }
 
 export const useAgentStore = create<AgentState>((set, get) => ({
@@ -29,6 +32,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   selectedAgentId: null,
   isLoading: false,
   error: null,
+  agentNameLookup: new Map<string, string>(),
 
   // Actions
   loadAgents: async () => {
@@ -36,7 +40,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     try {
       const agents = await window.ctg.agents.getAll()
-      set({ agents, isLoading: false })
+      
+      // Build agent name lookup table
+      const lookup = new Map<string, string>()
+      agents.forEach(agent => {
+        lookup.set(agent.id, agent.name)
+      })
+      
+      set({ agents, agentNameLookup: lookup, isLoading: false })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error loading agents'
       set({ error: errorMessage, isLoading: false })
@@ -62,7 +73,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set({ isLoading: true, error: null })
       const newAgent = await window.ctg.agents.create(agent)
 
-      // Reload the agent list to include the new agent
+      // Reload the agent list to include the new agent (lookup table updated automatically)
       await get().loadAgents()
 
       return newAgent
@@ -78,7 +89,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set({ isLoading: true, error: null })
       const updatedAgent = await window.ctg.agents.update(id, updates)
 
-      // Reload the agent list to reflect the changes
+      // Reload the agent list to reflect the changes (lookup table updated automatically)
       await get().loadAgents()
 
       return updatedAgent
@@ -101,7 +112,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           set({ selectedAgentId: null })
         }
 
-        // Reload the agent list to reflect the deletion
+        // Reload the agent list to reflect the deletion (lookup table updated automatically)
         await get().loadAgents()
       }
 
@@ -120,5 +131,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   resetError: () => {
     set({ error: null })
+  },
+
+  getAgentName: (agentId: string) => {
+    return get().agentNameLookup.get(agentId)
   }
 }))

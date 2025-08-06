@@ -25,7 +25,6 @@ import {
   type SetPaintPropertiesPayload,
   type RemoveSourceAndLayersPayload,
   type SetMapViewPayload,
-  type ExposedMapApi,
   type SystemPromptConfig,
   type SetMapSidebarVisibilityPayload,
   type AddGeoreferencedImageLayerPayload,
@@ -87,6 +86,12 @@ const ctgApi = {
         })
       } catch (error) {
         return {
+          sessionId: '',
+          finalResponse: '',
+          subtasks: [],
+          subtasksExecuted: 0,
+          agentsInvolved: [],
+          completionTime: 0,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error in orchestration'
         }
@@ -206,7 +211,7 @@ const ctgApi = {
       }
 
       // Create a unique ID for this stream
-      const streamId = `stream_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
+      const streamId = `stream_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
 
       // Create an event emitter for this stream
       const emitter = new EventEmitter()
@@ -344,7 +349,7 @@ const ctgApi = {
     dbGetAllPlugins: () => ipcRenderer.invoke(IpcChannels.dbGetAllPlugins),
     dbAddPlugin: (plugin) => ipcRenderer.invoke(IpcChannels.dbAddPlugin, plugin),
     dbUpdatePlugin: (id, plugin) => ipcRenderer.invoke(IpcChannels.dbUpdatePlugin, id, plugin),
-    dbDeletePlugin: (id) => ipcRenderer.invoke(IpcChannels.dbDeletePlugin)
+    dbDeletePlugin: (id: string) => ipcRenderer.invoke(IpcChannels.dbDeletePlugin, id)
   } as DbApi,
   knowledgeBase: {
     addDocument: (payload: KBAddDocumentPayload): Promise<KBAddDocumentResult> => {
@@ -504,6 +509,10 @@ const ctgApi = {
     import: (data: string, targetGroupId?: string): Promise<string[]> =>
       ipcRenderer.invoke('layers:import', data, targetGroupId),
 
+    // Process GeoTIFF files for display
+    processGeotiff: (fileBuffer: ArrayBuffer, fileName: string): Promise<{imageUrl: string, bounds?: [number, number, number, number]}> =>
+      ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName),
+
     // Generic invoke method for additional operations
     invoke: (channel: string, ...args: any[]): Promise<any> => ipcRenderer.invoke(channel, ...args)
   },
@@ -530,11 +539,11 @@ const ctgApi = {
         if (!res.success) throw new Error(res.error || 'Failed to delete agent')
         return res.data
       }),
-    executeAgent: (agentId: string, chatId: string): Promise<string> => {
+    executeAgent: (): Promise<string> => {
       // This will be implemented when agent execution is supported
       return Promise.resolve('')
     },
-    stopExecution: (executionId: string): Promise<boolean> => {
+    stopExecution: (): Promise<boolean> => {
       // This will be implemented when agent execution is supported
       return Promise.resolve(false)
     },
@@ -553,6 +562,12 @@ const ctgApi = {
         })
       } catch (error) {
         return {
+          sessionId: '',
+          finalResponse: '',
+          subtasks: [],
+          subtasksExecuted: 0,
+          agentsInvolved: [],
+          completionTime: 0,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error in orchestration'
         }

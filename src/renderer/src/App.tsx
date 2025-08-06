@@ -4,6 +4,8 @@ import MainLayout from './components/layout/main-layout'
 import React, { useEffect, useRef } from 'react'
 import { useLLMStore } from './stores/llm-store'
 import { useChatHistoryStore } from './stores/chat-history-store'
+import { useLayerStore } from './stores/layer-store'
+import { useAgentStore } from './stores/agent-store'
 import { ChatHistoryList } from './features/chat/components/chat-history-list'
 import { initTheme } from './stores/theme-store'
 import { resetChatStores } from './lib/chat-store-reset'
@@ -29,6 +31,12 @@ function App(): React.JSX.Element {
 
   // Get fetchChats action from chat history store
   const fetchChats = useChatHistoryStore((state) => state.fetchChats)
+  
+  // Get layer store actions
+  const loadFromPersistence = useLayerStore((state) => state.loadFromPersistence)
+  
+  // Get agent store actions
+  const loadAgents = useAgentStore((state) => state.loadAgents)
 
   useEffect(() => {
     if (!isLLMStoreInitialized) {
@@ -36,10 +44,12 @@ function App(): React.JSX.Element {
     }
   }, [initializeLLMStore, isLLMStoreInitialized])
 
-  // Fetch chat history on initial app load
+  // Fetch chat history, load layers and agents on initial app load
   useEffect(() => {
     fetchChats()
-  }, [fetchChats])
+    loadFromPersistence() // Load persistent layers (excluding session imports)
+    loadAgents() // Load agents for name cache
+  }, [fetchChats, loadFromPersistence, loadAgents])
 
   // Initialize theme on app load
   useEffect(() => {

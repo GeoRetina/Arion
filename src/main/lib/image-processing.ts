@@ -42,7 +42,6 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
     const image = await tiff.getImage() // Get the first image from the TIFF
     const width = image.getWidth()
     const height = image.getHeight()
-    const samplesPerPixel = image.getSamplesPerPixel()
 
     const rawRasterData = (await image.readRasters({
       interleave: false
@@ -152,6 +151,29 @@ export async function convertImageFileToDataUri(imagePath: string): Promise<stri
   } else {
     throw new Error(
       `Unsupported local image type for data URI conversion: ${mimeType} at ${resolvedImagePath}. Please use PNG, JPEG, GIF, or TIFF.`
+    )
+  }
+}
+
+/**
+ * Extract geographic bounds from a GeoTIFF file
+ */
+export async function extractGeoTiffBounds(
+  filePath: string
+): Promise<[number, number, number, number]> {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`File not found: ${filePath}`)
+  }
+
+  try {
+    const tiff = await geoTiffFromFile(filePath)
+    const image = await tiff.getImage()
+    const bbox = image.getBoundingBox()
+
+    return [bbox[0], bbox[1], bbox[2], bbox[3]] // [minLng, minLat, maxLng, maxLat]
+  } catch (error) {
+    throw new Error(
+      `Failed to extract bounds from GeoTIFF: ${error instanceof Error ? error.message : 'Unknown error'}`
     )
   }
 }
