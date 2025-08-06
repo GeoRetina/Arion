@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface AgentCreationModalProps {
   isOpen: boolean
@@ -250,7 +251,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create New Agent</DialogTitle>
@@ -259,7 +260,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <ScrollArea className="max-h-[calc(80vh-200px)] mt-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full pr-4">
             <TabsList className="grid grid-cols-4 mb-4">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="prompts">Prompts</TabsTrigger>
@@ -470,6 +472,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
               </Card>
             </TabsContent>
           </Tabs>
+          </ScrollArea>
 
           <DialogFooter className="pt-4">
             <div className="flex justify-between w-full">
