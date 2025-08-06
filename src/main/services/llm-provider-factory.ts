@@ -233,8 +233,15 @@ export class LLMProviderFactory {
     if (!ollamaConfig?.baseURL) {
       throw new Error('Ollama provider is not configured correctly.')
     }
+    
+    // Ensure the baseURL includes the /api path for proper Ollama API endpoint
+    let baseURL = ollamaConfig.baseURL
+    if (!baseURL.endsWith('/api')) {
+      baseURL = baseURL.replace(/\/$/, '') + '/api'
+    }
+    
     const customOllama = createOllama({
-      baseURL: ollamaConfig.baseURL
+      baseURL: baseURL
     })
     return customOllama(model as any)
   }

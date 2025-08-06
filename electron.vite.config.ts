@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'copy-migrations',
         writeBundle() {
           const srcDir = resolve('src/main/database/migrations')
-          const outDir = resolve('out/main/database/migrations')
+          const outDir = resolve('out/database/migrations')
 
           // Create output directory
           mkdirSync(outDir, { recursive: true })
@@ -23,7 +23,10 @@ export default defineConfig({
             const files = readdirSync(srcDir).filter((file: string) => file.endsWith('.sql'))
             files.forEach((file: string) => {
               copyFileSync(resolve(srcDir, file), resolve(outDir, file))
+              console.log(`Copied migration file: ${file} to ${outDir}`)
             })
+          } else {
+            console.warn(`Migration source directory not found: ${srcDir}`)
           }
         }
       }
