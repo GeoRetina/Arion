@@ -126,9 +126,9 @@ def band_statistics(path: str, band_number: int = None) -> dict:
                     "std": float(np.ma.std(data)),
                     "count": int(data.count()),
                     "percentiles": {
-                        "25": float(np.ma.percentile(data, 25)),
-                        "50": float(np.ma.percentile(data, 50)),
-                        "75": float(np.ma.percentile(data, 75))
+                        "25": float(np.percentile(data.compressed(), 25)),
+                        "50": float(np.percentile(data.compressed(), 50)),
+                        "75": float(np.percentile(data.compressed(), 75))
                     }
                 }
             
