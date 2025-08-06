@@ -70,11 +70,6 @@ const AgentsPage: React.FC = () => {
     }
   }
 
-  // Handle agent enable/disable toggle
-  const handleToggleAgent = (agentId: string, enabled: boolean) => {
-    // TODO: Implement agent enable/disable
-    toast.info(`Agent ${enabled ? 'enabled' : 'disabled'} (not yet implemented)`)
-  }
 
   // Handle create new agent
   const handleCreateAgent = () => {
@@ -138,8 +133,6 @@ const AgentsPage: React.FC = () => {
                   agent={agent}
                   onEdit={handleEditAgent}
                   onDelete={handleDeleteAgent}
-                  onToggleEnabled={handleToggleAgent}
-                  enabled={false} // This would come from state in a real implementation
                 />
               ))}
             </div>
