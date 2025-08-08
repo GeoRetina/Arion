@@ -65,7 +65,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
-  const [internalText, setInternalText] = useState(inputValue) // Local state for editor content
+  const [internalText, setInternalText] = useState(inputValue ?? '') // Local state for editor content
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
   // Agent orchestration store
   const { initialize: initializeOrchestration, startOrchestration } = useAgentOrchestrationStore()
@@ -92,7 +92,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   useEffect(() => {
     // Always update internalText to reflect the prop.
     // This is because inputValue is the "source of truth" from the parent.
-    setInternalText(inputValue)
+    setInternalText(inputValue ?? '')
 
     // Now, ensure the DOM (editorRef) matches this inputValue with highlighting.
     if (editorRef.current) {
@@ -103,8 +103,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         }
       } else {
         // If inputValue is not empty, just set the text content
-        if (editorRef.current.textContent !== inputValue) {
-          editorRef.current.textContent = inputValue
+        if (editorRef.current.textContent !== (inputValue ?? '')) {
+          editorRef.current.textContent = inputValue ?? ''
         }
       }
     }
@@ -232,7 +232,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // Focus the editor when isStreaming becomes false (i.e., after a response)
   // and if the input is currently empty, to make it easy to type the next message.
   useEffect(() => {
-    if (!isStreaming && editorRef.current && internalText.trim() === '') {
+    if (!isStreaming && editorRef.current && (internalText ?? '').trim() === '') {
       editorRef.current.focus()
     }
   }, [isStreaming, internalText])
@@ -291,7 +291,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           {' '}
           {/* Make this a flex container */} {/* Wrapper for editor and placeholder */}{' '}
           {/* Make this a flex container */} {/* Wrapper for editor and placeholder */}
-          {!internalText.trim() && ( // Consolidated placeholder condition
+          {!(internalText ?? '').trim() && ( // Consolidated placeholder condition
             <span
               className={`absolute left-4 pr-4 text-muted-foreground pointer-events-none leading-snug z-10`} // Add z-index
               style={{ top: `${editorTopPadding}px` }} // Match editor's top padding

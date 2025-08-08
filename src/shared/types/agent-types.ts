@@ -76,7 +76,7 @@ export interface AgentModelConfig {
   parameters?: {
     temperature?: number
     topP?: number
-    maxTokens?: number
+    maxOutputTokens?: number
     frequencyPenalty?: number
     presencePenalty?: number
     [key: string]: any

@@ -1,4 +1,4 @@
-import { type CoreMessage } from 'ai'
+import { type ModelMessage } from 'ai'
 import { ModularPromptManager } from './modular-prompt-manager'
 import { SettingsService } from './settings-service'
 import type { LlmToolService } from './llm-tool-service'
@@ -14,7 +14,7 @@ import {
 
 // Interface for the request body from the renderer
 interface ChatRequestBody {
-  messages: CoreMessage[] // Using CoreMessage from 'ai' SDK
+  messages: ModelMessage[] // Using CoreMessage from 'ai' SDK
   // Potentially other properties like model, id, etc. depending on useChat configuration
 }
 
@@ -52,7 +52,7 @@ export class ChatService {
    * Used by OrchestrationService to preserve tool results from specialized agents
    */
   async executeAgentWithStructuredResult(
-    messages: CoreMessage[],
+    messages: ModelMessage[],
     chatId: string,
     agentId?: string
   ): Promise<StructuredExecutionResult> {
@@ -117,6 +117,15 @@ export class ChatService {
     const textEncoder = new TextEncoder()
 
     try {
+      // Guard: only proceed if the last message is a user turn
+      if (!rendererMessages || rendererMessages.length === 0) {
+        return []
+      }
+      const last = rendererMessages[rendererMessages.length - 1] as any
+      if (last.role !== 'user') {
+        return []
+      }
+
       const { processedMessages, finalSystemPrompt } =
         await this.messagePreparationService.prepareMessagesAndSystemPrompt(
           rendererMessages,
@@ -179,6 +188,17 @@ export class ChatService {
     }
 
     try {
+      // Guard: only proceed if the last message is a user turn
+      if (!rendererMessages || rendererMessages.length === 0) {
+        callbacks.onComplete()
+        return
+      }
+      const last = rendererMessages[rendererMessages.length - 1] as any
+      if (last.role !== 'user') {
+        callbacks.onComplete()
+        return
+      }
+
       const { processedMessages, finalSystemPrompt } =
         await this.messagePreparationService.prepareMessagesAndSystemPrompt(
           rendererMessages,
@@ -246,7 +266,7 @@ export class ChatService {
    * @param messages Messages to validate
    * @returns true if valid, false otherwise
    */
-  validateMessages(messages: CoreMessage[]): boolean {
+  validateMessages(messages: ModelMessage[]): boolean {
     return this.messagePreparationService.validateMessages(messages)
   }
 }

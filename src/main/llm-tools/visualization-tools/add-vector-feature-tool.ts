@@ -145,5 +145,5 @@ export function createGeoJSONFeature(
 export const addMapFeatureToolDefinition = {
   description:
     'Creates and displays a vector feature (Point, LineString, or Polygon) on the map. Requires featureType and corresponding coordinates as a JSON string. Optionally accepts properties and a label.',
-  parameters: AddMapFeatureToolSchema
+  inputSchema: AddMapFeatureToolSchema
 }

@@ -66,7 +66,7 @@ export class PromptModuleService {
           description: 'Custom prompt content provided by the user for agent definition',
           type: 'agent',
           content: '{{content}}',
-          parameters: ['content'],
+          inputSchema: ['content'],
           priority: 100,
           author: 'system'
         },
@@ -128,7 +128,7 @@ export class PromptModuleService {
           description: moduleRow.description || '',
           type: moduleRow.type as PromptModuleType,
           content: moduleRow.content,
-          parameters: moduleRow.parameters ? JSON.parse(moduleRow.parameters) : undefined,
+          inputSchema: moduleRow.parameters ? JSON.parse(moduleRow.parameters) : undefined,
           dependencies: moduleRow.dependencies ? JSON.parse(moduleRow.dependencies) : undefined,
           conditions: moduleRow.conditions ? JSON.parse(moduleRow.conditions) : undefined,
           priority: moduleRow.priority || 0,
@@ -157,8 +157,8 @@ export class PromptModuleService {
       description: module.description,
       type: module.type,
       version: module.version,
-      parameters: module.parameters
-    }))
+      inputSchema: module.parameters
+    }));
   }
 
   /**
@@ -192,7 +192,7 @@ export class PromptModuleService {
       description: params.description,
       type: params.type,
       content: params.content,
-      parameters: params.parameters,
+      inputSchema: params.parameters,
       dependencies: params.dependencies,
       conditions: params.conditions,
       priority: params.priority || 0,

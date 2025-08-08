@@ -145,7 +145,7 @@ export type DisplayChartParams = z.infer<typeof displayChartToolParamsSchema>
 
 export const displayChartToolDefinition = {
   description: displayChartToolName, // Vercel AI SDK uses this field for description
-  parameters: displayChartToolParamsSchema
+  inputSchema: displayChartToolParamsSchema
 }
 
 // Example of how to refine the schema for discriminated union if needed, though Zod handles it well.

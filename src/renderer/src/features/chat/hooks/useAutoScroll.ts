@@ -1,8 +1,8 @@
 import { useRef, useEffect } from 'react'
-import type { Message as SDKMessage } from '@ai-sdk/react'
+import type { UIMessage } from 'ai'
 
 interface UseAutoScrollProps {
-  messages: SDKMessage[]
+  messages: UIMessage[]
   marginTop?: string
   scrollDelay?: number
   clearMarginDelay?: number
@@ -58,7 +58,7 @@ export function useAutoScroll(props: UseAutoScrollProps) {
   /**
    * Helper to determine if a message is the latest user message
    */
-  const isLatestUserMessage = (message: SDKMessage, index: number): boolean => {
+  const isLatestUserMessage = (message: UIMessage, index: number): boolean => {
     return message.role === 'user' && index === messages.length - 1
   }
 

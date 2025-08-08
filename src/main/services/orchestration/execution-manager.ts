@@ -1,4 +1,4 @@
-import { CoreMessage } from 'ai'
+import { ModelMessage } from 'ai'
 import type { Subtask, AgentExecutionContext } from '../types/orchestration-types'
 import { IExecutionManager, IPromptManager, IAgentSelector } from './types/orchestration-interfaces'
 import { AgentExecutionResult } from './types/execution-types'
@@ -26,7 +26,7 @@ export class ExecutionManager implements IExecutionManager {
     this.currentlyExecutingAgents.set(chatId, agentId)
 
     // Create artificial message history for the request
-    const messages: CoreMessage[] = [{ role: 'user', content: prompt }]
+    const messages: ModelMessage[] = [{ role: 'user', content: prompt }]
 
     try {
       // Use the new structured execution method to capture both text and tool results
@@ -60,7 +60,7 @@ export class ExecutionManager implements IExecutionManager {
     }
   }
 
-  public async executeSubtasks(sessionId: string, context: AgentExecutionContext): Promise<void> {
+  public async executeSubtasks(_sessionId: string, context: AgentExecutionContext): Promise<void> {
     // Create a map of subtasks by ID for easier access
     const subtasksById = new Map<string, Subtask>()
     context.subtasks.forEach((subtask) => {

@@ -1,4 +1,4 @@
-import { type LanguageModel } from 'ai'
+import { type LanguageModel, simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createAzure } from '@ai-sdk/azure'
@@ -249,9 +249,10 @@ export class LLMProviderFactory {
     // Reasoning models have tool schema issues that simulateStreaming doesn't fix
     const isReasoningModel = detectReasoningModel(model)
     if (!isReasoningModel) {
-      return customOllama(model as any, {
-        simulateStreaming: true
-      })
+      return wrapLanguageModel({
+        model: customOllama(model as any),
+        middleware: simulateStreamingMiddleware()
+      });
     }
     
     return customOllama(model as any)

@@ -49,7 +49,7 @@ const AddGeoreferencedImageLayerParamsSchema = z.object({
 export const addGeoreferencedImageLayerToolDefinition = {
   description:
     'Adds a georeferenced image (e.g., a PNG from a URL) as a new layer on the map. The image is positioned using its four corner coordinates. The image URL must be accessible to the application for display.',
-  parameters: AddGeoreferencedImageLayerParamsSchema
+  inputSchema: AddGeoreferencedImageLayerParamsSchema
 }
 
 export const addGeoreferencedImageLayerToolName = 'add_georeferenced_image_layer'

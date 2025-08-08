@@ -71,7 +71,7 @@ export function isToolSchemaError(errorMessage: string): boolean {
 /**
  * Extract reasoning content from text using common patterns
  */
-export function extractReasoningFromText(text: string): { content: string; reasoning?: string } {
+export function extractReasoningFromText(text: string): { content: string; reasoningText?: string } {
   // Check for XML-like thinking tags
   const thinkingTagRegex = /<think>([\s\S]*?)<\/think>/i
   const match = text.match(thinkingTagRegex)
@@ -79,7 +79,7 @@ export function extractReasoningFromText(text: string): { content: string; reaso
   if (match) {
     const reasoning = match[1].trim()
     const content = text.replace(thinkingTagRegex, '').trim()
-    return { content, reasoning }
+    return { content, reasoningText };
   }
   
   // Check for other common reasoning delimiters
@@ -94,7 +94,7 @@ export function extractReasoningFromText(text: string): { content: string; reaso
     if (match) {
       const reasoning = match[1].trim()
       const content = text.replace(pattern, '').trim()
-      return { content, reasoning }
+      return { content, reasoningText };
     }
   }
   
