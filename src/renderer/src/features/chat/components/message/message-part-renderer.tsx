@@ -1,5 +1,5 @@
-import React from 'react'
 import { MemoizedMarkdown } from '@/components/markdown-renderer'
+import React, { useEffect, useState } from 'react'
 import ToolCallDisplay from '../tool-call-display'
 import {
   detectToolUIComponent,
@@ -130,7 +130,46 @@ function renderNestedToolCalls(
   }
 }
 
-export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRendererProps) => {
+type InternalRendererProps = MessagePartRendererProps & { collapseReasoning?: boolean }
+
+function ThoughtsPart({
+  text,
+  messageId,
+  index,
+  collapseReasoning
+}: {
+  text: string
+  messageId: string
+  index: number
+  collapseReasoning?: boolean
+}) {
+  const [isOpen, setIsOpen] = useState(true)
+  useEffect(() => {
+    if (collapseReasoning) setIsOpen(false)
+  }, [collapseReasoning])
+
+  return (
+    <details key={`${messageId}-reasoning-${index}`} className="mt-2 mb-2 w-full" open={isOpen}>
+      <summary className="cursor-pointer select-none text-xs uppercase tracking-wide text-muted-foreground/80 hover:text-foreground">
+        Thoughts
+      </summary>
+      <div className="mt-2 rounded-md border border-border/40 bg-muted/20 p-3">
+        <MemoizedMarkdown
+          content={text}
+          id={`${messageId}-reasoning-${index}`}
+          isAssistant={true}
+        />
+      </div>
+    </details>
+  )
+}
+
+export const MessagePartRenderer = ({
+  part,
+  messageId,
+  index,
+  collapseReasoning
+}: InternalRendererProps) => {
   // Input validation
   if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
     return null
@@ -140,10 +179,57 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
     switch (part.type) {
       case COMPONENT_TYPES.TEXT:
         if (typeof part.text === 'string') {
+          const text = part.text
+          const openIdx = text.toLowerCase().indexOf('<think>')
+          const closeIdx = text.toLowerCase().indexOf('</think>')
+
+          // Case 1: Open tag present, no close yet -> stream reasoning only
+          if (openIdx >= 0 && (closeIdx === -1 || closeIdx < openIdx)) {
+            const reasoningText = text.slice(openIdx + '<think>'.length).trim()
+            if (reasoningText.length === 0) return null
+            return (
+              <ThoughtsPart
+                text={reasoningText}
+                messageId={messageId}
+                index={index}
+                collapseReasoning={collapseReasoning}
+              />
+            )
+          }
+
+          // Case 2: Complete <think>...</think> present -> show reasoning + remaining (outside container)
+          if (openIdx >= 0 && closeIdx > openIdx) {
+            const reasoningText = text.slice(openIdx + '<think>'.length, closeIdx).trim()
+            const remaining = (
+              text.slice(0, openIdx) + text.slice(closeIdx + '</think>'.length)
+            ).trim()
+            return (
+              <>
+                {reasoningText.length > 0 && (
+                  <ThoughtsPart
+                    text={reasoningText}
+                    messageId={messageId}
+                    index={index}
+                    collapseReasoning={collapseReasoning}
+                  />
+                )}
+                {remaining.length > 0 && (
+                  <MemoizedMarkdown
+                    key={`${messageId}-text-${index}`}
+                    content={remaining}
+                    id={`${messageId}-text-${index}`}
+                    isAssistant={true}
+                  />
+                )}
+              </>
+            )
+          }
+
+          // Case 3: No <think> tags -> render as normal text
           return (
             <MemoizedMarkdown
               key={`${messageId}-text-${index}`}
-              content={part.text}
+              content={text}
               id={`${messageId}-text-${index}`}
               isAssistant={true}
             />
@@ -151,6 +237,19 @@ export const MessagePartRenderer = ({ part, messageId, index }: MessagePartRende
         } else {
           return null
         }
+
+      case COMPONENT_TYPES.REASONING:
+        if (typeof (part as any).text === 'string' && (part as any).text.length > 0) {
+          return (
+            <ThoughtsPart
+              text={(part as any).text}
+              messageId={messageId}
+              index={index}
+              collapseReasoning={collapseReasoning}
+            />
+          )
+        }
+        return null
 
       case COMPONENT_TYPES.TOOL_INVOCATION:
         const toolInvocation = part.toolInvocation

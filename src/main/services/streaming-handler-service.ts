@@ -1,5 +1,6 @@
 import { streamText, smoothStream, stepCountIs, type ModelMessage, type LanguageModel } from 'ai'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
+import { applyReasoningProviderOptions } from './reasoning-provider-options'
 import {
   shouldDisableToolsForReasoningModel,
   extractReasoningFromText,
@@ -174,7 +175,7 @@ export class StreamingHandlerService {
       // Detect reasoning model and determine tool compatibility
       const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
 
-      const streamTextOptions: Parameters<typeof streamText>[0] = {
+      let streamTextOptions: Parameters<typeof streamText>[0] = {
         model: options.model,
         messages: options.messages,
         system: options.system || '',
@@ -208,6 +209,9 @@ export class StreamingHandlerService {
         }
       }
 
+      // Centralized provider-specific reasoning options
+      streamTextOptions = applyReasoningProviderOptions(options.providerId, streamTextOptions)
+
       // Execute the streamText call and handle stream events in real-time
       let result
       try {
@@ -223,10 +227,18 @@ export class StreamingHandlerService {
 
       // Use fullStream to handle text-delta events directly with error handling
       try {
+        let reasoningSeen = false
+        let reasoningOpen = false
         for await (const part of result.fullStream) {
           switch (part.type) {
             case 'text-delta': {
-              const delta = (part as any).text
+              const delta = (part as any).text ?? (part as any).delta
+              // If we were streaming reasoning, close the think block before normal text
+              if (reasoningOpen) {
+                const closeThink = `0:${JSON.stringify('</think>')}\n`
+                callbacks.onChunk(textEncoder.encode(closeThink))
+                reasoningOpen = false
+              }
               fullText += delta || ''
               // Format chunk for AI SDK compatibility
               const formattedChunk = `0:${JSON.stringify(delta || '')}\n`
@@ -234,10 +246,24 @@ export class StreamingHandlerService {
               break
             }
             case 'reasoning-delta': {
-              // Include reasoning content in the stream
-              const reasonDelta = (part as any).text
+              // Send reasoning as text stream wrapped in <think> ... </think> to avoid invalid code errors
+              const reasonDelta = (part as any).text ?? (part as any).delta
+              if (!reasoningOpen) {
+                const openThink = `0:${JSON.stringify('<think>')}\n`
+                callbacks.onChunk(textEncoder.encode(openThink))
+                reasoningOpen = true
+              }
               const reasoningChunk = `0:${JSON.stringify(reasonDelta || '')}\n`
               callbacks.onChunk(textEncoder.encode(reasoningChunk))
+              reasoningSeen = true
+              try {
+                const preview = String(reasonDelta || '').slice(0, 80)
+                // eslint-disable-next-line no-console
+                console.log(
+                  `[StreamingHandlerService] reasoning-delta (${preview.length} chars):`,
+                  preview
+                )
+              } catch {}
               break
             }
             case 'tool-call': {
@@ -284,6 +310,12 @@ export class StreamingHandlerService {
                 finishReason: part.finishReason,
                 usage: part.usage
               }
+              // Close think section if it was opened
+              if (reasoningOpen) {
+                const closeThink = `0:${JSON.stringify('</think>')}\n`
+                callbacks.onChunk(textEncoder.encode(closeThink))
+                reasoningOpen = false
+              }
               const finishChunk = `d:${JSON.stringify(finishData)}\n`
               callbacks.onChunk(textEncoder.encode(finishChunk))
               break
@@ -304,6 +336,12 @@ export class StreamingHandlerService {
       }
 
       callbacks.onComplete()
+      try {
+        if (!reasoningSeen) {
+          // eslint-disable-next-line no-console
+          console.log('[StreamingHandlerService] No reasoning deltas observed in stream.')
+        }
+      } catch {}
     } catch (error) {
       console.error('[StreamingHandlerService] Error in handleRealTimeStreaming:', error)
       callbacks.onError(
@@ -322,7 +360,18 @@ export class StreamingHandlerService {
     // Detect reasoning model and determine tool compatibility
     const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
 
-    const streamTextOptions: Parameters<typeof streamText>[0] = {
+    try {
+      // eslint-disable-next-line no-console
+      console.log(
+        '[StreamingHandlerService] model/provider:',
+        options.modelId,
+        options.providerId,
+        'reasoning?',
+        reasoningInfo.isReasoningModel
+      )
+    } catch {}
+
+    let streamTextOptions: Parameters<typeof streamText>[0] = {
       model: options.model,
       messages: options.messages,
       system: options.system || '',
@@ -336,6 +385,9 @@ export class StreamingHandlerService {
       // Add abort signal support
       ...(options.abortSignal && { abortSignal: options.abortSignal })
     }
+
+    // Centralized provider-specific reasoning options
+    streamTextOptions = applyReasoningProviderOptions(options.providerId, streamTextOptions)
 
     return streamTextOptions
   }

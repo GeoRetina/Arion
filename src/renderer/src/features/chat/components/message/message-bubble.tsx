@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 import { MemoizedMarkdown, CopyMessageButton } from '@/components/markdown-renderer'
 import { MessagePartRenderer } from './message-part-renderer'
+import { useEffect, useRef, useState } from 'react'
 import { AgentGroupIndicator } from '../agent-indicator'
 import OrchestrationTaskList from '../orchestration-task-list'
 import { Subtask } from '../../../../../../shared/ipc-types'
@@ -38,6 +39,19 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       : ''
     const primaryText = message.content ?? textFromParts
 
+    const [collapseReasoning, setCollapseReasoning] = useState(false)
+
+    // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
+    const hasAssistantParts = !isUser && Array.isArray(message.parts)
+    const initializedRef = useRef(false)
+    useEffect(() => {
+      if (!hasAssistantParts || initializedRef.current) return
+      initializedRef.current = true
+      const handler = () => setCollapseReasoning(true)
+      window.addEventListener('ai-assistant-text-start', handler)
+      return () => window.removeEventListener('ai-assistant-text-start', handler)
+    }, [hasAssistantParts])
+
     return (
       <div
         key={message.id}
@@ -60,6 +74,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                 part={part}
                 messageId={message.id}
                 index={partIndex}
+                collapseReasoning={collapseReasoning}
               />
             ))
           ) : (

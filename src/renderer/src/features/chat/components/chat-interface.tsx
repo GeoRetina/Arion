@@ -64,8 +64,8 @@ export default function ChatInterface(): React.JSX.Element {
   const {
     stableChatIdForUseChat,
     currentChatIdFromStore,
-    currentMessagesFromStore,
-    isLoadingMessagesFromStore
+    currentMessagesFromStore
+    // isLoadingMessagesFromStore
   } = useChatSession()
 
   const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
@@ -133,6 +133,16 @@ export default function ChatInterface(): React.JSX.Element {
       }
     }
   })
+
+  // Notify reasoning container to collapse when assistant starts streaming text
+  useEffect(() => {
+    if (isStreamingUi) {
+      const last = (chat.messages as any[])[(chat.messages as any[]).length - 1]
+      if (last && last.role === 'assistant') {
+        window.dispatchEvent(new Event('ai-assistant-text-start'))
+      }
+    }
+  }, [isStreamingUi, chat.messages])
 
   const sdkMessages = chat.messages as UIMessage[]
   const stop = chat.stop as (() => void) | undefined
