@@ -285,15 +285,22 @@ export default function ChatInterface(): React.JSX.Element {
             <div className="mx-auto w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl px-4 pt-15 pb-6">
               {displayMessages.length === 0 && !displayIsLoading && <EmptyState />}
 
-              {(displayMessages as any[]).map((m: any, index: number) => (
-                <MessageBubble
-                  key={m.id}
-                  message={m}
-                  index={index}
-                  isLatestUserMessage={isLatestUserMessage(m, index)}
-                  ref={isLatestUserMessage(m, index) ? latestUserMessageRef : undefined}
-                />
-              ))}
+              {(displayMessages as any[]).map((m: any, index: number) => {
+                // Only show streaming state for the latest assistant message
+                const isLatestAssistantMessage =
+                  m.role === 'assistant' && index === displayMessages.length - 1 && displayIsLoading
+
+                return (
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    index={index}
+                    isLatestUserMessage={isLatestUserMessage(m, index)}
+                    isStreaming={isLatestAssistantMessage}
+                    ref={isLatestUserMessage(m, index) ? latestUserMessageRef : undefined}
+                  />
+                )
+              })}
 
               {displayIsLoading &&
                 (displayMessages as any[]).length > 0 &&

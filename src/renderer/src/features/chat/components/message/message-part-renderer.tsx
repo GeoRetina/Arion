@@ -136,24 +136,31 @@ function ThoughtsPart({
   text,
   messageId,
   index,
-  collapseReasoning
+  collapseReasoning,
+  isStreamingReasoning
 }: {
   text: string
   messageId: string
   index: number
   collapseReasoning?: boolean
+  isStreamingReasoning?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(true)
   useEffect(() => {
-    if (collapseReasoning) setIsOpen(false)
-  }, [collapseReasoning])
+    // Auto-expand when reasoning chunks are streaming; collapse when normal text starts
+    if (isStreamingReasoning) {
+      setIsOpen(true)
+    } else if (collapseReasoning) {
+      setIsOpen(false)
+    }
+  }, [collapseReasoning, isStreamingReasoning])
 
   return (
     <details key={`${messageId}-reasoning-${index}`} className="mt-2 mb-2 w-full" open={isOpen}>
-      <summary className="cursor-pointer select-none text-xs uppercase tracking-wide text-muted-foreground/80 hover:text-foreground">
+      <summary className="cursor-pointer select-none text-xs tracking-wide text-muted-foreground/80 hover:text-foreground">
         Thoughts
       </summary>
-      <div className="mt-2 rounded-md border border-border/40 bg-muted/20 p-3">
+      <div className="mt-2 rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground [&_*]:text-muted-foreground">
         <MemoizedMarkdown
           content={text}
           id={`${messageId}-reasoning-${index}`}
@@ -192,7 +199,9 @@ export const MessagePartRenderer = ({
                 text={reasoningText}
                 messageId={messageId}
                 index={index}
-                collapseReasoning={collapseReasoning}
+                // Keep expanded while reasoning is streaming
+                collapseReasoning={false}
+                isStreamingReasoning={true}
               />
             )
           }
@@ -210,7 +219,9 @@ export const MessagePartRenderer = ({
                     text={reasoningText}
                     messageId={messageId}
                     index={index}
+                    // Reasoning section completed; allow collapse based on parent signal
                     collapseReasoning={collapseReasoning}
+                    isStreamingReasoning={false}
                   />
                 )}
                 {remaining.length > 0 && (
@@ -245,7 +256,9 @@ export const MessagePartRenderer = ({
               text={(part as any).text}
               messageId={messageId}
               index={index}
-              collapseReasoning={collapseReasoning}
+              // Keep expanded while reasoning is streaming
+              collapseReasoning={false}
+              isStreamingReasoning={true}
             />
           )
         }

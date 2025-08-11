@@ -26,10 +26,11 @@ interface MessageBubbleProps {
   message: ExtendedMessage
   index: number
   isLatestUserMessage?: boolean
+  isStreaming?: boolean
 }
 
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
-  ({ message, isLatestUserMessage }, ref) => {
+  ({ message, isLatestUserMessage, isStreaming = false }, ref) => {
     const isUser = message.role === 'user'
     const textFromParts = Array.isArray(message.parts)
       ? message.parts
@@ -106,7 +107,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             </>
           )}
         </div>
-        {primaryText && primaryText.length > 0 && (
+        {primaryText && primaryText.length > 0 && !isStreaming && (
           <div
             className={cn(
               'mt-1 opacity-0 group-hover:opacity-100 transition-opacity',
