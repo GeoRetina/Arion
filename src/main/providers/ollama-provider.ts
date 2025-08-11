@@ -52,12 +52,87 @@ function extractProviderOptions(
 function mapTools(tools: Array<LanguageModelV2FunctionTool> | undefined) {
   if (!tools || tools.length === 0) return undefined
   return tools.map((t) => {
-    return {
-      type: 'function',
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: t.inputSchema as JSONSchema7
+    try {
+      // Convert Zod schema to a simpler JSON Schema format for Ollama
+      // This handles the "error calling index" issue by ensuring proper schema structure
+      const schema = t.inputSchema as any
+
+      // If it's a Zod schema with _def property, extract the shape
+      if (schema && schema._def) {
+        const properties: Record<string, any> = {}
+        const required: string[] = []
+
+        // Get the shape - it might be a function or a property
+        const shape =
+          typeof schema._def.shape === 'function' ? schema._def.shape() : schema._def.shape
+
+        if (shape && typeof shape === 'object') {
+          for (const [key, value] of Object.entries(shape as Record<string, any>)) {
+            // Extract type information from Zod schema
+            const zodDef = (value as any)._def
+            if (!zodDef) continue
+
+            const zodType = zodDef.typeName || 'ZodString'
+            let type = 'string'
+            let description = zodDef.description || ''
+
+            if (zodType.includes('Number')) type = 'number'
+            else if (zodType.includes('Boolean')) type = 'boolean'
+            else if (zodType.includes('Array')) type = 'array'
+            else if (zodType.includes('Object')) type = 'object'
+
+            // Ensure properties only have simple types
+            properties[key] = { type }
+
+            // Check if field is required (not optional)
+            if (!zodType.includes('Optional') && !(value as any).isOptional) {
+              required.push(key)
+            }
+          }
+        }
+
+        return {
+          type: 'function',
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: {
+              type: 'object',
+              properties,
+              required
+            }
+          }
+        }
+      }
+
+      // Fallback - don't pass raw Zod schema to Ollama
+      // Create a simple schema that won't cause template errors
+      return {
+        type: 'function',
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[Ollama] Failed to map tool ${t.name}:`, error)
+      // Return a minimal schema to avoid breaking
+      return {
+        type: 'function',
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
       }
     }
   })
@@ -91,11 +166,15 @@ function mapPromptToOllamaMessages(prompt: LanguageModelV2CallOptions['prompt'])
 
     if (msg.role === 'tool') {
       // Translate tool result parts into a single tool message line for the model
-      // Concatenate results as JSON lines for simplicity
+      // Ollama requires tool results to be strings
       const toolResults = (msg.content as any[])
         .filter((p) => p.type === 'tool-result')
         .map((p) => {
           try {
+            // Ensure result is always a string for Ollama
+            if (typeof p.result === 'string') {
+              return p.result
+            }
             return JSON.stringify(p.result)
           } catch {
             return String(p.result)
@@ -153,13 +232,23 @@ function buildOllamaRequestFromCall(modelId: string, callOptions: LanguageModelV
     ...(Object.keys(mergedOllamaOptions).length > 0 ? { options: mergedOllamaOptions } : {})
   }
 
-  // Tools mapping
+  // Tools mapping with error handling
   if (callOptions.tools && callOptions.tools.length > 0) {
     const functionTools = callOptions.tools.filter(
       (t: any) => t.type === 'function'
     ) as Array<LanguageModelV2FunctionTool>
     if (functionTools.length > 0) {
-      ollamaRequest.tools = mapTools(functionTools)
+      try {
+        ollamaRequest.tools = mapTools(functionTools)
+        // Log the tools being sent to help debug
+        console.log(
+          '[Ollama] Sending tools to model:',
+          JSON.stringify(ollamaRequest.tools, null, 2)
+        )
+      } catch (e) {
+        console.error('[Ollama] Error mapping tools, disabling tools for this request:', e)
+        // Don't include tools if mapping fails
+      }
     }
   }
 
@@ -260,17 +349,31 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
         if (Array.isArray(msg?.tool_calls)) {
           for (const call of msg.tool_calls) {
             let args: unknown = call.function?.arguments ?? {}
+
+            // Ollama may return arguments as a string that needs parsing
             if (typeof args === 'string') {
               try {
                 args = JSON.parse(args)
-              } catch {
-                // leave as string if not valid JSON
+              } catch (e) {
+                console.warn(
+                  `[Ollama] Failed to parse tool arguments for ${call.function?.name}:`,
+                  e
+                )
+                // Try to parse as a simple object if it's malformed JSON
+                args = { input: args }
               }
             }
+
+            // Ensure we have a valid tool name
+            if (!call.function?.name) {
+              console.warn('[Ollama] Tool call missing function name:', call)
+              continue
+            }
+
             content.push({
               type: 'tool-call',
               toolCallId: idGenTool(),
-              toolName: call.function?.name,
+              toolName: call.function.name,
               args: args as any
             } as any)
           }
@@ -357,17 +460,31 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
                 if (Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0) {
                   for (const call of msg.tool_calls) {
                     let args: unknown = call.function?.arguments ?? {}
+
+                    // Ollama may return arguments as a string that needs parsing
                     if (typeof args === 'string') {
                       try {
                         args = JSON.parse(args)
-                      } catch {
-                        // keep as string if not JSON
+                      } catch (e) {
+                        console.warn(
+                          `[Ollama] Failed to parse streaming tool arguments for ${call.function?.name}:`,
+                          e
+                        )
+                        // Try to parse as a simple object if it's malformed JSON
+                        args = { input: args }
                       }
                     }
+
+                    // Ensure we have a valid tool name
+                    if (!call.function?.name) {
+                      console.warn('[Ollama] Streaming tool call missing function name:', call)
+                      continue
+                    }
+
                     controller.enqueue({
                       type: 'tool-call',
                       toolCallId: idGenTool(),
-                      toolName: call.function?.name,
+                      toolName: call.function.name,
                       args: args as any,
                       providerExecuted: false
                     } as any)

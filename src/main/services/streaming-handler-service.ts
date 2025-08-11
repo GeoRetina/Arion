@@ -260,20 +260,26 @@ export class StreamingHandlerService {
               break
             }
             case 'tool-call': {
-              // Back-compat for older client: remap input->args
+              // Normalize tool-call shape for client expectations
+              const p: any = part as any
               const toolCallCompat = {
-                ...part,
-                args: (part as any).input ?? (part as any).args
+                type: 'tool-call',
+                toolCallId: p.toolCallId ?? p.id ?? `tool_${Date.now()}`,
+                toolName: p.toolName ?? p.name ?? p.tool?.name ?? '',
+                args: p.input ?? p.args ?? p.arguments ?? {}
               }
               const toolCallChunk = `9:${JSON.stringify(toolCallCompat)}\n`
               callbacks.onChunk(textEncoder.encode(toolCallChunk))
               break
             }
             case 'tool-result': {
-              // Back-compat: remap output->result
+              // Normalize tool-result shape
+              const p: any = part as any
               const toolResultCompat = {
-                ...part,
-                result: (part as any).output ?? (part as any).result
+                type: 'tool-result',
+                toolCallId: p.toolCallId ?? p.id ?? `tool_${Date.now()}`,
+                toolName: p.toolName ?? p.name ?? p.tool?.name ?? '',
+                result: p.output ?? p.result
               }
               const toolResultChunk = `a:${JSON.stringify(toolResultCompat)}\n`
               callbacks.onChunk(textEncoder.encode(toolResultChunk))

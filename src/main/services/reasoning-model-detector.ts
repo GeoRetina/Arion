@@ -14,16 +14,26 @@ export interface ReasoningModelInfo {
  */
 export function detectReasoningModel(modelId: string | undefined): boolean {
   if (!modelId) return false
-  
+
   const modelLower = modelId.toLowerCase()
   const reasoningModelPatterns = [
     'gpt-oss',
-    'o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini',
-    'reasoning', 'think', 'thought', 'chain-of-thought', 'cot',
-    'qwen-qwq', 'deepseek-r1', 'marco-o1'
+    'o1',
+    'o1-mini',
+    'o1-preview',
+    'o3',
+    'o3-mini',
+    'reasoning',
+    'think',
+    'thought',
+    'chain-of-thought',
+    'cot',
+    'qwen-qwq',
+    'deepseek-r1',
+    'marco-o1'
   ]
-  
-  return reasoningModelPatterns.some(pattern => modelLower.includes(pattern))
+
+  return reasoningModelPatterns.some((pattern) => modelLower.includes(pattern))
 }
 
 /**
@@ -34,16 +44,13 @@ export function shouldDisableToolsForReasoningModel(
   providerId: string | undefined
 ): ReasoningModelInfo {
   const isReasoningModel = detectReasoningModel(modelId)
-  
-  if (!isReasoningModel) {
-    return { isReasoningModel: false, shouldDisableTools: false }
-  }
-  
-  // Only disable tools for Ollama reasoning models due to schema conversion issues
-  const shouldDisableTools = providerId?.toLowerCase().includes('ollama') ?? false
-  
+
+  // Tools are enabled for all providers including Ollama
+  // User confirmed their model supports tool calling
+  const shouldDisableTools = false
+
   return {
-    isReasoningModel: true,
+    isReasoningModel,
     shouldDisableTools,
     modelId,
     providerId
@@ -63,40 +70,43 @@ export function isToolSchemaError(errorMessage: string): boolean {
     'failed to parse stream string',
     'no separator found'
   ]
-  
+
   const messageLower = errorMessage.toLowerCase()
-  return schemaErrorPatterns.some(pattern => messageLower.includes(pattern.toLowerCase()))
+  return schemaErrorPatterns.some((pattern) => messageLower.includes(pattern.toLowerCase()))
 }
 
 /**
  * Extract reasoning content from text using common patterns
  */
-export function extractReasoningFromText(text: string): { content: string; reasoningText?: string } {
+export function extractReasoningFromText(text: string): {
+  content: string
+  reasoningText?: string
+} {
   // Check for XML-like thinking tags
   const thinkingTagRegex = /<think>([\s\S]*?)<\/think>/i
   const match = text.match(thinkingTagRegex)
-  
+
   if (match) {
     const reasoning = match[1].trim()
     const content = text.replace(thinkingTagRegex, '').trim()
-    return { content, reasoningText };
+    return { content, reasoningText: reasoning }
   }
-  
+
   // Check for other common reasoning delimiters
   const reasoningPatterns = [
     /^Thinking:([\s\S]*?)(?:\n\n|$)/i,
     /^Reasoning:([\s\S]*?)(?:\n\n|$)/i,
     /^\*\*Thinking:\*\*([\s\S]*?)(?:\n\n|$)/i
   ]
-  
+
   for (const pattern of reasoningPatterns) {
     const match = text.match(pattern)
     if (match) {
       const reasoning = match[1].trim()
       const content = text.replace(pattern, '').trim()
-      return { content, reasoningText };
+      return { content, reasoningText: reasoning }
     }
   }
-  
+
   return { content: text }
 }
