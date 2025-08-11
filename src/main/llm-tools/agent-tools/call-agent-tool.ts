@@ -10,7 +10,7 @@ export const callAgentToolName = CALL_AGENT_TOOL_NAME
 export const callAgentToolDefinition = {
   description:
     'Calls a specialized agent and returns its response. Use this tool to delegate specific tasks to agents with specialized capabilities.',
-  parameters: z.object({
+  inputSchema: z.object({
     message: z.string().describe('The message or task to send to the specialized agent'),
     agent_id: z.string().describe('The ID of the specialized agent to call')
   })

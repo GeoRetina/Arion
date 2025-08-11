@@ -51,5 +51,5 @@ export type SetMapViewParams = z.infer<typeof SetMapViewToolSchema>
 export const setMapViewToolDefinition = {
   description:
     'Adjusts the map view by setting its center, zoom level, pitch (tilt), and/or bearing (rotation). At least one parameter must be provided. Animation is enabled by default.',
-  parameters: SetMapViewToolSchema
+  inputSchema: SetMapViewToolSchema
 }

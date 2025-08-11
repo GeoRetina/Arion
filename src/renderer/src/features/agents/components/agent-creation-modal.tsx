@@ -227,7 +227,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
           model,
           parameters: {
             temperature,
-            maxTokens
+            maxOutputTokens: maxTokens
           }
         },
         toolAccess: capability.tools // Tools from the single capability
@@ -262,216 +262,218 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
 
           <ScrollArea className="max-h-[calc(80vh-200px)] mt-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full pr-4">
-            <TabsList className="grid grid-cols-4 mb-4">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="prompts">Prompts</TabsTrigger>
-              <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
-              <TabsTrigger value="model">Model</TabsTrigger>
-            </TabsList>
+              <TabsList className="grid grid-cols-4 mb-4">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="prompts">Prompts</TabsTrigger>
+                <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+                <TabsTrigger value="model">Model</TabsTrigger>
+              </TabsList>
 
-            {/* General Settings Tab */}
-            <TabsContent value="general" className="space-y-4">
-              <div className="space-y-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name" className="flex items-center gap-1">
-                    Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="GeoSpatial Analysis Agent"
-                    autoFocus
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="description" className="flex items-center gap-1">
-                    Description <span className="text-red-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    placeholder="Specialized agent for geospatial data analysis tasks"
-                    required
-                  />
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Capabilities Tab */}
-            <TabsContent value="capabilities" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Agent Capability</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Define what this agent can do and what tools it can use.
-                  </p>
-                </CardHeader>
-
-                <CardContent className="pb-2">
-                  <div>
-                    <Label>Select Tools</Label>
-                    <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                      {availableTools.map((tool) => {
-                        const isSelected = selectedTools.includes(tool)
-                        return (
-                          <Badge
-                            key={tool}
-                            variant={isSelected ? 'default' : 'outline'}
-                            className="cursor-pointer"
-                            onClick={() => toggleToolSelection(tool)}
-                          >
-                            {tool}
-                          </Badge>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Prompts Tab */}
-            <TabsContent value="prompts" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Agent Prompt</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Define the agent's personality, behavior, and special instructions.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <Label htmlFor="agentPrompt" className="flex items-center gap-1 mb-2">
-                    Agent Prompt <span className="text-red-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="agentPrompt"
-                    value={agentPrompt}
-                    onChange={(e) => setAgentPrompt(e.target.value)}
-                    rows={10}
-                    placeholder="You are an expert geospatial analyst with knowledge of GIS, remote sensing, and spatial analysis techniques. Help users analyze geospatial data and create visualizations..."
-                    className="font-mono text-sm"
-                    required
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Model Tab */}
-            <TabsContent value="model" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Model Configuration</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Configure the LLM model settings for this agent.
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* LLM Provider */}
+              {/* General Settings Tab */}
+              <TabsContent value="general" className="space-y-4">
+                <div className="space-y-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="provider">Provider</Label>
-                    <Select
-                      value={provider}
-                      onValueChange={(value: LLMProviderType) => {
-                        setProvider(value)
-                        setModel('') // Reset model when provider changes
-                      }}
-                    >
-                      <SelectTrigger id="provider">
-                        <SelectValue placeholder="Select LLM provider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SUPPORTED_LLM_PROVIDERS.map((providerId) => (
-                          <SelectItem key={providerId} value={providerId}>
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={`h-5 w-5 rounded-md ${PROVIDER_BACKGROUNDS[providerId]} flex items-center justify-center p-0.5`}
-                              >
-                                <img
-                                  src={PROVIDER_LOGOS[providerId]}
-                                  alt={`${providerId} logo`}
-                                  className="h-full w-full object-contain"
-                                />
+                    <Label htmlFor="name" className="flex items-center gap-1">
+                      Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="GeoSpatial Analysis Agent"
+                      autoFocus
+                      required
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="description" className="flex items-center gap-1">
+                      Description <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      rows={3}
+                      placeholder="Specialized agent for geospatial data analysis tasks"
+                      required
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Capabilities Tab */}
+              <TabsContent value="capabilities" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Agent Capability</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Define what this agent can do and what tools it can use.
+                    </p>
+                  </CardHeader>
+
+                  <CardContent className="pb-2">
+                    <div>
+                      <Label>Select Tools</Label>
+                      <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
+                        {availableTools.map((tool) => {
+                          const isSelected = selectedTools.includes(tool)
+                          return (
+                            <Badge
+                              key={tool}
+                              variant={isSelected ? 'default' : 'outline'}
+                              className="cursor-pointer"
+                              onClick={() => toggleToolSelection(tool)}
+                            >
+                              {tool}
+                            </Badge>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Prompts Tab */}
+              <TabsContent value="prompts" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Agent Prompt</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Define the agent's personality, behavior, and special instructions.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <Label htmlFor="agentPrompt" className="flex items-center gap-1 mb-2">
+                      Agent Prompt <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="agentPrompt"
+                      value={agentPrompt}
+                      onChange={(e) => setAgentPrompt(e.target.value)}
+                      rows={10}
+                      placeholder="You are an expert geospatial analyst with knowledge of GIS, remote sensing, and spatial analysis techniques. Help users analyze geospatial data and create visualizations..."
+                      className="font-mono text-sm"
+                      required
+                    />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Model Tab */}
+              <TabsContent value="model" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Model Configuration</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Configure the LLM model settings for this agent.
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* LLM Provider */}
+                    <div className="grid gap-2">
+                      <Label htmlFor="provider">Provider</Label>
+                      <Select
+                        value={provider}
+                        onValueChange={(value: LLMProviderType) => {
+                          setProvider(value)
+                          setModel('') // Reset model when provider changes
+                        }}
+                      >
+                        <SelectTrigger id="provider">
+                          <SelectValue placeholder="Select LLM provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SUPPORTED_LLM_PROVIDERS.map((providerId) => (
+                            <SelectItem key={providerId} value={providerId}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className={`h-5 w-5 rounded-md ${PROVIDER_BACKGROUNDS[providerId]} flex items-center justify-center p-0.5`}
+                                >
+                                  <img
+                                    src={PROVIDER_LOGOS[providerId]}
+                                    alt={`${providerId} logo`}
+                                    className="h-full w-full object-contain"
+                                  />
+                                </div>
+                                <span>
+                                  {getFormattedProviderName(providerId, undefined, false)}
+                                </span>
                               </div>
-                              <span>{getFormattedProviderName(providerId, undefined, false)}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  {/* Model Selection */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="model">Model</Label>
-                    <Select
-                      value={model}
-                      onValueChange={setModel}
-                      disabled={!provider || availableModels.length === 0}
-                    >
-                      <SelectTrigger id="model">
-                        <SelectValue
-                          placeholder={
-                            availableModels.length === 0 ? 'No models available' : 'Select model'
-                          }
+                    {/* Model Selection */}
+                    <div className="grid gap-2">
+                      <Label htmlFor="model">Model</Label>
+                      <Select
+                        value={model}
+                        onValueChange={setModel}
+                        disabled={!provider || availableModels.length === 0}
+                      >
+                        <SelectTrigger id="model">
+                          <SelectValue
+                            placeholder={
+                              availableModels.length === 0 ? 'No models available' : 'Select model'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableModels.map((modelName) => (
+                            <SelectItem key={modelName} value={modelName}>
+                              {modelName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="temperature">Temperature</Label>
+                          <span className="text-sm font-medium">{temperature}</span>
+                        </div>
+                        <Slider
+                          id="temperature"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={[temperature]}
+                          onValueChange={(value) => setTemperature(value[0])}
                         />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableModels.map((modelName) => (
-                          <SelectItem key={modelName} value={modelName}>
-                            {modelName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="temperature">Temperature</Label>
-                        <span className="text-sm font-medium">{temperature}</span>
+                        <p className="text-xs text-muted-foreground">
+                          Controls the randomness of the output. Lower values make the output more
+                          deterministic.
+                        </p>
                       </div>
-                      <Slider
-                        id="temperature"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={[temperature]}
-                        onValueChange={(value) => setTemperature(value[0])}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Controls the randomness of the output. Lower values make the output more
-                        deterministic.
-                      </p>
-                    </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="maxTokens">Max Tokens</Label>
-                        <span className="text-sm font-medium">{maxTokens}</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="maxOutputTokens">Max Tokens</Label>
+                          <span className="text-sm font-medium">{maxTokens}</span>
+                        </div>
+                        <Slider
+                          id="maxOutputTokens"
+                          min={256}
+                          max={8192}
+                          step={256}
+                          value={[maxTokens]}
+                          onValueChange={(value) => setMaxTokens(value[0])}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Maximum number of tokens (words/characters) the model can generate.
+                        </p>
                       </div>
-                      <Slider
-                        id="maxTokens"
-                        min={256}
-                        max={8192}
-                        step={256}
-                        value={[maxTokens]}
-                        onValueChange={(value) => setMaxTokens(value[0])}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Maximum number of tokens (words/characters) the model can generate.
-                      </p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </ScrollArea>
 
           <DialogFooter className="pt-4">

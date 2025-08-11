@@ -1,7 +1,9 @@
 'use client'
 
-import { useChat, type Message as SDKMessage } from '@ai-sdk/react'
-import { useRef, useEffect, useMemo } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { type UIMessage } from 'ai'
+import { v4 as uuidv4 } from 'uuid'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import { Subtask } from '../../../../../shared/ipc-types'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -34,8 +36,18 @@ import { useProviderConfiguration } from '../hooks/use-provider-configuration'
 import { useErrorDialog, useDatabaseModal } from '../hooks/use-dialog-state'
 import { useMapSidebar } from '../hooks/use-map-sidebar'
 
-// Extend the SDKMessage type to include orchestration data
-interface ExtendedSDKMessage extends SDKMessage {
+// Helper to read text from UIMessage parts
+function getTextFromParts(message: UIMessage<any, any, any>): string {
+  const parts = (message as any).parts as Array<any> | undefined
+  if (!Array.isArray(parts)) return ''
+  return parts
+    .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
+    .map((p) => p.text as string)
+    .join('')
+}
+
+// Extend UIMessage with orchestration metadata for persistence
+type ExtendedMessage = UIMessage<any, any, any> & {
   orchestration?: {
     subtasks?: Subtask[]
     agentsInvolved?: string[]
@@ -51,10 +63,9 @@ export default function ChatInterface(): React.JSX.Element {
 
   const {
     stableChatIdForUseChat,
-    sdkCompatibleInitialMessages,
     currentChatIdFromStore,
-    currentMessagesFromStore,
-    isLoadingMessagesFromStore
+    currentMessagesFromStore
+    // isLoadingMessagesFromStore
   } = useChatSession()
 
   const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
@@ -65,20 +76,20 @@ export default function ChatInterface(): React.JSX.Element {
   // Create the streaming fetch function (memoize it)
   const streamingFetch = useMemo(() => createStreamingFetch(), [])
 
-  const {
-    messages: sdkMessages,
-    input,
-    setInput,
-    handleSubmit: originalHandleSubmit,
-    isLoading: isSdkChatLoading,
-    error: sdkError,
-    stop
-  } = useChat({
+  // Local input state (v5 removed managed input)
+  const [input, setInput] = useState('')
+  const [isStreamingUi, setIsStreamingUi] = useState(false)
+
+  const chat = useChat({
     id: stableChatIdForUseChat,
     api: '/api/chat',
     fetch: streamingFetch as unknown as typeof fetch,
-    initialMessages: sdkCompatibleInitialMessages,
-    onFinish: async (assistantMessage: ExtendedSDKMessage) => {
+    onError: () => {
+      setIsStreamingUi(false)
+    },
+    onFinish: async (args: any) => {
+      const assistantMessage = (args?.message || args) as ExtendedMessage
+      setIsStreamingUi(false)
       // Basic saving logic for the final state of the assistant message
       let currentChatId = useChatHistoryStore.getState().currentChatId
       if (!currentChatId && stableChatIdForUseChat) {
@@ -103,16 +114,16 @@ export default function ChatInterface(): React.JSX.Element {
       }
 
       if (currentChatId) {
-        const existingMsg = currentMessagesFromStore.find((m) => m.id === assistantMessage.id)
-        if (
-          !existingMsg &&
-          (assistantMessage.content || assistantMessage.toolInvocations?.length)
-        ) {
+        const existingMsg = currentMessagesFromStore.find(
+          (m) => m.id === (assistantMessage as any).id
+        )
+        const text = getTextFromParts(assistantMessage)
+        if (!existingMsg && text && text.trim().length > 0) {
           await addMessageToCurrentChat({
-            id: assistantMessage.id,
+            id: (assistantMessage as any).id,
             chat_id: currentChatId,
-            role: assistantMessage.role,
-            content: assistantMessage.content ?? '',
+            role: assistantMessage.role as any,
+            content: text,
             // Include orchestration metadata in persisted message
             orchestration: assistantMessage.orchestration
               ? JSON.stringify(assistantMessage.orchestration)
@@ -123,14 +134,27 @@ export default function ChatInterface(): React.JSX.Element {
     }
   })
 
+  // Notify reasoning container to collapse when assistant starts streaming text
+  useEffect(() => {
+    if (isStreamingUi) {
+      const last = (chat.messages as any[])[(chat.messages as any[]).length - 1]
+      if (last && last.role === 'assistant') {
+        window.dispatchEvent(new Event('ai-assistant-text-start'))
+      }
+    }
+  }, [isStreamingUi, chat.messages])
+
+  const sdkMessages = chat.messages as UIMessage[]
+  const stop = chat.stop as (() => void) | undefined
+  const sdkError = chat.error as Error | undefined
+
   // Set up auto-scrolling for new user messages
-  const { latestUserMessageRef, isLatestUserMessage } = useAutoScroll({
-    messages: sdkMessages
-  })
+  const { latestUserMessageRef, isLatestUserMessage } = useAutoScroll({ messages: sdkMessages })
 
   // Effect to save user messages when sdkMessages changes and a new user message appears
   useEffect(() => {
-    const latestSdkMessage = sdkMessages.length > 0 ? sdkMessages[sdkMessages.length - 1] : null
+    const latestSdkMessage =
+      sdkMessages.length > 0 ? (sdkMessages[sdkMessages.length - 1] as any) : null
     if (latestSdkMessage && latestSdkMessage.role === 'user') {
       const isAlreadySaved = currentMessagesFromStore.some(
         (storeMsg) => storeMsg.id === latestSdkMessage.id
@@ -140,16 +164,13 @@ export default function ChatInterface(): React.JSX.Element {
         const handleUserMessageSave = async () => {
           // ONLY save if a chat session is already established in the DB
           if (currentChatId) {
-            if (
-              ['system', 'user', 'assistant', 'function', 'tool', 'data'].includes(
-                latestSdkMessage.role
-              )
-            ) {
+            if (['system', 'user', 'assistant', 'tool'].includes(latestSdkMessage.role)) {
+              const text = getTextFromParts(latestSdkMessage)
               await addMessageToCurrentChat({
                 id: latestSdkMessage.id,
                 chat_id: currentChatId,
                 role: latestSdkMessage.role,
-                content: latestSdkMessage.content
+                content: text
               })
             }
           }
@@ -174,41 +195,16 @@ export default function ChatInterface(): React.JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!isSdkChatLoading && stableChatIdForUseChat) {
+    if (!isStreamingUi && stableChatIdForUseChat) {
       // Focus logic can remain
     }
-  }, [isSdkChatLoading, sdkMessages.length, stableChatIdForUseChat])
+  }, [isStreamingUi, sdkMessages.length, stableChatIdForUseChat])
 
-  const displayMessages: ExtendedSDKMessage[] = useMemo(() => {
-    if (stableChatIdForUseChat === currentChatIdFromStore) {
-      return sdkMessages
-    } else {
-      return currentMessagesFromStore
-        .map((storeMsg) => {
-          const displayableMessageCandidate: Partial<ExtendedSDKMessage> & {
-            role?: 'system' | 'user' | 'assistant' | 'data' | 'tool'
-          } = {
-            id: storeMsg.id,
-            content: storeMsg.content,
-            createdAt: storeMsg.created_at ? new Date(storeMsg.created_at) : undefined,
-            parts: storeMsg.content ? [{ type: 'text', text: storeMsg.content }] : [],
-            toolInvocations: []
-          }
-          if (['system', 'user', 'assistant', 'data', 'tool'].includes(storeMsg.role)) {
-            displayableMessageCandidate.role = storeMsg.role as any
-          }
-          return displayableMessageCandidate as ExtendedSDKMessage
-        })
-        .filter((msg) => msg.role !== undefined && !!msg.id)
-    }
-  }, [stableChatIdForUseChat, currentChatIdFromStore, sdkMessages, currentMessagesFromStore])
+  const displayMessages = useMemo(() => sdkMessages, [sdkMessages])
 
-  const displayIsLoading =
-    stableChatIdForUseChat === currentChatIdFromStore
-      ? isSdkChatLoading
-      : isLoadingMessagesFromStore
+  const displayIsLoading = isStreamingUi
 
-  // Custom handleSubmit to wrap original handleSubmit with a check
+  // Custom handleSubmit to send message via v5 API
   const handleSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault() // Prevent default form submission if event is passed
 
@@ -232,9 +228,47 @@ export default function ChatInterface(): React.JSX.Element {
       return // Stop submission
     }
 
-    // If an active provider is configured, proceed with the original submission
-    originalHandleSubmit(e) // Pass the event if it exists
+    // If an active provider is configured, send the message using v5 sendMessage
+    if (input && input.trim()) {
+      setIsStreamingUi(true)
+      const fnSend = (chat as any)?.sendMessage
+      const fnAppend = (chat as any)?.append
+      if (typeof fnSend === 'function') {
+        fnSend({ text: input })
+      } else if (typeof fnAppend === 'function') {
+        fnAppend({ id: uuidv4(), role: 'user', content: input })
+      }
+      setInput('')
+    }
   }
+
+  // Hydrate SDK messages from DB history on first load for the active chat
+  useEffect(() => {
+    const shouldHydrate =
+      stableChatIdForUseChat &&
+      stableChatIdForUseChat === currentChatIdFromStore &&
+      (sdkMessages?.length || 0) === 0 &&
+      (currentMessagesFromStore?.length || 0) > 0
+
+    if (!shouldHydrate) return
+
+    const append = (chat as any)?.append
+    if (typeof append !== 'function') return
+
+    // Map DB messages to UIMessage shape (parts-based)
+    const normalizeRole = (role: string): any => {
+      if (role === 'data' || role === 'function') return 'assistant'
+      return role
+    }
+
+    for (const m of currentMessagesFromStore) {
+      append({
+        id: m.id,
+        role: normalizeRole(m.role),
+        parts: m.content ? [{ type: 'text', text: m.content }] : []
+      })
+    }
+  }, [stableChatIdForUseChat, currentChatIdFromStore, sdkMessages, currentMessagesFromStore, chat])
 
   return (
     <div className="flex flex-row h-full max-h-full bg-transparent overflow-hidden relative">
@@ -251,19 +285,27 @@ export default function ChatInterface(): React.JSX.Element {
             <div className="mx-auto w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl px-4 pt-15 pb-6">
               {displayMessages.length === 0 && !displayIsLoading && <EmptyState />}
 
-              {displayMessages.map((m: ExtendedSDKMessage, index: number) => (
-                <MessageBubble
-                  key={m.id}
-                  message={m}
-                  index={index}
-                  isLatestUserMessage={isLatestUserMessage(m, index)}
-                  ref={isLatestUserMessage(m, index) ? latestUserMessageRef : undefined}
-                />
-              ))}
+              {(displayMessages as any[]).map((m: any, index: number) => {
+                // Only show streaming state for the latest assistant message
+                const isLatestAssistantMessage =
+                  m.role === 'assistant' && index === displayMessages.length - 1 && displayIsLoading
+
+                return (
+                  <MessageBubble
+                    key={m.id}
+                    message={m}
+                    index={index}
+                    isLatestUserMessage={isLatestUserMessage(m, index)}
+                    isStreaming={isLatestAssistantMessage}
+                    ref={isLatestUserMessage(m, index) ? latestUserMessageRef : undefined}
+                  />
+                )
+              })}
 
               {displayIsLoading &&
-                displayMessages.length > 0 &&
-                displayMessages[displayMessages.length - 1].role === 'user' && <LoadingIndicator />}
+                (displayMessages as any[]).length > 0 &&
+                (displayMessages as any[])[(displayMessages as any[]).length - 1].role ===
+                  'user' && <LoadingIndicator />}
 
               {/* Add a spacer div with screen height to ensure enough scroll space */}
               <div className="h-screen" />
@@ -279,7 +321,7 @@ export default function ChatInterface(): React.JSX.Element {
             inputValue={input}
             onValueChange={setInput}
             handleSubmit={handleSubmit}
-            isStreaming={isSdkChatLoading}
+            isStreaming={isStreamingUi}
             onStopStreaming={stop}
             chatId={stableChatIdForUseChat}
             availableProviders={availableProvidersForInput}

@@ -15,6 +15,6 @@ export type OpenMapSidebarParams = z.infer<typeof OpenMapSidebarParamsSchema>
 export const openMapSidebarToolDefinition = {
   description:
     'Opens the map sidebar in the application UI if it is currently closed. Use this to show map-related information or visualizations to the user when appropriate, for example, after adding a new layer to the map or when the user asks to see the map.',
-  parameters: OpenMapSidebarParamsSchema
+  inputSchema: OpenMapSidebarParamsSchema
   // The execute function will be bound by the LlmToolService when registering the tool.
 }

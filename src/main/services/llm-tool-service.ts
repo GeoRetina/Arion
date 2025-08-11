@@ -75,7 +75,8 @@ type ToolExecutor = (params: ToolExecutorParams) => Promise<any> // Returns data
 // Updated: Definition structure for Vercel AI SDK tool
 interface RegisteredToolDefinition {
   description: string
-  parameters: z.ZodTypeAny // Ensures parameters is a Zod schema
+  inputSchema: z.ZodTypeAny // V5: tool input schema
+  // Future: outputSchema?: z.ZodTypeAny
 }
 
 interface RegisteredTool {
@@ -595,7 +596,7 @@ ${chunk.content}`
     if (
       !toolToRegister.definition ||
       typeof toolToRegister.definition.description !== 'string' ||
-      !(toolToRegister.definition.parameters instanceof z.ZodType)
+      !(toolToRegister.definition.inputSchema instanceof z.ZodType)
     ) {
       return
     }
@@ -618,7 +619,7 @@ ${chunk.content}`
         description:
           mcpTool.description ||
           `Dynamically added MCP tool: ${mcpTool.name} from server ${mcpTool.serverId}`,
-        parameters: z.object({}).passthrough()
+        inputSchema: z.object({}).passthrough()
       }
 
       this.registerTool({
@@ -656,7 +657,7 @@ ${chunk.content}`
       if (!allowedToolIds || allowedToolIds.includes(registeredToolEntry.name)) {
         llmTools[registeredToolEntry.name] = tool({
           description: registeredToolEntry.definition.description,
-          parameters: registeredToolEntry.definition.parameters,
+          inputSchema: registeredToolEntry.definition.inputSchema,
           execute: async (args: any) => {
             return this.executeTool(registeredToolEntry.name, args)
           }

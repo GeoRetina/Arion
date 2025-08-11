@@ -256,7 +256,7 @@ export class KnowledgeBaseService {
 
     if (fileType === 'application/pdf') {
       const data = await pdfParse(nodeBuffer) // pdf-parse can handle Node.js Buffer
-      rawText = data.text
+      rawText = data.text.text
     } else if (
       fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       fileType === 'application/msword'

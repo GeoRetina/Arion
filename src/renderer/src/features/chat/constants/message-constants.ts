@@ -4,7 +4,8 @@
 
 export const COMPONENT_TYPES = {
   TEXT: 'text',
-  TOOL_INVOCATION: 'tool-invocation'
+  TOOL_INVOCATION: 'tool-invocation',
+  REASONING: 'reasoning'
 } as const
 
 export const TOOL_STATES = {

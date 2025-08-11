@@ -1,10 +1,11 @@
-import { type LanguageModel } from 'ai'
+import { type LanguageModel, simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createAzure } from '@ai-sdk/azure'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createVertex } from '@ai-sdk/google-vertex'
-import { createOllama } from 'ollama-ai-provider'
+// Replaced deprecated third-party wrapper with our in-house provider
+import { createOllama } from '../providers/ollama-provider'
 import { SettingsService } from './settings-service'
 import { AgentRegistryService } from './agent-registry-service'
 import { detectReasoningModel } from './reasoning-model-detector'
@@ -161,7 +162,9 @@ export class LLMProviderFactory {
       throw new Error('OpenAI provider is not configured correctly.')
     }
     const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
-    return customOpenAI.chat(model as any)
+    // IMPORTANT: use auto API selection so reasoning models (o3/o4-mini) use Responses API
+    // which supports reasoning summaries and streaming reasoning events.
+    return customOpenAI(model as any)
   }
 
   /**
@@ -189,7 +192,7 @@ export class LLMProviderFactory {
       baseURL: azureConfig.endpoint,
       apiVersion: '2024-04-01-preview'
     })
-    return configuredAzure.chat(model || azureConfig.deploymentName)
+    return configuredAzure.chat(model || azureConfig.deploymentName) as unknown as LanguageModel
   }
 
   /**
@@ -223,7 +226,7 @@ export class LLMProviderFactory {
       project: vertexConfig.project,
       location: vertexConfig.location
     })
-    return vertexProvider(model as any)
+    return vertexProvider(model as any) as unknown as LanguageModel
   }
 
   /**
@@ -234,26 +237,24 @@ export class LLMProviderFactory {
     if (!ollamaConfig?.baseURL) {
       throw new Error('Ollama provider is not configured correctly.')
     }
-    
-    // Ensure the baseURL includes the /api path for proper Ollama API endpoint
-    let baseURL = ollamaConfig.baseURL
-    if (!baseURL.endsWith('/api')) {
-      baseURL = baseURL.replace(/\/$/, '') + '/api'
-    }
-    
-    const customOllama = createOllama({
-      baseURL: baseURL
-    })
-    
-    // Only use simulateStreaming for regular models, not reasoning models
-    // Reasoning models have tool schema issues that simulateStreaming doesn't fix
+
+    // Our provider expects the Ollama host without /api (client adds endpoints)
+    // Normalize: remove trailing slash and optional trailing /api
+    let baseURL = ollamaConfig.baseURL.trim()
+    baseURL = baseURL.replace(/\/$/, '')
+    baseURL = baseURL.replace(/\/api\/?$/, '')
+
+    const ollamaProvider = createOllama({ baseURL })
+
+    // Keep behavior: wrap simulate streaming for non-reasoning models only
     const isReasoningModel = detectReasoningModel(model)
     if (!isReasoningModel) {
-      return customOllama(model as any, {
-        simulateStreaming: true
+      return wrapLanguageModel({
+        model: ollamaProvider(model as any),
+        middleware: simulateStreamingMiddleware()
       })
     }
-    
-    return customOllama(model as any)
+
+    return ollamaProvider(model as any)
   }
 }

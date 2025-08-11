@@ -16,7 +16,7 @@ export type QueryKnowledgeBaseParams = z.infer<typeof QueryKnowledgeBaseParamsSc
 export const queryKnowledgeBaseToolDefinition = {
   description:
     "Queries the user's local knowledge base (uploaded documents) with the provided text query to find relevant information. Use this tool when the user asks a question that might be answerable from documents they have added, or when you need to retrieve specific information from those documents.",
-  parameters: QueryKnowledgeBaseParamsSchema
+  inputSchema: QueryKnowledgeBaseParamsSchema
 }
 
 // Example of what the tool's output structure might look like (the actual output to LLM will be a string)

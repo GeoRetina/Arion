@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 import { MemoizedMarkdown, CopyMessageButton } from '@/components/markdown-renderer'
 import { MessagePartRenderer } from './message-part-renderer'
+import { useEffect, useRef, useState } from 'react'
 import { AgentGroupIndicator } from '../agent-indicator'
 import OrchestrationTaskList from '../orchestration-task-list'
 import { Subtask } from '../../../../../../shared/ipc-types'
@@ -10,7 +11,7 @@ import { Subtask } from '../../../../../../shared/ipc-types'
 interface ExtendedMessage {
   id: string
   role: 'system' | 'user' | 'assistant' | 'data' | 'tool'
-  content: string
+  content?: string
   createdAt?: Date
   parts?: any[]
   toolInvocations?: any[]
@@ -25,11 +26,32 @@ interface MessageBubbleProps {
   message: ExtendedMessage
   index: number
   isLatestUserMessage?: boolean
+  isStreaming?: boolean
 }
 
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
-  ({ message, isLatestUserMessage }, ref) => {
+  ({ message, isLatestUserMessage, isStreaming = false }, ref) => {
     const isUser = message.role === 'user'
+    const textFromParts = Array.isArray(message.parts)
+      ? message.parts
+          .filter((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
+          .map((p) => (p as any).text as string)
+          .join('')
+      : ''
+    const primaryText = message.content ?? textFromParts
+
+    const [collapseReasoning, setCollapseReasoning] = useState(false)
+
+    // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
+    const hasAssistantParts = !isUser && Array.isArray(message.parts)
+    const initializedRef = useRef(false)
+    useEffect(() => {
+      if (!hasAssistantParts || initializedRef.current) return
+      initializedRef.current = true
+      const handler = () => setCollapseReasoning(true)
+      window.addEventListener('ai-assistant-text-start', handler)
+      return () => window.removeEventListener('ai-assistant-text-start', handler)
+    }, [hasAssistantParts])
 
     return (
       <div
@@ -45,7 +67,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           )}
         >
           {isUser ? (
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            <div className="whitespace-pre-wrap">{primaryText}</div>
           ) : Array.isArray(message.parts) && message.parts.length > 0 ? (
             message.parts.map((part, partIndex) => (
               <MessagePartRenderer
@@ -53,11 +75,12 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                 part={part}
                 messageId={message.id}
                 index={partIndex}
+                collapseReasoning={collapseReasoning}
               />
             ))
           ) : (
             <>
-              <MemoizedMarkdown content={message.content} id={message.id} isAssistant={true} />
+              <MemoizedMarkdown content={primaryText || ''} id={message.id} isAssistant={true} />
 
               {/* Display orchestration UI when metadata is available */}
               {message.orchestration && (
@@ -84,24 +107,14 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             </>
           )}
         </div>
-        {(message.content ||
-          (Array.isArray(message.parts) &&
-            message.parts.some(
-              (p) => p?.type === 'text' && typeof (p as any).text === 'string'
-            ))) && (
+        {primaryText && primaryText.length > 0 && !isStreaming && (
           <div
             className={cn(
               'mt-1 opacity-0 group-hover:opacity-100 transition-opacity',
               isUser ? 'mr-1' : 'ml-2'
             )}
           >
-            <CopyMessageButton
-              content={
-                message.content ||
-                (message.parts?.find((p) => p?.type === 'text') as any)?.text ||
-                ''
-              }
-            />
+            <CopyMessageButton content={primaryText} />
           </div>
         )}
       </div>

@@ -8,7 +8,7 @@ export const ListMapLayersToolSchema = z.object({}) // No parameters for listing
 export const listMapLayersToolDefinition = {
   description:
     'Lists all features/layers that have been programmatically added to the map by tools, including their unique source IDs, the tool that added them, and the parameters used.',
-  parameters: ListMapLayersToolSchema
+  inputSchema: ListMapLayersToolSchema
 }
 
 // --- Set Layer Style Tool ---
@@ -34,7 +34,7 @@ export type SetLayerStyleParams = z.infer<typeof SetLayerStyleToolSchema>
 export const setLayerStyleToolDefinition = {
   description:
     "Changes the visual style of a specified map layer using its source ID. Allows modification of MapLibre paint properties like color, opacity, size, etc. The paint properties object should be provided under the key 'paint'. The LLM should use its knowledge of MapLibre GL JS paint properties appropriate for the layer's geometry type.",
-  parameters: SetLayerStyleToolSchema
+  inputSchema: SetLayerStyleToolSchema
 }
 
 // --- Remove Map Layer Tool ---
@@ -53,7 +53,7 @@ export type RemoveMapLayerParams = z.infer<typeof RemoveMapLayerToolSchema>
 export const removeMapLayerToolDefinition = {
   description:
     "Removes a previously added map layer (and its associated source) from the map using its unique source ID. Use 'list_map_layers' to find the source ID of the layer you want to remove.",
-  parameters: RemoveMapLayerToolSchema
+  inputSchema: RemoveMapLayerToolSchema
 }
 
 // Interface for storing information about added layers in LlmToolService

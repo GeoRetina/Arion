@@ -1,5 +1,6 @@
-import { streamText, smoothStream, type CoreMessage, type LanguageModel } from 'ai'
+import { streamText, smoothStream, stepCountIs, type ModelMessage, type LanguageModel } from 'ai'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
+import { applyReasoningProviderOptions } from './reasoning-provider-options'
 import {
   shouldDisableToolsForReasoningModel,
   extractReasoningFromText,
@@ -14,11 +15,12 @@ export interface StreamingCallbacks {
 
 export interface StreamingOptions {
   model: LanguageModel
-  messages: CoreMessage[]
+  messages: ModelMessage[]
   system?: string
   tools?: Record<string, any>
   maxSteps?: number
   providerId?: string // Add provider ID for reasoning detection
+  modelId?: string // V5: LanguageModel no longer guarantees a modelId property
   abortSignal?: AbortSignal
 }
 
@@ -48,9 +50,11 @@ export class StreamingHandlerService {
       // Process the full stream to collect both text and tool results
       for await (const part of result.fullStream) {
         switch (part.type) {
-          case 'text-delta':
-            textResponse += part.textDelta
+          case 'text-delta': {
+            const delta = (part as any).text
+            textResponse += delta || ''
             break
+          }
           case 'tool-call':
             // Store tool call information for potential later use
             break
@@ -80,8 +84,9 @@ export class StreamingHandlerService {
                 toolResults.push({
                   toolCallId: toolResult.toolCallId,
                   toolName: toolResult.toolName,
-                  args: toolResult.args,
-                  result: toolResult.result
+                  // v5 uses input/output; provide compatibility fields expected by renderer
+                  args: toolResult.args ?? toolResult.input,
+                  result: toolResult.result ?? toolResult.output
                 })
               }
             }
@@ -123,7 +128,7 @@ export class StreamingHandlerService {
         switch (part.type) {
           case 'text-delta':
             // Stream text back to the renderer
-            streamChunks.push(textEncoder.encode(part.textDelta))
+            streamChunks.push(textEncoder.encode((part as any).text))
             break
           case 'tool-call':
             // Log the tool call attempt (execution is handled internally by SDK via 'execute')
@@ -168,12 +173,9 @@ export class StreamingHandlerService {
   ): Promise<void> {
     try {
       // Detect reasoning model and determine tool compatibility
-      const reasoningInfo = shouldDisableToolsForReasoningModel(
-        options.model?.modelId,
-        options.providerId
-      )
+      const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
 
-      const streamTextOptions: Parameters<typeof streamText>[0] = {
+      let streamTextOptions: Parameters<typeof streamText>[0] = {
         model: options.model,
         messages: options.messages,
         system: options.system || '',
@@ -181,8 +183,9 @@ export class StreamingHandlerService {
         ...(options.tools &&
           Object.keys(options.tools).length > 0 &&
           !reasoningInfo.shouldDisableTools && { tools: options.tools }),
-        maxSteps: reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS,
-        toolCallStreaming: true,
+        stopWhen: stepCountIs(
+          reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS
+        ),
         // Add abort signal support
         ...(options.abortSignal && { abortSignal: options.abortSignal }),
         onError: async (errorEvent) => {
@@ -206,6 +209,9 @@ export class StreamingHandlerService {
         }
       }
 
+      // Centralized provider-specific reasoning options
+      streamTextOptions = applyReasoningProviderOptions(options.providerId, streamTextOptions)
+
       // Execute the streamText call and handle stream events in real-time
       let result
       try {
@@ -221,29 +227,58 @@ export class StreamingHandlerService {
 
       // Use fullStream to handle text-delta events directly with error handling
       try {
+        let reasoningSeen = false
+        let reasoningOpen = false
         for await (const part of result.fullStream) {
           switch (part.type) {
-            case 'text-delta':
-              fullText += part.textDelta
+            case 'text-delta': {
+              const delta = (part as any).text ?? (part as any).delta
+              // If we were streaming reasoning, close the think block before normal text
+              if (reasoningOpen) {
+                const closeThink = `0:${JSON.stringify('</think>')}\n`
+                callbacks.onChunk(textEncoder.encode(closeThink))
+                reasoningOpen = false
+              }
+              fullText += delta || ''
               // Format chunk for AI SDK compatibility
-              const formattedChunk = `0:${JSON.stringify(part.textDelta)}\n`
+              const formattedChunk = `0:${JSON.stringify(delta || '')}\n`
               callbacks.onChunk(textEncoder.encode(formattedChunk))
               break
-            case 'reasoning':
-              // Include reasoning content in the stream
-              const reasoningChunk = `0:${JSON.stringify(part.textDelta)}\n`
+            }
+            case 'reasoning-delta': {
+              // Send reasoning as text stream wrapped in <think> ... </think> to avoid invalid code errors
+              const reasonDelta = (part as any).text ?? (part as any).delta
+              if (!reasoningOpen) {
+                const openThink = `0:${JSON.stringify('<think>')}\n`
+                callbacks.onChunk(textEncoder.encode(openThink))
+                reasoningOpen = true
+              }
+              const reasoningChunk = `0:${JSON.stringify(reasonDelta || '')}\n`
               callbacks.onChunk(textEncoder.encode(reasoningChunk))
+              reasoningSeen = true
+
               break
-            case 'tool-call':
-              // Send tool call as AI SDK format
-              const toolCallChunk = `9:${JSON.stringify(part)}\n`
+            }
+            case 'tool-call': {
+              // Back-compat for older client: remap input->args
+              const toolCallCompat = {
+                ...part,
+                args: (part as any).input ?? (part as any).args
+              }
+              const toolCallChunk = `9:${JSON.stringify(toolCallCompat)}\n`
               callbacks.onChunk(textEncoder.encode(toolCallChunk))
               break
-            case 'tool-result':
-              // Send tool result as AI SDK format
-              const toolResultChunk = `a:${JSON.stringify(part)}\n`
+            }
+            case 'tool-result': {
+              // Back-compat: remap output->result
+              const toolResultCompat = {
+                ...part,
+                result: (part as any).output ?? (part as any).result
+              }
+              const toolResultChunk = `a:${JSON.stringify(toolResultCompat)}\n`
               callbacks.onChunk(textEncoder.encode(toolResultChunk))
               break
+            }
             case 'tool-call-streaming-start':
               // Send tool call streaming start
               const toolCallStartChunk = `b:${JSON.stringify(part)}\n`
@@ -254,19 +289,26 @@ export class StreamingHandlerService {
               const toolCallDeltaChunk = `c:${JSON.stringify(part)}\n`
               callbacks.onChunk(textEncoder.encode(toolCallDeltaChunk))
               break
-            case 'error':
-              // Send error in AI SDK format
-              const errorChunk = `3:${JSON.stringify({ error: part.error instanceof Error ? part.error.message : String(part.error) })}\n`
+            case 'error': {
+              // Send error in AI SDK wire format: code 3 expects a JSON string value
+              const errorMessage =
+                part.error instanceof Error ? part.error.message : String(part.error)
+              const errorChunk = `3:${JSON.stringify(errorMessage)}\n`
               callbacks.onChunk(textEncoder.encode(errorChunk))
-              callbacks.onError(
-                part.error instanceof Error ? part.error : new Error(String(part.error))
-              )
+              callbacks.onError(part.error instanceof Error ? part.error : new Error(errorMessage))
               return
+            }
             case 'finish':
               // Send completion marker for AI SDK
               const finishData = {
                 finishReason: part.finishReason,
                 usage: part.usage
+              }
+              // Close think section if it was opened
+              if (reasoningOpen) {
+                const closeThink = `0:${JSON.stringify('</think>')}\n`
+                callbacks.onChunk(textEncoder.encode(closeThink))
+                reasoningOpen = false
               }
               const finishChunk = `d:${JSON.stringify(finishData)}\n`
               callbacks.onChunk(textEncoder.encode(finishChunk))
@@ -304,12 +346,20 @@ export class StreamingHandlerService {
    */
   private buildStreamTextOptions(options: StreamingOptions): Parameters<typeof streamText>[0] {
     // Detect reasoning model and determine tool compatibility
-    const reasoningInfo = shouldDisableToolsForReasoningModel(
-      options.model?.modelId,
-      options.providerId
-    )
+    const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
 
-    const streamTextOptions: Parameters<typeof streamText>[0] = {
+    try {
+      // eslint-disable-next-line no-console
+      console.log(
+        '[StreamingHandlerService] model/provider:',
+        options.modelId,
+        options.providerId,
+        'reasoning?',
+        reasoningInfo.isReasoningModel
+      )
+    } catch {}
+
+    let streamTextOptions: Parameters<typeof streamText>[0] = {
       model: options.model,
       messages: options.messages,
       system: options.system || '',
@@ -317,12 +367,15 @@ export class StreamingHandlerService {
       ...(options.tools &&
         Object.keys(options.tools).length > 0 &&
         !reasoningInfo.shouldDisableTools && { tools: options.tools }),
-      maxSteps: reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS,
+      stopWhen: stepCountIs(reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS),
       experimental_transform: smoothStream({}),
       onFinish: async (_event) => {},
       // Add abort signal support
       ...(options.abortSignal && { abortSignal: options.abortSignal })
     }
+
+    // Centralized provider-specific reasoning options
+    streamTextOptions = applyReasoningProviderOptions(options.providerId, streamTextOptions)
 
     return streamTextOptions
   }

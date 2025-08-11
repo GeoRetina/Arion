@@ -567,18 +567,18 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="maxTokens">Max Tokens</Label>
+                        <Label htmlFor="maxOutputTokens">Max Tokens</Label>
                         <span className="text-sm font-medium">
-                          {getParameterValue('maxTokens', 2048)}
+                          {getParameterValue('maxOutputTokens', 2048)}
                         </span>
                       </div>
                       <Slider
-                        id="maxTokens"
+                        id="maxOutputTokens"
                         min={256}
                         max={8192}
                         step={256}
-                        value={[getParameterValue('maxTokens', 2048)]}
-                        onValueChange={(value) => updateModelParameter('maxTokens', value[0])}
+                        value={[getParameterValue('maxOutputTokens', 2048)]}
+                        onValueChange={(value) => updateModelParameter('maxOutputTokens', value[0])}
                       />
                       <p className="text-xs text-muted-foreground">
                         Maximum number of tokens (words/characters) the model can generate.

@@ -1,10 +1,10 @@
-import { convertToCoreMessages, type CoreMessage } from 'ai'
+import { convertToModelMessages, type ModelMessage } from 'ai'
 import { SettingsService } from './settings-service'
 import { ModularPromptManager } from './modular-prompt-manager'
 import { AgentRegistryService } from './agent-registry-service'
 
 export interface PreparedMessagesResult {
-  processedMessages: CoreMessage[]
+  processedMessages: ModelMessage[]
   finalSystemPrompt: string | null
 }
 
@@ -31,12 +31,25 @@ export class MessagePreparationService {
    * @returns Prepared messages and system prompt
    */
   async prepareMessagesAndSystemPrompt(
-    rendererMessages: CoreMessage[],
+    rendererMessages: Array<any>,
     chatId?: string,
     agentId?: string
   ): Promise<PreparedMessagesResult> {
-    // Convert renderer messages to core messages
-    let coreMessages = convertToCoreMessages(rendererMessages as any)
+    // Convert only if messages are UI messages (have parts). If already ModelMessage, use as-is.
+    let coreMessages: ModelMessage[]
+    try {
+      const looksLikeUI =
+        Array.isArray(rendererMessages) &&
+        rendererMessages.length > 0 &&
+        typeof rendererMessages[0] === 'object' &&
+        rendererMessages[0] !== null &&
+        'parts' in rendererMessages[0]
+      coreMessages = looksLikeUI
+        ? (convertToModelMessages(rendererMessages as any) as unknown as ModelMessage[])
+        : (rendererMessages as unknown as ModelMessage[])
+    } catch (e) {
+      coreMessages = (rendererMessages as unknown as ModelMessage[]) || []
+    }
     let finalSystemPrompt: string | null = null
 
     if (!coreMessages) {
@@ -192,9 +205,9 @@ export class MessagePreparationService {
    * @returns Object with processed messages and potentially updated system prompt
    */
   private removeExistingSystemMessage(
-    coreMessages: CoreMessage[],
+    coreMessages: ModelMessage[],
     finalSystemPrompt: string | null
-  ): { messages: CoreMessage[]; systemPrompt: string | null } {
+  ): { messages: ModelMessage[]; systemPrompt: string | null } {
     let updatedSystemPrompt = finalSystemPrompt
 
     if (coreMessages.length > 0 && coreMessages[0].role === 'system') {
@@ -220,7 +233,7 @@ export class MessagePreparationService {
    * @param messages Messages to validate
    * @returns true if messages are valid, false otherwise
    */
-  validateMessages(messages: CoreMessage[]): boolean {
+  validateMessages(messages: ModelMessage[]): boolean {
     if (!messages || messages.length === 0) {
       return false
     }

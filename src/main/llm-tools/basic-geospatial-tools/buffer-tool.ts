@@ -69,6 +69,6 @@ export function createGeoJSONBuffer(params: CreateMapBufferParams): Feature<Poly
 export const createMapBufferToolDefinition = {
   description:
     'Creates a circular buffer (polygon) around a specified point (latitude, longitude) with a given radius and units. Displays the buffer on the map.',
-  parameters: CreateMapBufferToolSchema
+  inputSchema: CreateMapBufferToolSchema
   // execute function will be handled by LlmToolService
 }
