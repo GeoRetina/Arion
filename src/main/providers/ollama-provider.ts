@@ -177,15 +177,35 @@ function buildOllamaRequestFromCall(modelId: string, callOptions: LanguageModelV
   return ollamaRequest
 }
 
-function createStreamFromOllamaIterator(iterator: AsyncIterator<any>, abortSignal?: AbortSignal) {
-  const stream = convertAsyncIteratorToReadableStream<any>(iterator)
-  if (!abortSignal) return stream
-  const reader = stream.getReader()
+function createStreamFromOllamaSource(source: any, abortSignal?: AbortSignal) {
+  // Normalize various possible return types from the Ollama client
+  let baseStream: ReadableStream<any>
+
+  // Case 1: AsyncIterator (has next())
+  if (source && typeof source.next === 'function') {
+    baseStream = convertAsyncIteratorToReadableStream<any>(source as AsyncIterator<any>)
+  }
+  // Case 2: AsyncIterable (has Symbol.asyncIterator)
+  else if (source && typeof source[Symbol.asyncIterator] === 'function') {
+    const iterator = source[Symbol.asyncIterator]() as AsyncIterator<any>
+    baseStream = convertAsyncIteratorToReadableStream<any>(iterator)
+  }
+  // Case 3: WHATWG ReadableStream (has getReader())
+  else if (source && typeof source.getReader === 'function') {
+    baseStream = source as ReadableStream<any>
+  } else {
+    throw new Error('Unexpected stream type from Ollama client')
+  }
+
+  if (!abortSignal) return baseStream
+
+  // Add abort handling wrapper around the base stream
+  const reader = baseStream.getReader()
   const controlled = new ReadableStream<any>({
     start(controller) {
       function onAbort() {
         try {
-          if ((iterator as any).abort) (iterator as any).abort()
+          if (source && typeof source.abort === 'function') (source as any).abort()
         } catch {}
         controller.error(new DOMException('Aborted', 'AbortError'))
       }
@@ -213,7 +233,9 @@ function createStreamFromOllamaIterator(iterator: AsyncIterator<any>, abortSigna
 
 export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
   const client = new Ollama({ host: baseURL, headers, fetch })
-  const idGen = createIdGenerator({ prefix: 'tool', size: 8 })
+  const idGenTool = createIdGenerator({ prefix: 'tool', size: 8 })
+  const idGenReason = createIdGenerator({ prefix: 'reason', size: 8 })
+  const idGenText = createIdGenerator({ prefix: 'text', size: 8 })
 
   return (modelId: string): LanguageModelV2 => {
     return {
@@ -228,7 +250,7 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
         const res = await client.chat(req)
 
         const content: LanguageModelV2Content[] = []
-        const msg = res?.message
+        const msg = (res as any)?.message
         if (msg?.thinking && String(msg.thinking).length > 0) {
           content.push({ type: 'reasoning', text: String(msg.thinking) })
         }
@@ -237,12 +259,20 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
         }
         if (Array.isArray(msg?.tool_calls)) {
           for (const call of msg.tool_calls) {
+            let args: unknown = call.function?.arguments ?? {}
+            if (typeof args === 'string') {
+              try {
+                args = JSON.parse(args)
+              } catch {
+                // leave as string if not valid JSON
+              }
+            }
             content.push({
               type: 'tool-call',
-              toolCallId: idGen(),
-              toolName: call.function.name,
-              input: JSON.stringify(call.function.arguments ?? {})
-            })
+              toolCallId: idGenTool(),
+              toolName: call.function?.name,
+              args: args as any
+            } as any)
           }
         }
 
@@ -272,13 +302,15 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
       async doStream(options: LanguageModelV2CallOptions) {
         const req = buildOllamaRequestFromCall(modelId, options)
         req.stream = true
-        const iterator = (await client.chat(req)) as any as AsyncIterator<any>
+        const streamSource = await client.chat(req)
 
         // Map Ollama streaming parts into LanguageModelV2StreamPart events
-        const stream = createStreamFromOllamaIterator(iterator, options.abortSignal)
+        const stream = createStreamFromOllamaSource(streamSource, options.abortSignal)
         const reader = stream.getReader()
         let textStarted = false
         let reasoningStarted = false
+        let textId: string | null = null
+        let reasoningId: string | null = null
 
         const mapped = new ReadableStream<LanguageModelV2StreamPart>({
           async start(controller) {
@@ -296,12 +328,13 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
                 // Reasoning deltas
                 if (msg?.thinking) {
                   if (!reasoningStarted) {
-                    controller.enqueue({ type: 'reasoning-start', id: idGen() })
+                    reasoningId = idGenReason()
+                    controller.enqueue({ type: 'reasoning-start', id: reasoningId })
                     reasoningStarted = true
                   }
                   controller.enqueue({
                     type: 'reasoning-delta',
-                    id: idGen(),
+                    id: reasoningId as string,
                     delta: String(msg.thinking)
                   })
                 }
@@ -309,12 +342,13 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
                 // Text deltas
                 if (msg?.content) {
                   if (!textStarted) {
-                    controller.enqueue({ type: 'text-start', id: idGen() })
+                    textId = idGenText()
+                    controller.enqueue({ type: 'text-start', id: textId })
                     textStarted = true
                   }
                   controller.enqueue({
                     type: 'text-delta',
-                    id: idGen(),
+                    id: textId as string,
                     delta: String(msg.content)
                   })
                 }
@@ -322,11 +356,19 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
                 // Tool calls
                 if (Array.isArray(msg?.tool_calls) && msg.tool_calls.length > 0) {
                   for (const call of msg.tool_calls) {
+                    let args: unknown = call.function?.arguments ?? {}
+                    if (typeof args === 'string') {
+                      try {
+                        args = JSON.parse(args)
+                      } catch {
+                        // keep as string if not JSON
+                      }
+                    }
                     controller.enqueue({
                       type: 'tool-call',
-                      toolCallId: idGen(),
-                      toolName: call.function.name,
-                      input: JSON.stringify(call.function.arguments ?? {}),
+                      toolCallId: idGenTool(),
+                      toolName: call.function?.name,
+                      args: args as any,
                       providerExecuted: false
                     } as any)
                   }
@@ -334,8 +376,9 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
 
                 // Finish
                 if (part?.done) {
-                  if (reasoningStarted) controller.enqueue({ type: 'reasoning-end', id: idGen() })
-                  if (textStarted) controller.enqueue({ type: 'text-end', id: idGen() })
+                  if (reasoningStarted)
+                    controller.enqueue({ type: 'reasoning-end', id: reasoningId as string })
+                  if (textStarted) controller.enqueue({ type: 'text-end', id: textId as string })
 
                   const usage = {
                     inputTokens: (part as any)?.prompt_eval_count,
@@ -357,7 +400,8 @@ export function createOllama({ baseURL, headers, fetch }: CreateOllamaOptions) {
                 }
               }
             } catch (err) {
-              controller.enqueue({ type: 'error', error: err })
+              const message = err instanceof Error ? err.message : String(err)
+              controller.enqueue({ type: 'error', error: message })
             } finally {
               controller.close()
             }

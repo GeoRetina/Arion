@@ -256,14 +256,7 @@ export class StreamingHandlerService {
               const reasoningChunk = `0:${JSON.stringify(reasonDelta || '')}\n`
               callbacks.onChunk(textEncoder.encode(reasoningChunk))
               reasoningSeen = true
-              try {
-                const preview = String(reasonDelta || '').slice(0, 80)
-                // eslint-disable-next-line no-console
-                console.log(
-                  `[StreamingHandlerService] reasoning-delta (${preview.length} chars):`,
-                  preview
-                )
-              } catch {}
+
               break
             }
             case 'tool-call': {
@@ -296,14 +289,15 @@ export class StreamingHandlerService {
               const toolCallDeltaChunk = `c:${JSON.stringify(part)}\n`
               callbacks.onChunk(textEncoder.encode(toolCallDeltaChunk))
               break
-            case 'error':
-              // Send error in AI SDK format
-              const errorChunk = `3:${JSON.stringify({ error: part.error instanceof Error ? part.error.message : String(part.error) })}\n`
+            case 'error': {
+              // Send error in AI SDK wire format: code 3 expects a JSON string value
+              const errorMessage =
+                part.error instanceof Error ? part.error.message : String(part.error)
+              const errorChunk = `3:${JSON.stringify(errorMessage)}\n`
               callbacks.onChunk(textEncoder.encode(errorChunk))
-              callbacks.onError(
-                part.error instanceof Error ? part.error : new Error(String(part.error))
-              )
+              callbacks.onError(part.error instanceof Error ? part.error : new Error(errorMessage))
               return
+            }
             case 'finish':
               // Send completion marker for AI SDK
               const finishData = {
@@ -336,12 +330,6 @@ export class StreamingHandlerService {
       }
 
       callbacks.onComplete()
-      try {
-        if (!reasoningSeen) {
-          // eslint-disable-next-line no-console
-          console.log('[StreamingHandlerService] No reasoning deltas observed in stream.')
-        }
-      } catch {}
     } catch (error) {
       console.error('[StreamingHandlerService] Error in handleRealTimeStreaming:', error)
       callbacks.onError(

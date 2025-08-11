@@ -239,7 +239,10 @@ export class LLMProviderFactory {
     }
 
     // Our provider expects the Ollama host without /api (client adds endpoints)
-    const baseURL = ollamaConfig.baseURL.replace(/\/$/, '')
+    // Normalize: remove trailing slash and optional trailing /api
+    let baseURL = ollamaConfig.baseURL.trim()
+    baseURL = baseURL.replace(/\/$/, '')
+    baseURL = baseURL.replace(/\/api\/?$/, '')
 
     const ollamaProvider = createOllama({ baseURL })
 
