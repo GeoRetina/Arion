@@ -126,7 +126,7 @@ const MarkdownParagraphWrapper = (props: ComponentProps<'p'> & ExtraProps) => {
 }
 
 const MarkdownBlock = memo(
-  ({ content, isAssistant }: { content: string; isAssistant: boolean }) => {
+  ({ content, isAssistant, variant = 'default' }: { content: string; isAssistant: boolean; variant?: 'default' | 'reasoning' }) => {
     const components: CustomComponents = {
       p: MarkdownParagraphWrapper, // Use the new wrapper here
       h1: (props) => {
@@ -332,12 +332,15 @@ const MarkdownBlock = memo(
       }
     }
 
+    const textSizeClass = variant === 'reasoning' ? '!text-xs [&_p]:!text-xs [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-sm [&_h4]:!text-sm [&_h5]:!text-sm [&_h6]:!text-sm' : ''
+    
     return (
       <div
         className={`
           prose prose-md dark:prose-invert max-w-none border-none
           leading-relaxed break-words whitespace-normal overflow-wrap-anywhere
           ${isAssistant ? 'text-foreground/90 dark:text-foreground' : 'text-foreground'}
+          ${textSizeClass}
         `}
       >
         <ReactMarkdown
@@ -359,8 +362,8 @@ const MarkdownBlock = memo(
 MarkdownBlock.displayName = 'MarkdownBlock'
 
 export const MemoizedMarkdown = memo(
-  ({ content, isAssistant = false }: { content: string; id: string; isAssistant?: boolean }) => {
-    return <MarkdownBlock content={content} isAssistant={isAssistant} />
+  ({ content, isAssistant = false, variant = 'default' }: { content: string; id: string; isAssistant?: boolean; variant?: 'default' | 'reasoning' }) => {
+    return <MarkdownBlock content={content} isAssistant={isAssistant} variant={variant} />
   }
 )
 

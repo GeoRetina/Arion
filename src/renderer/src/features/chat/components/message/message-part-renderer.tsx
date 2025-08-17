@@ -160,7 +160,7 @@ function ThoughtsPart({
       <summary className="cursor-pointer select-none text-sm tracking-wide text-muted-foreground/80 hover:text-foreground">
         Thoughts
       </summary>
-      <div className="mt-2 rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground [&_*]:text-muted-foreground">
+      <div className="mt-2 rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground [&_*]:text-muted-foreground [&_.prose]:!text-sm [&_.prose_p]:!text-sm [&_.prose_h1]:!text-base [&_.prose_h2]:!text-base [&_.prose_h3]:!text-base [&_.prose_li]:!text-sm">
         <MemoizedMarkdown
           content={text}
           id={`${messageId}-reasoning-${index}`}
