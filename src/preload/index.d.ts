@@ -62,12 +62,12 @@ export interface LayerApi {
   invoke: (channel: string, ...args: any[]) => Promise<any>
 }
 
+// Import the full SettingsApi type from shared types
+import type { SettingsApi } from '../shared/ipc-types'
+
 // Define the shape of our custom ctgApi
 export interface CtgApi {
-  settings: {
-    getSetting: (key: string) => Promise<unknown>
-    setSetting: (key: string, value: unknown) => Promise<{ success: boolean; error?: string }>
-  }
+  settings: SettingsApi
   chat: {
     sendMessageStream: (body: ChatRequestBodyForDTS | undefined) => Promise<Uint8Array[]>
   }

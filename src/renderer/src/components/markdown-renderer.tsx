@@ -4,7 +4,10 @@ import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import { Copy, Check } from 'lucide-react'
 import hljs from 'highlight.js'
-import 'highlight.js/styles/github-dark.css' // You can choose a different style
+import 'highlight.js/styles/github.css' // Better for light mode with dark mode fallback
+import './markdown/syntax-highlight-theme.css' // Custom theme overrides
+import { tableStyles } from './markdown/table-styles'
+import { codeblockStyles } from './markdown/codeblock-styles'
 
 // For the `code` component, we need a more specific props type
 interface CodeProps extends React.HTMLAttributes<HTMLElement>, ExtraProps {
@@ -168,10 +171,9 @@ const MarkdownBlock = memo(
       },
       table: (props) => {
         const { node, ...rest } = props
-        // Minimalist table wrapper with subtle styling
         return (
-          <div className="my-6 w-full overflow-x-auto rounded-md border-0">
-            <table className="w-full border-separate border-spacing-0" {...rest} />
+          <div className={tableStyles.container}>
+            <table className={tableStyles.table} {...rest} />
           </div>
         )
       },
@@ -187,7 +189,7 @@ const MarkdownBlock = memo(
         const { node, ...rest } = props
         return (
           <tr 
-            className="group transition-colors duration-150 hover:bg-muted/20 border-b border-border/30 last:border-b-0" 
+            className={tableStyles.row}
             {...rest} 
           />
         )
@@ -197,7 +199,7 @@ const MarkdownBlock = memo(
         return (
           <th
             scope="col"
-            className="px-6 py-3 text-left text-sm font-semibold tracking-wide text-muted-foreground/80 bg-muted/20 first:rounded-tl-md last:rounded-tr-md border-b border-border/40"
+            className={tableStyles.headerCell}
             {...rest}
           />
         )
@@ -206,7 +208,7 @@ const MarkdownBlock = memo(
         const { node, ...rest } = props
         return (
           <td 
-            className="px-6 py-3 text-sm text-foreground/90 group-hover:text-foreground transition-colors duration-150" 
+            className={tableStyles.dataCell}
             {...rest} 
           />
         )
@@ -239,13 +241,13 @@ const MarkdownBlock = memo(
         }
 
         return (
-          <div className="my-4 w-full min-w-80 rounded-lg overflow-hidden bg-gray-800 shadow-md text-sm border border-gray-700">
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-700 border-b border-gray-600">
-              <span className="font-mono text-xs text-sky-400 lowercase">{language}</span>
+          <div className={codeblockStyles.container}>
+            <div className={codeblockStyles.header}>
+              <span className={codeblockStyles.languageLabel}>{language}</span>
               <CopyButton text={codeContentForCopy} />
             </div>
             <pre
-              className="!m-0 !p-0 !border-none !rounded-none !bg-transparent overflow-x-auto"
+              className={codeblockStyles.pre}
               {...restPre}
             >
               {children}
@@ -275,31 +277,13 @@ const MarkdownBlock = memo(
         }
 
         if (renderAsInline) {
-          let highlightedInlineHtml = ''
-          try {
-            highlightedInlineHtml = hljs.highlightAuto(rawCodeString).value
-          } catch (e) {
-            highlightedInlineHtml = rawCodeString.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          }
-
-          // Specific and consistent classes for all inline code rendering
-          const currentInlineCodeClasses = `
-            not-prose
-            px-1.5 py-0.5
-            font-mono text-xs
-            rounded-sm
-            overflow-hidden 
-            text-foreground/90 
-          `
-            .replace(/\s+/g, ' ')
-            .trim()
-
           return (
             <code
-              className={currentInlineCodeClasses}
+              className={codeblockStyles.inline.base}
               {...restCode}
-              dangerouslySetInnerHTML={{ __html: highlightedInlineHtml }}
-            />
+            >
+              {rawCodeString}
+            </code>
           )
         }
 
@@ -325,8 +309,7 @@ const MarkdownBlock = memo(
 
         return (
           <code
-            // className for block code includes the language, original className is important here
-            className={`hljs ${langClass} block !bg-transparent text-current !p-4 whitespace-pre overflow-x-auto ${className || ''}`
+            className={`${codeblockStyles.code} ${langClass} ${className || ''}`
               .replace(/language-plaintext\s?/g, '') // Avoid duplicate plaintext if auto-detected
               .replace(/\s+/g, ' ')
               .trim()}

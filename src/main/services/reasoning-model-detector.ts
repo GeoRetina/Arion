@@ -29,8 +29,13 @@ export function detectReasoningModel(modelId: string | undefined): boolean {
     'chain-of-thought',
     'cot',
     'qwen-qwq',
+    'qwq',
     'deepseek-r1',
-    'marco-o1'
+    'deepseek-reasoning',
+    'marco-o1',
+    'skywork-o1',
+    'llama-3.3-70b-reasoning',
+    'reflection'
   ]
 
   return reasoningModelPatterns.some((pattern) => modelLower.includes(pattern))

@@ -42,7 +42,8 @@ export class ChatService {
     this.messagePreparationService = new MessagePreparationService(
       settingsService,
       modularPromptManager,
-      agentRegistryService
+      agentRegistryService,
+      llmToolService
     )
     this.streamingHandlerService = new StreamingHandlerService()
   }

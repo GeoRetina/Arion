@@ -33,7 +33,14 @@ export type {
   UpdatePromptModuleParams
 } from './types/prompt-types'
 
-export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
+export type LLMProviderType =
+  | 'openai'
+  | 'google'
+  | 'azure'
+  | 'anthropic'
+  | 'vertex'
+  | 'ollama'
+  | 'lm-studio'
 
 export interface OpenAIConfig {
   apiKey: string
@@ -68,6 +75,11 @@ export interface OllamaConfig {
   model?: string | null
 }
 
+export interface LMStudioConfig {
+  baseURL?: string | null
+  model?: string | null
+}
+
 // Added McpServerConfig interface here
 export interface McpServerConfig {
   id: string
@@ -90,6 +102,7 @@ export type LLMConfigData =
   | AnthropicConfig
   | VertexConfig
   | OllamaConfig
+  | LMStudioConfig
 
 export interface AllLLMConfigurations {
   openai?: OpenAIConfig
@@ -98,11 +111,11 @@ export interface AllLLMConfigurations {
   anthropic?: AnthropicConfig
   vertex?: VertexConfig
   ollama?: OllamaConfig
+  lmStudio?: LMStudioConfig
   activeProvider?: LLMProviderType | null
 }
 
 export interface SystemPromptConfig {
-  defaultSystemPrompt: string
   userSystemPrompt: string
 }
 
@@ -134,6 +147,7 @@ export const IpcChannels = {
   setAnthropicConfig: 'settings:set-anthropic-config',
   setVertexConfig: 'settings:set-vertex-config',
   setOllamaConfig: 'settings:set-ollama-config',
+  setLMStudioConfig: 'settings:set-lm-studio-config',
   setActiveLLMProvider: 'settings:set-active-llm-provider',
 
   // Getters
@@ -143,6 +157,7 @@ export const IpcChannels = {
   getAnthropicConfig: 'settings:get-anthropic-config',
   getVertexConfig: 'settings:get-vertex-config',
   getOllamaConfig: 'settings:get-ollama-config',
+  getLMStudioConfig: 'settings:get-lm-studio-config',
   getActiveLLMProvider: 'settings:get-active-llm-provider',
   getAllLLMConfigs: 'settings:get-all-llm-configs', // To load initial state
 
@@ -278,6 +293,8 @@ export interface SettingsApi {
   getVertexConfig: () => Promise<VertexConfig | null>
   setOllamaConfig: (config: OllamaConfig) => Promise<void>
   getOllamaConfig: () => Promise<OllamaConfig | null>
+  setLMStudioConfig: (config: LMStudioConfig) => Promise<void>
+  getLMStudioConfig: () => Promise<LMStudioConfig | null>
   setActiveLLMProvider: (provider: LLMProviderType | null) => Promise<void>
   getActiveLLMProvider: () => Promise<LLMProviderType | null>
   getAllLLMConfigs: () => Promise<AllLLMConfigurations>

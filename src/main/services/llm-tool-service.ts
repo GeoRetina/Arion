@@ -694,6 +694,17 @@ ${chunk.content}`
     }
   }
 
+  /**
+   * Get discovered MCP tools for system prompt generation
+   * @returns Array of discovered MCP tools
+   */
+  public getMcpTools() {
+    if (!this.mcpClientService) {
+      return []
+    }
+    return this.mcpClientService.getDiscoveredTools() || []
+  }
+
   private sendFeatureToMap(feature: Feature<Geometry>, options?: Partial<AddMapFeaturePayload>) {
     if (!this.mainWindow) {
       return

@@ -2,6 +2,8 @@ import { convertToModelMessages, type ModelMessage } from 'ai'
 import { SettingsService } from './settings-service'
 import { ModularPromptManager } from './modular-prompt-manager'
 import { AgentRegistryService } from './agent-registry-service'
+import { getArionSystemPrompt } from '../constants/system-prompts'
+import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
 
 export interface PreparedMessagesResult {
   processedMessages: ModelMessage[]
@@ -12,15 +14,18 @@ export class MessagePreparationService {
   private settingsService: SettingsService
   private modularPromptManager: ModularPromptManager
   private agentRegistryService?: AgentRegistryService
+  private llmToolService?: any // Will be injected to get MCP tools
 
   constructor(
     settingsService: SettingsService,
     modularPromptManager: ModularPromptManager,
-    agentRegistryService?: AgentRegistryService
+    agentRegistryService?: AgentRegistryService,
+    llmToolService?: any
   ) {
     this.settingsService = settingsService
     this.modularPromptManager = modularPromptManager
     this.agentRegistryService = agentRegistryService
+    this.llmToolService = llmToolService
   }
 
   /**
@@ -82,11 +87,14 @@ export class MessagePreparationService {
    */
   private async constructSystemPrompt(chatId?: string, agentId?: string): Promise<string | null> {
     try {
-      // Get the basic system prompt configuration
-      const systemPromptConfig = await this.settingsService.getSystemPromptConfig()
-      let baseSystemPrompt = systemPromptConfig.defaultSystemPrompt
+      // Get MCP tools if available
+      const mcpTools = await this.getMCPTools()
 
-      // Add user system prompt if provided
+      // Get the dynamic system prompt with current MCP tools
+      let baseSystemPrompt = getArionSystemPrompt(mcpTools)
+
+      // Get user system prompt configuration and add if provided
+      const systemPromptConfig = await this.settingsService.getSystemPromptConfig()
       if (systemPromptConfig.userSystemPrompt) {
         baseSystemPrompt = `${baseSystemPrompt}\n\n${systemPromptConfig.userSystemPrompt}`
       }
@@ -105,6 +113,39 @@ export class MessagePreparationService {
       return finalSystemPrompt
     } catch (error) {
       return null
+    }
+  }
+
+  /**
+   * Get available MCP tools for dynamic system prompt generation
+   * @returns Array of MCP tool descriptions
+   */
+  private async getMCPTools(): Promise<ToolDescription[]> {
+    if (!this.llmToolService) {
+      return []
+    }
+
+    try {
+      // Get MCP tools through the LLM tool service
+      const mcpTools = this.llmToolService.getMcpTools()
+      if (!mcpTools || mcpTools.length === 0) {
+        return []
+      }
+
+      // Convert MCP tools to ToolDescription format
+      const toolDescriptions: ToolDescription[] = []
+      for (const mcpTool of mcpTools) {
+        const toolDesc = createMCPToolDescription(
+          mcpTool.name,
+          mcpTool.description || 'MCP tool with no description provided',
+          mcpTool.serverName || 'Unknown Server'
+        )
+        toolDescriptions.push(toolDesc)
+      }
+
+      return toolDescriptions
+    } catch (error) {
+      return []
     }
   }
 

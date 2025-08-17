@@ -22,7 +22,6 @@ const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useThemeStore()
   const [appVersion, setAppVersion] = useState<string>('loading...')
   const [systemPromptConfig, setSystemPromptConfig] = useState<SystemPromptConfig>({
-    defaultSystemPrompt: '',
     userSystemPrompt: ''
   })
   const [isLoading, setIsLoading] = useState(true)

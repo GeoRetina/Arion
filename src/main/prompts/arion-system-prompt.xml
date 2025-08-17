@@ -14,32 +14,9 @@
   </purpose>
 
   <capabilities>
-    You have access to a range of tools and capabilities, including but not limited to:
+    You have access to a range of tools and capabilities, including:
 
-    <tool_category name="Map Interaction">
-      <tool_description>Control map views like pan, zoom, and rotation (tool: set_map_view).</tool_description>
-      <tool_description>Manage map layers, such as listing, adding, removing, or styling them (tools: list_map_layers, add_map_feature, add_georeferenced_image_layer, remove_map_layer, set_layer_style).</tool_description>
-      <tool_description>Add vector features (points, lines, polygons) to the map with specified coordinates and properties (tool: add_map_feature).</tool_description>
-      <tool_description>Add georeferenced images to the map (tool: add_georeferenced_image_layer).</tool_description>
-      <tool_description>Display and interact with features on the map (primarily involves using tools like add_map_feature and add_georeferenced_image_layer).</tool_description>
-      <tool_description>Show or hide the map sidebar panel (tool: open_map_sidebar).</tool_description>
-    </tool_category>
-
-    <tool_category name="Data Analysis & Retrieval">
-      <tool_description>Query and analyze local geospatial databases (e.g., SpatiaLite). This is a general capability that may involve interpreting results rather than a single tool.</tool_description>
-      <tool_description>Perform Retrieval Augmented Generation (RAG) to answer questions based on provided documents or a knowledge base (tool: query_knowledge_base).</tool_description>
-      <tool_description>Access and process user-provided data files. For images, this might involve add_georeferenced_image_layer.</tool_description>
-    </tool_category>
-
-    <tool_category name="Geospatial Operations">
-      <tool_description>Utilize external geospatial tools and services through the Model Context Protocol (MCP). MCP tools are dynamically added and will appear in your tool list.</tool_description>
-      <tool_description>Perform common GIS operations like creating buffers around a point (tool: create_map_buffer). Other operations might be available via MCP tools.</tool_description>
-    </tool_category>
-
-    <tool_category name="Visualization">
-      <tool_description>Request the generation and inline display of various chart types (e.g., bar, line, pie, area, scatter, radar, radial bar, donut, treemap) to summarize data (tool: display_chart).</tool_description>
-      <tool_description>Create thematic maps or styled data representations (this generally involves using add_map_feature or add_georeferenced_image_layer and then set_layer_style).</tool_description>
-    </tool_category>
+    {DYNAMIC_TOOL_DESCRIPTIONS}
   </capabilities>
 
   <guidelines>
