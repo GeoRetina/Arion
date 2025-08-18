@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useAgentTools } from '@/hooks/use-agent-tools'
 
 interface AgentCreationModalProps {
   isOpen: boolean
@@ -49,6 +50,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // Agent creation state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  // Role is automatically set to 'specialist' for all user-created agents
   const [provider, setProvider] = useState<LLMProviderType | ''>('')
   const [model, setModel] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -74,22 +76,37 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(2048)
 
-  // Available tools (this would normally be loaded from your LLMToolService)
-  const [availableTools] = useState<string[]>([
-    'add_map_feature',
-    'add_georeferenced_image_layer',
-    'create_map_buffer',
-    'list_map_layers',
-    'set_map_view',
-    'display_chart',
-    'query_knowledge_base'
-  ])
+  // Access agent store for creation function and existing agents
+  const { createAgent, agents, loadAgents, getAgentById } = useAgentStore()
+
+  // State to hold full agent details for tool checking
+  const [fullAgents, setFullAgents] = useState<any[]>([])
+
+  // Load full agent details when modal opens
+  React.useEffect(() => {
+    if (isOpen && agents.length > 0) {
+      const loadFullAgentDetails = async () => {
+        const fullAgentPromises = agents.map((agent) => getAgentById(agent.id))
+        const fullAgentResults = await Promise.all(fullAgentPromises)
+        const validAgents = fullAgentResults.filter((agent) => agent !== null)
+        setFullAgents(validAgents)
+      }
+      loadFullAgentDetails()
+    }
+  }, [isOpen, agents, getAgentById])
+
+  // Use the agent tools hook to manage available and assigned tools
+  const { availableTools, isLoading: isLoadingTools, error: toolsError } = useAgentTools(fullAgents, isOpen)
 
   // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
-  // Access agent store for creation function
-  const { createAgent } = useAgentStore()
+  // Load agents when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      loadAgents()
+    }
+  }, [isOpen, loadAgents])
 
   // Reset form state on close
   const handleClose = () => {
@@ -139,7 +156,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     if (!provider) return []
 
     // Map of provider IDs to their config objects
-    const configMap: Record<NonNullable<LLMProviderType>, any> = {
+    const configMap: Partial<Record<NonNullable<LLMProviderType>, any>> = {
       openai: openaiConfig,
       google: googleConfig,
       anthropic: anthropicConfig,
@@ -205,6 +222,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
         name,
         description: description || `Agent for ${name}`,
         type: 'user-defined',
+        role: 'specialist', // All user-created agents are specialists
         capabilities: [capability], // Single capability
         promptConfig: {
           // Create a simple agent module from the user's prompt text
@@ -299,6 +317,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                       required
                     />
                   </div>
+                  
+                  {/* All user-created agents are automatically assigned the 'specialist' role */}
                 </div>
               </TabsContent>
 
@@ -316,19 +336,37 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                     <div>
                       <Label>Select Tools</Label>
                       <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                        {availableTools.map((tool) => {
-                          const isSelected = selectedTools.includes(tool)
-                          return (
-                            <Badge
-                              key={tool}
-                              variant={isSelected ? 'default' : 'outline'}
-                              className="cursor-pointer"
-                              onClick={() => toggleToolSelection(tool)}
-                            >
-                              {tool}
-                            </Badge>
-                          )
-                        })}
+                        {isLoadingTools ? (
+                          <div className="w-full text-center py-4 text-muted-foreground">
+                            <p className="text-sm">Loading available tools...</p>
+                          </div>
+                        ) : toolsError ? (
+                          <div className="w-full text-center py-4 text-muted-foreground">
+                            <p className="text-sm text-red-500">Failed to load tools</p>
+                            <p className="text-xs mt-1">{toolsError}</p>
+                          </div>
+                        ) : availableTools.length === 0 ? (
+                          <div className="w-full text-center py-4 text-muted-foreground">
+                            <p className="text-sm">No tools available for assignment.</p>
+                            <p className="text-xs mt-1">
+                              All tools are currently assigned to other agents.
+                            </p>
+                          </div>
+                        ) : (
+                          availableTools.map((tool) => {
+                            const isSelected = selectedTools.includes(tool)
+                            return (
+                              <Badge
+                                key={tool}
+                                variant={isSelected ? 'default' : 'outline'}
+                                className="cursor-pointer"
+                                onClick={() => toggleToolSelection(tool)}
+                              >
+                                {tool}
+                              </Badge>
+                            )
+                          })
+                        )}
                       </div>
                     </div>
                   </CardContent>

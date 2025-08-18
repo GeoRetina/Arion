@@ -1,8 +1,8 @@
 /**
  * Raster Metadata Extractor
- * 
+ *
  * Extracts metadata from raster data sources (GeoTIFF, images).
- * Handles basic file information since detailed raster analysis 
+ * Handles basic file information since detailed raster analysis
  * requires specialized libraries in the main process.
  */
 
@@ -11,7 +11,7 @@ import type { LayerMetadata } from '../../../../../shared/types/layer-types'
 export class RasterMetadataExtractor {
   /**
    * Extract basic metadata from raster file
-   * 
+   *
    * Note: This extracts only basic file information since we're in the renderer process.
    * Detailed GeoTIFF metadata extraction happens in the main process using geotiff library.
    */
@@ -27,7 +27,7 @@ export class RasterMetadataExtractor {
           nullable: false
         },
         fileSize: {
-          type: 'number', 
+          type: 'number',
           nullable: false
         },
         fileSizeFormatted: {
@@ -69,7 +69,7 @@ export class RasterMetadataExtractor {
   } {
     const extension = file.name.toLowerCase().split('.').pop() || ''
     const mimeType = file.type || 'application/octet-stream'
-    
+
     const isGeoTIFF = extension === 'tif' || extension === 'tiff'
     const isPotentiallyGeoreferenced = isGeoTIFF
 
@@ -95,8 +95,8 @@ export class RasterMetadataExtractor {
       ...baseMetadata,
       description: `${fileInfo.isGeoTIFF ? 'GeoTIFF' : 'Raster'} file: ${fileName} (${formattedSize})`,
       tags: [
-        'imported', 
-        'raster', 
+        'imported',
+        'raster',
         fileInfo.extension,
         ...(fileInfo.isGeoTIFF ? ['geotiff'] : []),
         ...(fileInfo.isPotentiallyGeoreferenced ? ['georeferenced'] : [])
@@ -124,7 +124,7 @@ export class RasterMetadataExtractor {
    */
   static validateRasterFile(file: File): { valid: boolean; error?: string } {
     const fileInfo = this.getFileTypeInfo(file)
-    
+
     // Basic validation
     if (file.size === 0) {
       return { valid: false, error: 'File is empty' }
@@ -133,8 +133,8 @@ export class RasterMetadataExtractor {
     // Check if it's a supported raster format
     const supportedExtensions = ['tif', 'tiff']
     if (!supportedExtensions.includes(fileInfo.extension)) {
-      return { 
-        valid: false, 
+      return {
+        valid: false,
         error: `Unsupported raster format: ${fileInfo.extension}. Supported: ${supportedExtensions.join(', ')}`
       }
     }

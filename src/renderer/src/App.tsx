@@ -31,10 +31,10 @@ function App(): React.JSX.Element {
 
   // Get fetchChats action from chat history store
   const fetchChats = useChatHistoryStore((state) => state.fetchChats)
-  
+
   // Get layer store actions
   const loadFromPersistence = useLayerStore((state) => state.loadFromPersistence)
-  
+
   // Get agent store actions
   const loadAgents = useAgentStore((state) => state.loadAgents)
 

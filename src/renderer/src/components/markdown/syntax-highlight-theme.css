@@ -1,0 +1,90 @@
+/* Custom syntax highlighting theme for better light/dark mode support */
+
+/* Light mode - enhance visibility */
+.hljs {
+  color: #24292f !important;
+  background: transparent !important;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-title,
+.hljs-section,
+.hljs-doctag,
+.hljs-name,
+.hljs-strong {
+  color: #d73a49 !important; /* Red */
+}
+
+.hljs-string,
+.hljs-attr {
+  color: #032f62 !important; /* Dark blue */
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-class .hljs-title,
+.hljs-type {
+  color: #e36209 !important; /* Orange */
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-params {
+  color: #005cc5 !important; /* Blue */
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-meta {
+  color: #6a737d !important; /* Gray */
+}
+
+.hljs-function,
+.hljs-built_in {
+  color: #6f42c1 !important; /* Purple */
+}
+
+/* Dark mode overrides */
+.dark .hljs {
+  color: #e1e4e8 !important;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-doctag,
+.dark .hljs-name,
+.dark .hljs-strong {
+  color: #f97583 !important; /* Light red */
+}
+
+.dark .hljs-string,
+.dark .hljs-attr {
+  color: #9ecbff !important; /* Light blue */
+}
+
+.dark .hljs-variable,
+.dark .hljs-template-variable,
+.dark .hljs-class .hljs-title,
+.dark .hljs-type {
+  color: #ffab70 !important; /* Light orange */
+}
+
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-params {
+  color: #79b8ff !important; /* Light blue */
+}
+
+.dark .hljs-comment,
+.dark .hljs-quote,
+.dark .hljs-meta {
+  color: #8b949e !important; /* Light gray */
+}
+
+.dark .hljs-function,
+.dark .hljs-built_in {
+  color: #d2a8ff !important; /* Light purple */
+}

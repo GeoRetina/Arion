@@ -7,6 +7,7 @@ import GoogleConfigModal from './google-config-modal'
 import AnthropicConfigModal from './anthropic-config-modal'
 import VertexConfigModal from './vertex-config-modal'
 import OllamaConfigModal from './ollama-config-modal'
+import LMStudioConfigModal from './lm-studio-config-modal'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
 import {
@@ -34,6 +35,7 @@ export default function ModelsPage(): React.JSX.Element {
   const [isAnthropicModalOpen, setIsAnthropicModalOpen] = useState(false)
   const [isVertexModalOpen, setIsVertexModalOpen] = useState(false)
   const [isOllamaModalOpen, setIsOllamaModalOpen] = useState(false)
+  const [isLMStudioModalOpen, setIsLMStudioModalOpen] = useState(false)
 
   // Get states and actions from the store
   const {
@@ -43,6 +45,7 @@ export default function ModelsPage(): React.JSX.Element {
     anthropicConfig,
     vertexConfig,
     ollamaConfig,
+    lmStudioConfig,
     isConfigured,
     activeProvider,
     setActiveProvider,
@@ -52,6 +55,7 @@ export default function ModelsPage(): React.JSX.Element {
     setAnthropicConfig,
     setVertexConfig,
     setOllamaConfig,
+    setLMStudioConfig,
     clearProviderConfig,
     initializeStore,
     isInitialized
@@ -145,6 +149,19 @@ export default function ModelsPage(): React.JSX.Element {
     handleOllamaCloseModal()
   }
 
+  // LM Studio handlers
+  const handleLMStudioOpenModal = (): void => setIsLMStudioModalOpen(true)
+  const handleLMStudioCloseModal = (): void => setIsLMStudioModalOpen(false)
+  const handleLMStudioSaveConfig = async (config: {
+    baseURL: string
+    model: string
+  }): Promise<void> => {
+    try {
+      await setLMStudioConfig(config)
+    } catch (error) {}
+    handleLMStudioCloseModal()
+  }
+
   const handleClearConfiguration = (providerName: NonNullable<LLMProvider>): void => {
     const providerFriendlyName = providerName.charAt(0).toUpperCase() + providerName.slice(1)
     const confirmation = window.confirm(
@@ -176,6 +193,9 @@ export default function ModelsPage(): React.JSX.Element {
         case 'ollama':
           window.ctg.settings.setOllamaConfig({ baseURL: '', model: '' })
           break
+        case 'lm-studio':
+          window.ctg.settings.setLMStudioConfig({ baseURL: '', model: '' })
+          break
       }
 
       // If the cleared provider was active, set activeProvider to null in main process as well
@@ -192,6 +212,7 @@ export default function ModelsPage(): React.JSX.Element {
   const isAnthropicConfigured = isConfigured('anthropic')
   const isVertexConfigured = isConfigured('vertex')
   const isOllamaConfigured = isConfigured('ollama')
+  const isLMStudioConfigured = isConfigured('lm-studio')
 
   const createProviderCard = (
     providerName: NonNullable<LLMProvider>,
@@ -347,6 +368,13 @@ export default function ModelsPage(): React.JSX.Element {
                 ollamaConfig,
                 handleOllamaOpenModal
               )}
+              {createProviderCard(
+                'lm-studio',
+                'LM Studio',
+                'Local LLM inference with user-friendly interface',
+                lmStudioConfig,
+                handleLMStudioOpenModal
+              )}
             </div>
           </div>
         </div>
@@ -364,6 +392,8 @@ export default function ModelsPage(): React.JSX.Element {
       <VertexConfigModal isOpen={isVertexModalOpen} onClose={handleVertexCloseModal} />
 
       <OllamaConfigModal isOpen={isOllamaModalOpen} onClose={handleOllamaCloseModal} />
+
+      <LMStudioConfigModal isOpen={isLMStudioModalOpen} onClose={handleLMStudioCloseModal} />
     </ScrollArea>
   )
 }

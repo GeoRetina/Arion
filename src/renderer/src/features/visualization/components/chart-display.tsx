@@ -114,7 +114,7 @@ const DEFAULT_COLORS = [
   'var(--chart-10)'
 ]
 
-const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData, onClose }) => {
+const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
   const { chartId, chartType, data, config: rawConfig } = chartData
 
   // Custom content renderer for Treemap to handle colors and text

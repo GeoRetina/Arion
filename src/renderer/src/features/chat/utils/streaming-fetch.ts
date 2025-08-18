@@ -8,7 +8,6 @@ export const createStreamingFetch = () => {
   const streamingFetch = async (url: string, options: { body?: any; signal?: AbortSignal }) => {
     if (url.endsWith('/api/chat')) {
       try {
-        // eslint-disable-next-line no-console
         console.log('[Renderer] streamingFetch -> /api/chat')
       } catch {}
       if (!window.ctg?.chat?.startMessageStream || !window.ctg?.chat?.subscribeToStream) {
@@ -24,7 +23,6 @@ export const createStreamingFetch = () => {
         // Create a stream ID that will be used for this request
         const streamId = await window.ctg.chat.startMessageStream(body)
         try {
-          // eslint-disable-next-line no-console
           console.log('[Renderer] startMessageStream -> streamId:', streamId)
         } catch {}
         currentStreamId = streamId
@@ -36,7 +34,6 @@ export const createStreamingFetch = () => {
             const unsubscribe = window.ctg.chat.subscribeToStream(streamId, {
               onChunk: (chunk: Uint8Array) => {
                 try {
-                  // eslint-disable-next-line no-console
                   console.log('[Renderer] onChunk received bytes:', chunk?.byteLength)
                   controller.enqueue(chunk)
                 } catch (e) {
@@ -46,7 +43,6 @@ export const createStreamingFetch = () => {
               onStart: () => {},
               onError: (error: Error) => {
                 try {
-                  // eslint-disable-next-line no-console
                   console.error('[Renderer] stream error:', error?.message)
                 } catch {}
                 // Propagate the error to the stream controller
@@ -55,7 +51,6 @@ export const createStreamingFetch = () => {
               },
               onEnd: () => {
                 try {
-                  // eslint-disable-next-line no-console
                   console.log('[Renderer] stream end')
                 } catch {}
                 controller.close()

@@ -1,6 +1,6 @@
 /**
  * Production Data Source Resolver
- * 
+ *
  * Integrates with existing application services and extracts real metadata
  * from layers and documents using existing geospatial utilities.
  */
@@ -34,7 +34,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       return layerMetadata
     }
 
-    // Try knowledge base documents  
+    // Try knowledge base documents
     const documentMetadata = await this.resolveDocumentByName(mentionId)
     if (documentMetadata) {
       return documentMetadata
@@ -48,24 +48,23 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
    */
   private async resolveLayerByName(mentionId: string): Promise<MentionMetadata | null> {
     try {
-      
       // Get all layers from the layer store (if available)
       // Note: In main process, we need to access layers through IPC or service
       // For now, we'll implement a service-based approach
       const layers = await this.getAllLayers()
-      
+
       // Find matching layer
-      const matchingLayer = layers.find(layer => 
-        layer.id === mentionId ||
-        this.matchesLayerName(layer.name, mentionId) ||
-        layer.name.toLowerCase().includes(mentionId.toLowerCase())
+      const matchingLayer = layers.find(
+        (layer) =>
+          layer.id === mentionId ||
+          this.matchesLayerName(layer.name, mentionId) ||
+          layer.name.toLowerCase().includes(mentionId.toLowerCase())
       )
-      
+
       if (!matchingLayer) {
         return null
       }
-      
-      
+
       // Extract metadata from the layer using existing utilities
       return await this.extractLayerMetadata(matchingLayer, mentionId)
     } catch (error) {
@@ -79,14 +78,13 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   private matchesLayerName(layerName: string, mentionId: string): boolean {
     const lowerName = layerName.toLowerCase()
     const lowerMention = mentionId.toLowerCase()
-    
+
     return (
       lowerName.replace(/\s+/g, '_') === lowerMention ||
       lowerName.replace(/\s+/g, '-') === lowerMention ||
       lowerName.includes(lowerMention)
     )
   }
-
 
   /**
    * Resolve knowledge base document by name or ID
@@ -99,10 +97,10 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     try {
       // Use the knowledge base service to get all documents
       const documents = await this.knowledgeBaseService.getAllKnowledgeBaseDocuments()
-      
+
       // Find document that matches the mention
-      const document = documents.find(doc => this.matchesDocumentMention(doc, mentionId))
-      
+      const document = documents.find((doc) => this.matchesDocumentMention(doc, mentionId))
+
       if (!document) {
         return null
       }
@@ -134,7 +132,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     const lowerMentionId = mentionId.toLowerCase()
     const lowerName = document.name.toLowerCase()
     const lowerFileName = document.original_file_name?.toLowerCase() || ''
-    
+
     return (
       document.id === mentionId ||
       lowerName.replace(/\s+/g, '_') === lowerMentionId ||
@@ -152,7 +150,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     if (!this.layerDbManager) {
       return []
     }
-    
+
     try {
       return this.layerDbManager.getAllLayers()
     } catch (error) {
@@ -163,7 +161,10 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Extract metadata from a layer definition using existing utilities
    */
-  private async extractLayerMetadata(layer: LayerDefinition, mentionId: string): Promise<MentionMetadata> {
+  private async extractLayerMetadata(
+    layer: LayerDefinition,
+    mentionId: string
+  ): Promise<MentionMetadata> {
     try {
       const baseMetadata: MentionMetadata = {
         id: mentionId,
@@ -191,7 +192,6 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
 
       return baseMetadata
     } catch (error) {
-      
       // Return basic metadata if extraction fails
       return {
         id: mentionId,
@@ -223,7 +223,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       const geoJsonData = layer.sourceConfig.data as any
       if (geoJsonData.features && Array.isArray(geoJsonData.features)) {
         metadata.actualFeatureCount = geoJsonData.features.length
-        
+
         // Extract geometry types from features
         const geometryTypes = new Set()
         geoJsonData.features.forEach((feature: any) => {
@@ -232,7 +232,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
           }
         })
         metadata.geometryTypes = Array.from(geometryTypes)
-        
+
         // Extract attribute information
         if (geoJsonData.features.length > 0) {
           const sampleFeature = geoJsonData.features[0]
@@ -261,14 +261,17 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     // If we have a file path or blob URL, try to extract basic metadata
     if (typeof layer.sourceConfig.data === 'string') {
       const dataSource = layer.sourceConfig.data
-      
+
       // Handle file paths
-      if (!dataSource.startsWith('blob:') && fs.existsSync(dataSource) && 
-          dataSource.toLowerCase().includes('.tif')) {
+      if (
+        !dataSource.startsWith('blob:') &&
+        fs.existsSync(dataSource) &&
+        dataSource.toLowerCase().includes('.tif')
+      ) {
         try {
           const tiff = await geoTiffFromFile(dataSource)
           const image = await tiff.getImage()
-          
+
           metadata.width = image.getWidth()
           metadata.height = image.getHeight()
           metadata.bandCount = image.getSamplesPerPixel()
@@ -276,13 +279,13 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
             x: Math.abs(image.getResolution()[0]),
             y: Math.abs(image.getResolution()[1])
           }
-          
+
           // Get GeoTIFF-specific metadata
           const bbox = image.getBoundingBox()
           if (bbox) {
             metadata.geotiffBounds = bbox
           }
-          
+
           // Get band information
           metadata.bands = []
           for (let i = 0; i < image.getSamplesPerPixel(); i++) {
@@ -291,11 +294,10 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
               description: `Band ${i + 1}`
             })
           }
-          
         } catch (error) {
           metadata.extractionError = 'Failed to read GeoTIFF metadata'
         }
-      } 
+      }
       // Handle blob URLs (imported raster files)
       else if (dataSource.startsWith('blob:')) {
         metadata.dataType = 'blob'
@@ -315,4 +317,3 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     this.layerDbManager = null
   }
 }
-

@@ -13,6 +13,7 @@ import {
   type AnthropicConfig,
   type VertexConfig,
   type OllamaConfig,
+  type LMStudioConfig,
   type LLMProviderType,
   type AllLLMConfigurations,
   type McpServerConfig,
@@ -154,6 +155,10 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.setOllamaConfig, config),
     getOllamaConfig: (): Promise<OllamaConfig | null> =>
       ipcRenderer.invoke(IpcChannels.getOllamaConfig),
+    setLMStudioConfig: (config: LMStudioConfig): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.setLMStudioConfig, config),
+    getLMStudioConfig: (): Promise<LMStudioConfig | null> =>
+      ipcRenderer.invoke(IpcChannels.getLMStudioConfig),
     setActiveLLMProvider: (provider: LLMProviderType | null): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setActiveLLMProvider, provider),
     getActiveLLMProvider: (): Promise<LLMProviderType | null> =>
@@ -639,6 +644,13 @@ const ctgApi = {
         return res.data
       })
   } as PromptModuleApi,
+  tools: {
+    getAllAvailable: (): Promise<string[]> =>
+      ipcRenderer.invoke(IpcChannels.toolsGetAllAvailable).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to get available tools')
+        return res.data
+      })
+  },
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
 

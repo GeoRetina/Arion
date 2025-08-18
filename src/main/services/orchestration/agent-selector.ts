@@ -2,6 +2,7 @@ import type { AgentSelection, Subtask } from '../types/orchestration-types'
 import type { AgentDefinition } from '../../../shared/types/agent-types'
 import { IAgentSelector } from './types/orchestration-interfaces'
 import { AgentRegistryService } from '../agent-registry-service'
+import { isOrchestratorAgent } from '../../../../src/shared/utils/agent-utils'
 
 export class AgentSelector implements IAgentSelector {
   constructor(private agentRegistryService: AgentRegistryService) {}
@@ -16,11 +17,7 @@ export class AgentSelector implements IAgentSelector {
         if (!agentDef) continue
 
         // Skip agents that are orchestrators (to avoid recursion)
-        const isOrchestrator = agentDef.capabilities.some(
-          (cap) =>
-            cap.name.toLowerCase().includes('orchestrat') ||
-            cap.description.toLowerCase().includes('orchestrat')
-        )
+        const isOrchestrator = isOrchestratorAgent(agentDef)
 
         if (!isOrchestrator) {
           const capabilitiesList = agentDef.capabilities

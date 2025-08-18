@@ -2,6 +2,10 @@ import { convertToModelMessages, type ModelMessage } from 'ai'
 import { SettingsService } from './settings-service'
 import { ModularPromptManager } from './modular-prompt-manager'
 import { AgentRegistryService } from './agent-registry-service'
+import { AgentToolManager } from './agent-tool-manager'
+import { getArionSystemPrompt } from '../constants/system-prompts'
+import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
+import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
 
 export interface PreparedMessagesResult {
   processedMessages: ModelMessage[]
@@ -12,15 +16,21 @@ export class MessagePreparationService {
   private settingsService: SettingsService
   private modularPromptManager: ModularPromptManager
   private agentRegistryService?: AgentRegistryService
+  private llmToolService?: any // Will be injected to get MCP tools
+  private agentToolManager?: AgentToolManager // Added for agent tool access
 
   constructor(
     settingsService: SettingsService,
     modularPromptManager: ModularPromptManager,
-    agentRegistryService?: AgentRegistryService
+    agentRegistryService?: AgentRegistryService,
+    llmToolService?: any,
+    agentToolManager?: AgentToolManager
   ) {
     this.settingsService = settingsService
     this.modularPromptManager = modularPromptManager
     this.agentRegistryService = agentRegistryService
+    this.llmToolService = llmToolService
+    this.agentToolManager = agentToolManager
   }
 
   /**
@@ -82,11 +92,47 @@ export class MessagePreparationService {
    */
   private async constructSystemPrompt(chatId?: string, agentId?: string): Promise<string | null> {
     try {
-      // Get the basic system prompt configuration
-      const systemPromptConfig = await this.settingsService.getSystemPromptConfig()
-      let baseSystemPrompt = systemPromptConfig.defaultSystemPrompt
+      // Get MCP tools if available
+      const mcpTools = await this.getMCPTools()
+      
+      // Get agent tool access list if available and agentId is provided
+      let agentToolAccess: string[] | undefined = undefined
+      
+      // Use AgentToolManager if available to determine agent tool access
+      if (this.agentToolManager) {
+        try {
+          if (agentId && this.agentRegistryService) {
+            // For specific agent ID, check if it's an orchestrator or specialized agent
+            const agent = await this.agentRegistryService.getAgentById(agentId)
+            
+            if (agent) {
+              // Check if this is an orchestrator agent
+              const isOrchestrator = isOrchestratorAgent(agent)
+              
+              if (isOrchestrator) {
+                // For orchestrators, use the AgentToolManager to get tool names for orchestrator
+                const orchestratorTools = await this.agentToolManager.getToolsForAgent(agentId)
+                agentToolAccess = Object.keys(orchestratorTools)
+              } else if (agent.toolAccess) {
+                // For specialized agents, use their assigned tools
+                agentToolAccess = agent.toolAccess
+              }
+            }
+          } else {
+            // No agent ID provided - treat as main orchestrator
+            const orchestratorTools = await this.agentToolManager.getToolsForAgent()
+            agentToolAccess = Object.keys(orchestratorTools)
+          }
+        } catch (error) {
+          console.error('Error determining agent tool access:', error)
+        }
+      }
 
-      // Add user system prompt if provided
+      // Get the dynamic system prompt with current MCP tools and agent tool access
+      let baseSystemPrompt = getArionSystemPrompt(mcpTools, agentToolAccess)
+
+      // Get user system prompt configuration and add if provided
+      const systemPromptConfig = await this.settingsService.getSystemPromptConfig()
       if (systemPromptConfig.userSystemPrompt) {
         baseSystemPrompt = `${baseSystemPrompt}\n\n${systemPromptConfig.userSystemPrompt}`
       }
@@ -105,6 +151,39 @@ export class MessagePreparationService {
       return finalSystemPrompt
     } catch (error) {
       return null
+    }
+  }
+
+  /**
+   * Get available MCP tools for dynamic system prompt generation
+   * @returns Array of MCP tool descriptions
+   */
+  private async getMCPTools(): Promise<ToolDescription[]> {
+    if (!this.llmToolService) {
+      return []
+    }
+
+    try {
+      // Get MCP tools through the LLM tool service
+      const mcpTools = this.llmToolService.getMcpTools()
+      if (!mcpTools || mcpTools.length === 0) {
+        return []
+      }
+
+      // Convert MCP tools to ToolDescription format
+      const toolDescriptions: ToolDescription[] = []
+      for (const mcpTool of mcpTools) {
+        const toolDesc = createMCPToolDescription(
+          mcpTool.name,
+          mcpTool.description || 'MCP tool with no description provided',
+          mcpTool.serverName || 'Unknown Server'
+        )
+        toolDescriptions.push(toolDesc)
+      }
+
+      return toolDescriptions
+    } catch (error) {
+      return []
     }
   }
 
@@ -132,11 +211,7 @@ export class MessagePreparationService {
         if (!agentDef) continue
 
         // Skip agents that are orchestrators (to avoid recursion)
-        const isOrchestrator = agentDef.capabilities.some(
-          (cap) =>
-            cap.name.toLowerCase().includes('orchestrat') ||
-            cap.description.toLowerCase().includes('orchestrat')
-        )
+        const isOrchestrator = isOrchestratorAgent(agentDef)
 
         if (!isOrchestrator) {
           const capabilitiesList = agentDef.capabilities

@@ -1,6 +1,6 @@
 /**
  * Layer Import Service
- * 
+ *
  * Main orchestrator for layer import functionality.
  * Coordinates validation, processing, and layer creation.
  */
@@ -36,13 +36,13 @@ export class LayerImportService {
       switch (format) {
         case 'geojson':
           return await GeoJSONProcessor.processFile(file, fileName)
-        
+
         case 'shapefile':
           return await ShapefileProcessor.processFile(file, fileName)
-        
+
         case 'geotiff':
           return await RasterProcessor.processFile(file, fileName)
-        
+
         default:
           throw new Error(`Processing for ${format} format not yet implemented`)
       }
@@ -81,7 +81,6 @@ export class LayerImportService {
         // Add any format-specific warnings
         const warnings = this.getFormatWarnings(file, validation.format!)
         result.warnings.push(...warnings)
-
       } catch (error) {
         result.errors.push(
           `${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -102,13 +101,13 @@ export class LayerImportService {
     switch (format) {
       case 'geotiff':
         const rasterRecommendations = RasterProcessor.getProcessingRecommendations(file)
-        warnings.push(...rasterRecommendations.warnings.map(w => `${file.name}: ${w}`))
+        warnings.push(...rasterRecommendations.warnings.map((w) => `${file.name}: ${w}`))
         break
-      
+
       case 'shapefile':
         // Add shapefile-specific warnings if needed
         break
-      
+
       case 'geojson':
         // Add GeoJSON-specific warnings if needed
         break
@@ -153,11 +152,11 @@ export class LayerImportService {
           const geoJsonData = JSON.parse(text)
           details = GeoJSONProcessor.getSummaryInfo(geoJsonData)
           break
-        
+
         case 'shapefile':
           details = await ShapefileProcessor.analyzeShapefileContents(file)
           break
-        
+
         case 'geotiff':
           details = RasterProcessor.getProcessingRecommendations(file)
           break
@@ -192,13 +191,19 @@ export class LayerImportService {
    * Clean up resources for imported layers (e.g., blob URLs)
    */
   static cleanupLayer(layerDefinition: LayerDefinition): void {
-    if (layerDefinition.type === 'raster' && 
-        typeof layerDefinition.sourceConfig.data === 'string') {
+    if (
+      layerDefinition.type === 'raster' &&
+      typeof layerDefinition.sourceConfig.data === 'string'
+    ) {
       RasterProcessor.cleanupBlobUrl(layerDefinition.sourceConfig.data)
     }
   }
 }
 
 // Re-export commonly used types and constants
-export { SUPPORTED_FORMATS, type SupportedMimeType, type SupportedFormat } from './layer-import-validator'
+export {
+  SUPPORTED_FORMATS,
+  type SupportedMimeType,
+  type SupportedFormat
+} from './layer-import-validator'
 export type { ValidationResult } from './layer-import-validator'

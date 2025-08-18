@@ -158,7 +158,7 @@ export class PromptModuleService {
       type: module.type,
       version: module.version,
       inputSchema: module.parameters
-    }));
+    }))
   }
 
   /**

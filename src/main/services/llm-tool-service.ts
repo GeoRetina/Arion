@@ -667,7 +667,7 @@ ${chunk.content}`
 
     // Log the filtering results if allowedToolIds was provided
     if (allowedToolIds) {
-      const includedTools = Object.keys(llmTools)
+      // Tools have been filtered based on allowedToolIds
     }
 
     return llmTools
@@ -692,6 +692,32 @@ ${chunk.content}`
             : 'An unknown error occurred during tool execution.'
       }
     }
+  }
+
+  /**
+   * Get discovered MCP tools for system prompt generation
+   * @returns Array of discovered MCP tools
+   */
+  public getMcpTools() {
+    if (!this.mcpClientService) {
+      return []
+    }
+    return this.mcpClientService.getDiscoveredTools() || []
+  }
+
+  /**
+   * Get all available tools (both builtin and MCP) for agent assignment
+   * @returns Array of tool names that can be assigned to agents
+   */
+  public getAllAvailableTools(): string[] {
+    const allTools: string[] = []
+
+    // Add all registered tools
+    this.registeredTools.forEach((_, toolName) => {
+      allTools.push(toolName)
+    })
+
+    return allTools.sort()
   }
 
   private sendFeatureToMap(feature: Feature<Geometry>, options?: Partial<AddMapFeaturePayload>) {

@@ -84,6 +84,11 @@ export interface AgentModelConfig {
 }
 
 /**
+ * Agent role type to distinguish between orchestrators and specialized agents
+ */
+export type AgentRole = 'orchestrator' | 'specialist'
+
+/**
  * Complete agent definition
  */
 export interface AgentDefinition {
@@ -91,6 +96,7 @@ export interface AgentDefinition {
   name: string
   description: string
   type: AgentType
+  role?: AgentRole // Explicit role designation
   icon?: string
   capabilities: AgentCapability[]
   promptConfig: AgentPromptConfig

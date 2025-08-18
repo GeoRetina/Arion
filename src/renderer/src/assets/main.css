@@ -14,7 +14,7 @@ body {
 code {
   font-weight: 600;
   padding: 3px 5px;
-  background-color: var(--color-background-mute);
+  background-color: rgba(0, 0, 0, 0.05);
   font-family:
     ui-monospace,
     SFMono-Regular,
@@ -24,6 +24,10 @@ code {
     Liberation Mono,
     monospace;
   font-size: 85%;
+}
+
+.dark code {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 #root {
@@ -209,6 +213,8 @@ code {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-chat-input-background: var(--chat-input-background);
+  --color-codeblock-background: var(--codeblock-background);
+  --color-codeblock-header-background: var(--codeblock-header-background);
 }
 
 :root {
@@ -253,6 +259,8 @@ code {
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.605 0.174 262.3 / 0.5); /* Blue ring to match primary */
   --chat-input-background: oklch(0.97 0 0);
+  --codeblock-background: oklch(0.92 0.005 230); /* Darker than background for light mode */
+  --codeblock-header-background: oklch(0.88 0.01 230); /* Even darker for header */
   --shadow-color-rgb: 0 0 0; /* Default black shadow for light mode */
   --shadow-color-opacity: 0.1;
 }
@@ -307,6 +315,8 @@ code {
   --chat-input-background: oklch(0.37 0.01 250); /* Nebula Night: ChatInputBox - even lighter */
   --chart-background: oklch(0.29 0.018 260); /* Nebula Night: Chart background */
   --user-message-background: oklch(0.38 0.012 235); /* Nebula Night: User messages */
+  --codeblock-background: oklch(0.22 0.015 240); /* Darker than background for dark mode */
+  --codeblock-header-background: oklch(0.18 0.018 245); /* Even darker for header */
   /* Shadow variables for dark mode */
   --shadow-color-rgb: 190 210 250; /* Nebula Night: Ethereal blue/lavender shadow */
   --shadow-color-opacity: 0.1;

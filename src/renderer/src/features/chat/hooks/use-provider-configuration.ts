@@ -12,7 +12,9 @@ export const useProviderConfiguration = (stableChatIdForUseChat: string | null) 
     googleConfig,
     azureConfig,
     anthropicConfig,
+    vertexConfig,
     ollamaConfig,
+    lmStudioConfig,
     isConfigured,
     activeProvider,
     setActiveProvider,
@@ -49,10 +51,13 @@ export const useProviderConfiguration = (stableChatIdForUseChat: string | null) 
           providerConfig = anthropicConfig
           break
         case 'vertex':
-          providerConfig = googleConfig // Vertex uses googleConfig
+          providerConfig = vertexConfig
           break
         case 'ollama':
           providerConfig = ollamaConfig
+          break
+        case 'lm-studio':
+          providerConfig = lmStudioConfig
           break
       }
 
@@ -72,7 +77,9 @@ export const useProviderConfiguration = (stableChatIdForUseChat: string | null) 
     googleConfig,
     azureConfig,
     anthropicConfig,
-    ollamaConfig
+    vertexConfig,
+    ollamaConfig,
+    lmStudioConfig
   ])
 
   return {

@@ -1,13 +1,17 @@
 /**
  * Shapefile Processor
- * 
+ *
  * Handles processing of Shapefile (ZIP) archives for layer import.
  * Uses shpjs library to parse shapefiles and convert to GeoJSON.
  */
 
 import { v4 as uuidv4 } from 'uuid'
 import shp from 'shpjs'
-import type { LayerDefinition, LayerType, LayerSourceConfig } from '../../../../../shared/types/layer-types'
+import type {
+  LayerDefinition,
+  LayerType,
+  LayerSourceConfig
+} from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
 
@@ -20,11 +24,11 @@ export class ShapefileProcessor {
 
     try {
       // Parse shapefile using shpjs - it handles ZIP files automatically
-      let geoJsonData = await shp(arrayBuffer)
-      
+      const geoJsonData = await shp(arrayBuffer)
+
       // Normalize the shpjs output
       const normalizedData = this.normalizeShapefileOutput(geoJsonData)
-      
+
       // Validate the result
       this.validateShapefileData(normalizedData)
 
@@ -105,33 +109,35 @@ export class ShapefileProcessor {
   /**
    * Validate ZIP file contains shapefile components
    */
-  static async validateShapefileZip(file: File): Promise<{ valid: boolean; error?: string; info?: string }> {
+  static async validateShapefileZip(
+    file: File
+  ): Promise<{ valid: boolean; error?: string; info?: string }> {
     try {
       const arrayBuffer = await file.arrayBuffer()
-      
+
       // Try to parse with shpjs to see if it's a valid shapefile
       const result = await shp(arrayBuffer)
-      
+
       if (Array.isArray(result)) {
         if (result.length === 0) {
           return { valid: false, error: 'ZIP archive contains no valid shapefiles' }
         }
-        return { 
-          valid: true, 
+        return {
+          valid: true,
           info: `Found ${result.length} shapefile(s) in ZIP archive`
         }
       } else if (result && result.features) {
-        return { 
-          valid: true, 
+        return {
+          valid: true,
           info: `Found shapefile with ${result.features.length} features`
         }
       }
 
       return { valid: false, error: 'ZIP archive does not contain valid shapefile data' }
     } catch (error) {
-      return { 
-        valid: false, 
-        error: `Failed to validate shapefile: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      return {
+        valid: false,
+        error: `Failed to validate shapefile: ${error instanceof Error ? error.message : 'Unknown error'}`
       }
     }
   }
@@ -158,15 +164,15 @@ export class ShapefileProcessor {
     shapefiles.forEach((shapefile) => {
       if (shapefile.features && Array.isArray(shapefile.features)) {
         totalFeatures += shapefile.features.length
-        
+
         shapefile.features.forEach((feature: any) => {
           if (feature.geometry?.type) {
             geometryTypes.add(feature.geometry.type)
           }
-          
+
           if (feature.properties && Object.keys(feature.properties).length > 0) {
             hasAttributes = true
-            Object.keys(feature.properties).forEach(key => attributeKeys.add(key))
+            Object.keys(feature.properties).forEach((key) => attributeKeys.add(key))
           }
         })
       }

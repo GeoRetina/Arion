@@ -49,6 +49,7 @@ async function processMentions(
     }
   } catch (error) {
     // Continue without enhancement on error
+    console.warn('Failed to enhance message:', error)
   }
 }
 
@@ -70,7 +71,7 @@ export function registerChatIpcHandlers(
     }
     try {
       parsedBody = JSON.parse(jsonBodyString)
-    } catch (e) {
+    } catch (_e) {
       const textEncoder = new TextEncoder()
       return [
         textEncoder.encode(JSON.stringify({ streamError: 'Invalid request format from renderer.' }))
@@ -101,10 +102,12 @@ export function registerChatIpcHandlers(
           chat = dbService.getChatById(chatId)
 
           if (!chat) {
+            console.warn('Failed to create chat with ID:', chatId)
           }
         }
       }
     } else {
+      console.warn('Invalid chat request body')
     }
     // --- END FIX ---
 
@@ -169,7 +172,7 @@ export function registerChatIpcHandlers(
                 )
               ]
             }
-          } catch (orchestrationError) {
+          } catch (_orchestrationError) {
             // Fall back to regular processing if orchestration fails
           }
         }
@@ -195,7 +198,7 @@ export function registerChatIpcHandlers(
     }
     try {
       parsedBody = JSON.parse(jsonBodyString)
-    } catch (e) {
+    } catch (_e) {
       event.sender.send(
         `ctg:chat:stream:error:${streamId}`,
         'Invalid request format from renderer.'
@@ -229,6 +232,7 @@ export function registerChatIpcHandlers(
         chat = dbService.createChat({ id: chatId, title: potentialTitle })
 
         if (!chat) {
+          console.warn('Failed to create stream chat with ID:', chatId)
         }
       }
     }
@@ -291,11 +295,11 @@ export function registerChatIpcHandlers(
                   event.sender.send(`ctg:chat:stream:end:${streamId}`)
                   return true
                 }
-              } catch (orchestrationError) {
+              } catch (_orchestrationError) {
                 // Fall through to regular processing
               }
             }
-          } catch (error) {
+          } catch (_error) {
             // Fall through to regular processing
           }
         }

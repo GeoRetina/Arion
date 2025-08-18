@@ -4,35 +4,27 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
+import { generateToolDescriptions, type ToolDescription } from './tool-constants'
 
 // Function to load the system prompt from XML file
-function loadSystemPromptFromFile(fileName: string): string {
-  try {
-    const promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
-    const promptPath = path.join(promptsBasePath, fileName)
+function loadSystemPromptFromFile(fileName: string, mcpTools: ToolDescription[] = [], agentToolAccess?: string[]): string {
+  const promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
+  const promptPath = path.join(promptsBasePath, fileName)
 
-    if (fs.existsSync(promptPath)) {
-      return fs.readFileSync(promptPath, 'utf8')
-    } else {
-      return fallbackSystemPrompt
-    }
-  } catch (error) {
-    return fallbackSystemPrompt
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`System prompt file not found: ${promptPath}`)
   }
+
+  const templateContent = fs.readFileSync(promptPath, 'utf8')
+  // Replace the placeholder with dynamic tool descriptions
+  const toolDescriptions = generateToolDescriptions(mcpTools, agentToolAccess)
+  return templateContent.replace('{DYNAMIC_TOOL_DESCRIPTIONS}', toolDescriptions)
 }
 
-// Fallback system prompt in case the file can't be loaded
-const fallbackSystemPrompt = `<arion_system_prompt>
-  <persona>
-    You are Arion, an AI assistant specialized in geospatial analysis, data visualization, and map-based interaction.
-    Your primary goal is to assist users with understanding and manipulating geographic information.
-  </persona>
-  
-  <purpose>
-    Your main functions are assisting with geospatial queries and analysis, helping manage and visualize data 
-    on interactive maps, and facilitating workflows involving local data and external geospatial tools.
-  </purpose>
-</arion_system_prompt>`
+// Export function to get system prompt with optional MCP tools
+export function getArionSystemPrompt(mcpTools: ToolDescription[] = [], agentToolAccess?: string[]): string {
+  return loadSystemPromptFromFile('arion-system-prompt.xml', mcpTools, agentToolAccess)
+}
 
-// Export the system prompt
+// Export the basic system prompt for backward compatibility
 export const ARION_SYSTEM_PROMPT = loadSystemPromptFromFile('arion-system-prompt.xml')

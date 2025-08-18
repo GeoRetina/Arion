@@ -4,6 +4,7 @@ import { LlmToolService } from './llm-tool-service'
 
 import { type Subtask, type OrchestrationResult } from './types/orchestration-types'
 import { OrchestrationService } from './orchestration-service'
+import { isOrchestratorAgent } from '../../shared/utils/agent-utils'
 
 /**
  * Service for intelligent agent routing and orchestration
@@ -130,12 +131,8 @@ export class AgentRoutingService {
     // First, check if the ID is an existing agent with orchestrator capabilities
     const agent = await this.agentRegistryService.getAgentById(modelOrAgentId)
     if (agent) {
-      // Check if it has orchestrator capabilities
-      const isOrchestrator = agent.capabilities.some(
-        (cap) =>
-          cap.name.toLowerCase().includes('orchestrat') ||
-          cap.description.toLowerCase().includes('orchestrat')
-      )
+      // Check if it's an orchestrator agent
+      const isOrchestrator = isOrchestratorAgent(agent)
 
       if (isOrchestrator) {
         return modelOrAgentId // It's an orchestrator agent, use it directly
@@ -157,11 +154,7 @@ export class AgentRoutingService {
       const agentDef = await this.agentRegistryService.getAgentById(agentEntry.id)
       if (!agentDef) continue
 
-      const isOrchestrator = agentDef.capabilities.some(
-        (cap) =>
-          cap.name.toLowerCase().includes('orchestrat') ||
-          cap.description.toLowerCase().includes('orchestrat')
-      )
+      const isOrchestrator = isOrchestratorAgent(agentDef)
 
       // Check if this agent can handle the model
       const modelMatch = agentDef.modelConfig?.model?.toLowerCase() === modelOrAgentId.toLowerCase()
