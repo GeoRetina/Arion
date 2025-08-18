@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useAgentTools } from '@/hooks/use-agent-tools'
 
 interface AgentCreationModalProps {
   isOpen: boolean
@@ -77,9 +78,6 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // Access agent store for creation function and existing agents
   const { createAgent, agents, loadAgents, getAgentById } = useAgentStore()
 
-  // Available tools (dynamically fetched from main process)
-  const [allTools, setAllTools] = useState<string[]>([])
-
   // State to hold full agent details for tool checking
   const [fullAgents, setFullAgents] = useState<any[]>([])
 
@@ -96,55 +94,16 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     }
   }, [isOpen, agents, getAgentById])
 
-  // Get already assigned tools from full agent data
-  const getAssignedTools = React.useMemo(() => {
-    const assignedTools = new Set<string>()
-
-    // Collect all tools assigned to existing agents
-    fullAgents.forEach((agent) => {
-      // Check for tools in agent.toolAccess
-      if (agent?.toolAccess && Array.isArray(agent.toolAccess)) {
-        agent.toolAccess.forEach((tool: string) => {
-          assignedTools.add(tool)
-        })
-      }
-
-      // Check for tools in capabilities
-      if (agent?.capabilities && Array.isArray(agent.capabilities)) {
-        agent.capabilities.forEach((capability: any) => {
-          if (capability?.tools && Array.isArray(capability.tools)) {
-            capability.tools.forEach((tool: string) => {
-              assignedTools.add(tool)
-            })
-          }
-        })
-      }
-    })
-
-    return assignedTools
-  }, [fullAgents])
-
-  // Filter available tools to exclude already assigned ones
-  const availableTools = React.useMemo(() => {
-    return allTools.filter((tool) => !getAssignedTools.has(tool))
-  }, [allTools, getAssignedTools])
+  // Use the agent tools hook to manage available and assigned tools
+  const { availableTools, isLoading: isLoadingTools, error: toolsError } = useAgentTools(fullAgents, isOpen)
 
   // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
-  // Load agents and tools when modal opens
+  // Load agents when modal opens
   React.useEffect(() => {
     if (isOpen) {
       loadAgents()
-      // Load available tools dynamically
-      window.ctg.tools
-        .getAllAvailable()
-        .then(setAllTools)
-        .catch((error) => {
-          console.error('Failed to load available tools:', error)
-          // Fallback to empty array if loading fails
-          setAllTools([])
-        })
     }
   }, [isOpen, loadAgents])
 
@@ -373,7 +332,16 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                     <div>
                       <Label>Select Tools</Label>
                       <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                        {availableTools.length === 0 ? (
+                        {isLoadingTools ? (
+                          <div className="w-full text-center py-4 text-muted-foreground">
+                            <p className="text-sm">Loading available tools...</p>
+                          </div>
+                        ) : toolsError ? (
+                          <div className="w-full text-center py-4 text-muted-foreground">
+                            <p className="text-sm text-red-500">Failed to load tools</p>
+                            <p className="text-xs mt-1">{toolsError}</p>
+                          </div>
+                        ) : availableTools.length === 0 ? (
                           <div className="w-full text-center py-4 text-muted-foreground">
                             <p className="text-sm">No tools available for assignment.</p>
                             <p className="text-xs mt-1">
