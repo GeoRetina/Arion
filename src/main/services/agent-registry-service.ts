@@ -153,6 +153,7 @@ export class AgentRegistryService {
           name: agentRow.name,
           description: agentRow.description || '',
           type: agentRow.type as AgentType,
+          role: agentRow.role || 'specialist', // Default to specialist if not specified
           icon: agentRow.icon,
           capabilities: parsedCapabilities,
           promptConfig,
@@ -236,14 +237,15 @@ export class AgentRegistryService {
         db.prepare(
           `
           INSERT INTO agents
-          (id, name, description, type, icon, model_config, tool_access, memory_config, relationships, created_at, updated_at, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, name, description, type, role, icon, model_config, tool_access, memory_config, relationships, created_at, updated_at, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
         ).run(
           agentId,
           newAgent.name,
           newAgent.description,
           newAgent.type,
+          newAgent.role || 'specialist', // Default to specialist if not specified
           newAgent.icon,
           JSON.stringify(newAgent.modelConfig),
           JSON.stringify(newAgent.toolAccess),
@@ -371,6 +373,11 @@ export class AgentRegistryService {
         if (updates.type !== undefined) {
           agentUpdateFields.push('type = ?')
           agentUpdates.push(updates.type)
+        }
+        
+        if (updates.role !== undefined) {
+          agentUpdateFields.push('role = ?')
+          agentUpdates.push(updates.role)
         }
 
         if (updates.icon !== undefined) {

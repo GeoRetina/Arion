@@ -1,5 +1,6 @@
 import type { LlmToolService } from './llm-tool-service'
 import { AgentRegistryService } from './agent-registry-service'
+import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
 
 export class AgentToolManager {
   private llmToolService: LlmToolService
@@ -30,11 +31,7 @@ export class AgentToolManager {
         if (!agent) continue
 
         // Skip orchestrators
-        const isOrchestrator = agent.capabilities.some(
-          (cap) =>
-            cap.name.toLowerCase().includes('orchestrat') ||
-            cap.description.toLowerCase().includes('orchestrat')
-        )
+        const isOrchestrator = this.isOrchestratorAgent(agent)
 
         if (!isOrchestrator) {
           // Add all tools assigned to this specialized agent
@@ -53,16 +50,12 @@ export class AgentToolManager {
   }
 
   /**
-   * Check if an agent is an orchestrator based on its capabilities
+   * Check if an agent is an orchestrator based on its role
    * @param agent Agent definition to check
    * @returns boolean indicating if the agent is an orchestrator
    */
-  private isOrchestratorAgent(agent: any): boolean {
-    return agent?.capabilities.some(
-      (cap: any) =>
-        cap.name.toLowerCase().includes('orchestrat') ||
-        cap.description.toLowerCase().includes('orchestrat')
-    )
+  public isOrchestratorAgent(agent: any): boolean {
+    return isOrchestratorAgent(agent);
   }
 
   /**

@@ -50,6 +50,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // Agent creation state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  // Role is automatically set to 'specialist' for all user-created agents
   const [provider, setProvider] = useState<LLMProviderType | ''>('')
   const [model, setModel] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -221,6 +222,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
         name,
         description: description || `Agent for ${name}`,
         type: 'user-defined',
+        role: 'specialist', // All user-created agents are specialists
         capabilities: [capability], // Single capability
         promptConfig: {
           // Create a simple agent module from the user's prompt text
@@ -315,6 +317,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                       required
                     />
                   </div>
+                  
+                  {/* All user-created agents are automatically assigned the 'specialist' role */}
                 </div>
               </TabsContent>
 

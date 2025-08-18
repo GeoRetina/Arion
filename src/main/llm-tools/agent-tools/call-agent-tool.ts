@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { AgentRegistryService } from '../../services/agent-registry-service'
 import { OrchestrationService } from '../../services/orchestration-service'
 import { CALL_AGENT_TOOL_NAME } from '../../constants/llm-constants'
+import { isOrchestratorAgent } from '../../../shared/utils/agent-utils'
 
 // Define the tool name as a constant
 export const callAgentToolName = CALL_AGENT_TOOL_NAME
@@ -44,11 +45,7 @@ export async function callAgent(
     }
 
     // Check if the agent is an orchestrator (to prevent recursive calls)
-    const isOrchestrator = agent.capabilities.some(
-      (cap) =>
-        cap.name.toLowerCase().includes('orchestrat') ||
-        cap.description.toLowerCase().includes('orchestrat')
-    )
+    const isOrchestrator = isOrchestratorAgent(agent)
 
     if (isOrchestrator) {
       return {
