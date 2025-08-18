@@ -246,7 +246,10 @@ export const IpcChannels = {
   layerPresetsCreate: 'layers:presets:create',
 
   // Performance Metrics
-  layersRecordMetrics: 'layers:recordMetrics'
+  layersRecordMetrics: 'layers:recordMetrics',
+
+  // Tool Management IPC Channels
+  toolsGetAllAvailable: 'tools:getAllAvailable'
 } as const
 
 // Generic IPC Response wrapper
@@ -549,6 +552,7 @@ declare global {
       layers: LayerApi // Added Layer Management API
       agents: AgentApi // Added Agent System API
       promptModules: PromptModuleApi // Added Prompt Module API
+      tools: ToolsApi // Added Tools API
       getAppVersion: () => Promise<string>
     }
   }
@@ -747,4 +751,9 @@ export interface PostgreSQLApi {
   executeTransaction: (id: string, queries: string[]) => Promise<PostgreSQLQueryResult>
   getActiveConnections: () => Promise<string[]>
   getConnectionInfo: (id: string) => Promise<PostgreSQLConnectionInfo>
+}
+
+// Tools API for preload script
+export interface ToolsApi {
+  getAllAvailable: () => Promise<string[]>
 }

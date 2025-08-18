@@ -74,22 +74,78 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(2048)
 
-  // Available tools (this would normally be loaded from your LLMToolService)
-  const [availableTools] = useState<string[]>([
-    'add_map_feature',
-    'add_georeferenced_image_layer',
-    'create_map_buffer',
-    'list_map_layers',
-    'set_map_view',
-    'display_chart',
-    'query_knowledge_base'
-  ])
+  // Access agent store for creation function and existing agents
+  const { createAgent, agents, loadAgents, getAgentById } = useAgentStore()
+
+  // Available tools (dynamically fetched from main process)
+  const [allTools, setAllTools] = useState<string[]>([])
+
+  // State to hold full agent details for tool checking
+  const [fullAgents, setFullAgents] = useState<any[]>([])
+
+  // Load full agent details when modal opens
+  React.useEffect(() => {
+    if (isOpen && agents.length > 0) {
+      const loadFullAgentDetails = async () => {
+        const fullAgentPromises = agents.map(agent => getAgentById(agent.id))
+        const fullAgentResults = await Promise.all(fullAgentPromises)
+        const validAgents = fullAgentResults.filter(agent => agent !== null)
+        setFullAgents(validAgents)
+      }
+      loadFullAgentDetails()
+    }
+  }, [isOpen, agents, getAgentById])
+
+  // Get already assigned tools from full agent data
+  const getAssignedTools = React.useMemo(() => {
+    const assignedTools = new Set<string>()
+    
+    // Collect all tools assigned to existing agents
+    fullAgents.forEach(agent => {
+      // Check for tools in agent.toolAccess
+      if (agent?.toolAccess && Array.isArray(agent.toolAccess)) {
+        agent.toolAccess.forEach((tool: string) => {
+          assignedTools.add(tool)
+        })
+      }
+      
+      // Check for tools in capabilities
+      if (agent?.capabilities && Array.isArray(agent.capabilities)) {
+        agent.capabilities.forEach((capability: any) => {
+          if (capability?.tools && Array.isArray(capability.tools)) {
+            capability.tools.forEach((tool: string) => {
+              assignedTools.add(tool)
+            })
+          }
+        })
+      }
+    })
+    
+    return assignedTools
+  }, [fullAgents])
+
+  // Filter available tools to exclude already assigned ones
+  const availableTools = React.useMemo(() => {
+    return allTools.filter(tool => !getAssignedTools.has(tool))
+  }, [allTools, getAssignedTools])
 
   // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
-  // Access agent store for creation function
-  const { createAgent } = useAgentStore()
+  // Load agents and tools when modal opens
+  React.useEffect(() => {
+    if (isOpen) {
+      loadAgents()
+      // Load available tools dynamically
+      window.ctg.tools.getAllAvailable()
+        .then(setAllTools)
+        .catch((error) => {
+          console.error('Failed to load available tools:', error)
+          // Fallback to empty array if loading fails
+          setAllTools([])
+        })
+    }
+  }, [isOpen, loadAgents])
 
   // Reset form state on close
   const handleClose = () => {
@@ -139,7 +195,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     if (!provider) return []
 
     // Map of provider IDs to their config objects
-    const configMap: Record<NonNullable<LLMProviderType>, any> = {
+    const configMap: Partial<Record<NonNullable<LLMProviderType>, any>> = {
       openai: openaiConfig,
       google: googleConfig,
       anthropic: anthropicConfig,
@@ -316,19 +372,26 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                     <div>
                       <Label>Select Tools</Label>
                       <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                        {availableTools.map((tool) => {
-                          const isSelected = selectedTools.includes(tool)
-                          return (
-                            <Badge
-                              key={tool}
-                              variant={isSelected ? 'default' : 'outline'}
-                              className="cursor-pointer"
-                              onClick={() => toggleToolSelection(tool)}
-                            >
-                              {tool}
-                            </Badge>
-                          )
-                        })}
+                        {availableTools.length === 0 ? (
+                          <div className="w-full text-center py-4 text-muted-foreground">
+                            <p className="text-sm">No tools available for assignment.</p>
+                            <p className="text-xs mt-1">All tools are currently assigned to other agents.</p>
+                          </div>
+                        ) : (
+                          availableTools.map((tool) => {
+                            const isSelected = selectedTools.includes(tool)
+                            return (
+                              <Badge
+                                key={tool}
+                                variant={isSelected ? 'default' : 'outline'}
+                                className="cursor-pointer"
+                                onClick={() => toggleToolSelection(tool)}
+                              >
+                                {tool}
+                              </Badge>
+                            )
+                          })
+                        )}
                       </div>
                     </div>
                   </CardContent>

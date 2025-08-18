@@ -644,6 +644,13 @@ const ctgApi = {
         return res.data
       })
   } as PromptModuleApi,
+  tools: {
+    getAllAvailable: (): Promise<string[]> =>
+      ipcRenderer.invoke(IpcChannels.toolsGetAllAvailable).then((res) => {
+        if (!res.success) throw new Error(res.error || 'Failed to get available tools')
+        return res.data
+      })
+  },
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
 
