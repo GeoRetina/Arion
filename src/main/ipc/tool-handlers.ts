@@ -2,10 +2,7 @@ import { type IpcMain } from 'electron'
 import { IpcChannels } from '../../shared/ipc-types'
 import { type LlmToolService } from '../services/llm-tool-service'
 
-export function registerToolIpcHandlers(
-  ipcMain: IpcMain,
-  llmToolService: LlmToolService
-): void {
+export function registerToolIpcHandlers(ipcMain: IpcMain, llmToolService: LlmToolService): void {
   // Get all available tools (builtin + MCP)
   ipcMain.handle(IpcChannels.toolsGetAllAvailable, async () => {
     try {

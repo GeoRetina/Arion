@@ -1,12 +1,16 @@
 /**
  * GeoJSON Processor
- * 
+ *
  * Handles processing of GeoJSON files for layer import.
  * Validates structure, normalizes format, and creates layer definitions.
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import type { LayerDefinition, LayerType, LayerSourceConfig } from '../../../../../shared/types/layer-types'
+import type {
+  LayerDefinition,
+  LayerType,
+  LayerSourceConfig
+} from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
 
@@ -26,7 +30,7 @@ export class GeoJSONProcessor {
 
     // Normalize to FeatureCollection
     const normalizedData = this.normalizeToFeatureCollection(geoJsonData)
-    
+
     // Extract metadata and create style
     const metadata = VectorMetadataExtractor.extractGeoJSONMetadata(normalizedData)
     const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
@@ -71,11 +75,13 @@ export class GeoJSONProcessor {
       // Single geometry
       return {
         type: 'FeatureCollection',
-        features: [{
-          type: 'Feature',
-          geometry: geoJsonData,
-          properties: {}
-        }]
+        features: [
+          {
+            type: 'Feature',
+            geometry: geoJsonData,
+            properties: {}
+          }
+        ]
       }
     }
 
@@ -94,8 +100,18 @@ export class GeoJSONProcessor {
       return { valid: false, error: 'Invalid GeoJSON: missing type property' }
     }
 
-    const validTypes = ['FeatureCollection', 'Feature', 'Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection']
-    
+    const validTypes = [
+      'FeatureCollection',
+      'Feature',
+      'Point',
+      'LineString',
+      'Polygon',
+      'MultiPoint',
+      'MultiLineString',
+      'MultiPolygon',
+      'GeometryCollection'
+    ]
+
     if (!validTypes.includes(data.type)) {
       return { valid: false, error: `Invalid GeoJSON: invalid type '${data.type}'` }
     }
@@ -114,7 +130,11 @@ export class GeoJSONProcessor {
     }
 
     // Geometry types need coordinates
-    if (['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'].includes(data.type)) {
+    if (
+      ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'].includes(
+        data.type
+      )
+    ) {
       if (!data.coordinates) {
         return { valid: false, error: `Invalid ${data.type}: missing coordinates` }
       }
@@ -134,7 +154,7 @@ export class GeoJSONProcessor {
   } {
     const normalized = this.normalizeToFeatureCollection(geoJsonData)
     const features = normalized.features || []
-    
+
     const geometryTypes = new Set<string>()
     const propertyKeys = new Set<string>()
     let hasProperties = false
@@ -143,10 +163,10 @@ export class GeoJSONProcessor {
       if (feature.geometry?.type) {
         geometryTypes.add(feature.geometry.type)
       }
-      
+
       if (feature.properties && Object.keys(feature.properties).length > 0) {
         hasProperties = true
-        Object.keys(feature.properties).forEach(key => propertyKeys.add(key))
+        Object.keys(feature.properties).forEach((key) => propertyKeys.add(key))
       }
     })
 

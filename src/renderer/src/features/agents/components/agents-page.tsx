@@ -70,7 +70,6 @@ const AgentsPage: React.FC = () => {
     }
   }
 
-
   // Handle create new agent
   const handleCreateAgent = () => {
     setIsCreateModalOpen(true)

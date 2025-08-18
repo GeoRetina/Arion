@@ -1,11 +1,15 @@
 /**
  * Vector Metadata Extractor
- * 
+ *
  * Extracts metadata from vector data sources (GeoJSON, Shapefile).
  * Handles geometry analysis, bounds calculation, and attribute inspection.
  */
 
-import type { LayerMetadata, GeometryType, BoundingBox } from '../../../../../shared/types/layer-types'
+import type {
+  LayerMetadata,
+  GeometryType,
+  BoundingBox
+} from '../../../../../shared/types/layer-types'
 
 export class VectorMetadataExtractor {
   /**
@@ -72,7 +76,7 @@ export class VectorMetadataExtractor {
     // Return the most common geometry type
     let maxCount = 0
     let primaryType: GeometryType = 'Point'
-    
+
     for (const [type, count] of geometryCounts) {
       if (count > maxCount) {
         maxCount = count
@@ -126,7 +130,7 @@ export class VectorMetadataExtractor {
     if (features.length === 0) return {}
 
     const attributes: Record<string, any> = {}
-    
+
     // Use first feature as schema sample
     const sampleProperties = features[0].properties || {}
     Object.keys(sampleProperties).forEach((key) => {
@@ -154,7 +158,7 @@ export class VectorMetadataExtractor {
    */
   static analyzeGeometryDistribution(features: any[]): Record<GeometryType, number> {
     const distribution: Record<string, number> = {}
-    
+
     features.forEach((feature) => {
       if (feature.geometry?.type) {
         const type = feature.geometry.type

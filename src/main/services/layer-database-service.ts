@@ -1,6 +1,6 @@
 /**
  * Layer Database Service
- * 
+ *
  * Handles all database operations for layers, groups, and related functionality.
  * Provides CRUD operations, search, and data persistence using SQLite.
  */
@@ -32,7 +32,9 @@ export interface LayerDatabase {
   // Group CRUD
   getAllGroups: () => LayerGroup[]
   getGroupById: (id: string) => LayerGroup | undefined
-  createGroup: (group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>) => LayerGroup
+  createGroup: (
+    group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>
+  ) => LayerGroup
   updateGroup: (id: string, updates: Partial<LayerGroup>) => LayerGroup
   deleteGroup: (id: string, moveLayersTo?: string) => boolean
 
@@ -93,7 +95,7 @@ export class LayerDatabaseService implements LayerDatabase {
   private runMigration(migrationFile: string): void {
     const fs = require('fs')
     const migrationPath = this.getMigrationPath(migrationFile)
-    
+
     try {
       const migration = fs.readFileSync(migrationPath, 'utf8')
       this.db.exec(migration)
@@ -120,7 +122,9 @@ export class LayerDatabaseService implements LayerDatabase {
       }
     }
 
-    throw new Error(`Migration file not found: ${migrationFile}. Searched paths: ${possiblePaths.join(', ')}`)
+    throw new Error(
+      `Migration file not found: ${migrationFile}. Searched paths: ${possiblePaths.join(', ')}`
+    )
   }
 
   private prepareStatements(): void {
@@ -614,7 +618,6 @@ export class LayerDatabaseService implements LayerDatabase {
   private generateId(): string {
     return `layer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
   }
-
 
   private rowToLayer(row: any): LayerDefinition {
     return {

@@ -34,7 +34,8 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
       },
       {
         name: 'add_map_feature',
-        description: 'Add vector features (points, lines, polygons) to the map with specified coordinates and properties'
+        description:
+          'Add vector features (points, lines, polygons) to the map with specified coordinates and properties'
       },
       {
         name: 'add_georeferenced_image_layer',
@@ -59,7 +60,8 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
     tools: [
       {
         name: 'query_knowledge_base',
-        description: 'Perform Retrieval Augmented Generation (RAG) to answer questions based on provided documents or a knowledge base'
+        description:
+          'Perform Retrieval Augmented Generation (RAG) to answer questions based on provided documents or a knowledge base'
       }
     ]
   },
@@ -77,7 +79,8 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
     tools: [
       {
         name: 'display_chart',
-        description: 'Request the generation and inline display of various chart types (e.g., bar, line, pie, area, scatter, radar, radial bar, donut, treemap) to summarize data'
+        description:
+          'Request the generation and inline display of various chart types (e.g., bar, line, pie, area, scatter, radar, radial bar, donut, treemap) to summarize data'
       }
     ]
   },
@@ -99,24 +102,24 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
  */
 export function generateToolDescriptions(mcpTools: ToolDescription[] = []): string {
   let toolDescriptions = ''
-  
+
   // Add built-in tool categories
   for (const category of BUILTIN_TOOL_CATEGORIES) {
     toolDescriptions += `    <tool_category name="${category.name}">\n`
-    
+
     for (const tool of category.tools) {
       toolDescriptions += `      <tool_description>${tool.description} (tool: ${tool.name}).</tool_description>\n`
     }
-    
+
     toolDescriptions += `    </tool_category>\n\n`
   }
-  
+
   // Add MCP tools if any are available
   if (mcpTools.length > 0) {
     // Group MCP tools by server
     const mcpByServer: { [server: string]: ToolDescription[] } = {}
     const ungroupedMcp: ToolDescription[] = []
-    
+
     for (const tool of mcpTools) {
       if (tool.mcpServer) {
         if (!mcpByServer[tool.mcpServer]) {
@@ -127,26 +130,26 @@ export function generateToolDescriptions(mcpTools: ToolDescription[] = []): stri
         ungroupedMcp.push(tool)
       }
     }
-    
+
     // Add MCP tools grouped by server
     for (const [serverName, serverTools] of Object.entries(mcpByServer)) {
       toolDescriptions += `    <tool_category name="MCP Tools - ${serverName}">\n`
-      
+
       for (const tool of serverTools) {
         toolDescriptions += `      <tool_description>${tool.description} (MCP tool: ${tool.name}).</tool_description>\n`
       }
-      
+
       toolDescriptions += `    </tool_category>\n\n`
     }
-    
+
     // Add ungrouped MCP tools
     if (ungroupedMcp.length > 0) {
       toolDescriptions += `    <tool_category name="MCP Tools - Additional">\n`
-      
+
       for (const tool of ungroupedMcp) {
         toolDescriptions += `      <tool_description>${tool.description} (MCP tool: ${tool.name}).</tool_description>\n`
       }
-      
+
       toolDescriptions += `    </tool_category>\n\n`
     }
   } else {
@@ -155,20 +158,20 @@ export function generateToolDescriptions(mcpTools: ToolDescription[] = []): stri
     toolDescriptions += `      <tool_description>Additional tools may become available through the Model Context Protocol (MCP) when servers are connected. These may include file operations, web scraping, data processing, and specialized geospatial analysis capabilities.</tool_description>\n`
     toolDescriptions += `    </tool_category>\n`
   }
-  
+
   return toolDescriptions.trim()
 }
 
 /**
  * Convert MCP tool information to ToolDescription format
  * @param mcpToolName Tool name from MCP
- * @param mcpToolDescription Tool description from MCP  
+ * @param mcpToolDescription Tool description from MCP
  * @param serverName Name of the MCP server
  * @returns ToolDescription object
  */
 export function createMCPToolDescription(
-  mcpToolName: string, 
-  mcpToolDescription: string, 
+  mcpToolName: string,
+  mcpToolDescription: string,
   serverName: string
 ): ToolDescription {
   return {

@@ -355,7 +355,6 @@ export class StreamingHandlerService {
     const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
 
     try {
-      // eslint-disable-next-line no-console
       console.log(
         '[StreamingHandlerService] model/provider:',
         options.modelId,

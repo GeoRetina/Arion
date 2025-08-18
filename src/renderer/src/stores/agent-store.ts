@@ -40,13 +40,13 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
     try {
       const agents = await window.ctg.agents.getAll()
-      
+
       // Build agent name lookup table
       const lookup = new Map<string, string>()
-      agents.forEach(agent => {
+      agents.forEach((agent) => {
         lookup.set(agent.id, agent.name)
       })
-      
+
       set({ agents, agentNameLookup: lookup, isLoading: false })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error loading agents'

@@ -87,9 +87,9 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   React.useEffect(() => {
     if (isOpen && agents.length > 0) {
       const loadFullAgentDetails = async () => {
-        const fullAgentPromises = agents.map(agent => getAgentById(agent.id))
+        const fullAgentPromises = agents.map((agent) => getAgentById(agent.id))
         const fullAgentResults = await Promise.all(fullAgentPromises)
-        const validAgents = fullAgentResults.filter(agent => agent !== null)
+        const validAgents = fullAgentResults.filter((agent) => agent !== null)
         setFullAgents(validAgents)
       }
       loadFullAgentDetails()
@@ -99,16 +99,16 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // Get already assigned tools from full agent data
   const getAssignedTools = React.useMemo(() => {
     const assignedTools = new Set<string>()
-    
+
     // Collect all tools assigned to existing agents
-    fullAgents.forEach(agent => {
+    fullAgents.forEach((agent) => {
       // Check for tools in agent.toolAccess
       if (agent?.toolAccess && Array.isArray(agent.toolAccess)) {
         agent.toolAccess.forEach((tool: string) => {
           assignedTools.add(tool)
         })
       }
-      
+
       // Check for tools in capabilities
       if (agent?.capabilities && Array.isArray(agent.capabilities)) {
         agent.capabilities.forEach((capability: any) => {
@@ -120,13 +120,13 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
         })
       }
     })
-    
+
     return assignedTools
   }, [fullAgents])
 
   // Filter available tools to exclude already assigned ones
   const availableTools = React.useMemo(() => {
-    return allTools.filter(tool => !getAssignedTools.has(tool))
+    return allTools.filter((tool) => !getAssignedTools.has(tool))
   }, [allTools, getAssignedTools])
 
   // Tool selection state for the capability
@@ -137,7 +137,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     if (isOpen) {
       loadAgents()
       // Load available tools dynamically
-      window.ctg.tools.getAllAvailable()
+      window.ctg.tools
+        .getAllAvailable()
         .then(setAllTools)
         .catch((error) => {
           console.error('Failed to load available tools:', error)
@@ -375,7 +376,9 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                         {availableTools.length === 0 ? (
                           <div className="w-full text-center py-4 text-muted-foreground">
                             <p className="text-sm">No tools available for assignment.</p>
-                            <p className="text-xs mt-1">All tools are currently assigned to other agents.</p>
+                            <p className="text-xs mt-1">
+                              All tools are currently assigned to other agents.
+                            </p>
                           </div>
                         ) : (
                           availableTools.map((tool) => {

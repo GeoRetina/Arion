@@ -1,12 +1,16 @@
 /**
  * Raster Processor
- * 
+ *
  * Handles processing of raster files (GeoTIFF, images) for layer import.
  * Creates blob URLs and layer definitions for raster data.
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import type { LayerDefinition, LayerType, LayerSourceConfig } from '../../../../../shared/types/layer-types'
+import type {
+  LayerDefinition,
+  LayerType,
+  LayerSourceConfig
+} from '../../../../../shared/types/layer-types'
 import { RasterMetadataExtractor } from '../metadata/raster-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
 
@@ -40,15 +44,15 @@ export class RasterProcessor {
       } else {
         imageUrl = URL.createObjectURL(file)
       }
-      
+
       // Extract metadata
       const metadata = RasterMetadataExtractor.extractEnhancedMetadata(file, fileName)
-      
+
       // Add bounds to metadata for zoom-to-layer functionality
       if (bounds) {
         metadata.bounds = bounds
       }
-      
+
       // Create default raster style
       const style = LayerStyleFactory.createRasterStyle()
 
@@ -107,7 +111,7 @@ export class RasterProcessor {
    */
   static getProcessingComplexity(file: File): 'low' | 'medium' | 'high' {
     const sizeMB = file.size / (1024 * 1024)
-    
+
     if (sizeMB < 10) return 'low'
     if (sizeMB < 100) return 'medium'
     return 'high'

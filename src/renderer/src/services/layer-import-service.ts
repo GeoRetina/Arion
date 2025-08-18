@@ -3,7 +3,7 @@
  *
  * @deprecated Use the new modular layer import system instead:
  * import { LayerImportService } from './layer-import'
- * 
+ *
  * This file is kept for backward compatibility and will be removed in the future.
  * The new system provides better separation of concerns and maintainability.
  */

@@ -33,7 +33,6 @@ export interface ValidationResult {
 }
 
 export class LayerImportValidator {
-
   private static readonly EXTENSION_MAP: Record<string, ImportFormat> = {
     json: 'geojson',
     geojson: 'geojson',

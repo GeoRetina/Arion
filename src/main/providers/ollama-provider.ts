@@ -74,7 +74,7 @@ function mapTools(tools: Array<LanguageModelV2FunctionTool> | undefined) {
 
             const zodType = zodDef.typeName || 'ZodString'
             let type = 'string'
-            let description = zodDef.description || ''
+            const description = zodDef.description || ''
 
             if (zodType.includes('Number')) type = 'number'
             else if (zodType.includes('Boolean')) type = 'boolean'

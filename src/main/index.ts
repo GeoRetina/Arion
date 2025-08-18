@@ -46,7 +46,9 @@ function createWindow(): void {
   const preloadPath = join(__dirname, '../preload/index.js')
 
   if (fs.existsSync(preloadPath)) {
+    // Preload script exists
   } else {
+    console.warn('Preload script not found at:', preloadPath)
   }
 
   const mainWindow = new BrowserWindow({
@@ -75,6 +77,7 @@ function createWindow(): void {
   if (llmToolServiceInstance) {
     llmToolServiceInstance.setMainWindow(mainWindow)
   } else {
+    console.warn('LlmToolService not initialized when creating window')
   }
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -156,6 +159,7 @@ app.whenReady().then(async () => {
     await modularPromptManagerInstance.initialize()
   } catch (error) {
     // Consider quitting the app or showing an error dialog if critical services fail
+    console.error('Failed to initialize services:', error)
     app.quit()
     return // Exit if services fail to initialize
   }
@@ -189,7 +193,13 @@ app.whenReady().then(async () => {
 
   // --- Register IPC Handlers ---
   registerSettingsIpcHandlers(ipcMain, settingsServiceInstance)
-  registerChatIpcHandlers(ipcMain, chatServiceInstance, agentRoutingServiceInstance, knowledgeBaseServiceInstance, getLayerDbManager()) // Pass routing service, knowledge base, and layer db manager
+  registerChatIpcHandlers(
+    ipcMain,
+    chatServiceInstance,
+    agentRoutingServiceInstance,
+    knowledgeBaseServiceInstance,
+    getLayerDbManager()
+  ) // Pass routing service, knowledge base, and layer db manager
   registerDbIpcHandlers(ipcMain)
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)
   registerShellHandlers(ipcMain)

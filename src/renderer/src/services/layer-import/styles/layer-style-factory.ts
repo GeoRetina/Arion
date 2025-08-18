@@ -1,6 +1,6 @@
 /**
  * Layer Style Factory
- * 
+ *
  * Creates default styles for different layer types and geometries.
  * Centralizes styling logic for consistency.
  */
@@ -119,15 +119,15 @@ export class LayerStyleFactory {
     // Simple color darkening - remove # if present
     const color = hex.replace('#', '')
     const rgb = parseInt(color, 16)
-    
+
     const r = (rgb >> 16) & 0xff
     const g = (rgb >> 8) & 0xff
     const b = rgb & 0xff
-    
+
     const darkenedR = Math.max(0, Math.floor(r * (1 - factor)))
     const darkenedG = Math.max(0, Math.floor(g * (1 - factor)))
     const darkenedB = Math.max(0, Math.floor(b * (1 - factor)))
-    
+
     return `#${((darkenedR << 16) | (darkenedG << 8) | darkenedB).toString(16).padStart(6, '0')}`
   }
 }

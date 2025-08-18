@@ -126,7 +126,15 @@ const MarkdownParagraphWrapper = (props: ComponentProps<'p'> & ExtraProps) => {
 }
 
 const MarkdownBlock = memo(
-  ({ content, isAssistant, variant = 'default' }: { content: string; isAssistant: boolean; variant?: 'default' | 'reasoning' }) => {
+  ({
+    content,
+    isAssistant,
+    variant = 'default'
+  }: {
+    content: string
+    isAssistant: boolean
+    variant?: 'default' | 'reasoning'
+  }) => {
     const components: CustomComponents = {
       p: MarkdownParagraphWrapper, // Use the new wrapper here
       h1: (props) => {
@@ -187,31 +195,15 @@ const MarkdownBlock = memo(
       },
       tr: (props) => {
         const { node, ...rest } = props
-        return (
-          <tr 
-            className={tableStyles.row}
-            {...rest} 
-          />
-        )
+        return <tr className={tableStyles.row} {...rest} />
       },
       th: (props) => {
         const { node, ...rest } = props
-        return (
-          <th
-            scope="col"
-            className={tableStyles.headerCell}
-            {...rest}
-          />
-        )
+        return <th scope="col" className={tableStyles.headerCell} {...rest} />
       },
       td: (props) => {
         const { node, ...rest } = props
-        return (
-          <td 
-            className={tableStyles.dataCell}
-            {...rest} 
-          />
-        )
+        return <td className={tableStyles.dataCell} {...rest} />
       },
       // MODIFIED 'pre' RENDERER
       pre: (props) => {
@@ -246,10 +238,7 @@ const MarkdownBlock = memo(
               <span className={codeblockStyles.languageLabel}>{language}</span>
               <CopyButton text={codeContentForCopy} />
             </div>
-            <pre
-              className={codeblockStyles.pre}
-              {...restPre}
-            >
+            <pre className={codeblockStyles.pre} {...restPre}>
               {children}
             </pre>
           </div>
@@ -278,10 +267,7 @@ const MarkdownBlock = memo(
 
         if (renderAsInline) {
           return (
-            <code
-              className={codeblockStyles.inline.base}
-              {...restCode}
-            >
+            <code className={codeblockStyles.inline.base} {...restCode}>
               {rawCodeString}
             </code>
           )
@@ -332,8 +318,11 @@ const MarkdownBlock = memo(
       }
     }
 
-    const textSizeClass = variant === 'reasoning' ? '!text-xs [&_p]:!text-xs [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-sm [&_h4]:!text-sm [&_h5]:!text-sm [&_h6]:!text-sm' : ''
-    
+    const textSizeClass =
+      variant === 'reasoning'
+        ? '!text-xs [&_p]:!text-xs [&_h1]:!text-sm [&_h2]:!text-sm [&_h3]:!text-sm [&_h4]:!text-sm [&_h5]:!text-sm [&_h6]:!text-sm'
+        : ''
+
     return (
       <div
         className={`
@@ -362,7 +351,16 @@ const MarkdownBlock = memo(
 MarkdownBlock.displayName = 'MarkdownBlock'
 
 export const MemoizedMarkdown = memo(
-  ({ content, isAssistant = false, variant = 'default' }: { content: string; id: string; isAssistant?: boolean; variant?: 'default' | 'reasoning' }) => {
+  ({
+    content,
+    isAssistant = false,
+    variant = 'default'
+  }: {
+    content: string
+    id: string
+    isAssistant?: boolean
+    variant?: 'default' | 'reasoning'
+  }) => {
     return <MarkdownBlock content={content} isAssistant={isAssistant} variant={variant} />
   }
 )

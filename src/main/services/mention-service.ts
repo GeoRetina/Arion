@@ -1,6 +1,6 @@
 /**
  * Mention Detection and Processing Service
- * 
+ *
  * A clean, production-ready service for detecting @mentions in chat messages
  * and enhancing them with real metadata from layers and knowledge base documents.
  */
@@ -10,7 +10,7 @@
 // Mention detection pattern
 const MENTION_PATTERN = /@([\w-]+)/g
 
-// Supported data source types  
+// Supported data source types
 export type DataSourceType = 'layer' | 'document'
 
 // Resolved mention metadata
@@ -55,10 +55,10 @@ export class MentionService {
 
     // Reset regex state
     MENTION_PATTERN.lastIndex = 0
-    
+
     while ((match = MENTION_PATTERN.exec(text)) !== null) {
       const mentionId = match[1]
-      
+
       // Validate mention ID format
       if (this.isValidMentionId(mentionId)) {
         mentions.push(mentionId)
@@ -74,11 +74,7 @@ export class MentionService {
    */
   private isValidMentionId(mentionId: string): boolean {
     // Must be non-empty, reasonable length, and contain only safe characters
-    return (
-      mentionId.length > 0 &&
-      mentionId.length <= 100 &&
-      /^[\w-]+$/.test(mentionId)
-    )
+    return mentionId.length > 0 && mentionId.length <= 100 && /^[\w-]+$/.test(mentionId)
   }
 
   /**
@@ -88,7 +84,7 @@ export class MentionService {
     if (typeof content !== 'string') {
       return false
     }
-    
+
     MENTION_PATTERN.lastIndex = 0
     return MENTION_PATTERN.test(content)
   }
@@ -120,8 +116,8 @@ export class MentionService {
         try {
           const result = await Promise.race([
             resolver.resolveDataSource(mentionId),
-            new Promise<null>((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout')), 5000) // 5 second timeout
+            new Promise<null>(
+              (_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000) // 5 second timeout
             )
           ])
           return result
@@ -164,7 +160,6 @@ export class MentionService {
       }
 
       return enhancedMessage
-
     } catch (error) {
       return message // Return original message on error
     }
@@ -181,10 +176,13 @@ export class MentionService {
   /**
    * Build truncated enhanced content when metadata is too large
    */
-  private buildTruncatedEnhancedContent(originalContent: string, mentions: MentionMetadata[]): MessageContent {
+  private buildTruncatedEnhancedContent(
+    originalContent: string,
+    mentions: MentionMetadata[]
+  ): MessageContent {
     const truncatedSection = this.formatTruncatedMetadataSection(mentions)
     const enhancedContent = `${originalContent}\n\n${truncatedSection}`
-    
+
     return {
       role: 'user',
       content: enhancedContent
@@ -195,11 +193,10 @@ export class MentionService {
    * Format truncated metadata section with basic info only
    */
   private formatTruncatedMetadataSection(mentions: MentionMetadata[]): string {
-    const lines = [
-      '--- REFERENCED DATA SOURCES (truncated for size) ---'
-    ]
+    const lines = ['--- REFERENCED DATA SOURCES (truncated for size) ---']
 
-    mentions.slice(0, 10).forEach(mention => { // Limit to 10 mentions max
+    mentions.slice(0, 10).forEach((mention) => {
+      // Limit to 10 mentions max
       lines.push(`DATA SOURCE: @${mention.id} - ${mention.name} (${mention.type})`)
     })
 
@@ -214,11 +211,9 @@ export class MentionService {
    * Format metadata section for LLM consumption
    */
   private formatMetadataSection(mentions: MentionMetadata[]): string {
-    const lines = [
-      '--- REFERENCED DATA SOURCES (Use this information, do not query tools) ---'
-    ]
+    const lines = ['--- REFERENCED DATA SOURCES (Use this information, do not query tools) ---']
 
-    mentions.forEach(mention => {
+    mentions.forEach((mention) => {
       lines.push('')
       lines.push(`DATA SOURCE: @${mention.id}`)
       lines.push(`  Name: ${mention.name}`)
@@ -251,7 +246,9 @@ export class MentionService {
     }
     if (metadata.bounds && Array.isArray(metadata.bounds)) {
       const [minLng, minLat, maxLng, maxLat] = metadata.bounds
-      lines.push(`  Bounds: [${minLng.toFixed(3)}, ${minLat.toFixed(3)}, ${maxLng.toFixed(3)}, ${maxLat.toFixed(3)}]`)
+      lines.push(
+        `  Bounds: [${minLng.toFixed(3)}, ${minLat.toFixed(3)}, ${maxLng.toFixed(3)}, ${maxLat.toFixed(3)}]`
+      )
     }
     if (metadata.tags && Array.isArray(metadata.tags)) {
       lines.push(`  Tags: ${metadata.tags.join(', ')}`)
@@ -327,14 +324,14 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     try {
       // This would need to be implemented to access the layer database
       // For now, return null as the integration point
-      
+
       // TODO: Integrate with actual layer database through IPC
       // const layers = await this.getLayersFromDatabase()
-      // const layer = layers.find(l => 
-      //   l.name.toLowerCase().replace(/\s+/g, '_') === mentionId || 
+      // const layer = layers.find(l =>
+      //   l.name.toLowerCase().replace(/\s+/g, '_') === mentionId ||
       //   l.id === mentionId
       // )
-      
+
       return null
     } catch (error) {
       return null
@@ -348,14 +345,14 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
     try {
       // This would need to be implemented to access the knowledge base
       // For now, return null as the integration point
-      
-      // TODO: Integrate with actual knowledge base through IPC  
+
+      // TODO: Integrate with actual knowledge base through IPC
       // const documents = await this.getDocumentsFromKB()
-      // const doc = documents.find(d => 
+      // const doc = documents.find(d =>
       //   d.name.toLowerCase().replace(/\s+/g, '_') === mentionId ||
       //   d.id === mentionId
       // )
-      
+
       return null
     } catch (error) {
       return null

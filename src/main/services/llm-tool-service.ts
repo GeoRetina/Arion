@@ -711,12 +711,12 @@ ${chunk.content}`
    */
   public getAllAvailableTools(): string[] {
     const allTools: string[] = []
-    
+
     // Add all registered tools
     this.registeredTools.forEach((_, toolName) => {
       allTools.push(toolName)
     })
-    
+
     return allTools.sort()
   }
 

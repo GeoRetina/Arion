@@ -74,7 +74,7 @@ const config = {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out'
       },
-      typography: ({ theme }) => ({
+      typography: () => ({
         invert: {
           css: {
             '--tw-prose-body': 'var(--foreground)',
@@ -98,7 +98,12 @@ const config = {
       })
     }
   },
-  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')]
+  plugins: [
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('tailwindcss-animate'),
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@tailwindcss/typography')
+  ]
 } satisfies Config
 
 export default config

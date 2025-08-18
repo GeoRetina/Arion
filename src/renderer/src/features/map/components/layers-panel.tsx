@@ -142,7 +142,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded 
                 ) : (
                   <div className="space-y-1">
                     {displayLayers
-                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .sort(
+                        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                      )
                       .map((layer) => (
                         <LayerItem
                           key={layer.id}
