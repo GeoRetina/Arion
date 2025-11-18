@@ -7,8 +7,7 @@ export const SUPPORTED_LLM_PROVIDERS: NonNullable<LLMProvider>[] = [
   'azure',
   'anthropic',
   'vertex', // Added vertex
-  'ollama', // Added ollama
-  'lm-studio' // Added lm-studio
+  'ollama' // Added ollama
 ]
 
 // Import the SVG logos
@@ -17,7 +16,6 @@ import googleLogo from '@/assets/llm-providers-logos/google.svg'
 import azureLogo from '@/assets/llm-providers-logos/azure.svg'
 import anthropicLogo from '@/assets/llm-providers-logos/anthropic.svg'
 import ollamaLogo from '@/assets/llm-providers-logos/ollama.svg'
-import lmStudioLogo from '@/assets/llm-providers-logos/lm-studio.svg'
 
 // Map of provider IDs to their logos
 export const PROVIDER_LOGOS: Record<NonNullable<LLMProvider>, string> = {
@@ -26,8 +24,7 @@ export const PROVIDER_LOGOS: Record<NonNullable<LLMProvider>, string> = {
   azure: azureLogo,
   anthropic: anthropicLogo,
   vertex: googleLogo, // Using the same Google logo for Vertex AI as requested
-  ollama: ollamaLogo,
-  'lm-studio': lmStudioLogo
+  ollama: ollamaLogo
 }
 
 // Provider card background colors
@@ -37,8 +34,7 @@ export const PROVIDER_BACKGROUNDS: Record<NonNullable<LLMProvider>, string> = {
   azure: 'bg-blue-50',
   anthropic: 'bg-purple-50',
   vertex: 'bg-green-50',
-  ollama: 'bg-gray-100',
-  'lm-studio': 'bg-orange-50'
+  ollama: 'bg-gray-100'
 }
 
 // Provider card progress bar colors
@@ -48,8 +44,7 @@ export const PROVIDER_PROGRESS_COLORS: Record<NonNullable<LLMProvider>, string> 
   azure: 'bg-blue-600',
   anthropic: 'bg-purple-600',
   vertex: 'bg-green-600',
-  ollama: 'bg-gray-600',
-  'lm-studio': 'bg-orange-600'
+  ollama: 'bg-gray-600'
 }
 
 // Define a generic config type that covers the properties used for naming
@@ -66,8 +61,7 @@ export const PROVIDER_CONFIG_KEYS: Record<NonNullable<LLMProvider>, string> = {
   azure: 'deploymentName',
   anthropic: 'model',
   vertex: 'model',
-  ollama: 'model',
-  'lm-studio': 'model'
+  ollama: 'model'
 }
 
 export const getFormattedProviderName = (
@@ -99,9 +93,6 @@ export const getFormattedProviderName = (
         break
       case 'ollama':
         name = `Ollama${config.model ? ` (${config.model})` : ''}`
-        break
-      case 'lm-studio':
-        name = `LM Studio${config.model ? ` (${config.model})` : ''}`
         break
       // No default case needed as 'name' is already initialized
     }

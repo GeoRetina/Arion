@@ -1,10 +1,5 @@
 import { create } from 'zustand'
-import type {
-  LLMProviderType as LLMProvider,
-  VertexConfig,
-  OllamaConfig,
-  LMStudioConfig
-} from '../../../shared/ipc-types'
+import type { LLMProviderType as LLMProvider, VertexConfig, OllamaConfig } from '../../../shared/ipc-types'
 
 export type { LLMProvider }
 
@@ -25,7 +20,6 @@ interface LLMStoreState {
   anthropicConfig: LLMConfig
   vertexConfig: LLMConfig
   ollamaConfig: LLMConfig
-  lmStudioConfig: LLMConfig
   activeProvider: LLMProvider | null
   isInitialized: boolean
   isConfigured: (provider: NonNullable<LLMProvider>) => boolean
@@ -38,7 +32,6 @@ interface LLMStoreState {
   setAnthropicConfig: (config: { apiKey: string; model: string }) => void
   setVertexConfig: (config: VertexConfig) => void
   setOllamaConfig: (config: OllamaConfig) => void
-  setLMStudioConfig: (config: LMStudioConfig) => void
   clearProviderConfig: (provider: NonNullable<LLMProvider>) => void
 }
 
@@ -59,14 +52,11 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
   anthropicConfig: { ...initialConfig },
   vertexConfig: { ...initialConfig },
   ollamaConfig: { ...initialConfig },
-  lmStudioConfig: { ...initialConfig },
   activeProvider: null,
   isInitialized: false,
 
   isConfigured: (provider) => {
-    // Convert provider name to config key (handle hyphenated names)
-    const providerKey = provider === 'lm-studio' ? 'lmStudio' : provider
-    const configKey = `${providerKey}Config` as keyof Pick<
+    const configKey = `${provider}Config` as keyof Pick<
       LLMStoreState,
       | 'openaiConfig'
       | 'googleConfig'
@@ -74,7 +64,6 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       | 'anthropicConfig'
       | 'vertexConfig'
       | 'ollamaConfig'
-      | 'lmStudioConfig'
     >
     const config = get()[configKey] as LLMConfig
     if (!config) return false
@@ -86,9 +75,6 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       return !!(config.project && config.location && config.model)
     }
     if (provider === 'ollama') {
-      return !!(config.baseURL && config.model)
-    }
-    if (provider === 'lm-studio') {
       return !!(config.baseURL && config.model)
     }
     return !!(config.apiKey && config.model)
@@ -107,7 +93,6 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           anthropicConfig: allConfigs.anthropic || { ...initialConfig },
           vertexConfig: allConfigs.vertex || { ...initialConfig },
           ollamaConfig: allConfigs.ollama || { ...initialConfig },
-          lmStudioConfig: allConfigs.lmStudio || { ...initialConfig },
           activeProvider: allConfigs.activeProvider || null,
           isInitialized: true
         })
@@ -327,42 +312,9 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     }
   },
 
-  setLMStudioConfig: async (config: LMStudioConfig) => {
-    const oldConfig = get().lmStudioConfig
-    const oldActiveProvider = get().activeProvider
-    let becameActive = false
-
-    set((state) => {
-      const newLMStudioConfig = { ...state.lmStudioConfig, ...config }
-      const shouldBecomeActive =
-        state.activeProvider === null && newLMStudioConfig.baseURL && newLMStudioConfig.model
-      if (shouldBecomeActive) becameActive = true
-      return {
-        lmStudioConfig: newLMStudioConfig,
-        activeProvider: shouldBecomeActive ? 'lm-studio' : state.activeProvider
-      }
-    })
-
-    try {
-      const settings = window.ctg?.settings
-      if (settings?.setLMStudioConfig) {
-        await settings.setLMStudioConfig(config)
-        if (becameActive && settings.setActiveLLMProvider) {
-          await settings.setActiveLLMProvider('lm-studio')
-        }
-      } else {
-      }
-    } catch (err) {
-      set({ lmStudioConfig: oldConfig, activeProvider: oldActiveProvider })
-      throw err
-    }
-  },
-
   clearProviderConfig: (provider) =>
     set((state) => {
-      // Convert provider name to config key (handle hyphenated names)
-      const providerKey = provider === 'lm-studio' ? 'lmStudio' : provider
-      const configKey = `${providerKey}Config` as keyof Pick<
+      const configKey = `${provider}Config` as keyof Pick<
         LLMStoreState,
         | 'openaiConfig'
         | 'googleConfig'
@@ -370,7 +322,6 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
         | 'anthropicConfig'
         | 'vertexConfig'
         | 'ollamaConfig'
-        | 'lmStudioConfig'
       >
       const newState: Partial<LLMStoreState> = {
         [configKey]: { ...initialConfig }

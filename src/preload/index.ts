@@ -13,7 +13,6 @@ import {
   type AnthropicConfig,
   type VertexConfig,
   type OllamaConfig,
-  type LMStudioConfig,
   type LLMProviderType,
   type AllLLMConfigurations,
   type McpServerConfig,
@@ -155,10 +154,6 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.setOllamaConfig, config),
     getOllamaConfig: (): Promise<OllamaConfig | null> =>
       ipcRenderer.invoke(IpcChannels.getOllamaConfig),
-    setLMStudioConfig: (config: LMStudioConfig): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.setLMStudioConfig, config),
-    getLMStudioConfig: (): Promise<LMStudioConfig | null> =>
-      ipcRenderer.invoke(IpcChannels.getLMStudioConfig),
     setActiveLLMProvider: (provider: LLMProviderType | null): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setActiveLLMProvider, provider),
     getActiveLLMProvider: (): Promise<LLMProviderType | null> =>

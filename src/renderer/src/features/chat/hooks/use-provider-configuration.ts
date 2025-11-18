@@ -14,7 +14,6 @@ export const useProviderConfiguration = (stableChatIdForUseChat: string | null) 
     anthropicConfig,
     vertexConfig,
     ollamaConfig,
-    lmStudioConfig,
     isConfigured,
     activeProvider,
     setActiveProvider,
@@ -56,9 +55,6 @@ export const useProviderConfiguration = (stableChatIdForUseChat: string | null) 
         case 'ollama':
           providerConfig = ollamaConfig
           break
-        case 'lm-studio':
-          providerConfig = lmStudioConfig
-          break
       }
 
       const name = getFormattedProviderName(providerId, providerConfig, configured)
@@ -78,8 +74,7 @@ export const useProviderConfiguration = (stableChatIdForUseChat: string | null) 
     azureConfig,
     anthropicConfig,
     vertexConfig,
-    ollamaConfig,
-    lmStudioConfig
+    ollamaConfig
   ])
 
   return {
