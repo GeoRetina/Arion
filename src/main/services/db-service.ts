@@ -168,6 +168,10 @@ export class DBService {
       }
       return null
     } catch (error) {
+      const errorCode = (error as { code?: string } | undefined)?.code
+      if (errorCode === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+        return this.getChatById(id)
+      }
       return null
     }
   }

@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { type UIMessage } from 'ai'
+import type { Message as SDKMessage } from '@ai-sdk/ui-utils'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 
 /**
@@ -36,39 +37,34 @@ export function useMessagePersistence({
 }: UseMessagePersistenceProps) {
   const { addMessageToCurrentChat } = useChatHistoryStore()
 
-  // Effect to save user messages when sdkMessages changes and a new user message appears
-  useEffect(() => {
-    const latestSdkMessage =
-      sdkMessages.length > 0 ? (sdkMessages[sdkMessages.length - 1] as any) : null
-    if (latestSdkMessage && latestSdkMessage.role === 'user') {
-      const isAlreadySaved = currentMessagesFromStore.some(
-        (storeMsg) => storeMsg.id === latestSdkMessage.id
-      )
-      if (!isAlreadySaved) {
-        const currentChatId = useChatHistoryStore.getState().currentChatId // Get latest from store
-        const handleUserMessageSave = async () => {
-          // ONLY save if a chat session is already established in the DB
-          if (currentChatId) {
-            if (['system', 'user', 'assistant', 'tool'].includes(latestSdkMessage.role)) {
-              const text = getTextFromParts(latestSdkMessage)
-              await addMessageToCurrentChat({
-                id: latestSdkMessage.id,
-                chat_id: currentChatId,
-                role: latestSdkMessage.role,
-                content: text
-              })
-            }
-          }
+  const persistPendingUserMessages = useCallback(
+    async (chatId: string) => {
+      const storeMessages = useChatHistoryStore.getState().currentMessages
+      const baselineMessages =
+        storeMessages && storeMessages.length > 0 ? storeMessages : currentMessagesFromStore
+      const persistedIds = new Set((baselineMessages || []).map((m: any) => m.id))
+
+      for (const message of sdkMessages) {
+        if (message.role !== 'user' || !message.id || persistedIds.has(message.id)) {
+          continue
         }
-        handleUserMessageSave()
+
+        const text = getTextFromParts(message)
+        if (!text || text.trim().length === 0) {
+          continue
+        }
+
+        await addMessageToCurrentChat({
+          id: message.id,
+          chat_id: chatId,
+          role: message.role as any,
+          content: text
+        })
+        persistedIds.add(message.id)
       }
-    }
-  }, [
-    sdkMessages, // This is the primary trigger
-    currentMessagesFromStore, // To check if already saved (for the current chat in store)
-    stableChatIdForUseChat, // For logging
-    addMessageToCurrentChat
-  ])
+    },
+    [sdkMessages, currentMessagesFromStore, addMessageToCurrentChat]
+  )
 
   // Hydrate SDK messages from DB history on first load for the active chat
   useEffect(() => {
@@ -80,21 +76,36 @@ export function useMessagePersistence({
 
     if (!shouldHydrate) return
 
-    const append = (chat as any)?.append
-    if (typeof append !== 'function') return
+    const setMessages = (chat as any)?.setMessages
+    if (typeof setMessages !== 'function') return
 
     // Map DB messages to UIMessage shape (parts-based)
     const normalizeRole = (role: string): any => {
-      if (role === 'data' || role === 'function') return 'assistant'
+      if (role === 'data' || role === 'function' || role === 'tool') return 'assistant'
       return role
     }
 
-    for (const m of currentMessagesFromStore) {
-      append({
+    const normalizedMessages: SDKMessage[] = currentMessagesFromStore.map((m) => {
+      const textContent = m.content ?? ''
+      return {
         id: m.id,
         role: normalizeRole(m.role),
-        parts: m.content ? [{ type: 'text', text: m.content }] : []
-      })
-    }
-  }, [stableChatIdForUseChat, currentChatIdFromStore, sdkMessages, currentMessagesFromStore, chat])
+        content: textContent,
+        createdAt: m.created_at ? new Date(m.created_at) : undefined,
+        parts: textContent ? [{ type: 'text', text: textContent }] : []
+      }
+    })
+
+    setMessages(normalizedMessages)
+  }, [
+    stableChatIdForUseChat,
+    currentChatIdFromStore,
+    sdkMessages,
+    currentMessagesFromStore,
+    chat
+  ])
+
+  return {
+    persistPendingUserMessages
+  }
 }

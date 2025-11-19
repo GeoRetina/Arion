@@ -1,18 +1,13 @@
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { type UIMessage } from 'ai'
 import { v4 as uuidv4 } from 'uuid'
 import { useRef, useEffect, useMemo, useState } from 'react'
-import { Subtask } from '../../../../../shared/ipc-types'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import ChatInputBox from './input/chat-input-box'
-import { useChatHistoryStore } from '../../../stores/chat-history-store'
 import { useChatSession } from '../hooks/useChatSession'
 import { useAutoScroll } from '../hooks/useAutoScroll'
 import { MapSidebar } from '@/features/map/components/map-sidebar'
-import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 import {
   Dialog,
   DialogContent,
@@ -27,7 +22,6 @@ import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
 
 // Imported extracted components and hooks
-import { createStreamingFetch } from '../utils/streaming-fetch'
 import { MessageBubble } from './message/message-bubble'
 import { EmptyState } from './empty-state'
 import { LoadingIndicator } from './loading-indicator'
@@ -35,18 +29,9 @@ import { useMcpPermissionHandler } from '../hooks/use-mcp-permission-handler'
 import { useProviderConfiguration } from '../hooks/use-provider-configuration'
 import { useErrorDialog, useDatabaseModal } from '../hooks/use-dialog-state'
 import { useMapSidebar } from '../hooks/use-map-sidebar'
-import { useMessagePersistence, getTextFromParts } from '../hooks/use-message-persistence'
 import { useScrollReset } from '../hooks/use-scroll-reset'
 import { useReasoningNotification } from '../hooks/use-reasoning-notification'
-
-// Extend UIMessage with orchestration metadata for persistence
-type ExtendedMessage = UIMessage<any, any, any> & {
-  orchestration?: {
-    subtasks?: Subtask[]
-    agentsInvolved?: string[]
-    completionTime?: number
-  }
-}
+import { useChatController } from '../hooks/use-chat-controller'
 
 export default function ChatInterface(): React.JSX.Element {
   // Use extracted custom hooks
@@ -61,75 +46,18 @@ export default function ChatInterface(): React.JSX.Element {
     // isLoadingMessagesFromStore
   } = useChatSession()
 
-  const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
-
   const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } =
     useProviderConfiguration(stableChatIdForUseChat || null)
-
-  // Create the streaming fetch function (memoize it)
-  const streamingFetch = useMemo(() => createStreamingFetch(), [])
 
   // Local input state (v5 removed managed input)
   const [input, setInput] = useState('')
   const [isStreamingUi, setIsStreamingUi] = useState(false)
-
-  const chat = useChat({
-    id: stableChatIdForUseChat,
-    api: '/api/chat',
-    fetch: streamingFetch as unknown as typeof fetch,
-    onError: () => {
-      setIsStreamingUi(false)
-    },
-    onFinish: async (args: any) => {
-      const assistantMessage = (args?.message || args) as ExtendedMessage
-      setIsStreamingUi(false)
-      // Basic saving logic for the final state of the assistant message
-      let currentChatId = useChatHistoryStore.getState().currentChatId
-      if (!currentChatId && stableChatIdForUseChat) {
-        const newChatId = await createChatAndSelect({ id: stableChatIdForUseChat })
-        if (newChatId) currentChatId = newChatId
-      }
-
-      // Get orchestration data from the store
-      const orchestrationStore = useAgentOrchestrationStore.getState()
-      const { activeSessionId, subtasks, agentsInvolved } = orchestrationStore
-
-      // Attach orchestration data if available
-      if (activeSessionId && (subtasks.length > 0 || agentsInvolved.length > 0)) {
-        assistantMessage.orchestration = {
-          subtasks: subtasks,
-          agentsInvolved: agentsInvolved.map((agent) => agent.id),
-          completionTime: Date.now() // Placeholder for completion time
-        }
-
-        // Reset orchestration after attaching to message
-        orchestrationStore.resetOrchestration()
-      }
-
-      if (currentChatId) {
-        const existingMsg = currentMessagesFromStore.find(
-          (m) => m.id === (assistantMessage as any).id
-        )
-        const text = getTextFromParts(assistantMessage)
-        if (!existingMsg && text && text.trim().length > 0) {
-          await addMessageToCurrentChat({
-            id: (assistantMessage as any).id,
-            chat_id: currentChatId,
-            role: assistantMessage.role as any,
-            content: text,
-            // Include orchestration metadata in persisted message
-            orchestration: assistantMessage.orchestration
-              ? JSON.stringify(assistantMessage.orchestration)
-              : undefined
-          })
-        }
-      }
-    }
+  const { chat, sdkMessages, sdkError, stop } = useChatController({
+    stableChatIdForUseChat,
+    currentMessagesFromStore,
+    currentChatIdFromStore,
+    setIsStreamingUi
   })
-
-  const sdkMessages = chat.messages as UIMessage[]
-  const stop = chat.stop as (() => void) | undefined
-  const sdkError = chat.error as Error | undefined
 
   // Set up auto-scrolling for new user messages
   const { latestUserMessageRef, isLatestUserMessage } = useAutoScroll({ messages: sdkMessages })
@@ -140,15 +68,6 @@ export default function ChatInterface(): React.JSX.Element {
     chatMessages: chat.messages as any[]
   })
 
-  // Handle message persistence (saving and loading from database)
-  useMessagePersistence({
-    sdkMessages,
-    currentMessagesFromStore,
-    stableChatIdForUseChat,
-    currentChatIdFromStore,
-    chat
-  })
-
   // Use error dialog hook
   const { isErrorDialogOpen, setIsErrorDialogOpen, errorMessage } = useErrorDialog(
     sdkError || null,
@@ -156,12 +75,12 @@ export default function ChatInterface(): React.JSX.Element {
   )
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null)
 
   // Reset scroll position when chat changes
   useScrollReset({
     scrollAreaRef,
-    chatId: stableChatIdForUseChat
+    chatId: stableChatIdForUseChat ?? null
   })
 
   useEffect(() => {

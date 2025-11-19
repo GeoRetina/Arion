@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 
 interface UseScrollResetProps {
-  scrollAreaRef: RefObject<HTMLDivElement>
+  scrollAreaRef: RefObject<HTMLDivElement | null>
   chatId: string | null
 }
 
