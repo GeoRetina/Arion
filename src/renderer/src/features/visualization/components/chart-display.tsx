@@ -101,6 +101,17 @@ interface RadialBarChartConfig {
   background?: boolean | object // Show background circle or specify its props
 }
 
+interface ScatterChartConfig {
+  title?: string
+  legend?: boolean
+  colors?: string[]
+  xKey?: string
+  yKey?: string
+  yKeys?: string[]
+  xAxisLabel?: string
+  yAxisLabel?: string
+}
+
 const DEFAULT_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -402,16 +413,36 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </AreaChart>
           </ResponsiveContainer>
         )
-      case 'scatter':
-        const scatterConfig = rawConfig as CategoryChartConfig
+      case 'scatter': {
+        const scatterConfig = rawConfig as ScatterChartConfig & {
+          xAxisKey?: string
+          yAxisKeys?: string[]
+        }
+        const scatterXAxisKey = scatterConfig.xKey || scatterConfig.xAxisKey || 'x'
+        const scatterSeriesKeys =
+          (scatterConfig.yKeys && scatterConfig.yKeys.length > 0
+            ? scatterConfig.yKeys
+            : scatterConfig.yAxisKeys && scatterConfig.yAxisKeys.length > 0
+              ? scatterConfig.yAxisKeys
+              : scatterConfig.yKey
+                ? [scatterConfig.yKey]
+                : ['y'])
+
+        const scatterSeriesData = scatterSeriesKeys.map((seriesKey) =>
+          data.map((point) => ({
+            ...point,
+            x: point[scatterXAxisKey] ?? point.x ?? point.lat ?? 0,
+            y: point[seriesKey] ?? point.y ?? point.lon ?? 0
+          }))
+        )
         return (
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 type="number"
-                dataKey={scatterConfig.xAxisKey}
-                name={scatterConfig.xAxisLabel || scatterConfig.xAxisKey}
+                dataKey="x"
+                name={scatterConfig.xAxisLabel || scatterXAxisKey}
                 tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
                 label={{
                   value: scatterConfig.xAxisLabel,
@@ -424,7 +455,8 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
               />
               <YAxis
                 type="number"
-                name={scatterConfig.yAxisLabel || scatterConfig.yAxisKeys[0] || 'Value'}
+                dataKey="y"
+                name={scatterConfig.yAxisLabel || scatterSeriesKeys[0] || 'Value'}
                 tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
                 label={{
                   value: scatterConfig.yAxisLabel,
@@ -449,11 +481,11 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
               {scatterConfig.legend !== false && (
                 <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
               )}
-              {scatterConfig.yAxisKeys.map((yKey, index) => (
+              {scatterSeriesKeys.map((seriesKey, index) => (
                 <Scatter
-                  key={yKey}
-                  name={yKey}
-                  dataKey={yKey}
+                  key={seriesKey}
+                  name={seriesKey}
+                  data={scatterSeriesData[index]}
                   fill={
                     scatterConfig.colors?.[index % scatterConfig.colors.length] ||
                     DEFAULT_COLORS[index % DEFAULT_COLORS.length]
@@ -463,6 +495,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </ScatterChart>
           </ResponsiveContainer>
         )
+      }
       case 'radar':
         const radarConfig = rawConfig as RadarChartConfig
         return (

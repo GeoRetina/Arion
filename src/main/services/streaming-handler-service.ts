@@ -179,13 +179,11 @@ export class StreamingHandlerService {
         model: options.model,
         messages: options.messages,
         system: options.system || '',
-        // Conditionally disable tools for Ollama reasoning models due to schema conversion issues
+
         ...(options.tools &&
           Object.keys(options.tools).length > 0 &&
           !reasoningInfo.shouldDisableTools && { tools: options.tools }),
-        stopWhen: stepCountIs(
-          reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS
-        ),
+        stopWhen: stepCountIs(MAX_LLM_STEPS),
         // Add abort signal support
         ...(options.abortSignal && { abortSignal: options.abortSignal }),
         onError: async (errorEvent) => {
@@ -227,7 +225,6 @@ export class StreamingHandlerService {
 
       // Use fullStream to handle text-delta events directly with error handling
       try {
-        let reasoningSeen = false
         let reasoningOpen = false
         for await (const part of result.fullStream) {
           switch (part.type) {
@@ -255,7 +252,6 @@ export class StreamingHandlerService {
               }
               const reasoningChunk = `0:${JSON.stringify(reasonDelta || '')}\n`
               callbacks.onChunk(textEncoder.encode(reasoningChunk))
-              reasoningSeen = true
 
               break
             }
@@ -283,6 +279,24 @@ export class StreamingHandlerService {
               }
               const toolResultChunk = `a:${JSON.stringify(toolResultCompat)}\n`
               callbacks.onChunk(textEncoder.encode(toolResultChunk))
+              break
+            }
+            case 'tool-error': {
+              const p: any = part as any
+              const errorMessage =
+                typeof p.error === 'string' ? p.error : p.error?.message || 'Tool execution failed.'
+              const toolErrorCompat = {
+                type: 'tool-result',
+                toolCallId: p.toolCallId ?? p.id ?? `tool_${Date.now()}`,
+                toolName: p.toolName ?? p.name ?? p.tool?.name ?? '',
+                result: {
+                  status: 'error',
+                  message: errorMessage
+                },
+                isError: true
+              }
+              const toolErrorChunk = `a:${JSON.stringify(toolErrorCompat)}\n`
+              callbacks.onChunk(textEncoder.encode(toolErrorChunk))
               break
             }
             case 'tool-call-streaming-start':

@@ -5,7 +5,7 @@ import { createAzure } from '@ai-sdk/azure'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createVertex } from '@ai-sdk/google-vertex'
 // Replaced deprecated third-party wrapper with our in-house provider
-import { createOllama } from '../providers/ollama-provider'
+import { createOllama } from '../providers/ollama'
 import { SettingsService } from './settings-service'
 import { AgentRegistryService } from './agent-registry-service'
 import { detectReasoningModel } from './reasoning-model-detector'
