@@ -83,10 +83,10 @@ src/
 
 **Important**: By contributing to Arion, you agree that:
 
-- Your contributions will be licensed under the same **PolyForm Noncommercial License 1.0.0**
+- Your contributions will be licensed under the **GNU General Public License v3.0 or later**
 - You have the right to submit your contributions
-- GeoRetina Inc. may use your contributions in both the open-source and commercial versions of Arion
-- You retain copyright to your contributions, but grant GeoRetina Inc. necessary rights for dual licensing
+- GeoRetina Inc. may distribute your contributions as part of Arion under the GPL
+- You retain copyright to your contributions, while granting GeoRetina Inc. the necessary rights to include them in the project
 
 If you're contributing on behalf of your employer, ensure you have permission to make the contribution under these terms.
 

@@ -126,24 +126,8 @@ For questions: `support@georetina.com`
 
 ## License
 
-**💡 Free for personal & academic use**
+Arion is free software released under the **GNU General Public License v3.0 or later**.
 
-Arion is **source-available** under the **PolyForm Noncommercial License 1.0.0**, which means:
-
-### ✅ **Free Use** (No license required)
-
-- **Personal projects** and hobby development
-- **Academic research** at educational institutions (including government-funded research)
-- **Charitable organizations** and environmental protection organizations
-- **Internal evaluation** by commercial entities
-
-### 💼 **Commercial Use** (Separate license required)
-
-- **Production deployments** in commercial organizations
-- **SaaS offerings** or hosted services
-- **Consulting work** using Arion for clients
-- **Internal use** by for-profit companies
-
-For commercial licensing inquiries, contact: `support@georetina.com`
-
-**Full license text:** See [LICENSE](./LICENSE) file
+- You may use, modify, and redistribute the project under the GPL terms (including commercial use).
+- Distributions and derivative works must provide source code and remain licensed under the GPL.
+- See the [LICENSE](./LICENSE) file for the complete text and guidance on applying the GPL to your changes.
