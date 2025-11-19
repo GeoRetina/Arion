@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, CheckCircle, Loader2, Database, Shield, Activity } from 'lucide-react'
-import { PostgreSQLConfig, PostgreSQLConnectionResult } from '../../../shared/ipc-types'
+import { PostgreSQLConfig, PostgreSQLConnectionResult } from '../../../../../shared/ipc-types'
 
 interface PostgreSQLConfigDialogProps {
   isOpen: boolean

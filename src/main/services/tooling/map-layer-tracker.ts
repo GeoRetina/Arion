@@ -1,7 +1,7 @@
 import type { BrowserWindow } from 'electron'
 import type { Feature, Geometry } from 'geojson'
 import type { AddedLayerInfo } from '../../llm-tools/map-layer-management-tools'
-import type { AddMapFeaturePayload } from '../../shared/ipc-types'
+import type { AddMapFeaturePayload } from '../../../shared/ipc-types'
 
 export class MapLayerTracker {
   private mainWindow: BrowserWindow | null = null

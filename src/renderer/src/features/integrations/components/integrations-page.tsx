@@ -14,7 +14,7 @@ import {
 import { integrationRegistry } from '../integrations'
 import type { IntegrationConfig } from '../types/integration'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
-import { PostgreSQLConfig } from '../../../shared/ipc-types'
+import { PostgreSQLConfig } from '../../../../../shared/ipc-types'
 
 const IntegrationsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] =
