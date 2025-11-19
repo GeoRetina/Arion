@@ -72,11 +72,18 @@ export function useMessagePersistence({
 
   // Hydrate SDK messages from DB history when activating a chat
   useEffect(() => {
-    const storeCount = currentMessagesFromStore?.length || 0
+    const storeMessages = currentMessagesFromStore || []
+    const storeCount = storeMessages.length
+    const sdkMessageCount = (sdkMessages || []).length
+
     const shouldHydrate =
       stableChatIdForUseChat &&
       stableChatIdForUseChat === currentChatIdFromStore &&
-      storeCount > 0
+      storeCount > 0 &&
+      // Only hydrate when the store has more messages than the in-memory list.
+      // This avoids overwriting rich, streaming state (tool calls, agent UIs) with
+      // text-only DB snapshots once a response finishes.
+      sdkMessageCount < storeCount
 
     if (!shouldHydrate) return
 
@@ -94,7 +101,7 @@ export function useMessagePersistence({
       return role
     }
 
-    const normalizedMessages: SDKMessage[] = currentMessagesFromStore.map((m) => {
+    const normalizedMessages: SDKMessage[] = storeMessages.map((m) => {
       const textContent = m.content ?? ''
       const normalizedMessage = {
         id: m.id,
@@ -112,7 +119,13 @@ export function useMessagePersistence({
       chatId: stableChatIdForUseChat,
       messageCount: storeCount
     }
-  }, [stableChatIdForUseChat, currentChatIdFromStore, currentMessagesFromStore, chat])
+  }, [
+    sdkMessages,
+    stableChatIdForUseChat,
+    currentChatIdFromStore,
+    currentMessagesFromStore,
+    chat
+  ])
 
   return {
     persistPendingUserMessages
