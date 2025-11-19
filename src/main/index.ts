@@ -133,7 +133,10 @@ app.whenReady().then(async () => {
   llmToolServiceInstance = new LlmToolService(
     knowledgeBaseServiceInstance,
     mcpClientServiceInstance,
-    mcpPermissionServiceInstance
+    mcpPermissionServiceInstance,
+    undefined, // agentRegistryService - will be set later
+    undefined, // orchestrationService - will be set later
+    postgresqlServiceInstance
   )
 
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)

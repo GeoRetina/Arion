@@ -6,6 +6,7 @@ export * from './map-layer-management-tools'
 export * from './map-view-control-tools'
 export * from './app-ui-control-tools'
 export * from './knowledge-base-tools/query-knowledge-base-tool'
+export * from './database-tools/list-database-connections-tool'
 
 // As more tool categories are added (e.g., map_display_control, map_layer_management), export them here.
 // Example:
