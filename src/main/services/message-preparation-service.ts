@@ -357,7 +357,7 @@ export class MessagePreparationService {
     })
 
     const shouldConvert = indicatorCounts.parts > 0 || indicatorCounts.toolInvocations > 0
-    const convertReasons = []
+    const convertReasons: string[] = []
     if (indicatorCounts.parts > 0) {
       convertReasons.push('parts')
     }

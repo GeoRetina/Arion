@@ -9,13 +9,14 @@ import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { useMapStore } from '@/stores/map-store'
 import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
+import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 
 /**
  * Reset all chat-related stores to their initial state
  *
  * This function should be called when:
  * - Navigating away from the chat interface
- * - Switching between chats (optional, depending on UX requirements)
+ * - Switching between chats (including navigating to "New Chat")
  * - Logging out or closing the application
  */
 export const resetChatStores = (): void => {
@@ -39,6 +40,10 @@ export const resetChatStores = (): void => {
     Object.keys(currentPermissions).forEach((chatId) => {
       mcpPermissionStore.clearChatPermissions(chatId)
     })
+
+    // Reset agent orchestration store - clear active orchestration session
+    const agentOrchestrationStore = useAgentOrchestrationStore.getState()
+    agentOrchestrationStore.resetOrchestration()
   } catch (error) {}
 }
 

@@ -194,6 +194,17 @@ export default function ChatInterface(): React.JSX.Element {
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
+  // Reset scroll position when chat changes
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      // Find the scroll container inside ScrollArea (it's a div with data-radix-scroll-area-viewport)
+      const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (viewport) {
+        viewport.scrollTop = 0
+      }
+    }
+  }, [stableChatIdForUseChat])
+
   useEffect(() => {
     if (!isStreamingUi && stableChatIdForUseChat) {
       // Focus logic can remain

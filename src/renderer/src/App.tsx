@@ -56,13 +56,19 @@ function App(): React.JSX.Element {
     initTheme()
   }, [])
 
-  // Handle route changes to reset stores when leaving chat
+  // Handle route changes to reset stores when switching chats or leaving chat
   useEffect(() => {
     const currentPath = location.pathname
     const previousPath = previousLocationRef.current
 
-    // If we're leaving a chat route and going to a non-chat route
-    if (previousPath && previousPath.startsWith('/chat/') && !currentPath.startsWith('/chat/')) {
+    // Reset stores when:
+    // 1. Leaving a chat route to a non-chat route
+    // 2. Switching between different chats (e.g., /chat/id1 to /chat/id2 or /chat/new)
+    const isPreviousChat = previousPath && previousPath.startsWith('/chat/')
+    const isCurrentChat = currentPath.startsWith('/chat/')
+    const isSwitchingChats = isPreviousChat && isCurrentChat && previousPath !== currentPath
+
+    if (isPreviousChat && (!isCurrentChat || isSwitchingChats)) {
       resetChatStores()
     }
 
