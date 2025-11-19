@@ -40,7 +40,16 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       : ''
     const primaryText = message.content ?? textFromParts
 
-    const [collapseReasoning, setCollapseReasoning] = useState(false)
+    const isHydratedSnapshot = Boolean((message as any).hydrated)
+    const [collapseReasoning, setCollapseReasoning] = useState(
+      isHydratedSnapshot && !isUser ? true : false
+    )
+
+    useEffect(() => {
+      if (isHydratedSnapshot && !isUser) {
+        setCollapseReasoning(true)
+      }
+    }, [isHydratedSnapshot, isUser])
 
     // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
     const hasAssistantParts = !isUser && Array.isArray(message.parts)

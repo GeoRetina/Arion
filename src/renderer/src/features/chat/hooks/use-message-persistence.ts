@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { type UIMessage } from 'ai'
 import type { Message as SDKMessage } from '@ai-sdk/ui-utils'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
@@ -36,6 +36,10 @@ export function useMessagePersistence({
   chat
 }: UseMessagePersistenceProps) {
   const { addMessageToCurrentChat } = useChatHistoryStore()
+  const lastHydrationRef = useRef<{ chatId: string | null; messageCount: number }>({
+    chatId: null,
+    messageCount: 0
+  })
 
   const persistPendingUserMessages = useCallback(
     async (chatId: string) => {
@@ -66,15 +70,20 @@ export function useMessagePersistence({
     [sdkMessages, currentMessagesFromStore, addMessageToCurrentChat]
   )
 
-  // Hydrate SDK messages from DB history on first load for the active chat
+  // Hydrate SDK messages from DB history when activating a chat
   useEffect(() => {
+    const storeCount = currentMessagesFromStore?.length || 0
     const shouldHydrate =
       stableChatIdForUseChat &&
       stableChatIdForUseChat === currentChatIdFromStore &&
-      (sdkMessages?.length || 0) === 0 &&
-      (currentMessagesFromStore?.length || 0) > 0
+      storeCount > 0
 
     if (!shouldHydrate) return
+
+    const alreadyHydrated =
+      lastHydrationRef.current.chatId === stableChatIdForUseChat &&
+      lastHydrationRef.current.messageCount === storeCount
+    if (alreadyHydrated) return
 
     const setMessages = (chat as any)?.setMessages
     if (typeof setMessages !== 'function') return
@@ -87,23 +96,23 @@ export function useMessagePersistence({
 
     const normalizedMessages: SDKMessage[] = currentMessagesFromStore.map((m) => {
       const textContent = m.content ?? ''
-      return {
+      const normalizedMessage = {
         id: m.id,
         role: normalizeRole(m.role),
         content: textContent,
         createdAt: m.created_at ? new Date(m.created_at) : undefined,
         parts: textContent ? [{ type: 'text', text: textContent }] : []
-      }
+      } as SDKMessage & { hydrated?: boolean }
+      normalizedMessage.hydrated = true
+      return normalizedMessage
     })
 
     setMessages(normalizedMessages)
-  }, [
-    stableChatIdForUseChat,
-    currentChatIdFromStore,
-    sdkMessages,
-    currentMessagesFromStore,
-    chat
-  ])
+    lastHydrationRef.current = {
+      chatId: stableChatIdForUseChat,
+      messageCount: storeCount
+    }
+  }, [stableChatIdForUseChat, currentChatIdFromStore, currentMessagesFromStore, chat])
 
   return {
     persistPendingUserMessages
