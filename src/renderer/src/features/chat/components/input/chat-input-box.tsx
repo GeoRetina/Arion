@@ -239,7 +239,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   return (
     <div
-      className={`flex flex-col gap-4 bg-[var(--chat-input-background)] h-full rounded-2xl items-center border border-stone-300 dark:border-stone-600 w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative ${
+      className={`flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-stone-300 dark:border-stone-600 w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative ${
         isStreaming ? 'streaming-border' : ''
       }`}
       style={{
@@ -287,7 +287,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           </div>
         )}
 
-        <div className="relative flex-grow flex flex-col pb-12">
+        <div className="relative grow flex flex-col pb-12">
           {' '}
           {/* Make this a flex container */} {/* Wrapper for editor and placeholder */}{' '}
           {/* Make this a flex container */} {/* Wrapper for editor and placeholder */}
@@ -301,7 +301,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           )}
           {/* ContentEditable Div with Highlighting Overlay */}
           <ScrollArea
-            className="flex-grow w-full" // Ensure it takes available width and can grow
+            className="grow w-full" // Ensure it takes available width and can grow
             style={{ maxHeight: `${maxInputHeight}px` }}
             ref={scrollAreaRef} // Add ref to ScrollArea if we need to access its viewport directly
           >
@@ -324,7 +324,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         </div>
 
         {/* Provider Selector and ChatInputButtons */}
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 pb-2 pt-1 bg-[var(--chat-input-background)] rounded-b-2xl mt-auto shrink-0">
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 pb-2 pt-1 bg-chat-input-background rounded-b-2xl mt-auto shrink-0">
           {' '}
           {/* Added mt-auto and shrink-0 */}
           <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                     onClick={onToggleMapSidebar}
                     type="button"
                     className={`
-                      h-8 w-8 flex items-center justify-center ml-1 border-[1px] rounded-md
+                      h-8 w-8 flex items-center justify-center ml-1 border rounded-md
                       border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
                       ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
                     `}
