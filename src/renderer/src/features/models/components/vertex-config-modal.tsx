@@ -32,14 +32,14 @@ export default function VertexConfigModal({
   const [apiKey, setApiKey] = useState('')
   const [project, setProject] = useState('')
   const [location, setLocation] = useState('')
-  const [model, setModel] = useState('gemini-1.5-pro-latest') // Default model
+  const [model, setModel] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(vertexConfig.apiKey || '')
       setProject(vertexConfig.project || '')
       setLocation(vertexConfig.location || '')
-      setModel(vertexConfig.model || 'gemini-1.5-pro-latest')
+      setModel(vertexConfig.model || '')
     }
     return () => {
       // Resetting state on close might not be desired if user just clicks away
@@ -49,7 +49,7 @@ export default function VertexConfigModal({
         setApiKey('')
         setProject('')
         setLocation('')
-        setModel('gemini-1.5-pro-latest')
+        setModel('')
       }
     }
   }, [vertexConfig, isOpen])
@@ -164,14 +164,13 @@ export default function VertexConfigModal({
                   id="vertexModel"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g., gemini-1.5-pro-latest"
+                  placeholder="e.g., gemini-2.0-flash-exp"
                 />
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  Specify the Vertex AI model ID. Common models include those from the Gemini
-                  family. Refer to the
+                  Specify the Vertex AI model ID. See the
                   <a
                     href="https://cloud.google.com/vertex-ai/docs/generative-ai/learn/models"
                     target="_blank"
@@ -180,7 +179,7 @@ export default function VertexConfigModal({
                   >
                     Vertex AI Model Documentation
                   </a>
-                  .
+                  for available models.
                 </p>
               </div>
             </div>

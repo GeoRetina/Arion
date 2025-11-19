@@ -6,6 +6,7 @@ import {
   extractReasoningFromText,
   isToolSchemaError
 } from './reasoning-model-detector'
+import { buildToolStreamChunk } from './utils/stream-chunk-builder'
 
 export interface StreamingCallbacks {
   onChunk: (chunk: Uint8Array) => void
@@ -255,60 +256,18 @@ export class StreamingHandlerService {
 
               break
             }
-            case 'tool-call': {
-              // Normalize tool-call shape for client expectations
-              const p: any = part as any
-              const toolCallCompat = {
-                type: 'tool-call',
-                toolCallId: p.toolCallId ?? p.id ?? `tool_${Date.now()}`,
-                toolName: p.toolName ?? p.name ?? p.tool?.name ?? '',
-                args: p.input ?? p.args ?? p.arguments ?? {}
-              }
-              const toolCallChunk = `9:${JSON.stringify(toolCallCompat)}\n`
-              callbacks.onChunk(textEncoder.encode(toolCallChunk))
-              break
-            }
-            case 'tool-result': {
-              // Normalize tool-result shape
-              const p: any = part as any
-              const toolResultCompat = {
-                type: 'tool-result',
-                toolCallId: p.toolCallId ?? p.id ?? `tool_${Date.now()}`,
-                toolName: p.toolName ?? p.name ?? p.tool?.name ?? '',
-                result: p.output ?? p.result
-              }
-              const toolResultChunk = `a:${JSON.stringify(toolResultCompat)}\n`
-              callbacks.onChunk(textEncoder.encode(toolResultChunk))
-              break
-            }
-            case 'tool-error': {
-              const p: any = part as any
-              const errorMessage =
-                typeof p.error === 'string' ? p.error : p.error?.message || 'Tool execution failed.'
-              const toolErrorCompat = {
-                type: 'tool-result',
-                toolCallId: p.toolCallId ?? p.id ?? `tool_${Date.now()}`,
-                toolName: p.toolName ?? p.name ?? p.tool?.name ?? '',
-                result: {
-                  status: 'error',
-                  message: errorMessage
-                },
-                isError: true
-              }
-              const toolErrorChunk = `a:${JSON.stringify(toolErrorCompat)}\n`
-              callbacks.onChunk(textEncoder.encode(toolErrorChunk))
-              break
-            }
+            case 'tool-call':
+            case 'tool-result':
+            case 'tool-error':
             case 'tool-call-streaming-start':
-              // Send tool call streaming start
-              const toolCallStartChunk = `b:${JSON.stringify(part)}\n`
-              callbacks.onChunk(textEncoder.encode(toolCallStartChunk))
+            case 'tool-call-delta': {
+              const chunkPayload = buildToolStreamChunk(part)
+              if (chunkPayload) {
+                const chunk = `${chunkPayload.prefix}:${JSON.stringify(chunkPayload.payload)}\n`
+                callbacks.onChunk(textEncoder.encode(chunk))
+              }
               break
-            case 'tool-call-delta':
-              // Send tool call delta for streaming tool inputs
-              const toolCallDeltaChunk = `c:${JSON.stringify(part)}\n`
-              callbacks.onChunk(textEncoder.encode(toolCallDeltaChunk))
-              break
+            }
             case 'error': {
               // Send error in AI SDK wire format: code 3 expects a JSON string value
               const errorMessage =
@@ -368,16 +327,6 @@ export class StreamingHandlerService {
     // Detect reasoning model and determine tool compatibility
     const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
 
-    try {
-      console.log(
-        '[StreamingHandlerService] model/provider:',
-        options.modelId,
-        options.providerId,
-        'reasoning?',
-        reasoningInfo.isReasoningModel
-      )
-    } catch {}
-
     let streamTextOptions: Parameters<typeof streamText>[0] = {
       model: options.model,
       messages: options.messages,
@@ -431,4 +380,5 @@ export class StreamingHandlerService {
       error: errorMessage
     }
   }
+
 }

@@ -29,18 +29,18 @@ export default function OllamaConfigModal({
   const setOllamaConfig = useLLMStore((state) => state.setOllamaConfig)
 
   const [baseURL, setBaseURL] = useState('http://localhost:11434')
-  const [model, setModel] = useState('llama3') // Default model
+  const [model, setModel] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       setBaseURL(ollamaConfig.baseURL || 'http://localhost:11434')
-      setModel(ollamaConfig.model || 'llama3')
+      setModel(ollamaConfig.model || '')
     }
     return () => {
       if (!isOpen) {
         // Reset if needed, or rely on re-fetch when opened if values are always loaded from store
         // setBaseURL('http://localhost:11434')
-        // setModel('llama3')
+        // setModel('')
       }
     }
   }, [ollamaConfig, isOpen])
@@ -121,15 +121,14 @@ export default function OllamaConfigModal({
                   id="ollamaModel"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g., llama3, codellama, phi3"
+                  placeholder="e.g., qwen2.5-coder:7b"
                 />
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  The name of the Ollama model you want to use (e.g., llama3, mistral). Ensure the
-                  model is pulled in Ollama (e.g., `ollama pull llama3`). See available models on
-                  the
+                  The name of the Ollama model you want to use. Ensure the
+                  model is pulled in Ollama first. See available models on the
                   <a
                     href="https://ollama.com/library"
                     target="_blank"

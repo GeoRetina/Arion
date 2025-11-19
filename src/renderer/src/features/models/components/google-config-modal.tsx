@@ -29,17 +29,17 @@ export default function GoogleConfigModal({
   const setGoogleConfig = useLLMStore((state) => state.setGoogleConfig)
 
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('gemini-pro')
+  const [model, setModel] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(googleConfig.apiKey || '')
-      setModel(googleConfig.model || 'gemini-pro')
+      setModel(googleConfig.model || '')
     }
     return () => {
       if (!isOpen) {
         setApiKey('')
-        setModel('gemini-pro')
+        setModel('')
       }
     }
   }, [googleConfig, isOpen])
@@ -104,14 +104,13 @@ export default function GoogleConfigModal({
                   id="googleModel"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g., gemini-pro, gemini-pro-vision"
+                  placeholder="e.g., gemini-2.0-flash-exp"
                 />
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  Specify the Google Gemini model you want to use. Common models include gemini-pro,
-                  gemini-pro-vision, etc. Full list available in the
+                  Specify the Google Gemini model you want to use. See the
                   <a
                     href="https://ai.google.dev/models/gemini"
                     target="_blank"
@@ -120,7 +119,7 @@ export default function GoogleConfigModal({
                   >
                     Google AI Documentation
                   </a>
-                  .
+                  for available models.
                 </p>
               </div>
             </div>
