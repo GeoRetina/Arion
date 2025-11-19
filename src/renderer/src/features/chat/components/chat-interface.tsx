@@ -35,16 +35,9 @@ import { useMcpPermissionHandler } from '../hooks/use-mcp-permission-handler'
 import { useProviderConfiguration } from '../hooks/use-provider-configuration'
 import { useErrorDialog, useDatabaseModal } from '../hooks/use-dialog-state'
 import { useMapSidebar } from '../hooks/use-map-sidebar'
-
-// Helper to read text from UIMessage parts
-function getTextFromParts(message: UIMessage<any, any, any>): string {
-  const parts = (message as any).parts as Array<any> | undefined
-  if (!Array.isArray(parts)) return ''
-  return parts
-    .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
-    .map((p) => p.text as string)
-    .join('')
-}
+import { useMessagePersistence, getTextFromParts } from '../hooks/use-message-persistence'
+import { useScrollReset } from '../hooks/use-scroll-reset'
+import { useReasoningNotification } from '../hooks/use-reasoning-notification'
 
 // Extend UIMessage with orchestration metadata for persistence
 type ExtendedMessage = UIMessage<any, any, any> & {
@@ -134,16 +127,6 @@ export default function ChatInterface(): React.JSX.Element {
     }
   })
 
-  // Notify reasoning container to collapse when assistant starts streaming text
-  useEffect(() => {
-    if (isStreamingUi) {
-      const last = (chat.messages as any[])[(chat.messages as any[]).length - 1]
-      if (last && last.role === 'assistant') {
-        window.dispatchEvent(new Event('ai-assistant-text-start'))
-      }
-    }
-  }, [isStreamingUi, chat.messages])
-
   const sdkMessages = chat.messages as UIMessage[]
   const stop = chat.stop as (() => void) | undefined
   const sdkError = chat.error as Error | undefined
@@ -151,39 +134,20 @@ export default function ChatInterface(): React.JSX.Element {
   // Set up auto-scrolling for new user messages
   const { latestUserMessageRef, isLatestUserMessage } = useAutoScroll({ messages: sdkMessages })
 
-  // Effect to save user messages when sdkMessages changes and a new user message appears
-  useEffect(() => {
-    const latestSdkMessage =
-      sdkMessages.length > 0 ? (sdkMessages[sdkMessages.length - 1] as any) : null
-    if (latestSdkMessage && latestSdkMessage.role === 'user') {
-      const isAlreadySaved = currentMessagesFromStore.some(
-        (storeMsg) => storeMsg.id === latestSdkMessage.id
-      )
-      if (!isAlreadySaved) {
-        const currentChatId = useChatHistoryStore.getState().currentChatId // Get latest from store
-        const handleUserMessageSave = async () => {
-          // ONLY save if a chat session is already established in the DB
-          if (currentChatId) {
-            if (['system', 'user', 'assistant', 'tool'].includes(latestSdkMessage.role)) {
-              const text = getTextFromParts(latestSdkMessage)
-              await addMessageToCurrentChat({
-                id: latestSdkMessage.id,
-                chat_id: currentChatId,
-                role: latestSdkMessage.role,
-                content: text
-              })
-            }
-          }
-        }
-        handleUserMessageSave()
-      }
-    }
-  }, [
-    sdkMessages, // This is the primary trigger
-    currentMessagesFromStore, // To check if already saved (for the current chat in store)
-    stableChatIdForUseChat, // For logging
-    addMessageToCurrentChat
-  ])
+  // Notify reasoning container to collapse when assistant starts streaming text
+  useReasoningNotification({
+    isStreamingUi,
+    chatMessages: chat.messages as any[]
+  })
+
+  // Handle message persistence (saving and loading from database)
+  useMessagePersistence({
+    sdkMessages,
+    currentMessagesFromStore,
+    stableChatIdForUseChat,
+    currentChatIdFromStore,
+    chat
+  })
 
   // Use error dialog hook
   const { isErrorDialogOpen, setIsErrorDialogOpen, errorMessage } = useErrorDialog(
@@ -195,15 +159,10 @@ export default function ChatInterface(): React.JSX.Element {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Reset scroll position when chat changes
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      // Find the scroll container inside ScrollArea (it's a div with data-radix-scroll-area-viewport)
-      const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-      if (viewport) {
-        viewport.scrollTop = 0
-      }
-    }
-  }, [stableChatIdForUseChat])
+  useScrollReset({
+    scrollAreaRef,
+    chatId: stableChatIdForUseChat
+  })
 
   useEffect(() => {
     if (!isStreamingUi && stableChatIdForUseChat) {
@@ -252,34 +211,6 @@ export default function ChatInterface(): React.JSX.Element {
       setInput('')
     }
   }
-
-  // Hydrate SDK messages from DB history on first load for the active chat
-  useEffect(() => {
-    const shouldHydrate =
-      stableChatIdForUseChat &&
-      stableChatIdForUseChat === currentChatIdFromStore &&
-      (sdkMessages?.length || 0) === 0 &&
-      (currentMessagesFromStore?.length || 0) > 0
-
-    if (!shouldHydrate) return
-
-    const append = (chat as any)?.append
-    if (typeof append !== 'function') return
-
-    // Map DB messages to UIMessage shape (parts-based)
-    const normalizeRole = (role: string): any => {
-      if (role === 'data' || role === 'function') return 'assistant'
-      return role
-    }
-
-    for (const m of currentMessagesFromStore) {
-      append({
-        id: m.id,
-        role: normalizeRole(m.role),
-        parts: m.content ? [{ type: 'text', text: m.content }] : []
-      })
-    }
-  }, [stableChatIdForUseChat, currentChatIdFromStore, sdkMessages, currentMessagesFromStore, chat])
 
   return (
     <div className="flex flex-row h-full max-h-full bg-transparent overflow-hidden relative">
