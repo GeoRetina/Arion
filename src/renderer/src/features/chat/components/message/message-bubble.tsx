@@ -2,10 +2,11 @@ import { forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 import { MemoizedMarkdown, CopyMessageButton } from '@/components/markdown-renderer'
 import { MessagePartRenderer } from './message-part-renderer'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AgentGroupIndicator } from '../agent-indicator'
 import OrchestrationTaskList from '../orchestration-task-list'
 import { Subtask } from '../../../../../../shared/ipc-types'
+import { useAnchoredToolParts } from '../../hooks/use-anchored-tool-parts'
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
@@ -44,53 +45,13 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const [collapseReasoning, setCollapseReasoning] = useState(
       isHydratedSnapshot && !isUser ? true : false
     )
-    const toolAnchorRef = useRef<Record<string, number>>({})
-    const textPart = Array.isArray(message.parts)
-      ? message.parts.find((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-      : undefined
-    const textContent =
-      (textPart && typeof (textPart as any).text === 'string' && (textPart as any).text) ||
-      (typeof message.content === 'string' ? message.content : '')
-    const toolParts = Array.isArray(message.parts)
-      ? message.parts.filter((p) => p && p.type === 'tool-invocation' && (p as any).toolInvocation)
-      : []
-    const textPartIndex = Array.isArray(message.parts)
-      ? message.parts.findIndex((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-      : -1
-    const hasAnchoredToolFlow = Boolean(textPart && toolParts.length > 0 && !isUser)
-    const firstToolAnchor = hasAnchoredToolFlow
-      ? toolParts
-          .map((part: any) => {
-            const id = part.toolInvocation?.toolCallId
-            return id && toolAnchorRef.current[id] !== undefined
-              ? toolAnchorRef.current[id]
-              : textContent.length
-          })
-          .reduce((min: number, val: number) => Math.min(min, val), textContent.length)
-      : textContent.length
+    const anchoredParts = useAnchoredToolParts({ message, collapseReasoning, isUser })
 
     useEffect(() => {
       if (isHydratedSnapshot && !isUser) {
         setCollapseReasoning(true)
       }
     }, [isHydratedSnapshot, isUser])
-
-    // Reset anchors when the message changes
-    useEffect(() => {
-      toolAnchorRef.current = {}
-    }, [message.id])
-
-    // Capture the text length when each tool call first appears to anchor later text below it
-    useEffect(() => {
-      if (!hasAnchoredToolFlow) return
-      const currentLength = textContent.length
-      toolParts.forEach((part: any) => {
-        const id = part.toolInvocation?.toolCallId
-        if (id && toolAnchorRef.current[id] === undefined) {
-          toolAnchorRef.current[id] = currentLength
-        }
-      })
-    }, [hasAnchoredToolFlow, textContent, toolParts])
 
     // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
     const hasAssistantParts = !isUser && Array.isArray(message.parts)
@@ -119,108 +80,16 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           {isUser ? (
             <div className="whitespace-pre-wrap">{primaryText}</div>
           ) : Array.isArray(message.parts) && message.parts.length > 0 ? (
-            (() => {
-              if (!hasAnchoredToolFlow) {
-                return message.parts.map((part, partIndex) => (
-                  <MessagePartRenderer
-                    key={`${message.id}-part-${partIndex}`}
-                    part={part}
-                    messageId={message.id}
-                    index={partIndex}
-                    collapseReasoning={collapseReasoning}
-                  />
-                ))
-              }
-
-              const rendered: ReactNode[] = []
-              let cursor = 0
-              let syntheticIndex = 0
-
-              const pushTextSlice = (slice: string, key: string) => {
-                if (!slice || slice.length === 0) return
-                rendered.push(
-                  <MessagePartRenderer
-                    key={key}
-                    part={{ type: 'text', text: slice } as any}
-                    messageId={message.id}
-                    index={syntheticIndex++}
-                    collapseReasoning={collapseReasoning}
-                  />
-                )
-              }
-
-              message.parts.forEach((part, partIndex) => {
-                if (!part || typeof part !== 'object') return
-                if (part.type === 'text') {
-                  // Text is handled via slices.
-                  return
-                }
-
-                if (part.type === 'tool-invocation' && (part as any).toolInvocation) {
-                  const toolCallId = (part as any).toolInvocation.toolCallId
-                  const anchor =
-                    (toolCallId && toolAnchorRef.current[toolCallId] !== undefined
-                      ? toolAnchorRef.current[toolCallId]
-                      : textContent.length) || 0
-
-                  if (cursor < anchor) {
-                    pushTextSlice(
-                      textContent.slice(cursor, anchor),
-                      `${message.id}-text-before-${toolCallId || partIndex}`
-                    )
-                    cursor = anchor
-                  }
-
-                  rendered.push(
-                    <MessagePartRenderer
-                      key={`${message.id}-part-${partIndex}`}
-                      part={part}
-                      messageId={message.id}
-                      index={partIndex}
-                      collapseReasoning={collapseReasoning}
-                    />
-                  )
-                  syntheticIndex = Math.max(syntheticIndex, partIndex + 1)
-                  return
-                }
-
-                // Other part types keep their natural order, but ensure leading text renders before them
-                if (
-                  hasAnchoredToolFlow &&
-                  cursor === 0 &&
-                  textPartIndex >= 0 &&
-                  partIndex > textPartIndex
-                ) {
-                  if (cursor < firstToolAnchor) {
-                    pushTextSlice(
-                      textContent.slice(cursor, firstToolAnchor),
-                      `${message.id}-text-before-other-${partIndex}`
-                    )
-                    cursor = firstToolAnchor
-                  }
-                }
-                rendered.push(
-                  <MessagePartRenderer
-                    key={`${message.id}-part-${partIndex}`}
-                    part={part}
-                    messageId={message.id}
-                    index={partIndex}
-                    collapseReasoning={collapseReasoning}
-                  />
-                )
-                syntheticIndex = Math.max(syntheticIndex, partIndex + 1)
-              })
-
-              // Remaining text after the last tool invocation
-              if (textContent && cursor < textContent.length) {
-                pushTextSlice(
-                  textContent.slice(cursor),
-                  `${message.id}-text-tail-${rendered.length}`
-                )
-              }
-
-              return rendered
-            })()
+            anchoredParts ||
+            message.parts.map((part, partIndex) => (
+              <MessagePartRenderer
+                key={`${message.id}-part-${partIndex}`}
+                part={part}
+                messageId={message.id}
+                index={partIndex}
+                collapseReasoning={collapseReasoning}
+              />
+            ))
           ) : (
             <>
               <MemoizedMarkdown content={primaryText || ''} id={message.id} isAssistant={true} />
