@@ -1,164 +1,40 @@
-import React, { useRef, useEffect, useState } from 'react'
-import maplibregl, { Map, StyleSpecification, NavigationControl, ScaleControl } from 'maplibre-gl'
-import 'maplibre-gl/dist/maplibre-gl.css'
-import { useMapStore } from '../../../stores/map-store'
-import { initializeMapIpcListeners, cleanupMapIpcListeners } from '../../../lib/ipc/map-ipc-manager'
+import React, { useState } from 'react'
 import { useLayerSync } from '../../../hooks/use-layer-sync'
+import { MapCanvas } from './map-canvas'
+import { MapToolbar } from './map-toolbar'
+import { MapSearchBox } from './map-search-box'
+import { osmRasterStyle } from '../config/map-styles'
+import { useMapNavigation } from '../hooks/use-map-navigation'
+import { useMapIpc } from '../hooks/use-map-ipc'
 
 interface MapDisplayProps {
   isVisible: boolean
 }
 
-// Define the OSM Raster Tile style
-const osmRasterStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    'osm-raster-tiles': {
-      type: 'raster',
-      tiles: [
-        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
-      ],
-      tileSize: 256,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }
-  },
-  layers: [
-    {
-      id: 'osm-raster-layer',
-      type: 'raster',
-      source: 'osm-raster-tiles',
-      minzoom: 0,
-      maxzoom: 19 // OSM raster tiles generally go up to zoom 19
-    }
-  ]
-}
-
 export const MapDisplay: React.FC<MapDisplayProps> = ({ isVisible }) => {
-  const mapContainer = useRef<HTMLDivElement | null>(null)
-  const map = useRef<Map | null>(null)
-  const [isMapLoaded, setIsMapLoaded] = useState(false)
-  const setMapInstanceInStore = useMapStore((state) => state.setMapInstance)
-  const setMapReadyForOperations = useMapStore((state) => state.setMapReadyForOperations)
-
-  // Initialize layer synchronization
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   useLayerSync()
+  useMapIpc()
 
-  // Initialize map once on component mount
-  useEffect(() => {
-    // Always initialize map if container exists and map doesn't already exist
-    if (!mapContainer.current || map.current !== null) return
-
-    try {
-      map.current = new maplibregl.Map({
-        container: mapContainer.current,
-        style: osmRasterStyle,
-        center: [0, 0],
-        zoom: 1,
-        renderWorldCopies: true,
-        fadeDuration: 0 // Disable fade animations for smoother appearance
-      })
-
-      const currentMapInstance = map.current
-      setMapInstanceInStore(currentMapInstance)
-
-      currentMapInstance.on('load', () => {
-        setIsMapLoaded(true)
-
-        // Map is ready for operations once loaded, regardless of visibility
-        setMapReadyForOperations(true)
-
-        // Ensure map is sized correctly
-        if (currentMapInstance) {
-          currentMapInstance.resize()
-          // Add navigation control once the map is loaded
-          const navigationControl = new NavigationControl({
-            visualizePitch: true,
-            showCompass: true,
-            showZoom: true
-          })
-          currentMapInstance.addControl(navigationControl, 'top-right')
-
-          // Add scale control
-          const scaleControl = new ScaleControl({
-            maxWidth: 100, // Max width of the scale control in pixels
-            unit: 'metric' // Use 'imperial' or 'metric' or 'nautical'
-          })
-          currentMapInstance.addControl(scaleControl, 'bottom-left')
-        }
-      })
-
-      currentMapInstance.on('error', (e) => {})
-    } catch (error) {}
-  }, [])
-
-  // Handle visibility changes and resizing
-  useEffect(() => {
-    if (!map.current || !isMapLoaded) return
-
-    const triggerResize = () => {
-      if (
-        map.current &&
-        mapContainer.current &&
-        mapContainer.current.offsetParent !== null && // Check if it's part of layout
-        mapContainer.current.offsetWidth > 0 && // Check if width is > 0
-        mapContainer.current.offsetHeight > 0 // Check if height is > 0
-      ) {
-        map.current.resize()
-        // Map remains ready for operations regardless of visibility
-      }
-    }
-
-    if (isVisible) {
-      // Debounce the resize calls to ensure the container is ready after CSS transitions
-      const resizeTimeout = setTimeout(() => {
-        triggerResize()
-      }, 100) // Adjust delay as needed, 100ms is a common starting point
-
-      return () => clearTimeout(resizeTimeout)
-    }
-    // Note: We don't set map operations to false when not visible
-    // The map should remain available for layer operations even when hidden
-    return undefined
-  }, [isVisible, isMapLoaded])
-
-  // Clean up on component unmount
-  useEffect(() => {
-    const mapToClean = map.current
-    return () => {
-      if (mapToClean) {
-        setMapInstanceInStore(null)
-        mapToClean.remove()
-        setIsMapLoaded(false)
-      }
-      if (map.current === mapToClean) {
-        map.current = null
-      }
-    }
-  }, [setMapInstanceInStore])
-
-  // Effect for initializing and cleaning up IPC listeners
-  useEffect(() => {
-    initializeMapIpcListeners()
-    return () => {
-      cleanupMapIpcListeners()
-    }
-  }, [])
+  const { navigateToResult } = useMapNavigation()
 
   return (
-    <div
-      ref={mapContainer}
-      className="h-full w-full"
-      style={{
-        opacity: isVisible ? 1 : 0,
-        transition: 'opacity 300ms ease-in-out',
-        position: 'relative',
-        // Always keep the container in the layout flow to maintain dimensions
-        // This ensures the map can initialize properly even when visually hidden
-        pointerEvents: isVisible ? 'auto' : 'none'
-      }}
-    />
+    <div className="h-full w-full relative">
+      <MapCanvas style={osmRasterStyle} isVisible={isVisible} />
+      {isVisible && (
+        <>
+          {isSearchOpen && (
+            <MapSearchBox
+              onSelectResult={navigateToResult}
+              onClose={() => setIsSearchOpen(false)}
+            />
+          )}
+          <MapToolbar
+            onSearchClick={() => setIsSearchOpen((prev) => !prev)}
+            isSearchActive={isSearchOpen}
+          />
+        </>
+      )}
+    </div>
   )
 }
