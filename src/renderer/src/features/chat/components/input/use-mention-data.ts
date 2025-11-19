@@ -88,8 +88,11 @@ export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) 
     return items
   }, [layers, documents, currentChatId, searchQuery, enabled])
 
-  const isLoading =
-    useLayerStore((state) => state.isLoading) || useKnowledgeBaseStore((state) => state.isLoading)
+  // Call both store hooks unconditionally to keep hook order stable
+  const isLayerLoading = useLayerStore((state) => state.isLoading)
+  const isKnowledgeBaseLoading = useKnowledgeBaseStore((state) => state.isLoading)
+
+  const isLoading = isLayerLoading || isKnowledgeBaseLoading
 
   return {
     items: mentionItems,
