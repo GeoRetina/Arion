@@ -80,22 +80,16 @@ const AgentsPage: React.FC = () => {
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-4">
-            <div>
-              <h1 className="text-3xl font-semibold mb-2">AI Agents</h1>
-              <p className="text-muted-foreground max-w-2xl">
-                Manage your AI agents and their capabilities. Create specialized agents for
-                different tasks.
-              </p>
-            </div>
-            <Button className="md:self-start flex items-center gap-2" onClick={handleCreateAgent}>
-              <PlusCircle className="h-4 w-4" />
-              New Agent
-            </Button>
+          <div className="w-full">
+            <h1 className="text-3xl font-semibold mb-2">AI Agents</h1>
+            <p className="text-muted-foreground max-w-2xl">
+              Manage your AI agents and their capabilities. Create specialized agents for
+              different tasks.
+            </p>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-col md:flex-row gap-4 w-full">
+          {/* Filters and Actions */}
+          <div className="flex flex-col md:flex-row gap-4 w-full md:items-center">
             <div className="md:w-1/3 lg:w-1/4">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -117,6 +111,10 @@ const AgentsPage: React.FC = () => {
                 <SelectItem value="user-defined">User-defined</SelectItem>
               </SelectContent>
             </Select>
+            <Button className="flex items-center gap-2 md:ml-8" onClick={handleCreateAgent}>
+              <PlusCircle className="h-4 w-4" />
+              New Agent
+            </Button>
           </div>
 
           {/* Agent Cards */}
