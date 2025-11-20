@@ -1,13 +1,13 @@
 # Arion: Cross‑Platform Desktop App for Agentic Geospatial AI Analysis
 
-<div align="center" style="margin-bottom: 16px;">
+<div align="center">
   <table>
     <tr>
-      <td align="center" style="background-color: #FFF3CD; border: 2px solid #FFC107; border-radius: 8px; padding: 20px; margin: 20px 0;">
-        <h3 style="color: #856404; margin: 0 0 10px 0;">⚠️ Early Release Notice</h3>
-        <p style="color: #856404; font-size: 16px; margin: 0;">
-          Some features are currently missing and will be gradually added over the next few days as we complete code clean-up.<br/>
-          You may experience some bugs or incomplete functionality during this period. Thank you for your patience!
+      <td align="center" style="background-color: #E8F5E9; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="color: #2E7D32; margin: 0 0 10px 0;">🎉 v0.3.0 Released!</h3>
+        <p style="color: #424242; font-size: 16px; margin: 0;">
+          Arion v0.3.0 is now available with improved tool mapping, PostgreSQL connection support, and migration to Vercel AI SDK v5.<br/>
+          Check out the <a href="https://github.com/georetina/arion/releases" style="color: #2E7D32; font-weight: bold;">release notes</a> for full details!
         </p>
       </td>
     </tr>
