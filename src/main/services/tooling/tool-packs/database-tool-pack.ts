@@ -45,13 +45,12 @@ export function registerDatabaseTools(registry: ToolRegistry, deps: DatabaseTool
         )
 
         const placeholderNote =
-          'PLACEHOLDER NOTE: The host/port/database/username/password/ssl values shown here are placeholder tokens. Repeat the placeholder names exactly when calling other database tools and Arion will inject the real credentials automatically.'
+          'PLACEHOLDER NOTE: The host/port/db_name/username/password/ssl values shown here are placeholder tokens and this tool is for discovery only. Repeat the placeholder names exactly (use db_name for the database) when calling other database tools and Arion will inject the real credentials automatically.'
 
         return {
           status: 'success',
           connections,
-          message:
-            `Found ${connections.length} database connection(s). Use the connection_id and the placeholder field names (host, port, db_name, username, password, ssl) when calling MCP database tools. Credential values stay hidden and are injected automatically when the tool runs.`,
+          message: `Found ${connections.length} database connection(s). This list is for discovery and does not by itself connect or authorize queries. Use the connection_id and the placeholder field names (host, port, db_name, username, password, ssl) when calling tools that interact with a Postgres database. Credential values stay hidden and are injected automatically when the tool runs.`,
           placeholder_note: placeholderNote
         } as ListDatabaseConnectionsResult
       } catch (error) {
