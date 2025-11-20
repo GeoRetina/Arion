@@ -78,7 +78,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           {title}
         </div>
       )}
-      <div className="space-y-1">{children}</div>
+      <div className="space-y-2">{children}</div>
     </div>
   )
 

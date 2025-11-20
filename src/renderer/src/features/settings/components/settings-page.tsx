@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useThemeStore, applyTheme } from '@/stores/theme-store'
 import { SystemPromptConfig } from '@/../../shared/ipc-types'
+import { toast } from 'sonner'
 
 const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useThemeStore()
@@ -58,9 +59,11 @@ const SettingsPage: React.FC = () => {
   const handleSaveSystemPrompt = async () => {
     try {
       await window.ctg.settings.setSystemPromptConfig(systemPromptConfig)
-      alert('System prompt settings saved successfully!')
+      toast.success('System prompt settings saved successfully!')
     } catch (error) {
-      alert('Failed to save system prompt settings.')
+      toast.error('Failed to save system prompt settings.', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
     }
   }
 

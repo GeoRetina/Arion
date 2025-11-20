@@ -8,6 +8,7 @@ import AnthropicConfigModal from './anthropic-config-modal'
 import VertexConfigModal from './vertex-config-modal'
 import OllamaConfigModal from './ollama-config-modal'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 import {
   Card,
@@ -34,6 +35,10 @@ export default function ModelsPage(): React.JSX.Element {
   const [isAnthropicModalOpen, setIsAnthropicModalOpen] = useState(false)
   const [isVertexModalOpen, setIsVertexModalOpen] = useState(false)
   const [isOllamaModalOpen, setIsOllamaModalOpen] = useState(false)
+
+  // Confirmation dialog state
+  const [isClearDialogOpen, setIsClearDialogOpen] = useState(false)
+  const [providerToClear, setProviderToClear] = useState<NonNullable<LLMProvider> | null>(null)
 
   // Get states and actions from the store
   const {
@@ -146,43 +151,42 @@ export default function ModelsPage(): React.JSX.Element {
   }
 
   const handleClearConfiguration = (providerName: NonNullable<LLMProvider>): void => {
-    const providerFriendlyName = providerName.charAt(0).toUpperCase() + providerName.slice(1)
-    const confirmation = window.confirm(
-      `Are you sure you want to clear the configuration for ${providerFriendlyName}? This will remove your API key and model settings.`
-    )
+    setProviderToClear(providerName)
+    setIsClearDialogOpen(true)
+  }
 
-    if (confirmation) {
-      // Call the generic clearProviderConfig from the store
-      clearProviderConfig(providerName)
+  const handleConfirmClear = (): void => {
+    if (!providerToClear) return
 
-      // Also, persist this clearing action to the main process via IPC
-      // This assumes your settings service in main has methods to set empty/default configs
-      switch (providerName) {
-        case 'openai':
-          window.ctg.settings.setOpenAIConfig({ apiKey: '', model: '' })
-          break
-        case 'google':
-          window.ctg.settings.setGoogleConfig({ apiKey: '', model: '' })
-          break
-        case 'azure':
-          window.ctg.settings.setAzureConfig({ apiKey: '', endpoint: '', deploymentName: '' })
-          break
-        case 'anthropic':
-          window.ctg.settings.setAnthropicConfig({ apiKey: '', model: '' })
-          break
-        case 'vertex':
-          window.ctg.settings.setVertexConfig({ apiKey: '', model: '', project: '', location: '' })
-          break
-        case 'ollama':
-          window.ctg.settings.setOllamaConfig({ baseURL: '', model: '' })
-          break
-      }
+    // Call the generic clearProviderConfig from the store
+    clearProviderConfig(providerToClear)
 
-      // If the cleared provider was active, set activeProvider to null in main process as well
-      if (useLLMStore.getState().activeProvider === null) {
-        window.ctg.settings.setActiveLLMProvider(null)
-      }
-    } else {
+    // Also, persist this clearing action to the main process via IPC
+    // This assumes your settings service in main has methods to set empty/default configs
+    switch (providerToClear) {
+      case 'openai':
+        window.ctg.settings.setOpenAIConfig({ apiKey: '', model: '' })
+        break
+      case 'google':
+        window.ctg.settings.setGoogleConfig({ apiKey: '', model: '' })
+        break
+      case 'azure':
+        window.ctg.settings.setAzureConfig({ apiKey: '', endpoint: '', deploymentName: '' })
+        break
+      case 'anthropic':
+        window.ctg.settings.setAnthropicConfig({ apiKey: '', model: '' })
+        break
+      case 'vertex':
+        window.ctg.settings.setVertexConfig({ apiKey: '', model: '', project: '', location: '' })
+        break
+      case 'ollama':
+        window.ctg.settings.setOllamaConfig({ baseURL: '', model: '' })
+        break
+    }
+
+    // If the cleared provider was active, set activeProvider to null in main process as well
+    if (useLLMStore.getState().activeProvider === null) {
+      window.ctg.settings.setActiveLLMProvider(null)
     }
   }
 
@@ -364,6 +368,18 @@ export default function ModelsPage(): React.JSX.Element {
       <VertexConfigModal isOpen={isVertexModalOpen} onClose={handleVertexCloseModal} />
 
       <OllamaConfigModal isOpen={isOllamaModalOpen} onClose={handleOllamaCloseModal} />
+
+      {/* Confirmation Dialog for Clearing Configuration */}
+      <ConfirmationDialog
+        isOpen={isClearDialogOpen}
+        onOpenChange={setIsClearDialogOpen}
+        title="Clear Configuration"
+        description={`Are you sure you want to clear the configuration for ${providerToClear ? providerToClear.charAt(0).toUpperCase() + providerToClear.slice(1) : 'this provider'}? This will remove your API key and model settings.`}
+        confirmText="Clear"
+        cancelText="Cancel"
+        onConfirm={handleConfirmClear}
+        variant="destructive"
+      />
     </ScrollArea>
   )
 }

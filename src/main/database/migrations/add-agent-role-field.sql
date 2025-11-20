@@ -2,7 +2,7 @@
 -- Adds a role field to the agents table and sets existing agent roles based on capabilities
 
 -- Add role column to agents table
-ALTER TABLE agents ADD COLUMN role TEXT CHECK (role IN ('orchestrator', 'specialist'));
+ALTER TABLE agents ADD COLUMN role TEXT CHECK (role IN ('orchestrator', 'specialist')) DEFAULT 'specialist';
 
 -- Update existing agents: set as orchestrator if they have 'orchestrat' in any capability name or description
 UPDATE agents

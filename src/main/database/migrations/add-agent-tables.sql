@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS agents (
   name TEXT NOT NULL,
   description TEXT,
   type TEXT NOT NULL CHECK (type IN ('system', 'user-defined')),
+  role TEXT CHECK (role IN ('orchestrator', 'specialist')) DEFAULT 'specialist',
   icon TEXT,
   model_config TEXT NOT NULL, -- JSON for model configuration
   tool_access TEXT, -- JSON array of tool IDs this agent can access

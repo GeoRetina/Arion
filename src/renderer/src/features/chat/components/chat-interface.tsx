@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { AlertTriangle } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
+import { toast } from 'sonner'
 
 // Imported extracted components and hooks
 import { MessageBubble } from './message/message-bubble'
@@ -106,13 +107,15 @@ export default function ChatInterface(): React.JSX.Element {
       )
 
       if (!activeProvider && anyProviderConfigured) {
-        window.alert(
-          'Please select an active AI model from the bottom-left of the chat input, or configure one in the Models page.'
-        )
+        toast.error('No AI model selected', {
+          description:
+            'Please select an active AI model from the bottom-left of the chat input, or configure one in the Models page.'
+        })
       } else {
-        window.alert(
-          "No AI model is currently configured or active. Please configure an AI model from the 'Models' page to start chatting."
-        )
+        toast.error('No AI model configured', {
+          description:
+            "Please configure an AI model from the 'Models' page to start chatting."
+        })
       }
       return // Stop submission
     }

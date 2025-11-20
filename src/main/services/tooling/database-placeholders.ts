@@ -13,7 +13,8 @@ export const CONNECTION_PLACEHOLDER_LOOKUP: Record<
 > = {
   host: new Set(['host']),
   port: new Set(['port']),
-  database: new Set(['database']),
+  // Accept both the documented placeholder `db_name` and the more obvious `database`
+  database: new Set(['db_name', 'database']),
   username: new Set(['username']),
   password: new Set(['password']),
   ssl: new Set(['ssl'])
