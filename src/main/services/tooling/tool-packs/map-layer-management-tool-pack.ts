@@ -10,6 +10,8 @@ import {
 } from '../../../llm-tools/map-layer-management-tools'
 import type { ToolRegistry } from '../tool-registry'
 import type { MapLayerTracker } from '../map-layer-tracker'
+import { getLayerDbService } from '../../layer-database-service'
+import { getRuntimeLayerSnapshot } from '../../../ipc/layer-handlers'
 
 export interface MapLayerManagementDependencies {
   mapLayerTracker: MapLayerTracker
@@ -19,6 +21,7 @@ export function registerMapLayerManagementTools(
   registry: ToolRegistry,
   deps: MapLayerManagementDependencies
 ) {
+  const layerDbService = getLayerDbService()
   const { mapLayerTracker } = deps
 
   registry.register({
@@ -26,24 +29,53 @@ export function registerMapLayerManagementTools(
     definition: listMapLayersToolDefinition,
     category: 'map_layer_management',
     execute: async () => {
-      const layers = mapLayerTracker.listLayers()
+      // Only list session (non-persisted) layers that live in the renderer store.
+      const persistedLayers = layerDbService.getAllLayers()
+      const persistedIds = new Set(persistedLayers.map((layer) => layer.id))
+      const persistedSourceIds = new Set(persistedLayers.map((layer) => layer.sourceId))
+      const runtimeLayers = Array.isArray(getRuntimeLayerSnapshot())
+        ? getRuntimeLayerSnapshot()
+        : []
+
+      const sessionLayers = runtimeLayers.filter((layer: any) => {
+        const idMatch = layer.id && persistedIds.has(layer.id)
+        const sourceMatch = layer.sourceId && persistedSourceIds.has(layer.sourceId)
+        const explicitSession = layer.createdBy === 'import'
+        return explicitSession || (!idMatch && !sourceMatch)
+      })
+
+      const layers = sessionLayers.map((layer: any) => ({
+        id: layer.id,
+        name: layer.name,
+        sourceId: layer.sourceId,
+        sourceType: layer.sourceConfig?.type,
+        type: layer.type,
+        geometryType: layer.geometryType || layer.metadata?.geometryType || 'Unknown',
+        createdBy: layer.createdBy,
+        createdAt: layer.createdAt,
+        updatedAt: layer.updatedAt,
+        visibility: layer.visibility,
+        opacity: layer.opacity,
+        zIndex: layer.zIndex,
+        tags: layer.metadata?.tags || [],
+        description: layer.metadata?.description,
+        bounds: layer.metadata?.bounds,
+        featureCount: layer.metadata?.featureCount,
+        managedBy: 'runtime_store' as const
+      }))
+
       if (layers.length === 0) {
         return {
           status: 'success',
-          message: 'No layers have been programmatically added to the map yet.',
+          message: 'No session (non-persisted) layers are currently available.',
           layers: []
         }
       }
+
       return {
         status: 'success',
-        message: `Found ${layers.length} programmatically added layer(s).`,
-        layers: layers.map((l) => ({
-          sourceId: l.sourceId,
-          toolName: l.toolName,
-          addedAt: l.addedAt,
-          parameters: l.originalParams,
-          geometryType: l.geometryType
-        }))
+        message: `Found ${layers.length} session (non-persisted) layer(s).`,
+        layers
       }
     }
   })

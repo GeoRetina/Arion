@@ -19,6 +19,13 @@ import type {
   LayerPerformanceMetrics
 } from '../../shared/types/layer-types'
 
+// Runtime (in-memory) layer snapshot pushed from the renderer's layer store.
+let runtimeLayerSnapshot: any[] = []
+
+export function getRuntimeLayerSnapshot() {
+  return runtimeLayerSnapshot
+}
+
 /**
  * Register all layer-related IPC handlers
  */
@@ -291,6 +298,15 @@ export function registerLayerHandlers(): void {
       } catch (error) {
         throw error
       }
+    }
+  )
+
+  // Renderer pushes its current in-memory layer store snapshot here.
+  ipcMain.handle(
+    'layers:runtime:updateSnapshot',
+    async (_event: IpcMainInvokeEvent, layers: any[]): Promise<boolean> => {
+      runtimeLayerSnapshot = Array.isArray(layers) ? layers : []
+      return true
     }
   )
 }

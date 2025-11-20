@@ -1116,6 +1116,40 @@ export const useLayerStore = create<LayerStore>()(
   }))
 )
 
+// Push the in-memory layer store snapshot to the main process (for LLM tools).
+if (typeof window !== 'undefined' && (window as any).ctg?.layers?.invoke) {
+  const serializeLayerForRuntime = (layer: LayerDefinition) => ({
+    ...layer,
+    createdAt: layer.createdAt instanceof Date ? layer.createdAt.toISOString() : layer.createdAt,
+    updatedAt: layer.updatedAt instanceof Date ? layer.updatedAt.toISOString() : layer.updatedAt
+  })
+
+  let debounceHandle: ReturnType<typeof setTimeout> | null = null
+  const pushRuntimeSnapshot = () => {
+    const layers = Array.from(useLayerStore.getState().layers.values()).map((l) =>
+      serializeLayerForRuntime(l)
+    )
+    ;(window as any).ctg.layers.invoke('layers:runtime:updateSnapshot', layers).catch(() => {})
+  }
+
+  const schedulePush = () => {
+    if (debounceHandle) {
+      clearTimeout(debounceHandle)
+    }
+    debounceHandle = setTimeout(pushRuntimeSnapshot, 150)
+  }
+
+  // Initial push and subscription for subsequent updates
+  schedulePush()
+  useLayerStore.subscribe(
+    (state) => state.layers,
+    () => schedulePush(),
+    {
+      equalityFn: (a: Map<string, LayerDefinition>, b: Map<string, LayerDefinition>) => a === b
+    }
+  )
+}
+
 // Export helper hooks for common operations
 export const useSelectedLayer = () => useLayerStore((state) => state.getSelectedLayer())
 export const useLayerById = (id: string) => useLayerStore((state) => state.getLayer(id))
