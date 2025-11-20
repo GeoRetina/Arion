@@ -7,7 +7,7 @@
         <h3 style="color: #2E7D32; margin: 0 0 10px 0;">🎉 v0.3 Released!</h3>
         <p style="color: #424242; font-size: 16px; margin: 0;">
           Arion v0.3.0 is now available with improved tool mapping, PostgreSQL connection support, and migration to Vercel AI SDK v5.<br/>
-          Check out the <a href="https://github.com/georetina/arion/releases" style="color: #2E7D32; font-weight: bold;">release notes</a> for full details!
+          Check out the <a href="./changelogs/v0.3.0-release-notes.md" style="color: #2E7D32; font-weight: bold;">release notes</a> for full details!
         </p>
       </td>
     </tr>
