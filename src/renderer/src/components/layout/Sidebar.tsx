@@ -66,7 +66,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       title={title}
       onClick={() => navigate(path)}
     >
-      <Icon className="h-5 w-5 flex-shrink-0 transition-colors duration-200" />
+      <Icon className="h-5 w-5 shrink-0 transition-colors duration-200" />
       {isExpanded && <span className="ml-3 transition-all duration-200">{title}</span>}
     </Button>
   )
@@ -98,7 +98,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="h-7 w-7 rounded-md hover:!bg-muted"
+          className="h-7 w-7 rounded-md hover:bg-muted!"
           title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
         >
           {isExpanded ? (
@@ -120,7 +120,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           title="New Chat"
           onClick={() => navigate('/chat/new')}
         >
-          <span className="flex items-center justify-center rounded-md bg-purple-600 hover:bg-purple-700 flex-shrink-0 p-1.5">
+          <span className="flex items-center justify-center rounded-md bg-purple-600 hover:bg-purple-700 shrink-0 p-1.5">
             <PlusCircle className="h-4 w-4 text-white" />
           </span>
           {isExpanded && <span className="ml-2">New Chat</span>}
@@ -128,7 +128,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       </div>
 
       {/* Main Navigation */}
-      <div className="overflow-y-auto flex-grow">
+      <div className="overflow-y-auto grow">
         <NavGroup title="Workspace">
           <NavButton path="/history" title="History" icon={HistoryIcon} />
           <NavButton path="/knowledge-base" title="Knowledge Base" icon={Database} />

@@ -318,6 +318,10 @@ const searchLayersImpl = (
   }
 }
 
+// Persist only layers that have a string-based data reference (e.g., URL/file path).
+const isPersistableLayer = (layer: LayerDefinition) =>
+  typeof layer.sourceConfig?.data === 'string'
+
 // Create the store
 export const useLayerStore = create<LayerStore>()(
   subscribeWithSelector((set, get) => ({
@@ -432,7 +436,7 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Only persist to database if not imported for session-only use
-      const shouldPersist = layer.createdBy !== 'import'
+      const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
         try {
           const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
@@ -501,7 +505,7 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Only persist to database if not imported for session-only use
-      const shouldPersist = existingLayer.createdBy !== 'import'
+      const shouldPersist = isPersistableLayer(updatedLayer)
       if (shouldPersist) {
         try {
           await window.ctg.layers.update(id, updates)
@@ -535,7 +539,7 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Only persist to database if not imported for session-only use
-      const shouldPersist = layer.createdBy !== 'import'
+      const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
         try {
           await window.ctg.layers.delete(id)
@@ -868,9 +872,7 @@ export const useLayerStore = create<LayerStore>()(
       set({ isLoading: true })
       try {
         // Save non-imported layers to database (imported layers are session-only)
-        const layers = Array.from(get().layers.values()).filter(
-          (layer) => layer.createdBy !== 'import'
-        )
+        const layers = Array.from(get().layers.values()).filter((layer) => isPersistableLayer(layer))
         const groups = Array.from(get().groups.values())
 
         // Save each layer individually to maintain referential integrity
