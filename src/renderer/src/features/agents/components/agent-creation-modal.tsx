@@ -173,9 +173,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   ])
 
   // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const handleSubmit = async () => {
     // Validate all required fields regardless of active tab
     if (!name.trim()) {
       toast.error('Agent name is required')
@@ -263,7 +261,12 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={(event) => {
+            // Prevent accidental submits when navigating between tabs
+            event.preventDefault()
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Create New Agent</DialogTitle>
             <DialogDescription>
@@ -565,7 +568,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                     Next
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Agent
                   </Button>
