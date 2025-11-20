@@ -184,12 +184,6 @@ export const IpcChannels = {
   setMapFeatureFilter: 'ctg:map:setFeatureFilter',
   setMapLayerVisibility: 'ctg:map:setLayerVisibility',
 
-  // Plugin specific DB operations
-  dbGetAllPlugins: 'ctg:db:getAllPlugins',
-  dbAddPlugin: 'ctg:db:addPlugin',
-  dbUpdatePlugin: 'ctg:db:updatePlugin',
-  dbDeletePlugin: 'ctg:db:deletePlugin',
-
   // Shell operations
   shellOpenPath: 'ctg:shell:openPath',
 
@@ -249,19 +243,6 @@ export interface IPCResponse<T = null> {
   data?: T
   error?: string
   message?: string // For non-error messages, e.g., success messages with details
-}
-
-// --- Plugin Configuration Type (mirroring db.service.ts for client-side use) ---
-export interface PluginConfig {
-  id: string
-  name: string
-  version: string
-  description?: string | null
-  author?: string | null
-  enabled: boolean // 0 or 1 in DB, boolean here
-  settings?: string | null // JSON string for plugin-specific settings
-  created_at: string
-  updated_at: string
 }
 
 // MCP Permission System Types
@@ -380,17 +361,6 @@ export interface DbApi {
   // Knowledge Base Document specific DB operations
   // dbGetAllKnowledgeBaseDocuments: () => Promise<IPCResponse<KnowledgeBaseDocumentForClient[]>>, // Removed
   // dbDeleteKnowledgeBaseDocument: (documentId: string) => Promise<IPCResponse<null>>, // Removed
-
-  // Plugin specific DB operations
-  dbGetAllPlugins: () => Promise<IPCResponse<PluginConfig[]>>
-  dbAddPlugin: (
-    plugin: Omit<PluginConfig, 'id' | 'created_at' | 'updated_at'>
-  ) => Promise<IPCResponse<PluginConfig>>
-  dbUpdatePlugin: (
-    id: string,
-    plugin: Partial<Omit<PluginConfig, 'id' | 'created_at' | 'updated_at'>>
-  ) => Promise<IPCResponse<PluginConfig>>
-  dbDeletePlugin: (id: string) => Promise<IPCResponse<null>>
 }
 
 /**

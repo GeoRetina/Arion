@@ -353,12 +353,7 @@ const ctgApi = {
     },
     deleteMessage: async (id: string): Promise<{ success: boolean; error?: string }> => {
       return ipcRenderer.invoke(IpcChannels.dbDeleteMessage, id)
-    },
-    // Plugin specific DB operations
-    dbGetAllPlugins: () => ipcRenderer.invoke(IpcChannels.dbGetAllPlugins),
-    dbAddPlugin: (plugin) => ipcRenderer.invoke(IpcChannels.dbAddPlugin, plugin),
-    dbUpdatePlugin: (id, plugin) => ipcRenderer.invoke(IpcChannels.dbUpdatePlugin, id, plugin),
-    dbDeletePlugin: (id: string) => ipcRenderer.invoke(IpcChannels.dbDeletePlugin, id)
+    }
   } as DbApi,
   knowledgeBase: {
     addDocument: (payload: KBAddDocumentPayload): Promise<KBAddDocumentResult> => {

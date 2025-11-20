@@ -25,23 +25,6 @@ export interface Message {
   created_at: string
 }
 
-// Define type for Plugin
-export interface Plugin {
-  id: string // Unique identifier (e.g., package name or UUID)
-  name: string
-  description?: string | null
-  version: string
-  author?: string | null
-  type: string // e.g., 'dataConnector', 'visualizationProvider', 'mcpToolProvider', 'agentProvider'
-  enabled: boolean // Represented as INTEGER 0 or 1 in DB
-  is_core: boolean // Represented as INTEGER 0 or 1 in DB, true if bundled with app
-  path?: string | null // Filesystem path if user-installed, null for core
-  source: 'core' | 'user' | 'store' // Origin of the plugin
-  created_at: string
-  updated_at: string
-  settings?: string | null // JSON string for plugin-specific settings
-}
-
 const DB_SUBFOLDER = 'database'
 const DB_FILENAME = 'arion-app.db'
 
@@ -108,24 +91,6 @@ export class DBService {
       );
     `
 
-    const createPluginsTable = `
-      CREATE TABLE IF NOT EXISTS plugins (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        version TEXT NOT NULL,
-        author TEXT,
-        type TEXT NOT NULL, -- e.g., 'dataConnector', 'visualizationProvider', 'mcpToolProvider'
-        enabled INTEGER DEFAULT 1, -- 1 for true, 0 for false
-        is_core INTEGER DEFAULT 0, -- 1 for true (bundled), 0 for false (user-installed)
-        path TEXT, -- Filesystem path for user-installed plugins
-        source TEXT NOT NULL DEFAULT 'user' CHECK (source IN ('core', 'user', 'store')),
-        settings TEXT, -- JSON string for plugin-specific settings
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `
-
     const createChatUpdateTrigger = `
       CREATE TRIGGER IF NOT EXISTS update_chat_timestamp_on_new_message
       AFTER INSERT ON messages
@@ -140,12 +105,8 @@ export class DBService {
     this.db.transaction(() => {
       this.db.exec(createChatsTable)
       this.db.exec(createMessagesTable)
-      this.db.exec(createPluginsTable)
       this.db.exec(createChatUpdateTrigger)
     })()
-
-    // Seed core plugins if the table is empty (or on first run with plugins table)
-    this.seedCorePlugins()
 
     // TODO: Implement a proper migration system (e.g., using Drizzle-kit or custom scripts in src/main/db/migrations/) as per Rule 5 for future schema changes.
     // For now, new tables or alterations can be added here with IF NOT EXISTS or similar checks.
@@ -248,8 +209,6 @@ export class DBService {
     }
   }
 
-  // --- Plugin Operations ---
-
   // Run database migrations to update the schema when needed
   private runMigrations(): void {
     try {
@@ -264,88 +223,6 @@ export class DBService {
         this.db.prepare('ALTER TABLE messages ADD COLUMN orchestration TEXT').run()
       }
     } catch (error) {}
-  }
-
-  // Method to seed core plugins (called from initDatabase or createTables)
-  private seedCorePlugins(): void {
-    const corePlugins: Omit<Plugin, 'created_at' | 'updated_at'>[] = [
-      {
-        id: 'arion.geodata-connector',
-        name: 'GeoData Connector',
-        description: 'Connect to external geographic data sources',
-        version: '1.0.2',
-        author: 'GeoRetina',
-        type: 'dataConnector',
-        enabled: true,
-        is_core: true,
-        source: 'core',
-        path: null,
-        settings: null
-      },
-      {
-        id: 'arion.advanced-visualization',
-        name: 'Advanced Visualization',
-        description: 'Additional map visualization tools and options',
-        version: '0.8.5',
-        author: 'GeoRetina',
-        type: 'visualizationProvider',
-        enabled: true,
-        is_core: true,
-        source: 'core',
-        path: null,
-        settings: null
-      },
-      {
-        id: 'arion.llm-tools',
-        name: 'LLM Tools',
-        description: 'Additional tools for language models',
-        version: '1.1.0',
-        author: 'GeoRetina',
-        type: 'mcpToolProvider',
-        enabled: true,
-        is_core: true,
-        source: 'core',
-        path: null,
-        settings: null
-      }
-    ]
-
-    const stmt = this.db.prepare(
-      'INSERT OR IGNORE INTO plugins (id, name, description, version, author, type, enabled, is_core, path, source, settings) VALUES (@id, @name, @description, @version, @author, @type, @enabled, @is_core, @path, @source, @settings)'
-    )
-
-    this.db.transaction(() => {
-      for (const plugin of corePlugins) {
-        stmt.run({
-          ...plugin,
-          enabled: plugin.enabled ? 1 : 0,
-          is_core: plugin.is_core ? 1 : 0
-        })
-      }
-    })()
-  }
-
-  // TODO: Add methods for getPluginById, getAllPlugins, addPlugin, updatePlugin, deletePlugin
-  // For example:
-  public getAllPlugins(): Plugin[] {
-    const stmt = this.db.prepare('SELECT * FROM plugins ORDER BY name ASC')
-    const plugins = stmt.all() as any[]
-    return plugins.map((p) => ({
-      ...p,
-      enabled: p.enabled === 1,
-      is_core: p.is_core === 1
-    }))
-  }
-
-  public updatePluginEnabledState(id: string, enabled: boolean): boolean {
-    // Core plugins should not have their enabled state changed this way.
-    // This should be checked by PluginService before calling DBService,
-    // or add a check here: `WHERE is_core = 0`
-    const stmt = this.db.prepare(
-      'UPDATE plugins SET enabled = @enabled, updated_at = CURRENT_TIMESTAMP WHERE id = @id AND is_core = 0'
-    )
-    const result = stmt.run({ id, enabled: enabled ? 1 : 0 })
-    return result.changes > 0
   }
 
   // --- Message CRUD Operations ---

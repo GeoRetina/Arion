@@ -7,7 +7,6 @@ import {
   History as HistoryIcon,
   Settings as SettingsIcon,
   Server,
-  PlugZap,
   Link2,
   Database,
   Bot
@@ -139,7 +138,6 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           <NavButton path="/models" title="Models" icon={Brain} />
           <NavButton path="/agents" title="Agents" icon={Bot} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
-          <NavButton path="/plugins" title="Plugins" icon={PlugZap} />
         </NavGroup>
 
         <NavGroup title="System">
