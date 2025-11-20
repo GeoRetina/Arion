@@ -66,24 +66,36 @@ export class AgentRegistryService {
       // Get the app path (works in development and production)
       const appPath = app.getAppPath()
 
-      // Try to find the migration file in the expected locations
-      const migrationFileName = 'add-agent-tables.sql'
-      let migrationPath = path.join(appPath, 'out/main/database/migrations', migrationFileName)
-
-      if (!fs.existsSync(migrationPath)) {
-        // Fall back to src path if out path doesn't exist (development mode)
-        migrationPath = path.join(appPath, 'src/main/database/migrations', migrationFileName)
-      }
-
-      if (!fs.existsSync(migrationPath)) {
-        throw new Error(`Migration file not found at any expected location`)
-      }
-
-      const migrationSql = fs.readFileSync(migrationPath, 'utf8')
-
-      // Execute migration
       const db = this.getDb()
-      db.exec(migrationSql)
+
+      const loadMigrationSql = (migrationFileName: string): string => {
+        const possiblePaths = [
+          path.join(appPath, 'out/main/database/migrations', migrationFileName),
+          path.join(appPath, 'src/main/database/migrations', migrationFileName)
+        ]
+
+        for (const migrationPath of possiblePaths) {
+          if (fs.existsSync(migrationPath)) {
+            return fs.readFileSync(migrationPath, 'utf8')
+          }
+        }
+
+        throw new Error(`Migration file not found: ${migrationFileName}`)
+      }
+
+      // Ensure base agent tables exist
+      db.exec(loadMigrationSql('add-agent-tables.sql'))
+
+      // Add the agent role column if it is missing (existing user databases)
+      const agentColumns = db.prepare("PRAGMA table_info('agents')").all() as { name: string }[]
+      const roleColumnExists = agentColumns.some((col) => col.name === 'role')
+
+      if (!roleColumnExists) {
+        db.exec(loadMigrationSql('add-agent-role-field.sql'))
+      } else {
+        // Make sure the supporting index exists even if the column was added elsewhere
+        db.exec('CREATE INDEX IF NOT EXISTS idx_agents_role ON agents(role)')
+      }
     } catch (error) {
       throw error
     }
