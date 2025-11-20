@@ -66,7 +66,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       <div className="flex-grow h-[calc(100%-48px)] w-full p-3 pt-0">
         <div className="h-full w-full rounded-md overflow-hidden relative">
           <MapDisplay isVisible={isMapSidebarExpanded} />
-          <LayersPanel isExpanded={isLayersPanelExpanded} />
+          <LayersPanel isExpanded={isLayersPanelExpanded} onClose={handleToggleLayersPanel} />
         </div>
       </div>
     </div>

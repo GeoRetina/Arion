@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Layers } from 'lucide-react'
+import { Layers, ChevronLeft } from 'lucide-react'
 import { useMapStore } from '@/stores/map-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { LayerItem } from './layer-item'
 import { LayerStyleEditor } from './layer-style-editor'
@@ -14,9 +15,10 @@ import type { LayerStyle } from '../../../../../shared/types/layer-types'
 interface LayersPanelProps {
   className?: string
   isExpanded: boolean
+  onClose?: () => void
 }
 
-export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded }) => {
+export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded, onClose }) => {
   const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
   const [styleEditorLayerId, setStyleEditorLayerId] = useState<string | null>(null)
 
@@ -156,6 +158,18 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded 
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Layers</span>
+              <div className="flex-1"></div>
+              {onClose && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="h-6 w-6 rounded-md hover:bg-muted!"
+                  title="Close layers panel"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 

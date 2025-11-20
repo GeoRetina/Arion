@@ -1,3 +1,4 @@
+import './polyfills'
 import './assets/main.css'
 import React from 'react'
 import ReactDOM from 'react-dom/client'

@@ -15,6 +15,8 @@ export function useLayerSync() {
   const setMapInstance = useLayerStore((state) => state.setMapInstance)
   const saveToPersistence = useLayerStore((state) => state.saveToPersistence)
   const isDirty = useLayerStore((state) => state.isDirty)
+  const layers = useLayerStore((state) => state.layers)
+  const syncLayerToMap = useLayerStore((state) => state.syncLayerToMap)
 
   // Track initialization state
   const isInitializedRef = useRef(false)
@@ -44,6 +46,16 @@ export function useLayerSync() {
       isInitializedRef.current = false
     }
   }, [mapInstance, isMapReady, setMapInstance])
+
+  // Ensure all visible layers are synced once the map is ready (catches imports that happened earlier)
+  useEffect(() => {
+    if (!mapInstance || !isMapReady) return
+
+    const visibleLayers = Array.from(layers.values()).filter((layer) => layer.visibility)
+    visibleLayers.forEach((layer) => {
+      syncLayerToMap(layer).catch(() => {})
+    })
+  }, [mapInstance, isMapReady, layers, syncLayerToMap])
 
   // Auto-save when store becomes dirty (debounced)
   useEffect(() => {
