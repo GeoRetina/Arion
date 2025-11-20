@@ -134,13 +134,10 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           <NavButton path="/knowledge-base" title="Knowledge Base" icon={Database} />
         </NavGroup>
 
-        <NavGroup title="Tools">
+        <NavGroup title="System">
           <NavButton path="/models" title="Models" icon={Brain} />
           <NavButton path="/agents" title="Agents" icon={Bot} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
-        </NavGroup>
-
-        <NavGroup title="System">
           <NavButton path="/integrations" title="Integrations" icon={Link2} />
         </NavGroup>
       </div>
