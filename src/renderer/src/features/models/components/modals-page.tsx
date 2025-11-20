@@ -18,7 +18,6 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card'
-import { CheckCircle } from 'lucide-react'
 import { useLLMStore, LLMProvider } from '@/stores/llm-store'
 import AzureConfigModal from './azure-config-modal'
 import {
@@ -49,14 +48,6 @@ export default function ModelsPage(): React.JSX.Element {
     vertexConfig,
     ollamaConfig,
     isConfigured,
-    activeProvider,
-    setActiveProvider,
-    setOpenAIConfig,
-    setGoogleConfig,
-    setAzureConfig,
-    setAnthropicConfig,
-    setVertexConfig,
-    setOllamaConfig,
     clearProviderConfig,
     initializeStore,
     isInitialized
@@ -72,83 +63,26 @@ export default function ModelsPage(): React.JSX.Element {
   // OpenAI handlers
   const handleOpenAIOpenModal = (): void => setIsOpenAIModalOpen(true)
   const handleOpenAICloseModal = (): void => setIsOpenAIModalOpen(false)
-  const handleOpenAISaveConfig = async (config: {
-    apiKey: string
-    model: string
-  }): Promise<void> => {
-    try {
-      await setOpenAIConfig(config)
-    } catch (error) {}
-    handleOpenAICloseModal()
-  }
 
   // Google handlers
   const handleGoogleOpenModal = (): void => setIsGoogleModalOpen(true)
   const handleGoogleCloseModal = (): void => setIsGoogleModalOpen(false)
-  const handleGoogleSaveConfig = async (config: {
-    apiKey: string
-    model: string
-  }): Promise<void> => {
-    try {
-      await setGoogleConfig(config)
-    } catch (error) {}
-    handleGoogleCloseModal()
-  }
 
   // Azure handlers
   const handleAzureOpenModal = (): void => setIsAzureModalOpen(true)
   const handleAzureCloseModal = (): void => setIsAzureModalOpen(false)
-  const handleAzureSaveConfig = async (config: {
-    apiKey: string
-    endpoint: string
-    deploymentName: string
-  }): Promise<void> => {
-    try {
-      await setAzureConfig(config)
-    } catch (error) {}
-    handleAzureCloseModal()
-  }
 
   // Anthropic handlers
   const handleAnthropicOpenModal = (): void => setIsAnthropicModalOpen(true)
   const handleAnthropicCloseModal = (): void => setIsAnthropicModalOpen(false)
-  const handleAnthropicSaveConfig = async (config: {
-    apiKey: string
-    model: string
-  }): Promise<void> => {
-    try {
-      await setAnthropicConfig(config)
-    } catch (error) {}
-    handleAnthropicCloseModal()
-  }
 
   // Vertex handlers
   const handleVertexOpenModal = (): void => setIsVertexModalOpen(true)
   const handleVertexCloseModal = (): void => setIsVertexModalOpen(false)
-  const handleVertexSaveConfig = async (config: {
-    apiKey: string
-    model: string
-    project: string
-    location: string
-  }): Promise<void> => {
-    try {
-      await setVertexConfig(config)
-    } catch (error) {}
-    handleVertexCloseModal()
-  }
 
   // Ollama handlers
   const handleOllamaOpenModal = (): void => setIsOllamaModalOpen(true)
   const handleOllamaCloseModal = (): void => setIsOllamaModalOpen(false)
-  const handleOllamaSaveConfig = async (config: {
-    baseURL: string
-    model: string
-  }): Promise<void> => {
-    try {
-      await setOllamaConfig(config)
-    } catch (error) {}
-    handleOllamaCloseModal()
-  }
 
   const handleClearConfiguration = (providerName: NonNullable<LLMProvider>): void => {
     setProviderToClear(providerName)
@@ -190,13 +124,6 @@ export default function ModelsPage(): React.JSX.Element {
     }
   }
 
-  const isOpenAIConfigured = isConfigured('openai')
-  const isGoogleConfigured = isConfigured('google')
-  const isAzureConfigured = isConfigured('azure')
-  const isAnthropicConfigured = isConfigured('anthropic')
-  const isVertexConfigured = isConfigured('vertex')
-  const isOllamaConfigured = isConfigured('ollama')
-
   const createProviderCard = (
     providerName: NonNullable<LLMProvider>,
     title: string,
@@ -205,12 +132,11 @@ export default function ModelsPage(): React.JSX.Element {
     openModalHandler: () => void
   ) => {
     const configured = isConfigured(providerName)
-    const isActive = activeProvider === providerName
 
     return (
       <Card
         className={`overflow-hidden transition-all hover:shadow-md flex flex-col ${
-          configured ? 'border-[var(--chart-5)] ring-1 ring-[var(--chart-5)]' : 'border-border/50'
+          configured ? 'border-chart-5 ring-1 ring-chart-5' : 'border-border/50'
         }`}
       >
         <CardHeader className="pb-2 pt-4 px-5">
@@ -225,22 +151,21 @@ export default function ModelsPage(): React.JSX.Element {
               />
             </div>
             <div>
-              <CardTitle className="text-xl flex items-center gap-2">
+              <CardTitle className="text-xl">
                 {title}
-                {isActive && <CheckCircle className="h-5 w-5 text-[var(--chart-5)]/80" />}
               </CardTitle>
               <CardDescription className="text-sm">{description}</CardDescription>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="flex-grow px-5 py-3">
+        <CardContent className="grow px-5 py-3">
           {configured && (config.model || config.deploymentName) ? (
             <div className="text-sm">
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Model:</span>
-                  <span className="font-medium truncate max-w-[160px]">
+                  <span className="font-medium truncate max-w-40">
                     {config.model || config.deploymentName}
                   </span>
                 </div>

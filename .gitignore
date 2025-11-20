@@ -7,8 +7,6 @@ out
 .env
 .env.local
 venv/
-docs/
-third-party/
 
 
 
