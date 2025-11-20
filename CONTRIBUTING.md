@@ -41,7 +41,7 @@ Thank you for your interest in contributing to Arion! We welcome contributions f
 
 ### Prerequisites
 
-- **Node.js** 18 or higher
+- **Node.js** 22 or higher
 - **npm** 8 or higher
 - **Git** for version control
 

@@ -82,6 +82,11 @@ Arion is a **cross-platform desktop application** designed for advanced geospati
 
 ## Project Setup
 
+### Prerequisites
+
+- **Node.js 22** or higher
+- **npm** 8 or higher
+
 ### Install Dependencies
 
 ```bash
