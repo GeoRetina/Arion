@@ -15,6 +15,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { HardDrive, Info, Globe } from 'lucide-react'
 import { useLLMStore } from '@/stores/llm-store'
+import { toast } from 'sonner'
 
 interface OllamaConfigModalProps {
   isOpen: boolean
@@ -59,7 +60,9 @@ export default function OllamaConfigModal({
         // The ollama-ai-provider defaults to adding /api, so we should provide the base
         // e.g. http://localhost:11434
       } catch (e) {
-        alert('Invalid Base URL format. Please enter a valid URL (e.g., http://localhost:11434).')
+        toast.error('Invalid Base URL format', {
+          description: 'Please enter a valid URL (e.g., http://localhost:11434).'
+        })
         return
       }
 

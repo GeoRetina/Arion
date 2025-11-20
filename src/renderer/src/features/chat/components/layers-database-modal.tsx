@@ -42,6 +42,7 @@ import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { toast } from 'sonner'
 import type { LayerDefinition, LayerType } from '../../../../../shared/types/layer-types'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 interface LayersDatabaseModalProps {
   isOpen: boolean
@@ -220,6 +221,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
   const [selectedLayerIds, setSelectedLayerIds] = useState<Set<string>>(new Set())
   const [isDeleting, setIsDeleting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   // Load layers from persistence when modal opens
   useEffect(() => {
@@ -329,14 +331,13 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     setSelectedLayerIds(new Set())
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
     if (selectedLayerIds.size === 0) return
+    setIsDeleteDialogOpen(true)
+  }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedLayerIds.size} selected layer${selectedLayerIds.size > 1 ? 's' : ''}? This action cannot be undone.`
-    )
-
-    if (!confirmed) return
+  const handleConfirmDelete = async () => {
+    if (selectedLayerIds.size === 0) return
 
     setIsDeleting(true)
     try {
@@ -631,6 +632,18 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           )}
         </ScrollArea>
       </DialogContent>
+
+      {/* Confirmation Dialog for Deleting Selected Layers */}
+      <ConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete Selected Layers"
+        description={`Are you sure you want to delete ${selectedLayerIds.size} selected layer${selectedLayerIds.size > 1 ? 's' : ''}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        variant="destructive"
+      />
     </Dialog>
   )
 }

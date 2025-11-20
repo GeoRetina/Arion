@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   Card,
   CardContent,
@@ -13,6 +13,7 @@ import { Edit, Trash, Brain, Server, Settings } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { PROVIDER_LOGOS, PROVIDER_BACKGROUNDS } from '@/constants/llm-providers'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 interface AgentCardProps {
   agent: AgentRegistryEntry
@@ -21,6 +22,8 @@ interface AgentCardProps {
 }
 
 const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+
   // Generate a background color based on agent type
   const bgColor =
     agent.type === 'system'
@@ -34,13 +37,11 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
 
   // Handle delete button click with confirmation
   const handleDeleteClick = () => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete agent "${agent.name}"? This cannot be undone.`
-      )
-    ) {
-      onDelete(agent.id)
-    }
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    onDelete(agent.id)
   }
 
   return (
@@ -123,6 +124,17 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
           </Tooltip>
         </CardFooter>
       </Card>
+
+      <ConfirmationDialog
+        isOpen={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete Agent"
+        description={`Are you sure you want to delete agent "${agent.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDelete}
+        variant="destructive"
+      />
     </TooltipProvider>
   )
 }
