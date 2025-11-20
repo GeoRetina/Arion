@@ -6,13 +6,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, CheckCircle, Loader2, Database, Shield, TestTube } from 'lucide-react'
-import { PostgreSQLConfig, PostgreSQLConnectionResult } from '../../../shared/ipc-types'
+import { AlertCircle, CheckCircle, Loader2, Database, Shield, Activity } from 'lucide-react'
+import { PostgreSQLConfig, PostgreSQLConnectionResult } from '../../../../../shared/ipc-types'
 
 interface PostgreSQLConfigDialogProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (config: PostgreSQLConfig) => void
+  onSave: (config: PostgreSQLConfig) => Promise<void>
   onTest: (config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
   initialConfig?: PostgreSQLConfig
   title?: string
@@ -63,10 +63,19 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
     }
   }
 
-  const handleSave = () => {
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
     if (testResult?.success) {
-      onSave(config)
-      onClose()
+      setIsSaving(true)
+      try {
+        await onSave(config)
+        onClose()
+      } catch (error) {
+        console.error('Failed to save and connect:', error)
+      } finally {
+        setIsSaving(false)
+      }
     }
   }
 
@@ -180,7 +189,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                   </>
                 ) : (
                   <>
-                    <TestTube className="mr-2 h-4 w-4" />
+                    <Activity className="mr-2 h-4 w-4" />
                     Test Connection
                   </>
                 )}
@@ -227,13 +236,9 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                     </div>
                   )}
 
-                  <p
-                    className={`text-sm mt-2 ${
-                      testResult.success ? 'text-green-600' : 'text-red-600'
-                    }`}
-                  >
-                    {testResult.message}
-                  </p>
+                  {!testResult.success && testResult.message && (
+                    <p className="text-sm mt-2 text-red-600">{testResult.message}</p>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -244,8 +249,15 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!testResult?.success}>
-              Save Configuration
+            <Button onClick={handleSave} disabled={!testResult?.success || isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                'Save & Connect'
+              )}
             </Button>
           </div>
         </div>

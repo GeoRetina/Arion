@@ -13,7 +13,6 @@ import {
   type AnthropicConfig,
   type VertexConfig,
   type OllamaConfig,
-  type LMStudioConfig,
   type LLMProviderType,
   type AllLLMConfigurations,
   type McpServerConfig,
@@ -155,10 +154,6 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.setOllamaConfig, config),
     getOllamaConfig: (): Promise<OllamaConfig | null> =>
       ipcRenderer.invoke(IpcChannels.getOllamaConfig),
-    setLMStudioConfig: (config: LMStudioConfig): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.setLMStudioConfig, config),
-    getLMStudioConfig: (): Promise<LMStudioConfig | null> =>
-      ipcRenderer.invoke(IpcChannels.getLMStudioConfig),
     setActiveLLMProvider: (provider: LLMProviderType | null): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setActiveLLMProvider, provider),
     getActiveLLMProvider: (): Promise<LLMProviderType | null> =>
@@ -358,12 +353,7 @@ const ctgApi = {
     },
     deleteMessage: async (id: string): Promise<{ success: boolean; error?: string }> => {
       return ipcRenderer.invoke(IpcChannels.dbDeleteMessage, id)
-    },
-    // Plugin specific DB operations
-    dbGetAllPlugins: () => ipcRenderer.invoke(IpcChannels.dbGetAllPlugins),
-    dbAddPlugin: (plugin) => ipcRenderer.invoke(IpcChannels.dbAddPlugin, plugin),
-    dbUpdatePlugin: (id, plugin) => ipcRenderer.invoke(IpcChannels.dbUpdatePlugin, id, plugin),
-    dbDeletePlugin: (id: string) => ipcRenderer.invoke(IpcChannels.dbDeletePlugin, id)
+    }
   } as DbApi,
   knowledgeBase: {
     addDocument: (payload: KBAddDocumentPayload): Promise<KBAddDocumentResult> => {

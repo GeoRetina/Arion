@@ -485,26 +485,26 @@ import atexit
 atexit.register(cleanup_connections)
 
 if __name__ == "__main__":
-    print("🐘 PostgreSQL MCP Server starting...")
+    print("PostgreSQL MCP Server starting...")
     print("Available tools:")
-    print("  • connect_database - Connect to PostgreSQL database")
-    print("  • describe_schema - Get database schema information")
-    print("  • execute_select_query - Run complex SELECT queries safely")
-    print("  • execute_spatial_query - Run PostGIS spatial queries")
-    print("  • insert_record - Insert new records")
-    print("  • update_record - Update existing records")
-    print("  • delete_record - Delete records")
-    print("  • get_table_statistics - Get table statistics")
-    print("  • list_connections - List active connections")
-    print("  • close_connection - Close database connection")
+    print("  - connect_database - Connect to PostgreSQL database")
+    print("  - describe_schema - Get database schema information")
+    print("  - execute_select_query - Run complex SELECT queries safely")
+    print("  - execute_spatial_query - Run PostGIS spatial queries")
+    print("  - insert_record - Insert new records")
+    print("  - update_record - Update existing records")
+    print("  - delete_record - Delete records")
+    print("  - get_table_statistics - Get table statistics")
+    print("  - list_connections - List active connections")
+    print("  - close_connection - Close database connection")
     print()
-    
+
     try:
         mcp.run()
     except KeyboardInterrupt:
-        print("\n🛑 Server shutting down...")
+        print("\nServer shutting down...")
         cleanup_connections()
     except Exception as e:
-        print(f"❌ Server error: {e}")
+        print(f"Server error: {e}")
         cleanup_connections()
         sys.exit(1)

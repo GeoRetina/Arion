@@ -45,7 +45,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
           variant="ghost"
           size="icon"
           onClick={handleToggleLayersPanel}
-          className="h-7 w-7 rounded-md hover:!bg-muted"
+          className="h-7 w-7 rounded-md hover:bg-muted!"
           title="Toggle layers panel"
         >
           <Menu className="h-4 w-4" />
@@ -55,7 +55,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
           variant="ghost"
           size="icon"
           onClick={onToggleMapSidebar}
-          className="h-7 w-7 rounded-md hover:!bg-muted mr-3"
+          className="h-7 w-7 rounded-md hover:bg-muted! mr-3"
           title="Close map panel"
         >
           <ArrowRight className="h-4 w-4" />
@@ -63,10 +63,10 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       </div>
 
       {/* Map container */}
-      <div className="flex-grow h-[calc(100%-48px)] w-full p-3 pt-0">
+      <div className="grow h-[calc(100%-48px)] w-full p-3 pt-0">
         <div className="h-full w-full rounded-md overflow-hidden relative">
           <MapDisplay isVisible={isMapSidebarExpanded} />
-          <LayersPanel isExpanded={isLayersPanelExpanded} />
+          <LayersPanel isExpanded={isLayersPanelExpanded} onClose={handleToggleLayersPanel} />
         </div>
       </div>
     </div>

@@ -98,7 +98,7 @@ const LayerCard = ({ layer, viewMode, isSelected, onImport, onToggleSelect }: La
       >
         <button
           onClick={() => onToggleSelect(layer.id)}
-          className="flex-shrink-0 hover:bg-muted rounded p-1 transition-colors"
+          className="shrink-0 hover:bg-muted rounded p-1 transition-colors"
         >
           {isSelected ? (
             <CheckSquare className="h-4 w-4 text-accent" />
@@ -151,7 +151,7 @@ const LayerCard = ({ layer, viewMode, isSelected, onImport, onToggleSelect }: La
       <div className="flex items-start gap-2">
         <button
           onClick={() => onToggleSelect(layer.id)}
-          className="flex-shrink-0 hover:bg-muted rounded p-1 transition-colors -ml-1 -mt-1"
+          className="shrink-0 hover:bg-muted rounded p-1 transition-colors -ml-1 -mt-1"
         >
           {isSelected ? (
             <CheckSquare className="h-4 w-4 text-accent" />

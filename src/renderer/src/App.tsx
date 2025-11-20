@@ -14,7 +14,6 @@ import { resetChatStores } from './lib/chat-store-reset'
 const ModelsPage = React.lazy(() => import('./features/models/components/modals-page'))
 const McpServersPage = React.lazy(() => import('./features/settings/components/mcp-servers-page'))
 const SettingsPage = React.lazy(() => import('./features/settings/components/settings-page'))
-const PluginsPage = React.lazy(() => import('./features/plugins/components/plugins-age'))
 const IntegrationsPage = React.lazy(
   () => import('./features/integrations/components/integrations-page')
 )
@@ -56,13 +55,19 @@ function App(): React.JSX.Element {
     initTheme()
   }, [])
 
-  // Handle route changes to reset stores when leaving chat
+  // Handle route changes to reset stores when switching chats or leaving chat
   useEffect(() => {
     const currentPath = location.pathname
     const previousPath = previousLocationRef.current
 
-    // If we're leaving a chat route and going to a non-chat route
-    if (previousPath && previousPath.startsWith('/chat/') && !currentPath.startsWith('/chat/')) {
+    // Reset stores when:
+    // 1. Leaving a chat route to a non-chat route
+    // 2. Switching between different chats (e.g., /chat/id1 to /chat/id2 or /chat/new)
+    const isPreviousChat = previousPath && previousPath.startsWith('/chat/')
+    const isCurrentChat = currentPath.startsWith('/chat/')
+    const isSwitchingChats = isPreviousChat && isCurrentChat && previousPath !== currentPath
+
+    if (isPreviousChat && (!isCurrentChat || isSwitchingChats)) {
       resetChatStores()
     }
 
@@ -82,7 +87,6 @@ function App(): React.JSX.Element {
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/plugins" element={<PluginsPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
         </Routes>
       </React.Suspense>

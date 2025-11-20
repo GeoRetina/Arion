@@ -29,17 +29,17 @@ export default function OpenAIConfigModal({
   const setOpenAIConfig = useLLMStore((state) => state.setOpenAIConfig)
 
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('gpt-4o')
+  const [model, setModel] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(openaiConfig.apiKey || '')
-      setModel(openaiConfig.model || 'gpt-4o')
+      setModel(openaiConfig.model || '')
     }
     return () => {
       if (!isOpen) {
         setApiKey('')
-        setModel('gpt-4o')
+        setModel('')
       }
     }
   }, [openaiConfig, isOpen])
@@ -103,14 +103,13 @@ export default function OpenAIConfigModal({
                   id="model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g., gpt-4.1, o4-mini"
+                  placeholder="e.g., gpt-4o"
                 />
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  Specify the OpenAI model you want to use. Common models include gpt-model series,
-                  o-model series, etc. Full list available in the
+                  Specify the OpenAI model you want to use. See the
                   <a
                     href="https://platform.openai.com/docs/models"
                     target="_blank"
@@ -119,7 +118,7 @@ export default function OpenAIConfigModal({
                   >
                     OpenAI Documentation
                   </a>
-                  .
+                  for available models.
                 </p>
               </div>
             </div>

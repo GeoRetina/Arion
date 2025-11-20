@@ -111,6 +111,34 @@ const dataItemSchema = z
     "Schema for individual data objects within the 'data' array. Allows for common optional fields like 'name', 'value', 'group', and any other custom fields required by the specific chart data."
   )
 
+const scatterChartConfigSchema = baseChartConfigSchema.extend({
+  xKey: z
+    .string()
+    .optional()
+    .describe('Optional key for x values; defaults to reading raw "x" data if omitted.'),
+  yKey: z
+    .string()
+    .optional()
+    .describe('Optional key for y values; defaults to reading raw "y" data if omitted.'),
+  xAxisLabel: z.string().optional().describe('Optional label shown on the x-axis.'),
+  yAxisLabel: z.string().optional().describe('Optional label shown on the y-axis.')
+})
+
+const baseConfigByType: Record<
+  'bar' | 'line' | 'area' | 'scatter' | 'pie' | 'radar' | 'radialBar' | 'donut' | 'treemap',
+  z.ZodTypeAny
+> = {
+  bar: categoryChartConfigSchema,
+  line: categoryChartConfigSchema,
+  area: categoryChartConfigSchema,
+  scatter: scatterChartConfigSchema,
+  pie: pieChartConfigSchema,
+  radar: radarChartConfigSchema,
+  radialBar: radialBarChartConfigSchema,
+  donut: donutChartConfigSchema,
+  treemap: treemapChartConfigSchema
+}
+
 export const displayChartToolParamsSchema = z
   .object({
     chartType: z
@@ -119,23 +147,60 @@ export const displayChartToolParamsSchema = z
         "The type of chart to display. Supported types: 'bar', 'line', 'pie', 'area', 'scatter', 'radar', 'radialBar', 'donut', 'treemap'."
       ),
     data: z
-      .array(dataItemSchema) // Use the new dataItemSchema
+      .array(dataItemSchema)
       .min(1)
       .describe(
         'An array of data objects to plot. Each object is a record (key-value pairs). Example for bar/line: [{ "month": "Jan", "sales": 1000, "expenses": 400 }, ...]. Example for pie: [{ "category": "Electronics", "amount": 500 }, ...].'
       ),
-    config: z
-      .union([
-        categoryChartConfigSchema, // For bar, line, area, scatter
-        pieChartConfigSchema, // For pie
-        radarChartConfigSchema, // For radar
-        radialBarChartConfigSchema, // For radialBar
-        donutChartConfigSchema, // For donut
-        treemapChartConfigSchema // For treemap
-      ])
-      .describe(
-        "Configuration specific to the chart type. Ensure the correct config schema is used based on 'chartType'."
-      )
+    config: baseChartConfigSchema.extend({
+      axis: z
+        .object({
+          xKey: z.string().optional().describe('Optional key name to use for x-axis values.'),
+          yKey: z.string().optional().describe('Optional key name to use for y-axis values.'),
+          xLabel: z.string().optional().describe('Label for the x-axis.'),
+          yLabel: z.string().optional().describe('Label for the y-axis.')
+        })
+        .optional()
+        .describe('Optional axis helper for simple scatter or custom charts.'),
+      valueKeys: z
+        .array(z.string())
+        .optional()
+        .describe('Optional helper to specify value keys for multi-series charts.')
+    })
+  })
+  .superRefine((value, ctx) => {
+    const schema = baseConfigByType[value.chartType]
+
+    if (!schema) return
+
+    let configToValidate = value.config
+
+    if (value.chartType === 'scatter') {
+      const axis = value.config.axis || {}
+      const scatterConfig = {
+        ...value.config,
+        xKey: axis.xKey,
+        yKey: axis.yKey,
+        xAxisLabel: axis.xLabel,
+        yAxisLabel: axis.yLabel
+      }
+      configToValidate = scatterConfig
+    } else if (['bar', 'line', 'area'].includes(value.chartType)) {
+      configToValidate = {
+        ...value.config,
+        xAxisKey: value.config.axis?.xKey ?? value.config.xAxisKey,
+        yAxisKeys: value.config.valueKeys ?? value.config.yAxisKeys
+      }
+    }
+
+    const parsed = schema.safeParse(configToValidate)
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        ctx.addIssue(issue)
+      }
+    } else {
+      value.config = parsed.data
+    }
   })
   .describe(
     'A tool to display various types of charts based on provided data and configuration. The renderer process will handle the actual chart rendering.'

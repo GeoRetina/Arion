@@ -29,17 +29,17 @@ export default function AnthropicConfigModal({
   const setAnthropicConfig = useLLMStore((state) => state.setAnthropicConfig)
 
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('claude-3-opus-20240229')
+  const [model, setModel] = useState('')
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(anthropicConfig.apiKey || '')
-      setModel(anthropicConfig.model || 'claude-3-opus-20240229')
+      setModel(anthropicConfig.model || '')
     }
     return () => {
       if (!isOpen) {
         setApiKey('')
-        setModel('claude-3-opus-20240229')
+        setModel('')
       }
     }
   }, [anthropicConfig, isOpen])
@@ -104,19 +104,13 @@ export default function AnthropicConfigModal({
                   id="anthropicModel"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g., claude-3-opus-20240229"
+                  placeholder="e.g., claude-3-5-sonnet-20241022"
                 />
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  Specify the Anthropic Claude model you want to use. Options include:
-                  <ul className="mt-1 space-y-1 pl-4 list-disc">
-                    <li>claude-3-opus-20240229 (most powerful)</li>
-                    <li>claude-3-sonnet-20240229 (balanced performance)</li>
-                    <li>claude-3-haiku-20240307 (fastest)</li>
-                  </ul>
-                  See the
+                  Specify the Anthropic Claude model you want to use. See the
                   <a
                     href="https://docs.anthropic.com/claude/docs/models-overview"
                     target="_blank"
@@ -125,7 +119,7 @@ export default function AnthropicConfigModal({
                   >
                     Anthropic Documentation
                   </a>
-                  for more details.
+                  for available models.
                 </p>
               </div>
             </div>

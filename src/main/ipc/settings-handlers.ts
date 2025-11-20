@@ -9,7 +9,6 @@ import {
   McpServerConfig,
   VertexConfig,
   OllamaConfig,
-  LMStudioConfig,
   SystemPromptConfig
 } from '../../shared/ipc-types' // Adjusted path
 import { type SettingsService } from '../services/settings-service'
@@ -166,28 +165,6 @@ export function registerSettingsIpcHandlers(
   ipcMain.handle(IpcChannels.getOllamaConfig, async () => {
     try {
       return await settingsService.getOllamaConfig()
-    } catch (error) {
-      return null
-    }
-  })
-
-  // LM Studio IPC Handlers
-  ipcMain.handle(IpcChannels.setLMStudioConfig, async (_event, config: LMStudioConfig) => {
-    try {
-      if (config.baseURL === '' && config.model === '') {
-        await settingsService.clearLMStudioConfig()
-      } else {
-        await settingsService.setLMStudioConfig(config)
-      }
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
-    }
-  })
-
-  ipcMain.handle(IpcChannels.getLMStudioConfig, async () => {
-    try {
-      return await settingsService.getLMStudioConfig()
     } catch (error) {
       return null
     }

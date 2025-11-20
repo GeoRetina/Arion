@@ -95,9 +95,14 @@ export const useChatHistoryStore = create<ChatHistoryState & ChatHistoryActions>
         if (result.success && result.data) {
           const newChat = result.data
           set((state) => {
-            state.chats = [newChat, ...state.chats] // Add to beginning for immediate visibility
+            const alreadyInList = state.chats.some((chat) => chat.id === newChat.id)
+            if (!alreadyInList) {
+              state.chats = [newChat, ...state.chats] // Add to beginning for immediate visibility
+            }
             state.currentChatId = newChat.id
-            state.currentMessages = [] // New chat starts with no messages loaded
+            if (!alreadyInList) {
+              state.currentMessages = [] // Only reset for brand-new chats
+            }
           })
           return newChat.id
         } else {

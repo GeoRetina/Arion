@@ -5,8 +5,7 @@ import { createAzure } from '@ai-sdk/azure'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createVertex } from '@ai-sdk/google-vertex'
 // Replaced deprecated third-party wrapper with our in-house provider
-import { createOllama } from '../providers/ollama-provider'
-import { createLMStudio } from '../providers/lm-studio-provider'
+import { createOllama } from '../providers/ollama'
 import { SettingsService } from './settings-service'
 import { AgentRegistryService } from './agent-registry-service'
 import { detectReasoningModel } from './reasoning-model-detector'
@@ -65,8 +64,7 @@ export class LLMProviderFactory {
               'azure',
               'anthropic',
               'vertex',
-              'ollama',
-              'lm-studio'
+              'ollama'
             ]
             if (!supportedProviders.includes(provider.toLowerCase())) {
               provider = (await this.settingsService.getActiveLLMProvider()) || ''
@@ -122,8 +120,6 @@ export class LLMProviderFactory {
         return this.createVertexLLM(model)
       case 'ollama':
         return this.createOllamaLLM(model)
-      case 'lm-studio':
-        return this.createLMStudioLLM(model)
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`)
     }
@@ -152,9 +148,6 @@ export class LLMProviderFactory {
       case 'ollama':
         const ollamaConfig = await this.settingsService.getOllamaConfig()
         return ollamaConfig?.model || ''
-      case 'lm-studio':
-        const lmStudioConfig = await this.settingsService.getLMStudioConfig()
-        return lmStudioConfig?.model || ''
       default:
         return ''
     }
@@ -265,30 +258,4 @@ export class LLMProviderFactory {
     return ollamaProvider(model as any)
   }
 
-  /**
-   * Create LM Studio LLM instance
-   */
-  private async createLMStudioLLM(model: string): Promise<LanguageModel> {
-    const lmStudioConfig = await this.settingsService.getLMStudioConfig()
-    if (!lmStudioConfig?.baseURL) {
-      throw new Error('LM Studio provider is not configured correctly.')
-    }
-
-    // Normalize: remove trailing slash
-    let baseURL = lmStudioConfig.baseURL.trim()
-    baseURL = baseURL.replace(/\/$/, '')
-
-    const lmStudioProvider = createLMStudio({ baseURL })
-
-    // Keep behavior: wrap simulate streaming for non-reasoning models only
-    const isReasoningModel = detectReasoningModel(model)
-    if (!isReasoningModel) {
-      return wrapLanguageModel({
-        model: lmStudioProvider(model as any),
-        middleware: simulateStreamingMiddleware()
-      })
-    }
-
-    return lmStudioProvider(model as any)
-  }
 }

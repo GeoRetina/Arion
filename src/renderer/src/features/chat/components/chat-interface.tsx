@@ -1,18 +1,13 @@
 'use client'
 
-import { useChat } from '@ai-sdk/react'
-import { type UIMessage } from 'ai'
 import { v4 as uuidv4 } from 'uuid'
 import { useRef, useEffect, useMemo, useState } from 'react'
-import { Subtask } from '../../../../../shared/ipc-types'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import ChatInputBox from './input/chat-input-box'
-import { useChatHistoryStore } from '../../../stores/chat-history-store'
 import { useChatSession } from '../hooks/useChatSession'
 import { useAutoScroll } from '../hooks/useAutoScroll'
 import { MapSidebar } from '@/features/map/components/map-sidebar'
-import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 import {
   Dialog,
   DialogContent,
@@ -27,7 +22,6 @@ import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
 
 // Imported extracted components and hooks
-import { createStreamingFetch } from '../utils/streaming-fetch'
 import { MessageBubble } from './message/message-bubble'
 import { EmptyState } from './empty-state'
 import { LoadingIndicator } from './loading-indicator'
@@ -35,25 +29,9 @@ import { useMcpPermissionHandler } from '../hooks/use-mcp-permission-handler'
 import { useProviderConfiguration } from '../hooks/use-provider-configuration'
 import { useErrorDialog, useDatabaseModal } from '../hooks/use-dialog-state'
 import { useMapSidebar } from '../hooks/use-map-sidebar'
-
-// Helper to read text from UIMessage parts
-function getTextFromParts(message: UIMessage<any, any, any>): string {
-  const parts = (message as any).parts as Array<any> | undefined
-  if (!Array.isArray(parts)) return ''
-  return parts
-    .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
-    .map((p) => p.text as string)
-    .join('')
-}
-
-// Extend UIMessage with orchestration metadata for persistence
-type ExtendedMessage = UIMessage<any, any, any> & {
-  orchestration?: {
-    subtasks?: Subtask[]
-    agentsInvolved?: string[]
-    completionTime?: number
-  }
-}
+import { useScrollReset } from '../hooks/use-scroll-reset'
+import { useReasoningNotification } from '../hooks/use-reasoning-notification'
+import { useChatController } from '../hooks/use-chat-controller'
 
 export default function ChatInterface(): React.JSX.Element {
   // Use extracted custom hooks
@@ -68,122 +46,27 @@ export default function ChatInterface(): React.JSX.Element {
     // isLoadingMessagesFromStore
   } = useChatSession()
 
-  const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
-
   const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } =
     useProviderConfiguration(stableChatIdForUseChat || null)
-
-  // Create the streaming fetch function (memoize it)
-  const streamingFetch = useMemo(() => createStreamingFetch(), [])
 
   // Local input state (v5 removed managed input)
   const [input, setInput] = useState('')
   const [isStreamingUi, setIsStreamingUi] = useState(false)
-
-  const chat = useChat({
-    id: stableChatIdForUseChat,
-    api: '/api/chat',
-    fetch: streamingFetch as unknown as typeof fetch,
-    onError: () => {
-      setIsStreamingUi(false)
-    },
-    onFinish: async (args: any) => {
-      const assistantMessage = (args?.message || args) as ExtendedMessage
-      setIsStreamingUi(false)
-      // Basic saving logic for the final state of the assistant message
-      let currentChatId = useChatHistoryStore.getState().currentChatId
-      if (!currentChatId && stableChatIdForUseChat) {
-        const newChatId = await createChatAndSelect({ id: stableChatIdForUseChat })
-        if (newChatId) currentChatId = newChatId
-      }
-
-      // Get orchestration data from the store
-      const orchestrationStore = useAgentOrchestrationStore.getState()
-      const { activeSessionId, subtasks, agentsInvolved } = orchestrationStore
-
-      // Attach orchestration data if available
-      if (activeSessionId && (subtasks.length > 0 || agentsInvolved.length > 0)) {
-        assistantMessage.orchestration = {
-          subtasks: subtasks,
-          agentsInvolved: agentsInvolved.map((agent) => agent.id),
-          completionTime: Date.now() // Placeholder for completion time
-        }
-
-        // Reset orchestration after attaching to message
-        orchestrationStore.resetOrchestration()
-      }
-
-      if (currentChatId) {
-        const existingMsg = currentMessagesFromStore.find(
-          (m) => m.id === (assistantMessage as any).id
-        )
-        const text = getTextFromParts(assistantMessage)
-        if (!existingMsg && text && text.trim().length > 0) {
-          await addMessageToCurrentChat({
-            id: (assistantMessage as any).id,
-            chat_id: currentChatId,
-            role: assistantMessage.role as any,
-            content: text,
-            // Include orchestration metadata in persisted message
-            orchestration: assistantMessage.orchestration
-              ? JSON.stringify(assistantMessage.orchestration)
-              : undefined
-          })
-        }
-      }
-    }
+  const { chat, sdkMessages, sdkError, stop } = useChatController({
+    stableChatIdForUseChat,
+    currentMessagesFromStore,
+    currentChatIdFromStore,
+    setIsStreamingUi
   })
-
-  // Notify reasoning container to collapse when assistant starts streaming text
-  useEffect(() => {
-    if (isStreamingUi) {
-      const last = (chat.messages as any[])[(chat.messages as any[]).length - 1]
-      if (last && last.role === 'assistant') {
-        window.dispatchEvent(new Event('ai-assistant-text-start'))
-      }
-    }
-  }, [isStreamingUi, chat.messages])
-
-  const sdkMessages = chat.messages as UIMessage[]
-  const stop = chat.stop as (() => void) | undefined
-  const sdkError = chat.error as Error | undefined
 
   // Set up auto-scrolling for new user messages
   const { latestUserMessageRef, isLatestUserMessage } = useAutoScroll({ messages: sdkMessages })
 
-  // Effect to save user messages when sdkMessages changes and a new user message appears
-  useEffect(() => {
-    const latestSdkMessage =
-      sdkMessages.length > 0 ? (sdkMessages[sdkMessages.length - 1] as any) : null
-    if (latestSdkMessage && latestSdkMessage.role === 'user') {
-      const isAlreadySaved = currentMessagesFromStore.some(
-        (storeMsg) => storeMsg.id === latestSdkMessage.id
-      )
-      if (!isAlreadySaved) {
-        const currentChatId = useChatHistoryStore.getState().currentChatId // Get latest from store
-        const handleUserMessageSave = async () => {
-          // ONLY save if a chat session is already established in the DB
-          if (currentChatId) {
-            if (['system', 'user', 'assistant', 'tool'].includes(latestSdkMessage.role)) {
-              const text = getTextFromParts(latestSdkMessage)
-              await addMessageToCurrentChat({
-                id: latestSdkMessage.id,
-                chat_id: currentChatId,
-                role: latestSdkMessage.role,
-                content: text
-              })
-            }
-          }
-        }
-        handleUserMessageSave()
-      }
-    }
-  }, [
-    sdkMessages, // This is the primary trigger
-    currentMessagesFromStore, // To check if already saved (for the current chat in store)
-    stableChatIdForUseChat, // For logging
-    addMessageToCurrentChat
-  ])
+  // Notify reasoning container to collapse when assistant starts streaming text
+  useReasoningNotification({
+    isStreamingUi,
+    chatMessages: chat.messages as any[]
+  })
 
   // Use error dialog hook
   const { isErrorDialogOpen, setIsErrorDialogOpen, errorMessage } = useErrorDialog(
@@ -192,7 +75,13 @@ export default function ChatInterface(): React.JSX.Element {
   )
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null)
+
+  // Reset scroll position when chat changes
+  useScrollReset({
+    scrollAreaRef,
+    chatId: stableChatIdForUseChat ?? null
+  })
 
   useEffect(() => {
     if (!isStreamingUi && stableChatIdForUseChat) {
@@ -241,34 +130,6 @@ export default function ChatInterface(): React.JSX.Element {
       setInput('')
     }
   }
-
-  // Hydrate SDK messages from DB history on first load for the active chat
-  useEffect(() => {
-    const shouldHydrate =
-      stableChatIdForUseChat &&
-      stableChatIdForUseChat === currentChatIdFromStore &&
-      (sdkMessages?.length || 0) === 0 &&
-      (currentMessagesFromStore?.length || 0) > 0
-
-    if (!shouldHydrate) return
-
-    const append = (chat as any)?.append
-    if (typeof append !== 'function') return
-
-    // Map DB messages to UIMessage shape (parts-based)
-    const normalizeRole = (role: string): any => {
-      if (role === 'data' || role === 'function') return 'assistant'
-      return role
-    }
-
-    for (const m of currentMessagesFromStore) {
-      append({
-        id: m.id,
-        role: normalizeRole(m.role),
-        parts: m.content ? [{ type: 'text', text: m.content }] : []
-      })
-    }
-  }, [stableChatIdForUseChat, currentChatIdFromStore, sdkMessages, currentMessagesFromStore, chat])
 
   return (
     <div className="flex flex-row h-full max-h-full bg-transparent overflow-hidden relative">

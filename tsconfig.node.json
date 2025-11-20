@@ -6,6 +6,7 @@
     "types": ["electron-vite/node"],
     "moduleResolution": "bundler",
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["./src/renderer/src/*"]
     }

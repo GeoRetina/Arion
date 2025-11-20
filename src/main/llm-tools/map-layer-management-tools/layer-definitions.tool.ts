@@ -7,7 +7,7 @@ export const ListMapLayersToolSchema = z.object({}) // No parameters for listing
 
 export const listMapLayersToolDefinition = {
   description:
-    'Lists all features/layers that have been programmatically added to the map by tools, including their unique source IDs, the tool that added them, and the parameters used.',
+    'Lists session (non-persisted) layers currently in the renderer layer store, including their IDs, source IDs, geometry/type info, and basic metadata.',
   inputSchema: ListMapLayersToolSchema
 }
 

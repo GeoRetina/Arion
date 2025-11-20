@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AgentGroupIndicator } from '../agent-indicator'
 import OrchestrationTaskList from '../orchestration-task-list'
 import { Subtask } from '../../../../../../shared/ipc-types'
+import { useAnchoredToolParts } from '../../hooks/use-anchored-tool-parts'
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
@@ -40,7 +41,17 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       : ''
     const primaryText = message.content ?? textFromParts
 
-    const [collapseReasoning, setCollapseReasoning] = useState(false)
+    const isHydratedSnapshot = Boolean((message as any).hydrated)
+    const [collapseReasoning, setCollapseReasoning] = useState(
+      isHydratedSnapshot && !isUser ? true : false
+    )
+    const anchoredParts = useAnchoredToolParts({ message, collapseReasoning, isUser })
+
+    useEffect(() => {
+      if (isHydratedSnapshot && !isUser) {
+        setCollapseReasoning(true)
+      }
+    }, [isHydratedSnapshot, isUser])
 
     // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
     const hasAssistantParts = !isUser && Array.isArray(message.parts)
@@ -62,13 +73,14 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         <div
           className={cn(
             isUser
-              ? 'max-w-[70%] bg-[var(--user-message-background)] text-card-foreground rounded-2xl py-2 px-4'
+              ? 'max-w-[70%] bg-(--user-message-background) text-card-foreground rounded-2xl py-2 px-4'
               : 'w-full max-w-4xl text-foreground rounded-2xl px-0 dark:bg-card'
           )}
         >
           {isUser ? (
             <div className="whitespace-pre-wrap">{primaryText}</div>
           ) : Array.isArray(message.parts) && message.parts.length > 0 ? (
+            anchoredParts ||
             message.parts.map((part, partIndex) => (
               <MessagePartRenderer
                 key={`${message.id}-part-${partIndex}`}

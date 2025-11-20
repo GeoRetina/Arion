@@ -185,7 +185,21 @@ export class MapLibreIntegration {
    * Synchronize a layer definition to the map
    */
   async syncLayerToMap(layer: LayerDefinition): Promise<void> {
-    if (!this.isMapReady()) return
+    if (!this.isMapReady()) {
+      // Defer sync until the map style is ready
+      if (this.mapInstance) {
+        const retryOnce = () => {
+          this.mapInstance?.off('load', retryOnce)
+          this.mapInstance?.off('styledata', retryOnce)
+          // Retry without awaiting to avoid blocking listener thread
+          this.syncLayerToMap(layer).catch(() => {})
+        }
+
+        this.mapInstance.on('load', retryOnce)
+        this.mapInstance.on('styledata', retryOnce)
+      }
+      return
+    }
 
     try {
       // Add source if it doesn't exist

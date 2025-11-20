@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Layers } from 'lucide-react'
+import { Layers, ChevronLeft } from 'lucide-react'
 import { useMapStore } from '@/stores/map-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { LayerItem } from './layer-item'
 import { LayerStyleEditor } from './layer-style-editor'
@@ -14,9 +15,10 @@ import type { LayerStyle } from '../../../../../shared/types/layer-types'
 interface LayersPanelProps {
   className?: string
   isExpanded: boolean
+  onClose?: () => void
 }
 
-export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded }) => {
+export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded, onClose }) => {
   const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
   const [styleEditorLayerId, setStyleEditorLayerId] = useState<string | null>(null)
 
@@ -28,6 +30,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded 
   const setLayerVisibility = useLayerStore((state) => state.setLayerVisibility)
   const removeLayer = useLayerStore((state) => state.removeLayer)
   const updateLayerStyle = useLayerStore((state) => state.updateLayerStyle)
+  const updateLayer = useLayerStore((state) => state.updateLayer)
 
   // Chat session tracking
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
@@ -39,11 +42,44 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded 
     }
   }, [currentChatId, currentChatSession])
 
+  // If a chat ID becomes available after importing, tag any unassigned imported layers with it
+  useEffect(() => {
+    if (!currentChatId) return
+
+    const importedLayersNeedingTag = Array.from(layers.values()).filter(
+      (layer) => layer.createdBy === 'import' && !layer.metadata.tags?.includes(currentChatId)
+    )
+
+    if (importedLayersNeedingTag.length === 0) return
+
+    const tagLayerToChat = async () => {
+      for (const layer of importedLayersNeedingTag) {
+        const tags = Array.from(
+          new Set([...(layer.metadata.tags || []), 'session-import', currentChatId])
+        )
+
+        try {
+          await updateLayer(layer.id, {
+            metadata: {
+              ...layer.metadata,
+              tags
+            }
+          })
+        } catch (error) {
+          // Silent fail to avoid interrupting UI; errors are already handled elsewhere
+        }
+      }
+    }
+
+    tagLayerToChat()
+  }, [currentChatId, layers, updateLayer])
+
   // Get only session layers (imported layers for current chat)
   const sessionLayers = Array.from(layers.values()).filter((layer) => {
     if (layer.createdBy !== 'import') return false
-    // Check if layer was imported to this specific chat session
-    if (!currentChatId) return false
+    // When no chat session exists yet, show all imported layers so the user can see them immediately
+    if (!currentChatId) return true
+    // Otherwise, show only layers tagged for this chat
     return layer.metadata.tags?.includes(currentChatId)
   })
   const displayLayers = sessionLayers
@@ -122,6 +158,18 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded 
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Layers</span>
+              <div className="flex-1"></div>
+              {onClose && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  className="h-6 w-6 rounded-md hover:bg-muted!"
+                  title="Close layers panel"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 

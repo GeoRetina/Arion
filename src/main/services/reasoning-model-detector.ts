@@ -17,24 +17,11 @@ export function detectReasoningModel(modelId: string | undefined): boolean {
 
   const modelLower = modelId.toLowerCase()
   const reasoningModelPatterns = [
-    'gpt-oss',
-    'o1',
-    'o1-mini',
-    'o1-preview',
-    'o3',
-    'o3-mini',
     'reasoning',
     'think',
     'thought',
     'chain-of-thought',
     'cot',
-    'qwen-qwq',
-    'qwq',
-    'deepseek-r1',
-    'deepseek-reasoning',
-    'marco-o1',
-    'skywork-o1',
-    'llama-3.3-70b-reasoning',
     'reflection'
   ]
 

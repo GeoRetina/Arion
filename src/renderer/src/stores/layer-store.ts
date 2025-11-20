@@ -318,6 +318,10 @@ const searchLayersImpl = (
   }
 }
 
+// Persist only layers that have a string-based data reference (e.g., URL/file path).
+const isPersistableLayer = (layer: LayerDefinition) =>
+  typeof layer.sourceConfig?.data === 'string'
+
 // Create the store
 export const useLayerStore = create<LayerStore>()(
   subscribeWithSelector((set, get) => ({
@@ -432,7 +436,7 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Only persist to database if not imported for session-only use
-      const shouldPersist = layer.createdBy !== 'import'
+      const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
         try {
           const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
@@ -450,6 +454,23 @@ export const useLayerStore = create<LayerStore>()(
 
       // Sync to map immediately after state update
       await get().syncLayerToMap(layer)
+
+      // Auto-zoom to layer if bounds are available
+      const map = get().mapLibreIntegration?.getMapInstance()
+      const bounds = layer.metadata.bounds
+      if (
+        map &&
+        bounds &&
+        bounds.length === 4 &&
+        bounds.every((b) => typeof b === 'number' && isFinite(b)) &&
+        (bounds[0] !== bounds[2] || bounds[1] !== bounds[3])
+      ) {
+        try {
+          map.fitBounds(bounds as [number, number, number, number], { padding: 40, maxZoom: 16 })
+        } catch (error) {
+          // Ignore fit errors; rendering is handled separately
+        }
+      }
 
       // Record operation
       get().addOperation({
@@ -484,7 +505,7 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Only persist to database if not imported for session-only use
-      const shouldPersist = existingLayer.createdBy !== 'import'
+      const shouldPersist = isPersistableLayer(updatedLayer)
       if (shouldPersist) {
         try {
           await window.ctg.layers.update(id, updates)
@@ -518,7 +539,7 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Only persist to database if not imported for session-only use
-      const shouldPersist = layer.createdBy !== 'import'
+      const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
         try {
           await window.ctg.layers.delete(id)
@@ -851,9 +872,7 @@ export const useLayerStore = create<LayerStore>()(
       set({ isLoading: true })
       try {
         // Save non-imported layers to database (imported layers are session-only)
-        const layers = Array.from(get().layers.values()).filter(
-          (layer) => layer.createdBy !== 'import'
-        )
+        const layers = Array.from(get().layers.values()).filter((layer) => isPersistableLayer(layer))
         const groups = Array.from(get().groups.values())
 
         // Save each layer individually to maintain referential integrity
@@ -902,13 +921,26 @@ export const useLayerStore = create<LayerStore>()(
           window.ctg.layers.groups.getAll()
         ])
 
-        // Filter out imported layers unless explicitly requested
-        const layersToLoad = includeImported
+        // Keep existing in-memory imported layers (e.g., session imports) so we don't blow them away
+        const currentImportedLayers = Array.from(get().layers.values()).filter(
+          (layer) => layer.createdBy === 'import'
+        )
+
+        // Filter out imported layers from persistence unless explicitly requested
+        const layersFromPersistence = includeImported
           ? layers
           : layers.filter((layer) => layer.createdBy !== 'import')
 
+        // Merge: persistence layers first, then current imported (preserve runtime/session layers)
+        const mergedLayers = [
+          ...layersFromPersistence,
+          ...currentImportedLayers.filter(
+            (runtimeLayer) => !layersFromPersistence.some((l) => l.id === runtimeLayer.id)
+          )
+        ]
+
         set({
-          layers: new Map(layersToLoad.map((l) => [l.id, l])),
+          layers: new Map(mergedLayers.map((l) => [l.id, l])),
           groups: new Map(groups.map((g) => [g.id, g])),
           isDirty: false,
           lastSyncTimestamp: Date.now()
@@ -1085,6 +1117,40 @@ export const useLayerStore = create<LayerStore>()(
     }
   }))
 )
+
+// Push the in-memory layer store snapshot to the main process (for LLM tools).
+if (typeof window !== 'undefined' && (window as any).ctg?.layers?.invoke) {
+  const serializeLayerForRuntime = (layer: LayerDefinition) => ({
+    ...layer,
+    createdAt: layer.createdAt instanceof Date ? layer.createdAt.toISOString() : layer.createdAt,
+    updatedAt: layer.updatedAt instanceof Date ? layer.updatedAt.toISOString() : layer.updatedAt
+  })
+
+  let debounceHandle: ReturnType<typeof setTimeout> | null = null
+  const pushRuntimeSnapshot = () => {
+    const layers = Array.from(useLayerStore.getState().layers.values()).map((l) =>
+      serializeLayerForRuntime(l)
+    )
+    ;(window as any).ctg.layers.invoke('layers:runtime:updateSnapshot', layers).catch(() => {})
+  }
+
+  const schedulePush = () => {
+    if (debounceHandle) {
+      clearTimeout(debounceHandle)
+    }
+    debounceHandle = setTimeout(pushRuntimeSnapshot, 150)
+  }
+
+  // Initial push and subscription for subsequent updates
+  schedulePush()
+  useLayerStore.subscribe(
+    (state) => state.layers,
+    () => schedulePush(),
+    {
+      equalityFn: (a: Map<string, LayerDefinition>, b: Map<string, LayerDefinition>) => a === b
+    }
+  )
+}
 
 // Export helper hooks for common operations
 export const useSelectedLayer = () => useLayerStore((state) => state.getSelectedLayer())

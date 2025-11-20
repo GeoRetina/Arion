@@ -6,6 +6,10 @@ import { AgentToolManager } from './agent-tool-manager'
 import { getArionSystemPrompt } from '../constants/system-prompts'
 import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
+import {
+  normalizeRendererMessages,
+  sanitizeModelMessages
+} from './utils/message-normalizer'
 
 export interface PreparedMessagesResult {
   processedMessages: ModelMessage[]
@@ -45,20 +49,19 @@ export class MessagePreparationService {
     chatId?: string,
     agentId?: string
   ): Promise<PreparedMessagesResult> {
+    const normalizedRendererMessages = normalizeRendererMessages(rendererMessages)
+
     // Convert only if messages are UI messages (have parts). If already ModelMessage, use as-is.
     let coreMessages: ModelMessage[]
+    const messageAnalysis = this.analyzeRendererMessages(normalizedRendererMessages)
+
     try {
-      const looksLikeUI =
-        Array.isArray(rendererMessages) &&
-        rendererMessages.length > 0 &&
-        typeof rendererMessages[0] === 'object' &&
-        rendererMessages[0] !== null &&
-        'parts' in rendererMessages[0]
-      coreMessages = looksLikeUI
-        ? (convertToModelMessages(rendererMessages as any) as unknown as ModelMessage[])
-        : (rendererMessages as unknown as ModelMessage[])
+      coreMessages = messageAnalysis.shouldConvert
+        ? (convertToModelMessages(normalizedRendererMessages as any) as unknown as ModelMessage[])
+        : (normalizedRendererMessages as unknown as ModelMessage[])
+      coreMessages = sanitizeModelMessages(coreMessages)
     } catch (e) {
-      coreMessages = (rendererMessages as unknown as ModelMessage[]) || []
+      coreMessages = (normalizedRendererMessages as unknown as ModelMessage[]) || []
     }
     let finalSystemPrompt: string | null = null
 
@@ -77,9 +80,6 @@ export class MessagePreparationService {
     )
     coreMessages = messages
     finalSystemPrompt = systemPrompt
-
-    if (finalSystemPrompt) {
-    }
 
     return { processedMessages: coreMessages, finalSystemPrompt }
   }
@@ -330,4 +330,101 @@ export class MessagePreparationService {
   async getSystemPromptConfig() {
     return await this.settingsService.getSystemPromptConfig()
   }
+
+  private analyzeRendererMessages(rendererMessages: Array<any>) {
+    if (!Array.isArray(rendererMessages) || rendererMessages.length === 0) {
+      return {
+        shouldConvert: false,
+        convertReasons: [],
+        logDetails: {
+          totalMessages: Array.isArray(rendererMessages) ? rendererMessages.length : 0,
+          indicatorCounts: { parts: 0, toolInvocations: 0 },
+          recentMessages: []
+        }
+      }
+    }
+
+    const indicatorCounts = { parts: 0, toolInvocations: 0 }
+    const messageSummaries = rendererMessages.map((message, index) => {
+      const summary = this.createMessageSummaryForLog(message, index)
+      if (summary.hasPartsProp) {
+        indicatorCounts.parts += 1
+      }
+      if (summary.hasToolInvocationsProp) {
+        indicatorCounts.toolInvocations += 1
+      }
+      return summary
+    })
+
+    const shouldConvert = indicatorCounts.parts > 0 || indicatorCounts.toolInvocations > 0
+    const convertReasons: string[] = []
+    if (indicatorCounts.parts > 0) {
+      convertReasons.push('parts')
+    }
+    if (indicatorCounts.toolInvocations > 0) {
+      convertReasons.push('toolInvocations')
+    }
+
+    return {
+      shouldConvert,
+      convertReasons,
+      logDetails: {
+        totalMessages: rendererMessages.length,
+        indicatorCounts,
+        recentMessages: messageSummaries.slice(-5)
+      }
+    }
+  }
+
+  private createMessageSummaryForLog(message: any, index: number) {
+    const hasPartsProp = Boolean(message && typeof message === 'object' && 'parts' in message)
+    const partsCount = Array.isArray(message?.parts) ? message.parts.length : undefined
+    const hasToolInvocationsProp = Boolean(
+      message && typeof message === 'object' && 'toolInvocations' in message
+    )
+    const toolInvocationCount = Array.isArray(message?.toolInvocations)
+      ? message.toolInvocations.length
+      : undefined
+
+    return {
+      index,
+      role: message?.role,
+      hasPartsProp,
+      partsCount,
+      hasToolInvocationsProp,
+      toolInvocationCount,
+      contentDescriptor: this.describeContentForLog(message?.content),
+      partsPreview: Array.isArray(message?.parts)
+        ? message.parts.slice(0, 3).map((part: any) => ({
+            type: part?.type,
+            state: part?.state,
+            providerExecuted: part?.providerExecuted,
+            hasResult: Boolean(part?.result),
+            hasArgs: Boolean(part?.args)
+          }))
+        : undefined
+    }
+  }
+
+  private describeContentForLog(content: any): string {
+    if (content === null || content === undefined) {
+      return 'nullish'
+    }
+    if (typeof content === 'string') {
+      const trimmed = content.length > 60 ? `${content.slice(0, 57)}...` : content
+      return `string(${content.length}):${trimmed}`
+    }
+    if (Array.isArray(content)) {
+      const partTypes = content
+        .slice(0, 3)
+        .map((part) => (part?.type ? part.type : typeof part))
+        .join(',')
+      return `array(${content.length})[${partTypes}]`
+    }
+    if (typeof content === 'object') {
+      return 'object'
+    }
+    return typeof content
+  }
+
 }

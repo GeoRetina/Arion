@@ -14,7 +14,7 @@ import {
 import { integrationRegistry } from '../integrations'
 import type { IntegrationConfig } from '../types/integration'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
-import { PostgreSQLConfig } from '../../../shared/ipc-types'
+import { PostgreSQLConfig } from '../../../../../shared/ipc-types'
 
 const IntegrationsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] =
@@ -82,7 +82,7 @@ const IntegrationsPage: React.FC = () => {
     }
   }
 
-  const handlePostgreSQLSave = (newConfig: PostgreSQLConfig) => {
+  const handlePostgreSQLSave = async (newConfig: PostgreSQLConfig) => {
     if (selectedIntegration) {
       // Update the integration's connection settings
       selectedIntegration.integration.connectionSettings = newConfig
@@ -94,8 +94,19 @@ const IntegrationsPage: React.FC = () => {
         )
       )
 
-      // Update the integration status
-      selectedIntegration.integration.status = 'not-configured'
+      // Automatically connect after saving configuration
+      try {
+        await handlePostgreSQLConnect(selectedIntegration)
+      } catch (error) {
+        console.error('Auto-connect failed:', error)
+        // Set status to disconnected if auto-connect fails
+        selectedIntegration.integration.status = 'disconnected'
+        setIntegrationConfigs((prev) =>
+          prev.map((c) =>
+            c.integration.id === selectedIntegration.integration.id ? selectedIntegration : c
+          )
+        )
+      }
     }
   }
 
@@ -183,34 +194,17 @@ const IntegrationsPage: React.FC = () => {
                         Last used: {integration.lastUsed}
                       </div>
                     </CardContent>
-                    <div className="px-5 py-3 border-t border-border/40 flex justify-between items-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs"
-                        disabled={integration.status === 'coming-soon'}
-                        onClick={() => {
-                          if (integration.status === 'connected') {
-                            handleIntegrationAction(integration.id, 'disconnect')
-                          } else if (
-                            integration.status === 'not-configured' ||
-                            integration.status === 'disconnected'
-                          ) {
-                            handleIntegrationAction(integration.id, 'connect')
-                          } else if (integration.status === 'error') {
-                            handleIntegrationAction(integration.id, 'test')
-                          }
-                        }}
-                      >
-                        {integration.status === 'connected'
-                          ? 'Disconnect'
-                          : integration.status === 'not-configured' ||
-                              integration.status === 'disconnected'
-                            ? 'Setup / Connect'
-                            : integration.status === 'coming-soon'
-                              ? 'Coming Soon'
-                              : 'Retry'}
-                      </Button>
+                    <div className="px-5 py-3 border-t border-border/40 flex justify-end items-center gap-2">
+                      {integration.status === 'connected' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleIntegrationAction(integration.id, 'disconnect')}
+                        >
+                          Disconnect
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"

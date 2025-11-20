@@ -11,7 +11,6 @@ import {
   AnthropicConfig,
   VertexConfig,
   OllamaConfig,
-  LMStudioConfig,
   LLMProviderType,
   AllLLMConfigurations,
   McpServerConfig,
@@ -188,15 +187,6 @@ export class SettingsService {
       .run('ollama', config.model, config.baseURL)
   }
 
-  async setLMStudioConfig(config: LMStudioConfig): Promise<void> {
-    // LM Studio typically does not use an API key managed by keytar
-    this.db
-      .prepare(
-        'INSERT OR REPLACE INTO llm_configs (provider, model, baseURL, project, location, endpoint, deploymentName) VALUES (?, ?, ?, NULL, NULL, NULL, NULL)'
-      )
-      .run('lm-studio', config.model, config.baseURL)
-  }
-
   // --- Provider Specific Getters ---
   private async getStoredConfig(provider: LLMProviderType): Promise<StoredLLMConfig | null> {
     const row = this.db
@@ -269,14 +259,6 @@ export class SettingsService {
     return null
   }
 
-  async getLMStudioConfig(): Promise<LMStudioConfig | null> {
-    const storedConfig = await this.getStoredConfig('lm-studio')
-    if (storedConfig?.model && storedConfig.baseURL) {
-      return { model: storedConfig.model, baseURL: storedConfig.baseURL }
-    }
-    return null
-  }
-
   // --- Active Provider Management ---
   async setActiveLLMProvider(provider: LLMProviderType | null): Promise<void> {
     this.db
@@ -293,17 +275,15 @@ export class SettingsService {
 
   // --- Get All Configs (for initial load) ---
   async getAllLLMConfigs(): Promise<AllLLMConfigurations> {
-    const [openai, google, azure, anthropic, vertex, ollama, lmStudio, activeProvider] =
-      await Promise.all([
-        this.getOpenAIConfig(),
-        this.getGoogleConfig(),
-        this.getAzureConfig(),
-        this.getAnthropicConfig(),
-        this.getVertexConfig(),
-        this.getOllamaConfig(),
-        this.getLMStudioConfig(),
-        this.getActiveLLMProvider()
-      ])
+    const [openai, google, azure, anthropic, vertex, ollama, activeProvider] = await Promise.all([
+      this.getOpenAIConfig(),
+      this.getGoogleConfig(),
+      this.getAzureConfig(),
+      this.getAnthropicConfig(),
+      this.getVertexConfig(),
+      this.getOllamaConfig(),
+      this.getActiveLLMProvider()
+    ])
     const allConfigs: AllLLMConfigurations = {
       openai: openai || undefined,
       google: google || undefined,
@@ -311,7 +291,6 @@ export class SettingsService {
       anthropic: anthropic || undefined,
       vertex: vertex || undefined,
       ollama: ollama || undefined,
-      lmStudio: lmStudio || undefined,
       activeProvider: activeProvider || null
     }
     //
@@ -443,11 +422,6 @@ export class SettingsService {
   async clearOllamaConfig(): Promise<void> {
     // No API key to delete from keytar for Ollama
     this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('ollama')
-  }
-
-  async clearLMStudioConfig(): Promise<void> {
-    // No API key to delete from keytar for LM Studio
-    this.db.prepare('DELETE FROM llm_configs WHERE provider = ?').run('lm-studio')
   }
 
   // --- System Prompt Configuration ---

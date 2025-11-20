@@ -27,7 +27,7 @@ export class PostgreSQLService {
         database: config.database,
         user: config.username,
         password: config.password,
-        ssl: config.ssl,
+        ssl: config.ssl ? { rejectUnauthorized: false } : false,
         max: 1,
         connectionTimeoutMillis: this.connectionTimeout,
         idleTimeoutMillis: this.idleTimeout
@@ -46,6 +46,9 @@ export class PostgreSQLService {
         postgisVersion = postgisResult.rows[0]?.postgis_version || null
       } catch (error) {}
 
+      client.release()
+      client = null
+
       await tempPool.end()
 
       return {
@@ -58,10 +61,6 @@ export class PostgreSQLService {
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown connection error'
-      }
-    } finally {
-      if (client) {
-        client.release()
       }
     }
   }
@@ -84,7 +83,7 @@ export class PostgreSQLService {
         database: config.database,
         user: config.username,
         password: config.password,
-        ssl: config.ssl,
+        ssl: config.ssl ? { rejectUnauthorized: false } : false,
         max: this.maxConnections,
         connectionTimeoutMillis: this.connectionTimeout,
         idleTimeoutMillis: this.idleTimeout
