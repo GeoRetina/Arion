@@ -1,54 +1,43 @@
 /**
- * Plus Dropdown Component
+ * Plus Button Component
  *
- * Dropdown menu triggered by a plus button that contains various
- * import and database options for the chat input.
+ * Button that directly opens file explorer for importing layers.
+ * Database functionality is hidden until it's ready for use.
  */
 
 import React, { useState, useRef } from 'react'
-import { Plus, Paperclip, Database, Upload, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, Upload, AlertCircle, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
-import { LayerImportService, SUPPORTED_FORMATS } from '@/services/layer-import-service'
+import { LayerImportService } from '@/services/layer-import-service'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { toast } from 'sonner'
 
 interface PlusDropdownProps {
   disabled?: boolean
   className?: string
-  onOpenDatabase?: () => void
+  onOpenDatabase?: () => void // Kept for future use
 }
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error'
 
 export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   disabled = false,
-  className,
-  onOpenDatabase
+  className
+  // onOpenDatabase - not used until database feature is ready
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadState, setUploadState] = useState<UploadState>('idle')
-  const [isOpen, setIsOpen] = useState(false)
   const { addLayer, addError } = useLayerStore()
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
-  // Generate accepted file types for input element
-  const acceptedTypes =
-    Object.keys(SUPPORTED_FORMATS).join(',') +
-    ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
+  // Only allow JSON/GeoJSON, ZIP, and TIF files
+  const acceptedTypes = '.json,.geojson,.zip,.tif,.tiff'
 
   const handleFileImport = () => {
     if (disabled || uploadState === 'uploading') return
-    setIsOpen(false) // Close dropdown
     fileInputRef.current?.click()
   }
 
@@ -117,12 +106,6 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
     }
   }
 
-  const handleDatabaseOpen = () => {
-    if (disabled) return
-    setIsOpen(false) // Close dropdown
-    onOpenDatabase?.()
-  }
-
   const getButtonIcon = () => {
     switch (uploadState) {
       case 'uploading':
@@ -145,55 +128,35 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
       case 'error':
         return 'Import failed'
       default:
-        return 'Add content'
+        return 'Import layer file'
     }
   }
 
   return (
     <>
-      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={disabled || uploadState === 'uploading'}
-                className={cn(
-                  'text-foreground hover:text-foreground/80 transition-colors h-8 w-8',
-                  uploadState === 'uploading' && 'cursor-not-allowed opacity-75',
-                  uploadState === 'success' && 'text-green-600 hover:text-green-700',
-                  uploadState === 'error' && 'text-red-600 hover:text-red-700',
-                  className
-                )}
-              >
-                {getButtonIcon()}
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{getButtonTitle()}</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <DropdownMenuContent align="center" side="top" className="w-56">
-          <DropdownMenuItem
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={handleFileImport}
             disabled={disabled || uploadState === 'uploading'}
+            className={cn(
+              'text-foreground hover:text-foreground/80 transition-colors h-8 w-8',
+              uploadState === 'uploading' && 'cursor-not-allowed opacity-75',
+              uploadState === 'success' && 'text-green-600 hover:text-green-700',
+              uploadState === 'error' && 'text-red-600 hover:text-red-700',
+              className
+            )}
           >
-            <Paperclip className="h-5 w-5 mr-2" />
-            Import File
-          </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={handleDatabaseOpen} disabled={disabled}>
-            <Database className="h-5 w-5 mr-2" />
-            Layer Database
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {getButtonIcon()}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{getButtonTitle()}</p>
+        </TooltipContent>
+      </Tooltip>
 
       <input
         ref={fileInputRef}
