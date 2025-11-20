@@ -101,13 +101,6 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
-  // Load agents when modal opens
-  React.useEffect(() => {
-    if (isOpen) {
-      loadAgents()
-    }
-  }, [isOpen, loadAgents])
-
   // Reset form state on close
   const handleClose = () => {
     setName('')
