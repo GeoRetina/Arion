@@ -89,6 +89,19 @@ export interface McpServerConfig {
   // TODO: Consider adding auth details if needed in the future (e.g., apiKey, token)
 }
 
+export interface McpToolPreview {
+  name: string
+  description?: string
+}
+
+export interface McpServerTestResult {
+  success: boolean
+  error?: string
+  serverName?: string
+  serverVersion?: string
+  tools?: McpToolPreview[]
+}
+
 export type LLMConfigData =
   | OpenAIConfig
   | GoogleConfig
@@ -171,6 +184,7 @@ export const IpcChannels = {
   addMcpServerConfig: 'settings:add-mcp-server-config',
   updateMcpServerConfig: 'settings:update-mcp-server-config',
   deleteMcpServerConfig: 'settings:delete-mcp-server-config',
+  testMcpServerConfig: 'settings:test-mcp-server-config',
 
   // Knowledge Base IPC Channels
   kbAddDocument: 'ctg:kb:addDocument',
@@ -279,6 +293,7 @@ export interface SettingsApi {
     updates: Partial<Omit<McpServerConfig, 'id'>>
   ) => Promise<McpServerConfig | null>
   deleteMcpServerConfig: (configId: string) => Promise<boolean>
+  testMcpServerConfig: (config: Omit<McpServerConfig, 'id'>) => Promise<McpServerTestResult>
 
   // System Prompt methods
   getSystemPromptConfig: () => Promise<SystemPromptConfig>

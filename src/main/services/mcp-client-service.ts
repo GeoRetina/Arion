@@ -8,7 +8,7 @@ import {
   ServerCapabilities
 } from '@modelcontextprotocol/sdk/types.js'
 import { SettingsService } from './settings-service'
-import { McpServerConfig } from '../../shared/ipc-types'
+import { McpServerConfig, McpServerTestResult } from '../../shared/ipc-types'
 
 // Interface for a discovered MCP tool
 export interface DiscoveredMcpTool extends Tool {
@@ -52,6 +52,27 @@ export class MCPClientService {
     }
   }
 
+  private createTransport(
+    config: Pick<McpServerConfig, 'command' | 'args' | 'url'>
+  ): StdioClientTransport | SSEClientTransport | null {
+    if (config.command) {
+      return new StdioClientTransport({
+        command: config.command,
+        args: config.args || []
+      })
+    }
+
+    if (config.url) {
+      try {
+        return new SSEClientTransport(new URL(config.url))
+      } catch (e) {
+        return null
+      }
+    }
+
+    return null
+  }
+
   // Combined connection and discovery logic for a single server
   private async connectToServerAndDiscover(config: McpServerConfig): Promise<void> {
     if (this.clients.has(config.id)) {
@@ -61,32 +82,12 @@ export class MCPClientService {
     }
 
     try {
-      const client = new Client({ name: 'ArionMCPClient', version: '0.1.0' })
-      let transport
-
-      if (config.command) {
-        // Stdio transport
-        transport = new StdioClientTransport({
-          command: config.command,
-          args: config.args || []
-          // TODO: Consider adding `cwd` or `env` if necessary from config
-        })
-      } else if (config.url) {
-        try {
-          transport = new SSEClientTransport(new URL(config.url))
-        } catch (e) {
-          return // Stop if URL is invalid for SSE transport
-        }
-      } else {
-        return
-      }
-
-      // If transport is not created (e.g. invalid URL for SSE), we would have returned.
-      // So, if we reach here, transport should be defined.
+      const transport = this.createTransport(config)
       if (!transport) {
         return
       }
 
+      const client = new Client({ name: 'ArionMCPClient', version: '0.1.0' })
       await client.connect(transport)
       this.clients.set(config.id, client)
 
@@ -141,6 +142,52 @@ export class MCPClientService {
       this.discoveredTools = this.discoveredTools.filter(
         (currentTool) => currentTool.serverId !== serverId
       )
+    }
+  }
+
+  public async testServerConnection(
+    config: Omit<McpServerConfig, 'id'>
+  ): Promise<McpServerTestResult> {
+    let client: Client | null = null
+
+    try {
+      const transport = this.createTransport(config)
+      if (!transport) {
+        return {
+          success: false,
+          error: 'Provide a command for stdio or a valid URL for HTTP-based MCP servers.'
+        }
+      }
+
+      client = new Client({ name: 'ArionMCPClient', version: '0.1.0' })
+      await client.connect(transport)
+
+      const serverVersion: Implementation | undefined = client.getServerVersion()
+      const listToolsResponse = (await client.listTools()) as ListToolsResult
+      const tools = Array.isArray(listToolsResponse?.tools)
+        ? listToolsResponse.tools.map((tool) => ({
+            name: tool.name,
+            description: tool.description
+          }))
+        : []
+
+      return {
+        success: true,
+        serverName: serverVersion?.name,
+        serverVersion: serverVersion?.version,
+        tools
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to connect to MCP server.'
+      }
+    } finally {
+      if (client) {
+        try {
+          await client.close()
+        } catch (closeError) {}
+      }
     }
   }
 

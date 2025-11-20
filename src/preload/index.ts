@@ -16,6 +16,7 @@ import {
   type LLMProviderType,
   type AllLLMConfigurations,
   type McpServerConfig,
+  type McpServerTestResult,
   type SettingsApi,
   type ChatApi,
   type Chat,
@@ -171,6 +172,10 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.updateMcpServerConfig, configId, updates),
     deleteMcpServerConfig: (configId: string): Promise<boolean> =>
       ipcRenderer.invoke(IpcChannels.deleteMcpServerConfig, configId),
+    testMcpServerConfig: (
+      config: Omit<McpServerConfig, 'id'>
+    ): Promise<McpServerTestResult> =>
+      ipcRenderer.invoke(IpcChannels.testMcpServerConfig, config),
     getSystemPromptConfig: (): Promise<SystemPromptConfig> =>
       ipcRenderer.invoke(IpcChannels.getSystemPromptConfig),
     setSystemPromptConfig: (config: SystemPromptConfig): Promise<void> =>

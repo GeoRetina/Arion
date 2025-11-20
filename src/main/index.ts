@@ -195,7 +195,7 @@ app.whenReady().then(async () => {
   })
 
   // --- Register IPC Handlers ---
-  registerSettingsIpcHandlers(ipcMain, settingsServiceInstance)
+  registerSettingsIpcHandlers(ipcMain, settingsServiceInstance, mcpClientServiceInstance)
   registerChatIpcHandlers(
     ipcMain,
     chatServiceInstance,
