@@ -12,10 +12,12 @@ import {
   SystemPromptConfig
 } from '../../shared/ipc-types' // Adjusted path
 import { type SettingsService } from '../services/settings-service'
+import { type MCPClientService } from '../services/mcp-client-service'
 
 export function registerSettingsIpcHandlers(
   ipcMain: IpcMain,
-  settingsService: SettingsService
+  settingsService: SettingsService,
+  mcpClientService: MCPClientService
 ): void {
   // --- Generic SettingsService IPC Handlers (if still needed) ---
   ipcMain.handle('ctg:settings:get', async (_event, key: string) => {
@@ -240,6 +242,23 @@ export function registerSettingsIpcHandlers(
       return false
     }
   })
+
+  ipcMain.handle(
+    IpcChannels.testMcpServerConfig,
+    async (_event, config: Omit<McpServerConfig, 'id'>) => {
+      try {
+        return await mcpClientService.testServerConnection(config)
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to test the MCP server configuration. Please try again.'
+        }
+      }
+    }
+  )
 
   // --- System Prompt Configuration IPC Handlers ---
   ipcMain.handle(IpcChannels.getSystemPromptConfig, async () => {

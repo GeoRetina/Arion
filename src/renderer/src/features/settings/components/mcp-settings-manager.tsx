@@ -1,20 +1,10 @@
 import React, { useEffect, useState } from 'react'
-import { McpServerConfig } from '../../../../../shared/ipc-types' // Adjust path as necessary
-import { Button } from '@/components/ui/button' // Assuming you have a Button component
-import { Input } from '@/components/ui/input' // Assuming you have an Input component
-import { Label } from '@/components/ui/label' // Assuming you have a Label component
-import { Checkbox } from '@/components/ui/checkbox' // Assuming you have a Checkbox component
-import { Textarea } from '@/components/ui/textarea' // Correcting import path for Textarea
-import { ScrollArea } from '@/components/ui/scroll-area' // Added import
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { HelpTooltip } from '@/components/ui/help-tooltip'
+import { McpServerConfig, McpServerTestResult } from '../../../../../shared/ipc-types'
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { McpServerForm } from './mcp-server-form'
+import { buildNormalizedConfig } from './mcp-config-utils'
 
 // Default empty state for a new/editing config
 const initialFormState: Omit<McpServerConfig, 'id'> = {
@@ -33,7 +23,9 @@ export function McpSettingsManager(): React.JSX.Element {
   const [isEditingExistingServer, setIsEditingExistingServer] = useState(false)
   const [editedServerId, setEditedServerId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<McpServerTestResult | null>(null)
   const [inputMode, setInputMode] = useState<'form' | 'json'>('form')
   const [jsonString, setJsonString] = useState(() => JSON.stringify(initialFormState, null, 2))
   const [connectionType, setConnectionType] = useState<'stdio' | 'http'>('stdio')
@@ -59,6 +51,7 @@ export function McpSettingsManager(): React.JSX.Element {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (!editingConfig) return
+    setTestResult(null)
     const { name, value, type } = e.target
     const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
 
@@ -83,6 +76,7 @@ export function McpSettingsManager(): React.JSX.Element {
   const handleJsonInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newJsonString = e.target.value
     setJsonString(newJsonString)
+    setTestResult(null)
     // Attempt to parse and update editingConfig to keep form state somewhat in sync
     // This helps if user saves directly from JSON mode.
     try {
@@ -104,58 +98,43 @@ export function McpSettingsManager(): React.JSX.Element {
     }
   }
 
+  const handleEnabledChange = (checked: boolean) => {
+    if (!editingConfig) return
+    setTestResult(null)
+    setEditingConfig({ ...editingConfig, enabled: checked })
+  }
+
   const handleSave = async () => {
     if (!editingConfig) return
     setIsLoading(true)
     setError(null)
+    setTestResult(null)
 
-    // If in JSON mode and JSON is invalid, prevent saving stale editingConfig
-    if (inputMode === 'json') {
-      try {
-        JSON.parse(jsonString) // Just to validate
-      } catch (jsonError) {
-        setError('Cannot save: JSON is invalid. Please correct it or switch to Form mode.')
-        setIsLoading(false)
-        return
-      }
-      // Ensure editingConfig is updated from potentially modified jsonString one last time
-      // This handles the case where user types in JSON and immediately saves.
-      try {
-        const parsedJson = JSON.parse(jsonString)
-        if (isEditingExistingServer && 'id' in editingConfig) {
-          const { id: idFromJson, ...restOfParsedJson } = parsedJson
-          // Use the id from the stateful editingConfig, not from user's JSON.
-          setEditingConfig({ ...restOfParsedJson, id: editingConfig.id })
-        } else {
-          const { id, ...restOfParsedJson } = parsedJson
-          setEditingConfig(restOfParsedJson)
-        }
-      } catch (e) {
-        /* Should have been caught above, but defensive */
-      }
-    }
-
-    // Re-check editingConfig after potential update from JSON string
-    if (!editingConfig) {
-      // Should not happen
+    const { config, error: buildError } = buildNormalizedConfig({
+      editingConfig,
+      inputMode,
+      jsonString,
+      isEditingExistingServer,
+      connectionType
+    })
+    if (!config) {
       setIsLoading(false)
-      setError('An unexpected error occurred before saving.')
+      setError(buildError || 'Cannot save: configuration is invalid.')
       return
     }
 
     try {
       if (isEditingExistingServer && 'id' in editingConfig) {
         // Editing existing server
-        const { id, ...updates } = editingConfig
-        const result = await window.ctg.settings.updateMcpServerConfig(id, updates)
+        const { id } = editingConfig
+        const result = await window.ctg.settings.updateMcpServerConfig(id, config)
         if (!result) {
           throw new Error('Failed to update configuration.')
         }
       } else {
         // Adding new server. Ensure no 'id' is passed.
         // editingConfig should be Omit<McpServerConfig, 'id'>
-        const { id, ...newConfigData } = editingConfig as any // Cast to allow stripping 'id'
-        const result = await window.ctg.settings.addMcpServerConfig(newConfigData)
+        const result = await window.ctg.settings.addMcpServerConfig(config)
         if (!result) {
           throw new Error('Failed to add configuration.')
         }
@@ -186,6 +165,8 @@ export function McpSettingsManager(): React.JSX.Element {
       setEditedServerId(null)
       setJsonString(JSON.stringify(initialFormState, null, 2))
       setError(null)
+      setTestResult(null)
+      setIsTesting(false)
     }
     setIsLoading(true)
     setError(null)
@@ -214,6 +195,8 @@ export function McpSettingsManager(): React.JSX.Element {
     setInputMode('form')
     setConnectionType(config.url ? 'http' : 'stdio')
     setError(null)
+    setTestResult(null)
+    setIsTesting(false)
   }
 
   const handleAddNew = () => {
@@ -224,6 +207,80 @@ export function McpSettingsManager(): React.JSX.Element {
     setInputMode('form')
     setConnectionType('stdio')
     setError(null)
+    setTestResult(null)
+  }
+
+  const handleConnectionTypeChange = (value: 'stdio' | 'http') => {
+    setConnectionType(value)
+    setTestResult(null)
+    setEditingConfig((prev) => {
+      if (!prev) return prev
+      if (value === 'stdio') {
+        return { ...prev, url: '' }
+      }
+      return { ...prev, command: '', args: [] }
+    })
+  }
+
+  const handleTestConnection = async () => {
+    const { config, error: buildError } = buildNormalizedConfig({
+      editingConfig,
+      inputMode,
+      jsonString,
+      isEditingExistingServer,
+      connectionType
+    })
+    if (!config) {
+      setTestResult({
+        success: false,
+        error: buildError || 'Cannot test configuration.'
+      })
+      return
+    }
+
+    if (connectionType === 'stdio' && !config.command) {
+      setTestResult({
+        success: false,
+        error: 'Enter an executable path before testing a stdio MCP server.'
+      })
+      return
+    }
+
+    if (connectionType === 'http' && !config.url) {
+      setTestResult({
+        success: false,
+        error: 'Enter a server URL before testing a remote MCP server.'
+      })
+      return
+    }
+
+    setTestResult(null)
+    setIsTesting(true)
+    try {
+      const testFn = window.ctg.settings.testMcpServerConfig
+      if (typeof testFn !== 'function') {
+        setTestResult({
+          success: false,
+          error:
+            'Testing is unavailable in this build. Please restart the app to refresh the preload bridge.'
+        })
+        setIsTesting(false)
+        return
+      }
+
+      const result = await testFn(config)
+      setTestResult(result)
+    } catch (err) {
+      setTestResult({
+        success: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Failed to run MCP server test. Please try again.'
+      })
+    } finally {
+      setIsTesting(false)
+    }
   }
 
   const toggleInputMode = () => {
@@ -268,238 +325,10 @@ export function McpSettingsManager(): React.JSX.Element {
     setJsonString(JSON.stringify(initialFormState, null, 2))
     setConnectionType('stdio')
     setError(null)
+    setTestResult(null)
+    setIsTesting(false)
     // Consider resetting inputMode to 'form' or leave as is.
     // Leaving as is allows canceling from JSON view without forcing back to form.
-  }
-
-  const renderConfigForm = () => {
-    if (!editingConfig) return null
-    const currentArgsString = Array.isArray(editingConfig.args) ? editingConfig.args.join(', ') : ''
-
-    return (
-      <div className="p-4 border rounded-md mt-4 space-y-4">
-        <h3 className="text-lg font-semibold">
-          {isEditingExistingServer ? 'Edit' : 'Add New'} MCP Server Configuration
-        </h3>
-        <Button onClick={toggleInputMode} variant="outline" className="mb-4">
-          Switch to {inputMode === 'form' ? 'JSON' : 'Form'} Input
-        </Button>
-
-        {inputMode === 'form' ? (
-          <>
-            <div>
-              <Label htmlFor="name" className="mb-1 block">
-                Name
-              </Label>
-              <Input
-                id="name"
-                name="name"
-                value={editingConfig.name || ''}
-                onChange={handleInputChange}
-                placeholder="My Local GDAL Server"
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Label htmlFor="connectionType">Connection Type</Label>
-                <HelpTooltip>
-                  <div className="space-y-2">
-                    <p className="font-medium">Connection Methods:</p>
-                    <div className="text-xs space-y-2">
-                      <div>
-                        <p>
-                          <strong>Local Process (stdio):</strong>
-                        </p>
-                        <p>
-                          For Python scripts, executables, or local MCP servers that run as separate
-                          processes
-                        </p>
-                      </div>
-                      <div>
-                        <p>
-                          <strong>Remote Server (HTTP):</strong>
-                        </p>
-                        <p>For web-based MCP servers accessible via HTTP endpoints</p>
-                      </div>
-                    </div>
-                  </div>
-                </HelpTooltip>
-              </div>
-              <Select
-                value={connectionType}
-                onValueChange={(value: 'stdio' | 'http') => setConnectionType(value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select connection type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="stdio">Local Process (stdio)</SelectItem>
-                  <SelectItem value="http">Remote Server (HTTP)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Choose how to connect to your MCP server
-              </p>
-            </div>
-
-            {connectionType === 'stdio' && (
-              <>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Label htmlFor="command">Executable Path</Label>
-                    <HelpTooltip>
-                      <div className="space-y-2">
-                        <p className="font-medium">Examples:</p>
-                        <div className="text-xs space-y-1">
-                          <p>
-                            <strong>Python:</strong> /usr/bin/python or C:\Python39\python.exe
-                          </p>
-                          <p>
-                            <strong>Binary:</strong> /usr/local/bin/gdal_mcp_server
-                          </p>
-                          <p>
-                            <strong>Windows:</strong> C:\mcp\server.exe
-                          </p>
-                        </div>
-                      </div>
-                    </HelpTooltip>
-                  </div>
-                  <Input
-                    id="command"
-                    name="command"
-                    value={editingConfig.command || ''}
-                    onChange={handleInputChange}
-                    placeholder="e.g., /usr/bin/python, /usr/local/bin/gdal_mcp_server, or C:\\Python39\\python.exe"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Full path to the MCP server executable file. Use this for local servers that run
-                    as separate processes.
-                  </p>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Label htmlFor="argsString">Command Arguments</Label>
-                    <HelpTooltip>
-                      <div className="space-y-2">
-                        <p className="font-medium">Examples:</p>
-                        <div className="text-xs space-y-1">
-                          <p>
-                            <strong>Python script:</strong> server.py --port 8080
-                          </p>
-                          <p>
-                            <strong>With options:</strong> --verbose --config /path/config.json
-                          </p>
-                          <p>
-                            <strong>Multiple args:</strong> script.py, --host, localhost, --debug
-                          </p>
-                        </div>
-                      </div>
-                    </HelpTooltip>
-                  </div>
-                  <Input
-                    id="argsString"
-                    name="argsString"
-                    value={currentArgsString}
-                    onChange={handleInputChange}
-                    placeholder="server.py, --port, 8080, --verbose"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Command-line arguments to pass to the executable. Separate multiple arguments
-                    with commas or new lines.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {connectionType === 'http' && (
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <Label htmlFor="url">Server URL</Label>
-                  <HelpTooltip>
-                    <div className="space-y-2">
-                      <p className="font-medium">Examples:</p>
-                      <div className="text-xs space-y-1">
-                        <p>
-                          <strong>Local:</strong> http://localhost:8000/mcp
-                        </p>
-                        <p>
-                          <strong>Custom port:</strong> http://127.0.0.1:3000/api/mcp
-                        </p>
-                        <p>
-                          <strong>Remote:</strong> https://api.example.com/mcp
-                        </p>
-                      </div>
-                    </div>
-                  </HelpTooltip>
-                </div>
-                <Input
-                  id="url"
-                  name="url"
-                  value={editingConfig.url || ''}
-                  onChange={handleInputChange}
-                  placeholder="e.g., http://localhost:8000/mcp"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  HTTP endpoint for remote MCP servers. Use this instead of executable path for
-                  web-based servers.
-                </p>
-              </div>
-            )}
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="enabled"
-                name="enabled"
-                checked={editingConfig.enabled}
-                onCheckedChange={(checkedState) => {
-                  if (!editingConfig) return
-                  setEditingConfig({ ...editingConfig, enabled: !!checkedState })
-                }}
-              />
-              <Label htmlFor="enabled">Enabled</Label>
-            </div>
-          </>
-        ) : (
-          <div>
-            <Label htmlFor="jsonConfig" className="mb-1 block">
-              JSON Configuration
-            </Label>
-            <ScrollArea className="w-full h-72 rounded-md border p-2 whitespace-pre overflow-auto">
-              <Textarea
-                id="jsonConfig"
-                name="jsonConfig"
-                value={jsonString}
-                onChange={handleJsonInputChange}
-                placeholder='{
-  "name": "My JSON MCP Server",
-  "command": "path/to/server",
-  "args": ["--port", "8081"],
-  "url": "http://localhost:8081/mcp",
-  "enabled": true
-}'
-                rows={15}
-                className="font-mono w-full h-full resize-none border-none focus:outline-none focus:ring-0"
-              />
-            </ScrollArea>
-          </div>
-        )}
-        {/* Responsive Save/Cancel buttons */}
-        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-          <Button onClick={handleSave} disabled={isLoading} className="w-full sm:w-auto">
-            {isLoading ? 'Saving...' : 'Save Configuration'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            disabled={isLoading}
-            className="w-full sm:w-auto"
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -511,7 +340,26 @@ export function McpSettingsManager(): React.JSX.Element {
       </Button>
 
       {editingConfig && !isEditingExistingServer && !editedServerId && (
-        <div className="mt-4">{renderConfigForm()}</div>
+        <div className="mt-4">
+          <McpServerForm
+            editingConfig={editingConfig}
+            inputMode={inputMode}
+            connectionType={connectionType}
+            jsonString={jsonString}
+            isEditingExistingServer={isEditingExistingServer}
+            isLoading={isLoading}
+            isTesting={isTesting}
+            testResult={testResult}
+            onToggleInputMode={toggleInputMode}
+            onConnectionTypeChange={handleConnectionTypeChange}
+            onInputChange={handleInputChange}
+            onJsonInputChange={handleJsonInputChange}
+            onEnabledChange={handleEnabledChange}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onTest={handleTestConnection}
+          />
+        </div>
       )}
 
       {isLoading && !configs.length && !editingConfig && <p>Loading configurations...</p>}
@@ -524,14 +372,31 @@ export function McpSettingsManager(): React.JSX.Element {
           {configs.map((config) =>
             editedServerId === config.id && editingConfig && isEditingExistingServer ? (
               <div key={`${config.id}-edit-form`} className="my-3">
-                {renderConfigForm()}
+                <McpServerForm
+                  editingConfig={editingConfig}
+                  inputMode={inputMode}
+                  connectionType={connectionType}
+                  jsonString={jsonString}
+                  isEditingExistingServer={isEditingExistingServer}
+                  isLoading={isLoading}
+                  isTesting={isTesting}
+                  testResult={testResult}
+                  onToggleInputMode={toggleInputMode}
+                  onConnectionTypeChange={handleConnectionTypeChange}
+                  onInputChange={handleInputChange}
+                  onJsonInputChange={handleJsonInputChange}
+                  onEnabledChange={handleEnabledChange}
+                  onSave={handleSave}
+                  onCancel={handleCancel}
+                  onTest={handleTestConnection}
+                />
               </div>
             ) : (
               <div
                 key={config.id}
                 className="p-3 border rounded-md flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
               >
-                <div className="flex-grow">
+                <div className="grow">
                   <p className="font-medium">
                     {config.name}{' '}
                     <span
@@ -568,7 +433,7 @@ export function McpSettingsManager(): React.JSX.Element {
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col space-y-2 sm:flex-row sm:flex-wrap sm:gap-2 flex-shrink-0">
+                <div className="flex flex-col space-y-2 sm:flex-row sm:flex-wrap sm:gap-2 shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
