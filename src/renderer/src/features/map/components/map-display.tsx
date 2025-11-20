@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { useLayerSync } from '../../../hooks/use-layer-sync'
 import { MapCanvas } from './map-canvas'
-import { MapToolbar } from './map-toolbar'
 import { MapSearchBox } from './map-search-box'
 import { osmRasterStyle } from '../config/map-styles'
 import { useMapNavigation } from '../hooks/use-map-navigation'
@@ -20,7 +19,11 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ isVisible }) => {
 
   return (
     <div className="h-full w-full relative">
-      <MapCanvas style={osmRasterStyle} isVisible={isVisible} />
+      <MapCanvas
+        style={osmRasterStyle}
+        isVisible={isVisible}
+        onSearchClick={() => setIsSearchOpen((prev) => !prev)}
+      />
       {isVisible && (
         <>
           {isSearchOpen && (
@@ -29,10 +32,6 @@ export const MapDisplay: React.FC<MapDisplayProps> = ({ isVisible }) => {
               onClose={() => setIsSearchOpen(false)}
             />
           )}
-          <MapToolbar
-            onSearchClick={() => setIsSearchOpen((prev) => !prev)}
-            isSearchActive={isSearchOpen}
-          />
         </>
       )}
     </div>
