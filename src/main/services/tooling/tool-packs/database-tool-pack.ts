@@ -50,7 +50,11 @@ export function registerDatabaseTools(registry: ToolRegistry, deps: DatabaseTool
         return {
           status: 'success',
           connections,
-          message: `Found ${connections.length} database connection(s). This list is for discovery and does not by itself connect or authorize queries. Use the connection_id and the placeholder field names (host, port, db_name, username, password, ssl) when calling tools that interact with a Postgres database. Credential values stay hidden and are injected automatically when the tool runs.`,
+          message: `Found ${connections.length} database connection(s).
+
+⚠️ IMPORTANT: This tool only LISTS available databases - it does NOT establish a connection for running queries. You cannot execute SQL or interact with these databases just by seeing this list. To actually run queries, you must use other database interaction tools (if available) with the connection_id and placeholder field names shown here.
+
+This list is for discovery only and does not by itself connect or authorize queries. Use the connection_id and the placeholder field names (host, port, db_name, username, password, ssl) when calling tools that interact with a Postgres database. Credential values stay hidden and are injected automatically when the tool runs.`,
           placeholder_note: placeholderNote
         } as ListDatabaseConnectionsResult
       } catch (error) {
