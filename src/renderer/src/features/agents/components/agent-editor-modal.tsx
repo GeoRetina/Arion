@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { useAgentTools } from '@/hooks/use-agent-tools'
 
 interface AgentEditorModalProps {
   agentId: string | null
@@ -50,11 +51,33 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   const [isSaving, setIsSaving] = useState(false)
 
   // Get agent store functions
-  const { getAgentById, updateAgent } = useAgentStore()
+  const { getAgentById, updateAgent, agents } = useAgentStore()
 
   // Access LLM store for provider and model information
   const { openaiConfig, googleConfig, anthropicConfig, azureConfig, vertexConfig, ollamaConfig } =
     useLLMStore()
+
+  // State to hold full agent details for tool checking (excluding current agent)
+  const [otherAgents, setOtherAgents] = useState<any[]>([])
+
+  // Load full agent details (excluding current agent) when modal opens
+  useEffect(() => {
+    if (isOpen && agents.length > 0 && agentId) {
+      const loadOtherAgentDetails = async () => {
+        // Filter out the current agent being edited
+        const otherAgentsList = agents.filter((a) => a.id !== agentId)
+        const fullAgentPromises = otherAgentsList.map((a) => getAgentById(a.id))
+        const fullAgentResults = await Promise.all(fullAgentPromises)
+        const validAgents = fullAgentResults.filter((a) => a !== null)
+        setOtherAgents(validAgents)
+      }
+      loadOtherAgentDetails()
+    }
+  }, [isOpen, agents, agentId, getAgentById])
+
+  // Use the agent tools hook to manage available tools
+  // Pass other agents (excluding current) so current agent's tools are shown as available
+  const { allTools, isLoading: isLoadingTools, error: toolsError } = useAgentTools(otherAgents, isOpen)
 
   // Load agent data when modal opens or agentId changes
   useEffect(() => {
@@ -343,29 +366,35 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
                 <CardContent className="pb-2">
                   <div>
                     <Label>Select Tools</Label>
-                    {/* Available tools should be loaded from LlmToolService */}
                     <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                      {[
-                        'add_map_feature',
-                        'add_georeferenced_image_layer',
-                        'create_map_buffer',
-                        'list_map_layers',
-                        'set_map_view',
-                        'display_chart',
-                        'query_knowledge_base'
-                      ].map((tool) => {
-                        const isSelected = agent.capabilities[0]?.tools.includes(tool) || false
-                        return (
-                          <Badge
-                            key={tool}
-                            variant={isSelected ? 'default' : 'outline'}
-                            className="cursor-pointer"
-                            onClick={() => toggleToolSelection(tool)}
-                          >
-                            {tool}
-                          </Badge>
-                        )
-                      })}
+                      {isLoadingTools ? (
+                        <div className="w-full text-center py-4 text-muted-foreground">
+                          <p className="text-sm">Loading available tools...</p>
+                        </div>
+                      ) : toolsError ? (
+                        <div className="w-full text-center py-4 text-muted-foreground">
+                          <p className="text-sm text-red-500">Failed to load tools</p>
+                          <p className="text-xs mt-1">{toolsError}</p>
+                        </div>
+                      ) : allTools.length === 0 ? (
+                        <div className="w-full text-center py-4 text-muted-foreground">
+                          <p className="text-sm">No tools available.</p>
+                        </div>
+                      ) : (
+                        allTools.map((tool) => {
+                          const isSelected = agent.capabilities[0]?.tools.includes(tool) || false
+                          return (
+                            <Badge
+                              key={tool}
+                              variant={isSelected ? 'default' : 'outline'}
+                              className="cursor-pointer"
+                              onClick={() => toggleToolSelection(tool)}
+                            >
+                              {tool}
+                            </Badge>
+                          )
+                        })
+                      )}
                     </div>
                   </div>
                 </CardContent>
