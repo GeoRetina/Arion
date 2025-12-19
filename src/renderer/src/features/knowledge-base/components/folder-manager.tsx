@@ -25,7 +25,7 @@ export function FolderManager({
   onDeleteFolder
 }: FolderManagerProps): React.JSX.Element {
   return (
-    <Card className="h-full">
+    <Card className="h-full surface-elevated">
       <CardHeader className="py-2 px-4 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-md font-medium">Folders</CardTitle>
         <TooltipProvider>

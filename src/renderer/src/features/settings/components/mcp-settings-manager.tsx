@@ -395,7 +395,7 @@ export function McpSettingsManager(): React.JSX.Element {
             ) : (
               <div
                 key={config.id}
-                className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
+                className="p-3 rounded-md surface-elevated flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
               >
                 <div className="grow">
                   <p className="font-medium">
