@@ -150,7 +150,7 @@ const IntegrationsPage: React.FC = () => {
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6 pb-8">
           <div>
-            <h1 className="text-3xl font-semibold mb-2">Integrations</h1>
+            <h1 className="text-3xl font-semibold mb-2">Connectors</h1>
             <p className="text-muted-foreground max-w-2xl">
               Manage connections to external services and platforms.
             </p>
