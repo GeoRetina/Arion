@@ -42,12 +42,12 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
     const isActive = currentPath.startsWith(pathPrefix)
     return cn(
       `w-full justify-start rounded-md transition-all duration-200 ${
-        isExpanded ? 'pl-3 pr-2 py-2' : 'p-2'
+        isExpanded ? 'pl-3 pr-2 py-2.5' : 'p-2'
       }`,
-      isExpanded ? 'text-sm' : 'text-[0px]',
+      isExpanded ? 'text-base' : 'text-[0px]',
       isActive
-        ? 'font-semibold bg-secondary text-accent hover:!bg-primary/20 hover:!text-primary dark:bg-[var(--chart-5)]/10 dark:text-yellow-500 dark:hover:!bg-[var(--chart-5)]/10 dark:hover:!text-yellow-500'
-        : 'text-foreground font-normal hover:!bg-[var(--primary)]/10 dark:hover:!bg-white/5'
+        ? 'font-semibold bg-primary/15 text-primary hover:bg-primary/20'
+        : 'text-foreground/80 font-medium hover:bg-muted hover:text-foreground'
     )
   }
 
@@ -74,7 +74,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
   const NavGroup = ({ title, children }: { title?: string; children: React.ReactNode }) => (
     <div className="px-3 py-2">
       {title && isExpanded && (
-        <div className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+        <div className="mb-2 px-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground/80">
           {title}
         </div>
       )}
@@ -83,7 +83,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
   )
 
   return (
-    <div className="flex flex-col h-full bg-background text-card-foreground border-r border-border/50 shadow-xl">
+    <div className="flex flex-col h-full bg-background text-card-foreground border-r border-border/40">
       {/* Logo and Toggle section */}
       <div className="p-3 flex items-center justify-between">
         {isExpanded ? (
@@ -114,16 +114,16 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
         <Button
           variant="ghost"
           className={cn(
-            'w-full flex items-center rounded-md',
-            isExpanded ? 'justify-start px-3 py-2 text-sm' : 'justify-center p-2'
+            'w-full flex items-center rounded-md hover:bg-muted',
+            isExpanded ? 'justify-start px-3 py-2.5 text-base' : 'justify-center p-2'
           )}
           title="New Chat"
           onClick={() => navigate('/chat/new')}
         >
-          <span className="flex items-center justify-center rounded-md bg-purple-600 hover:bg-purple-700 shrink-0 p-1.5">
-            <PlusCircle className="h-4 w-4 text-white" />
+          <span className="flex items-center justify-center rounded-md bg-primary shrink-0 p-1.5">
+            <PlusCircle className="h-4 w-4 text-primary-foreground" />
           </span>
-          {isExpanded && <span className="ml-2">New Chat</span>}
+          {isExpanded && <span className="ml-2 font-medium">New Chat</span>}
         </Button>
       </div>
 
@@ -138,7 +138,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           <NavButton path="/models" title="Models" icon={Brain} />
           <NavButton path="/agents" title="Agents" icon={Bot} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
-          <NavButton path="/integrations" title="Integrations" icon={Link2} />
+          <NavButton path="/integrations" title="Connectors" icon={Link2} />
         </NavGroup>
       </div>
 
