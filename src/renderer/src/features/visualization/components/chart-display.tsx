@@ -626,7 +626,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
   }
 
   return (
-    <div className="p-4 bg-popover border border-border/50 rounded-lg shadow-none w-full flex flex-col mb-6">
+    <div className="p-4 bg-popover border border-border rounded-lg shadow-none w-full flex flex-col mb-6">
       {/* Title is now handled by DialogHeader in ChartManager, but can be a fallback here if needed */}
       {/* {rawConfig.title && <h2 className="text-xl font-semibold mb-4 text-center">{rawConfig.title}</h2>} */}
       <div className="w-full h-[300px] sm:h-[350px] md:h-[400px]">{renderChart()}</div>

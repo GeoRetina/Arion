@@ -21,9 +21,9 @@ export const ChatInputButtons: React.FC<ChatInputButtonsProps> = ({
 }) => {
   const canSubmit = !!inputValue.trim() && !isStreaming
 
-  // Common button styling for both light and dark themes using accent (purple) color
+  // Common button styling - purple color for send button
   const buttonStyle =
-    'rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 border-0 shadow-none'
+    'rounded-lg bg-violet-500 text-white hover:bg-violet-600 border-0 shadow-none'
 
   return (
     <div className="absolute right-2 bottom-3 flex items-center gap-2">

@@ -218,6 +218,7 @@ code {
   --color-chat-input-background: var(--chat-input-background);
   --color-codeblock-background: var(--codeblock-background);
   --color-codeblock-header-background: var(--codeblock-header-background);
+  --color-input-surface: var(--input-surface-background);
 }
 
 :root {
@@ -266,6 +267,7 @@ code {
   --codeblock-header-background: oklch(0.88 0.01 230); /* Even darker for header */
   --shadow-color-rgb: 0 0 0; /* Default black shadow for light mode */
   --shadow-color-opacity: 0.1;
+  --input-surface-background: oklch(1 0 0); /* White for light mode */
 }
 
 .dark {
@@ -273,22 +275,22 @@ code {
   /* VS Code-inspired Dark Theme - neutral grays with gold accents */
   --background: oklch(0.24 0.005 250); /* Dark neutral gray */
   --foreground: oklch(0.95 0 0); /* Pure white text */
-  --card: oklch(0.26 0.005 250); /* Lighter gray for cards/chat area */
+  --card: oklch(0.30 0.005 250); /* Lighter gray for cards/chat area */
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.31 0.005 250); /* Matches card */
   --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.80 0.15 85); /* Yellow/Gold accent */
-  --primary-foreground: oklch(0.15 0.01 250); /* Dark text on gold */
+  --primary: oklch(0.9 0.01 250); /* Light/whitish button */
+  --primary-foreground: oklch(0.15 0.01 250); /* Dark text on light button */
   --secondary: oklch(0.28 0.005 250); /* Muted gray */
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.25 0.005 250); /* Muted background */
-  --muted-foreground: oklch(0.55 0.005 250); /* Gray text */
-  --accent: oklch(0.80 0.15 85); /* Yellow/Gold for highlights */
+  --muted-foreground: oklch(0.65 0.005 250); /* Gray text */
+  --accent: oklch(0.9 0.01 250); /* Light/whitish for highlights */
   --accent-foreground: oklch(0.15 0.01 250);
   --destructive: oklch(0.55 0.20 25); /* Red */
-  --border: oklch(0.32 0.005 250); /* Gray border */
+  --border: oklch(0.38 0.005 250); /* Gray border */
   --input: oklch(0.35 0.005 250); /* Input border */
-  --ring: oklch(0.80 0.15 85 / 0.5); /* Gold ring */
+  --ring: oklch(0.9 0.01 250 / 0.5); /* Light ring */
   --text-accent-orange: oklch(0.80 0.15 85); /* Gold text accent */
   /* Chart palette */
   --chart-1: oklch(0.80 0.15 85); /* Gold */
@@ -304,12 +306,12 @@ code {
   /* Specific UI element backgrounds */
   --sidebar: oklch(0.16 0.005 250); /* Darker sidebar */
   --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.80 0.15 85); /* Gold */
+  --sidebar-primary: oklch(0.9 0.01 250); /* Light/whitish */
   --sidebar-primary-foreground: oklch(0.15 0.01 250);
-  --sidebar-accent: oklch(0.80 0.15 85); /* Gold */
+  --sidebar-accent: oklch(0.9 0.01 250); /* Light/whitish */
   --sidebar-accent-foreground: oklch(0.15 0.01 250);
   --sidebar-border: oklch(0.25 0.005 250);
-  --sidebar-ring: oklch(0.80 0.15 85 / 0.5);
+  --sidebar-ring: oklch(0.9 0.01 250 / 0.5);
   --chat-input-background: oklch(0.33 0.005 250); /* Input background */
   --chart-background: oklch(0.29 0.005 250); /* Chart background */
   --user-message-background: oklch(0.35 0.005 250); /* User message */

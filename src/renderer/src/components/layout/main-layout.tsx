@@ -22,8 +22,8 @@ export default function MainLayout({ children }: MainLayoutProps): React.JSX.Ele
         <Sidebar isExpanded={isSidebarExpanded} onToggle={toggleSidebar} />
       </aside>
 
-      {/* Main content with gradient background */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-linear-to-b from-card/50 to-background">
+      {/* Main content */}
+      <main className="flex-1 flex flex-col overflow-hidden bg-card">
         {/* Children will be the ChatInterface, which should handle its own scrolling and height */}
         {children}
       </main>

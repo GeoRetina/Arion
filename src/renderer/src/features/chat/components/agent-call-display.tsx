@@ -63,19 +63,19 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
   const statusStyles = {
     loading: {
       border: 'border-border',
-      bg: 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/20 dark:to-amber-900/10',
+      bg: 'bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/30',
       icon: 'text-amber-600 dark:text-amber-400',
       accent: 'text-amber-600 dark:text-amber-400'
     },
     completed: {
       border: 'border-border',
-      bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/20 dark:to-emerald-900/10',
+      bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/30',
       icon: 'text-emerald-600 dark:text-emerald-400',
       accent: 'text-emerald-600 dark:text-emerald-400'
     },
     error: {
       border: 'border-border',
-      bg: 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/20 dark:to-red-900/10',
+      bg: 'bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/40 dark:to-red-900/30',
       icon: 'text-red-600 dark:text-red-400',
       accent: 'text-red-600 dark:text-red-400'
     }
@@ -90,7 +90,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
   return (
     <div
       className={cn(
-        'mb-4 w-full max-w-[350px] rounded-lg border shadow-sm transition-all duration-150',
+        'mt-4 mb-4 w-full max-w-[350px] rounded-lg border shadow-sm transition-all duration-150',
         currentStyles.border,
         currentStyles.bg,
         className

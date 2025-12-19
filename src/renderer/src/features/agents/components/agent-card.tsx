@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { type AgentRegistryEntry } from '@/../../shared/types/agent-types'
-import { Edit, Trash, Brain, Server, Settings } from 'lucide-react'
+import { Edit, Trash2, Brain, Server, Settings } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { PROVIDER_LOGOS, PROVIDER_BACKGROUNDS } from '@/constants/llm-providers'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -90,14 +90,13 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
           </div>
         </CardContent>
 
-        <CardFooter className="flex gap-2 pt-2">
+        <CardFooter className="flex justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={handleEditClick}
-                className="flex items-center justify-center flex-1 sm:flex-none h-8 w-8 sm:h-8 sm:w-8"
               >
                 <Edit className="h-4 w-4" />
               </Button>
@@ -110,12 +109,12 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="destructive"
-                size="sm"
+                variant="outline"
+                size="icon"
                 onClick={handleDeleteClick}
-                className="flex items-center justify-center flex-1 sm:flex-none h-8 w-8 sm:h-8 sm:w-8"
+                className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
               >
-                <Trash className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

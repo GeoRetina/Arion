@@ -55,7 +55,7 @@ export function McpServerForm({
   const currentArgsString = Array.isArray(editingConfig.args) ? editingConfig.args.join(', ') : ''
 
   return (
-    <div className="p-4 border rounded-md mt-4 space-y-4">
+    <div className="p-4 rounded-md mt-4 space-y-4 bg-emerald-500/10 border border-emerald-500/20">
       <h3 className="text-lg font-semibold">
         {isEditingExistingServer ? 'Edit' : 'Add New'} MCP Server Configuration
       </h3>

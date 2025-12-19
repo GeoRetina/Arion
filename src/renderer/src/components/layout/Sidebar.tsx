@@ -120,8 +120,8 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           title="New Chat"
           onClick={() => navigate('/chat/new')}
         >
-          <span className="flex items-center justify-center rounded-md bg-primary shrink-0 p-1.5">
-            <PlusCircle className="h-4 w-4 text-primary-foreground" />
+          <span className="flex items-center justify-center rounded-md bg-amber-500 shrink-0 p-1.5">
+            <PlusCircle className="h-4 w-4 text-black" />
           </span>
           {isExpanded && <span className="ml-2 font-medium">New Chat</span>}
         </Button>

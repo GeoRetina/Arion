@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { McpServerForm } from './mcp-server-form'
 import { buildNormalizedConfig } from './mcp-config-utils'
+import { Trash2, Edit } from 'lucide-react'
 
 // Default empty state for a new/editing config
 const initialFormState: Omit<McpServerConfig, 'id'> = {
@@ -394,14 +395,14 @@ export function McpSettingsManager(): React.JSX.Element {
             ) : (
               <div
                 key={config.id}
-                className="p-3 border rounded-md flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
+                className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 flex flex-col space-y-3 sm:flex-row sm:flex-wrap sm:justify-between sm:items-start sm:gap-3"
               >
                 <div className="grow">
                   <p className="font-medium">
                     {config.name}{' '}
                     <span
                       className={`text-sm ${
-                        config.enabled ? 'text-green-600' : 'text-muted-foreground'
+                        config.enabled ? 'text-green-600' : 'text-foreground/60'
                       }`}
                     >
                       ({config.enabled ? 'Enabled' : 'Disabled'})
@@ -409,7 +410,7 @@ export function McpSettingsManager(): React.JSX.Element {
                   </p>
                   {config.command && (
                     <p
-                      className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
+                      className="text-xs text-foreground/70 truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
                       title={`${config.command} ${config.args?.join(' ') || ''}`}
                     >
                       <span className="font-semibold">Command:</span> {config.command}{' '}
@@ -418,7 +419,7 @@ export function McpSettingsManager(): React.JSX.Element {
                   )}
                   {config.url && (
                     <p
-                      className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
+                      className="text-xs text-foreground/70 truncate max-w-xs sm:max-w-sm md:max-w-md mt-2"
                       title={config.url}
                     >
                       <span className="font-semibold">URL:</span> {config.url}
@@ -426,35 +427,36 @@ export function McpSettingsManager(): React.JSX.Element {
                   )}
                   {config.command && config.args && config.args.length > 0 && (
                     <p
-                      className="text-xs text-muted-foreground truncate max-w-xs sm:max-w-sm md:max-w-md mt-1"
+                      className="text-xs text-foreground/70 truncate max-w-xs sm:max-w-sm md:max-w-md mt-1"
                       title={config.args[0]}
                     >
                       <span className="font-semibold">Server Path:</span> {config.args[0]}
                     </p>
                   )}
                 </div>
-                <div className="flex flex-col space-y-2 sm:flex-row sm:flex-wrap sm:gap-2 shrink-0">
+                <div className="flex gap-2 shrink-0">
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={() => handleEdit(config)}
                     disabled={
                       isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
                     }
-                    className="w-full sm:w-auto"
+                    title="Edit"
                   >
-                    Edit
+                    <Edit className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant="destructive"
-                    size="sm"
+                    variant="outline"
+                    size="icon"
                     onClick={() => handleDeleteClick(config.id, config.name)}
                     disabled={
                       isLoading || !!(editingConfig && !isEditingExistingServer && !editedServerId)
                     }
-                    className="w-full sm:w-auto"
+                    className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                    title="Delete"
                   >
-                    Delete
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
