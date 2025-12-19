@@ -5,6 +5,9 @@
 
 @import 'tw-animate-css';
 
+/* Streamdown styles */
+@source "../../../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 body {
@@ -267,55 +270,55 @@ code {
 
 .dark {
   --border-width: 1px;
-  /* Claude-inspired Dark Theme */
-  --background: oklch(0.24 0.01 50); /* Warm dark brown - like Claude */
-  --foreground: oklch(0.90 0.01 80); /* Warm off-white/cream text */
-  --card: oklch(0.29 0.012 50); /* Slightly lighter warm brown for cards */
-  --card-foreground: oklch(0.90 0.01 80);
-  --popover: oklch(0.29 0.012 50); /* Matches card */
-  --popover-foreground: oklch(0.90 0.01 80);
-  --primary: oklch(0.75 0.14 75); /* Amber/Gold - Arion's signature */
-  --primary-foreground: oklch(0.18 0.02 60); /* Dark text on gold */
-  --secondary: oklch(0.34 0.015 50); /* Warm muted brown */
-  --secondary-foreground: oklch(0.88 0.01 80);
-  --muted: oklch(0.31 0.012 50); /* Warm muted background */
-  --muted-foreground: oklch(0.60 0.015 55); /* Warm gray text */
-  --accent: oklch(0.78 0.12 80); /* Bright gold for highlights */
-  --accent-foreground: oklch(0.18 0.02 60);
-  --destructive: oklch(0.55 0.18 25); /* Warm red */
-  --border: oklch(0.36 0.012 50); /* Warm brown border */
-  --input: oklch(0.38 0.012 50); /* Warm input border */
-  --ring: oklch(0.75 0.14 75 / 0.5); /* Amber ring */
-  --text-accent-orange: oklch(0.75 0.14 75); /* Amber text accent */
-  /* Chart palette - warm tones */
-  --chart-1: oklch(0.75 0.14 75); /* Amber */
-  --chart-2: oklch(0.65 0.12 60); /* Amber */
-  --chart-3: oklch(0.70 0.10 80); /* Gold */
-  --chart-4: oklch(0.58 0.10 160); /* Teal (for contrast) */
-  --chart-5: oklch(0.55 0.14 30); /* Rust */
-  --chart-6: oklch(0.68 0.11 50 / 0.9);
-  --chart-7: oklch(0.62 0.09 170 / 0.9);
-  --chart-8: oklch(0.72 0.12 70 / 0.9);
-  --chart-9: oklch(0.52 0.13 35 / 0.9);
-  --chart-10: oklch(0.65 0.08 180 / 0.9);
+  /* VS Code-inspired Dark Theme - neutral grays with gold accents */
+  --background: oklch(0.24 0.005 250); /* Dark neutral gray */
+  --foreground: oklch(0.95 0 0); /* Pure white text */
+  --card: oklch(0.26 0.005 250); /* Lighter gray for cards/chat area */
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.31 0.005 250); /* Matches card */
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.80 0.15 85); /* Yellow/Gold accent */
+  --primary-foreground: oklch(0.15 0.01 250); /* Dark text on gold */
+  --secondary: oklch(0.28 0.005 250); /* Muted gray */
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.25 0.005 250); /* Muted background */
+  --muted-foreground: oklch(0.55 0.005 250); /* Gray text */
+  --accent: oklch(0.80 0.15 85); /* Yellow/Gold for highlights */
+  --accent-foreground: oklch(0.15 0.01 250);
+  --destructive: oklch(0.55 0.20 25); /* Red */
+  --border: oklch(0.32 0.005 250); /* Gray border */
+  --input: oklch(0.35 0.005 250); /* Input border */
+  --ring: oklch(0.80 0.15 85 / 0.5); /* Gold ring */
+  --text-accent-orange: oklch(0.80 0.15 85); /* Gold text accent */
+  /* Chart palette */
+  --chart-1: oklch(0.80 0.15 85); /* Gold */
+  --chart-2: oklch(0.70 0.15 140); /* Green */
+  --chart-3: oklch(0.65 0.15 250); /* Blue */
+  --chart-4: oklch(0.65 0.15 30); /* Orange */
+  --chart-5: oklch(0.65 0.15 320); /* Pink */
+  --chart-6: oklch(0.72 0.12 100 / 0.9);
+  --chart-7: oklch(0.68 0.12 180 / 0.9);
+  --chart-8: oklch(0.75 0.10 60 / 0.9);
+  --chart-9: oklch(0.60 0.15 280 / 0.9);
+  --chart-10: oklch(0.70 0.10 200 / 0.9);
   /* Specific UI element backgrounds */
-  --sidebar: oklch(0.22 0.008 50); /* Slightly darker sidebar */
-  --sidebar-foreground: oklch(0.90 0.01 80);
-  --sidebar-primary: oklch(0.75 0.14 75); /* Amber */
-  --sidebar-primary-foreground: oklch(0.18 0.02 60);
-  --sidebar-accent: oklch(0.78 0.12 80); /* Gold */
-  --sidebar-accent-foreground: oklch(0.18 0.02 60);
-  --sidebar-border: oklch(0.30 0.01 50);
-  --sidebar-ring: oklch(0.75 0.14 75 / 0.5);
-  --chat-input-background: oklch(0.30 0.012 50); /* Warm input background */
-  --chart-background: oklch(0.27 0.01 50); /* Warm chart background */
-  --user-message-background: oklch(0.32 0.014 50); /* Warm user message */
-  --codeblock-background: oklch(0.20 0.008 50); /* Darker warm brown for code */
-  --codeblock-header-background: oklch(0.17 0.008 50); /* Even darker for header */
+  --sidebar: oklch(0.16 0.005 250); /* Darker sidebar */
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.80 0.15 85); /* Gold */
+  --sidebar-primary-foreground: oklch(0.15 0.01 250);
+  --sidebar-accent: oklch(0.80 0.15 85); /* Gold */
+  --sidebar-accent-foreground: oklch(0.15 0.01 250);
+  --sidebar-border: oklch(0.25 0.005 250);
+  --sidebar-ring: oklch(0.80 0.15 85 / 0.5);
+  --chat-input-background: oklch(0.33 0.005 250); /* Input background */
+  --chart-background: oklch(0.29 0.005 250); /* Chart background */
+  --user-message-background: oklch(0.35 0.005 250); /* User message */
+  --codeblock-background: oklch(0.14 0.005 250); /* Darker for code */
+  --codeblock-header-background: oklch(0.12 0.005 250); /* Even darker for header */
   /* Shadow variables for dark mode */
-  --shadow-color-rgb: 60 50 40; /* Warm brown shadow */
-  --shadow-color-opacity: 0.15;
-  --input-surface-background: oklch(0.31 0.012 50); /* Warm input surface */
+  --shadow-color-rgb: 0 0 0; /* Black shadow */
+  --shadow-color-opacity: 0.3;
+  --input-surface-background: oklch(0.25 0.005 250); /* Input surface */
 }
 
 @layer base {
