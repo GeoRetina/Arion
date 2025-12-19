@@ -5,6 +5,9 @@
 
 @import 'tw-animate-css';
 
+/* Streamdown styles */
+@source "../../../node_modules/streamdown/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 body {
@@ -215,6 +218,7 @@ code {
   --color-chat-input-background: var(--chat-input-background);
   --color-codeblock-background: var(--codeblock-background);
   --color-codeblock-header-background: var(--codeblock-header-background);
+  --color-input-surface: var(--input-surface-background);
 }
 
 :root {
@@ -263,66 +267,60 @@ code {
   --codeblock-header-background: oklch(0.88 0.01 230); /* Even darker for header */
   --shadow-color-rgb: 0 0 0; /* Default black shadow for light mode */
   --shadow-color-opacity: 0.1;
+  --input-surface-background: oklch(1 0 0); /* White for light mode */
 }
 
 .dark {
   --border-width: 1px;
-  --background: oklch(0.26 0.012 230); /* Nebula Night: Sidebar - slightly darker */
-  --foreground: oklch(0.984 0 0); /* Foreground Base1 (remains light) */
-  --card: oklch(0.31 0.01 240); /* Nebula Night: Chat Area */
-  --card-foreground: oklch(0.984 0 0);
-  --popover: oklch(0.31 0.01 240); /* Nebula Night: Popover (matches card) */
-  --popover-foreground: oklch(0.984 0 0);
-  --primary: oklch(0.605 0.174 262.3); /* Accent Blue (current) */
-  --primary-foreground: oklch(0.984 0 0);
-  --secondary: oklch(0.62 0.075 190); /* Nebula Night: Accent Turquoise/Cool Blue - Darker */
-  --secondary-foreground: oklch(
-    0.206 0.019 254.7
-  ); /* Consider adjusting if --secondary changes drastically */
-  --muted: oklch(0.36 0.01 230); /* Nebula Night: Muted backgrounds */
-  --muted-foreground: oklch(0.75 0.005 230); /* Nebula Night: Muted text */
-  --accent: oklch(0.617 0.218 291.1); /* Accent Purple (current) */
-  --accent-foreground: oklch(0.984 0 0);
-  --destructive: oklch(0.631 0.218 27.8); /* Accent Red (current) */
-  --border: oklch(0.5 0.01 240); /* Nebula Night: Borders */
-  --input: oklch(0.52 0.015 245); /* Nebula Night: Input/Select borders */
-  --ring: oklch(0.605 0.174 262.3 / 0.5); /* Current ring, might need review later */
-  --text-accent-orange: oklch(0.718 0.188 65.4); /* Current text accent */
-  /* Chart palette - current, would be next to review for theme harmony */
-  --chart-1: oklch(0.718 0.188 65.4);
-  --chart-2: oklch(0.617 0.218 291.1);
-  --chart-3: oklch(0.659 0.128 133.2);
-  --chart-4: oklch(0.654 0.122 213.3);
-  --chart-5: oklch(0.655 0.238 351.7);
-  --chart-6: oklch(0.65 0.15 280 / 0.9);
-  --chart-7: oklch(0.75 0.16 150 / 0.9);
-  --chart-8: oklch(0.78 0.22 55 / 0.9);
-  --chart-9: oklch(0.6 0.2 330 / 0.9);
-  --chart-10: oklch(0.8 0.12 190 / 0.9);
+  /* VS Code-inspired Dark Theme - neutral grays with gold accents */
+  --background: oklch(0.24 0.005 250); /* Dark neutral gray */
+  --foreground: oklch(0.95 0 0); /* Pure white text */
+  --card: oklch(0.30 0.005 250); /* Lighter gray for cards/chat area */
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.31 0.005 250); /* Matches card */
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.9 0.01 250); /* Light/whitish button */
+  --primary-foreground: oklch(0.15 0.01 250); /* Dark text on light button */
+  --secondary: oklch(0.28 0.005 250); /* Muted gray */
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.25 0.005 250); /* Muted background */
+  --muted-foreground: oklch(0.65 0.005 250); /* Gray text */
+  --accent: oklch(0.9 0.01 250); /* Light/whitish for highlights */
+  --accent-foreground: oklch(0.15 0.01 250);
+  --destructive: oklch(0.55 0.20 25); /* Red */
+  --border: oklch(0.38 0.005 250); /* Gray border */
+  --input: oklch(0.35 0.005 250); /* Input border */
+  --ring: oklch(0.9 0.01 250 / 0.5); /* Light ring */
+  --text-accent-orange: oklch(0.80 0.15 85); /* Gold text accent */
+  /* Chart palette */
+  --chart-1: oklch(0.80 0.15 85); /* Gold */
+  --chart-2: oklch(0.70 0.15 140); /* Green */
+  --chart-3: oklch(0.65 0.15 250); /* Blue */
+  --chart-4: oklch(0.65 0.15 30); /* Orange */
+  --chart-5: oklch(0.65 0.15 320); /* Pink */
+  --chart-6: oklch(0.72 0.12 100 / 0.9);
+  --chart-7: oklch(0.68 0.12 180 / 0.9);
+  --chart-8: oklch(0.75 0.10 60 / 0.9);
+  --chart-9: oklch(0.60 0.15 280 / 0.9);
+  --chart-10: oklch(0.70 0.10 200 / 0.9);
   /* Specific UI element backgrounds */
-  --sidebar: oklch(
-    0.2 0.001 220
-  ); /* THIS IS NO LONGER DIRECTLY USED BY SIDEBAR COMPONENT (uses --background) */
-  --sidebar-foreground: oklch(0.984 0 0);
-  --sidebar-primary: oklch(0.725 0.092 181.4);
-  --sidebar-primary-foreground: oklch(0.206 0.019 254.7);
-  --sidebar-accent: oklch(0.617 0.218 291.1);
-  --sidebar-accent-foreground: oklch(0.984 0 0);
-  --sidebar-border: oklch(
-    0.24 0.001 220
-  ); /* THIS IS NO LONGER DIRECTLY USED BY SIDEBAR COMPONENT (uses --border) */
-  --sidebar-ring: oklch(0.725 0.092 181.4 / 0.5);
-  --chat-input-background: oklch(0.37 0.01 250); /* Nebula Night: ChatInputBox - even lighter */
-  --chart-background: oklch(0.29 0.018 260); /* Nebula Night: Chart background */
-  --user-message-background: oklch(0.38 0.012 235); /* Nebula Night: User messages */
-  --codeblock-background: oklch(0.22 0.015 240); /* Darker than background for dark mode */
-  --codeblock-header-background: oklch(0.18 0.018 245); /* Even darker for header */
+  --sidebar: oklch(0.16 0.005 250); /* Darker sidebar */
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.9 0.01 250); /* Light/whitish */
+  --sidebar-primary-foreground: oklch(0.15 0.01 250);
+  --sidebar-accent: oklch(0.9 0.01 250); /* Light/whitish */
+  --sidebar-accent-foreground: oklch(0.15 0.01 250);
+  --sidebar-border: oklch(0.25 0.005 250);
+  --sidebar-ring: oklch(0.9 0.01 250 / 0.5);
+  --chat-input-background: oklch(0.33 0.005 250); /* Input background */
+  --chart-background: oklch(0.29 0.005 250); /* Chart background */
+  --user-message-background: oklch(0.35 0.005 250); /* User message */
+  --codeblock-background: oklch(0.14 0.005 250); /* Darker for code */
+  --codeblock-header-background: oklch(0.12 0.005 250); /* Even darker for header */
   /* Shadow variables for dark mode */
-  --shadow-color-rgb: 190 210 250; /* Nebula Night: Ethereal blue/lavender shadow */
-  --shadow-color-opacity: 0.1;
-  --input-surface-background: oklch(
-    0.36 0.015 245
-  ); /* Nebula Night: Background for select/input surfaces */
+  --shadow-color-rgb: 0 0 0; /* Black shadow */
+  --shadow-color-opacity: 0.3;
+  --input-surface-background: oklch(0.25 0.005 250); /* Input surface */
 }
 
 @layer base {

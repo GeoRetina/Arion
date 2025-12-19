@@ -141,7 +141,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
       {/* Panel */}
       <div
         className={cn(
-          'absolute left-0 bg-card/95 backdrop-blur-sm border-r border-border/50 z-20 rounded-r-lg w-80',
+          'absolute left-0 bg-card/95 backdrop-blur-sm border-r border-border z-20 rounded-r-lg w-80',
           className
         )}
         style={{
@@ -154,7 +154,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-3 border-b border-border/50">
+          <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2">
               <Layers className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Layers</span>

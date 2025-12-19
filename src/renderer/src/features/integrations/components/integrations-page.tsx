@@ -150,7 +150,7 @@ const IntegrationsPage: React.FC = () => {
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6 pb-8">
           <div>
-            <h1 className="text-3xl font-semibold mb-2">Integrations</h1>
+            <h1 className="text-3xl font-semibold mb-2">Connectors</h1>
             <p className="text-muted-foreground max-w-2xl">
               Manage connections to external services and platforms.
             </p>
@@ -164,7 +164,7 @@ const IntegrationsPage: React.FC = () => {
               {integrationConfigs.map((config) => {
                 const integration = config.integration
                 return (
-                  <Card key={integration.id} className="overflow-hidden">
+                  <Card key={integration.id} className="overflow-hidden bg-emerald-500/10 border-emerald-500/20">
                     <CardHeader className="pb-2 pt-4 px-5">
                       <div className="flex gap-3 items-start">
                         {getIntegrationIcon(integration.type)}
@@ -206,7 +206,7 @@ const IntegrationsPage: React.FC = () => {
                         </Button>
                       )}
                       <Button
-                        variant="outline"
+                        variant="default"
                         size="sm"
                         className="flex items-center gap-1 text-xs"
                         onClick={() => handleIntegrationAction(integration.id, 'configure')}

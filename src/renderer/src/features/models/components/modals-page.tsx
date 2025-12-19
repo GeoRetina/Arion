@@ -136,7 +136,7 @@ export default function ModelsPage(): React.JSX.Element {
     return (
       <Card
         className={`overflow-hidden transition-all hover:shadow-md flex flex-col ${
-          configured ? 'border-chart-5 ring-1 ring-chart-5' : 'border-border/50'
+          configured ? 'border-chart-5 ring-1 ring-chart-5' : 'border-border'
         }`}
       >
         <CardHeader className="pb-2 pt-4 px-5">

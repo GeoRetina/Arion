@@ -37,7 +37,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
   return (
     <div
       ref={containerRef}
-      className="h-full w-full flex flex-col bg-card/70 backdrop-blur-sm border-l border-border/50"
+      className="h-full w-full flex flex-col bg-card/70 backdrop-blur-sm border-l border-border"
     >
       {/* Header with buttons */}
       <div className="p-3 flex items-center z-10 bg-card/95 backdrop-blur-sm">
