@@ -164,7 +164,7 @@ const IntegrationsPage: React.FC = () => {
               {integrationConfigs.map((config) => {
                 const integration = config.integration
                 return (
-                  <Card key={integration.id} className="overflow-hidden bg-emerald-500/10 border-emerald-500/20">
+                  <Card key={integration.id} className="overflow-hidden surface-elevated">
                     <CardHeader className="pb-2 pt-4 px-5">
                       <div className="flex gap-3 items-start">
                         {getIntegrationIcon(integration.type)}

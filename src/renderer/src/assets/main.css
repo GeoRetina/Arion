@@ -219,6 +219,7 @@ code {
   --color-codeblock-background: var(--codeblock-background);
   --color-codeblock-header-background: var(--codeblock-header-background);
   --color-input-surface: var(--input-surface-background);
+  --color-surface-elevated: var(--surface-elevated);
 }
 
 :root {
@@ -268,6 +269,7 @@ code {
   --shadow-color-rgb: 0 0 0; /* Default black shadow for light mode */
   --shadow-color-opacity: 0.1;
   --input-surface-background: oklch(1 0 0); /* White for light mode */
+  --surface-elevated: rgba(0, 0, 0, 0.03); /* Elevated surface background for light mode */
 }
 
 .dark {
@@ -321,6 +323,7 @@ code {
   --shadow-color-rgb: 0 0 0; /* Black shadow */
   --shadow-color-opacity: 0.3;
   --input-surface-background: oklch(0.25 0.005 250); /* Input surface */
+  --surface-elevated: rgba(255, 255, 255, 0.05); /* Elevated surface background */
 }
 
 @layer base {
@@ -346,6 +349,12 @@ code {
   .dark [role='button'][class*='variant-outline'] {
     border-color: var(--border) !important;
   }
+}
+
+/* Elevated Surface - for cards, panels, and containers that need subtle distinction */
+.surface-elevated {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border);
 }
 
 /* Custom Caret Styles */

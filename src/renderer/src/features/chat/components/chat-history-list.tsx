@@ -86,7 +86,7 @@ export const ChatHistoryList: React.FC = () => {
   }
 
   return (
-    <div className="py-8 px-4 md:px-6 flex flex-col h-[calc(100vh-theme(spacing.24))] overflow-hidden relative">
+    <div className="pt-8 pb-2 px-4 md:px-6 flex flex-col h-[calc(100vh-1rem)] overflow-hidden relative">
       <div className="flex flex-col mb-4 flex-shrink-0">
         <h1 className="text-3xl font-semibold mb-2">Chat History</h1>
         <p className="text-sm text-muted-foreground mb-4">
@@ -97,7 +97,7 @@ export const ChatHistoryList: React.FC = () => {
       {chats.length === 0 ? (
         <p className="text-center text-gray-500 dark:text-gray-400 py-10">No chat history found.</p>
       ) : (
-        <div className="border rounded-lg overflow-hidden flex-grow relative">
+        <div className="rounded-lg overflow-hidden flex-grow relative surface-elevated">
           <ScrollArea className="h-full">
             <div className="sticky top-0 z-10 bg-background">
               <Table>
