@@ -103,8 +103,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         }
       } else {
         // If inputValue is not empty, just set the text content
-        if (editorRef.current.textContent !== (inputValue ?? '')) {
-          editorRef.current.textContent = inputValue ?? ''
+        if (editorRef.current.innerText !== (inputValue ?? '')) {
+          editorRef.current.innerText = inputValue ?? ''
         }
       }
     }
@@ -115,8 +115,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       const editorNode = event.currentTarget
       if (!editorNode) return
 
-      // Get the plain text content
-      let currentText = editorNode.textContent || ''
+      // Get the plain text content (innerText preserves line breaks from <br> and block elements)
+      let currentText = editorNode.innerText || ''
 
       // Handle empty content
       if (
