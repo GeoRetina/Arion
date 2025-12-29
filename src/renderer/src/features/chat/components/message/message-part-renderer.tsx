@@ -1,4 +1,4 @@
-import { MemoizedMarkdown } from '@/components/markdown-renderer'
+import { MarkdownRenderer } from '@/components/markdown-renderer'
 import React, { useEffect, useState } from 'react'
 import ToolCallDisplay from '../tool-call-display'
 import {
@@ -7,99 +7,12 @@ import {
 } from '../../utils/tool-ui-component-detection'
 import type { ToolInvocation } from '../../utils/tool-ui-component-detection'
 import {
-  COMPONENT_TYPES,
-  TOOL_STATES,
-  TOOL_STATUS,
-  CALL_AGENT_TOOL_NAME,
-  type ToolStatus
-} from '../../constants/message-constants'
+  determineToolStatus,
+  normalizeToolInvocationPart
+} from '../../utils/message-part-utils'
+import { COMPONENT_TYPES, TOOL_STATES, CALL_AGENT_TOOL_NAME } from '../../constants/message-constants'
 import type { MessagePartRendererProps } from '../../types/message-types'
 import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
-
-/**
- * Determines the status of a tool invocation based on its state and error flags
- */
-function determineToolStatus(toolInvocation: ToolInvocation): ToolStatus {
-  if (toolInvocation.state === TOOL_STATES.ERROR) {
-    return TOOL_STATUS.ERROR
-  }
-
-  if (toolInvocation.state === TOOL_STATES.RESULT) {
-    const isError =
-      toolInvocation.isError ||
-      (toolInvocation.result &&
-        typeof toolInvocation.result === 'object' &&
-        toolInvocation.result.isError)
-    return isError ? TOOL_STATUS.ERROR : TOOL_STATUS.COMPLETED
-  }
-
-  return TOOL_STATUS.LOADING
-}
-
-const toolPartPrefix = 'tool-'
-
-function isToolUIPart(part: any): boolean {
-  return (
-    part &&
-    typeof part.type === 'string' &&
-    (part.type === 'dynamic-tool' ||
-      (part.type.startsWith(toolPartPrefix) && part.type !== COMPONENT_TYPES.TOOL_INVOCATION))
-  )
-}
-
-function mapToolInvocationState(state?: string): string {
-  switch (state) {
-    case 'output-available':
-      return TOOL_STATES.RESULT
-    case 'output-error':
-    case 'output-denied':
-      return TOOL_STATES.ERROR
-    case 'input-streaming':
-      return TOOL_STATES.PARTIAL_CALL
-    case 'input-available':
-    case 'approval-requested':
-    case 'approval-responded':
-      return TOOL_STATES.CALL
-    default:
-      return TOOL_STATES.CALL
-  }
-}
-
-function normalizeToolInvocationPart(part: any): ToolInvocation | null {
-  if (!part || typeof part !== 'object') {
-    return null
-  }
-
-  if (part.type === COMPONENT_TYPES.TOOL_INVOCATION && part.toolInvocation) {
-    return part.toolInvocation as ToolInvocation
-  }
-
-  if (!isToolUIPart(part)) {
-    return null
-  }
-
-  const toolName = part.type === 'dynamic-tool' ? part.toolName : part.type.slice(toolPartPrefix.length)
-  const toolCallId = part.toolCallId ?? part.id
-  if (!toolName || !toolCallId) {
-    return null
-  }
-
-  const errorText =
-    part.errorText ??
-    (part.approval && part.approval.approved === false
-      ? part.approval.reason || 'Tool approval denied.'
-      : undefined)
-
-  return {
-    toolCallId,
-    toolName,
-    args: part.input ?? part.rawInput ?? {},
-    state: mapToolInvocationState(part.state),
-    result: part.output,
-    error: errorText,
-    isError: Boolean(errorText) || part.state === 'output-error' || part.state === 'output-denied'
-  }
-}
 
 /**
  * Renders a single nested tool call with its appropriate UI component
@@ -226,12 +139,8 @@ function ThoughtsPart({
       <summary className="cursor-pointer select-none text-sm tracking-wide text-muted-foreground/80 hover:text-foreground">
         Thoughts
       </summary>
-      <div className="mt-2 rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground [&_*]:text-muted-foreground [&_.prose]:!text-sm [&_.prose_p]:!text-sm [&_.prose_h1]:!text-base [&_.prose_h2]:!text-base [&_.prose_h3]:!text-base [&_.prose_li]:!text-sm">
-        <MemoizedMarkdown
-          content={text}
-          id={`${messageId}-reasoning-${index}`}
-          isAssistant={true}
-        />
+      <div className="mt-2 rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground **:text-muted-foreground [&_.prose]:text-sm! [&_.prose_p]:text-sm! [&_.prose_h1]:text-base! [&_.prose_h2]:text-base! [&_.prose_h3]:text-base! [&_.prose_li]:text-sm!">
+        <MarkdownRenderer content={text} />
       </div>
     </details>
   )
@@ -328,11 +237,13 @@ export const MessagePartRenderer = ({
           const text = part.text
           const { reasoningText, contentText, hasOpenTag } = splitReasoningText(text)
           if (reasoningText !== undefined) {
-            if (reasoningText.length === 0 && contentText.length === 0) return null
-            const isStreamingReasoning = hasOpenTag || contentText.length === 0
+            const trimmedReasoning = reasoningText.trim()
+            const trimmedContent = contentText.trim()
+            if (trimmedReasoning.length === 0 && trimmedContent.length === 0) return null
+            const isStreamingReasoning = hasOpenTag || (part as any).state === 'streaming'
             return (
               <>
-                {reasoningText.length > 0 && (
+                {trimmedReasoning.length > 0 && (
                   <ThoughtsPart
                     text={reasoningText}
                     messageId={messageId}
@@ -341,37 +252,27 @@ export const MessagePartRenderer = ({
                     isStreamingReasoning={isStreamingReasoning}
                   />
                 )}
-                {contentText.length > 0 && (
-                  <MemoizedMarkdown
-                    key={`${messageId}-text-${index}`}
-                    content={contentText}
-                    id={`${messageId}-text-${index}`}
-                    isAssistant={true}
-                  />
+                {trimmedContent.length > 0 && (
+                  <MarkdownRenderer key={`${messageId}-text-${index}`} content={contentText} />
                 )}
               </>
             )
           }
 
           // No reasoning tags/prefixes -> render as normal text
-          return (
-            <MemoizedMarkdown
-              key={`${messageId}-text-${index}`}
-              content={text}
-              id={`${messageId}-text-${index}`}
-              isAssistant={true}
-            />
-          )
+          return <MarkdownRenderer key={`${messageId}-text-${index}`} content={text} />
         } else {
           return null
         }
 
       case COMPONENT_TYPES.REASONING:
-        if (typeof (part as any).text === 'string' && (part as any).text.length > 0) {
+        if (typeof (part as any).text === 'string') {
+          const reasoningText = (part as any).text as string
+          if (reasoningText.trim().length === 0) return null
           const isStreamingReasoning = (part as any).state === 'streaming'
           return (
             <ThoughtsPart
-              text={(part as any).text}
+              text={reasoningText}
               messageId={messageId}
               index={index}
               collapseReasoning={collapseReasoning}

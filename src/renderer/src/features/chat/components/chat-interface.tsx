@@ -33,6 +33,7 @@ import { useMapSidebar } from '../hooks/use-map-sidebar'
 import { useScrollReset } from '../hooks/use-scroll-reset'
 import { useReasoningNotification } from '../hooks/use-reasoning-notification'
 import { useChatController } from '../hooks/use-chat-controller'
+import { hasRenderableAssistantContent } from '../utils/message-part-utils'
 
 export default function ChatInterface(): React.JSX.Element {
   // Use extracted custom hooks
@@ -93,6 +94,13 @@ export default function ChatInterface(): React.JSX.Element {
   const displayMessages = useMemo(() => sdkMessages, [sdkMessages])
 
   const displayIsLoading = isStreamingUi
+  const lastDisplayMessage =
+    displayMessages.length > 0 ? (displayMessages as any[])[displayMessages.length - 1] : null
+  const shouldShowLoadingIndicator =
+    displayIsLoading &&
+    (lastDisplayMessage?.role === 'user' ||
+      (lastDisplayMessage?.role === 'assistant' &&
+        !hasRenderableAssistantContent(lastDisplayMessage)))
 
   // Custom handleSubmit to send message via v5 API
   const handleSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
@@ -144,7 +152,7 @@ export default function ChatInterface(): React.JSX.Element {
         }}
       >
         {/* Messages area */}
-        <div className="flex-grow min-h-0">
+        <div className="grow min-h-0">
           <ScrollArea className="h-full" ref={scrollAreaRef}>
             <div className="mx-auto w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl px-4 pt-15 pb-6">
               {displayMessages.length === 0 && !displayIsLoading && <EmptyState />}
@@ -166,10 +174,7 @@ export default function ChatInterface(): React.JSX.Element {
                 )
               })}
 
-              {displayIsLoading &&
-                (displayMessages as any[]).length > 0 &&
-                (displayMessages as any[])[(displayMessages as any[]).length - 1].role ===
-                  'user' && <LoadingIndicator />}
+              {shouldShowLoadingIndicator && <LoadingIndicator />}
 
               {/* Add a spacer div with screen height to ensure enough scroll space */}
               <div className="h-screen" />
@@ -222,7 +227,7 @@ export default function ChatInterface(): React.JSX.Element {
               Model Configuration Error
             </DialogTitle>
             <DialogDescription asChild className="py-2">
-              <ScrollArea className="max-h-[200px] rounded-md border p-4 bg-muted">
+              <ScrollArea className="max-h-50 rounded-md border p-4 bg-muted">
                 <div className="whitespace-pre-line break-all text-foreground">{errorMessage}</div>
               </ScrollArea>
             </DialogDescription>

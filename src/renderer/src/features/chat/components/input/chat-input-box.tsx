@@ -239,9 +239,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   return (
     <div
-      className={`flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-stone-300 dark:border-stone-600 w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative ${
-        isStreaming ? 'streaming-border' : ''
-      }`}
+      className="flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-stone-300 dark:border-stone-600 w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative"
       style={{
         minHeight: 'auto', // Allow shrinking based on content
         maxHeight: 'calc(100vh - 200px)' // Example: constrain overall component height
