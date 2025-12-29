@@ -246,7 +246,7 @@ export class StreamingHandlerService {
       ...(options.tools &&
         Object.keys(options.tools).length > 0 &&
         !reasoningInfo.shouldDisableTools && { tools: options.tools }),
-      stopWhen: stepCountIs(reasoningInfo.isReasoningModel ? 1 : options.maxSteps || MAX_LLM_STEPS),
+      stopWhen: stepCountIs(options.maxSteps || MAX_LLM_STEPS),
       experimental_transform: smoothStream({}),
       onFinish: async (_event) => {},
       // Add abort signal support
