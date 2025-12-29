@@ -1,7 +1,7 @@
 import type {
-  LanguageModelV2Content,
-  LanguageModelV2Usage,
-  SharedV2ProviderMetadata
+  LanguageModelV3Content,
+  LanguageModelV3Usage,
+  SharedV3ProviderMetadata
 } from '@ai-sdk/provider'
 import { generateId } from '@ai-sdk/provider-utils'
 import type { OllamaConfig, OllamaResponse } from './types'
@@ -18,7 +18,7 @@ export class OllamaResponseProcessor {
     const content = this.extractContent(response)
     const finishReason = mapOllamaFinishReason(response.done_reason)
     const usage = this.extractUsage(response)
-    const providerMetadata: SharedV2ProviderMetadata = { ollama: {} }
+    const providerMetadata: SharedV3ProviderMetadata = { ollama: {} }
 
     return {
       content,
@@ -28,8 +28,8 @@ export class OllamaResponseProcessor {
     }
   }
 
-  private extractContent(response: OllamaResponse): LanguageModelV2Content[] {
-    const content: LanguageModelV2Content[] = []
+  private extractContent(response: OllamaResponse): LanguageModelV3Content[] {
+    const content: LanguageModelV3Content[] = []
     const text = response.message.content
     if (text) {
       content.push({ type: 'text', text })
@@ -55,18 +55,21 @@ export class OllamaResponseProcessor {
     return content
   }
 
-  private extractUsage(response: OllamaResponse): LanguageModelV2Usage {
+  private extractUsage(response: OllamaResponse): LanguageModelV3Usage {
     const inputTokens = response.prompt_eval_count ?? undefined
     const outputTokens = response.eval_count ?? undefined
     return {
-      inputTokens,
-      outputTokens,
-      totalTokens:
-        typeof inputTokens === 'number' && typeof outputTokens === 'number'
-          ? inputTokens + outputTokens
-          : undefined,
-      reasoningTokens: undefined,
-      cachedInputTokens: undefined
+      inputTokens: {
+        total: inputTokens,
+        noCache: inputTokens,
+        cacheRead: undefined,
+        cacheWrite: undefined
+      },
+      outputTokens: {
+        total: outputTokens,
+        text: outputTokens,
+        reasoning: undefined
+      }
     }
   }
 }

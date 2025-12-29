@@ -7,6 +7,7 @@ import { AgentGroupIndicator } from '../agent-indicator'
 import OrchestrationTaskList from '../orchestration-task-list'
 import { Subtask } from '../../../../../../shared/ipc-types'
 import { useAnchoredToolParts } from '../../hooks/use-anchored-tool-parts'
+import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
@@ -46,12 +47,29 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       isHydratedSnapshot && !isUser ? true : false
     )
     const anchoredParts = useAnchoredToolParts({ message, collapseReasoning, isUser })
+    const hasNonReasoningText =
+      !isUser &&
+      Array.isArray(message.parts) &&
+      message.parts.some((part) => {
+        if (!part || part.type !== 'text' || typeof (part as any).text !== 'string') return false
+        const { reasoningText, contentText } = splitReasoningText((part as any).text as string)
+        if (reasoningText && contentText.length === 0) {
+          return false
+        }
+        return (part as any).state === 'streaming' || contentText.length > 0
+      })
 
     useEffect(() => {
       if (isHydratedSnapshot && !isUser) {
         setCollapseReasoning(true)
       }
     }, [isHydratedSnapshot, isUser])
+
+    useEffect(() => {
+      if (hasNonReasoningText) {
+        setCollapseReasoning(true)
+      }
+    }, [hasNonReasoningText])
 
     // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
     const hasAssistantParts = !isUser && Array.isArray(message.parts)

@@ -1,7 +1,7 @@
 import {
   UnsupportedFunctionalityError,
-  type LanguageModelV2CallWarning,
-  type LanguageModelV2Prompt
+  type SharedV3Warning,
+  type LanguageModelV3Prompt
 } from '@ai-sdk/provider'
 import type { OllamaResponsesPrompt } from './request-builder'
 
@@ -9,14 +9,14 @@ export function convertToOllamaResponsesMessages({
   prompt,
   systemMessageMode
 }: {
-  prompt: LanguageModelV2Prompt
+  prompt: LanguageModelV3Prompt
   systemMessageMode: 'system' | 'developer' | 'remove'
 }): {
   messages: OllamaResponsesPrompt
-  warnings: Array<LanguageModelV2CallWarning>
+  warnings: Array<SharedV3Warning>
 } {
   const messages: OllamaResponsesPrompt = []
-  const warnings: Array<LanguageModelV2CallWarning> = []
+  const warnings: Array<SharedV3Warning> = []
 
   for (const { role, content } of prompt) {
     switch (role) {
@@ -103,6 +103,10 @@ export function convertToOllamaResponsesMessages({
       }
       case 'tool':
         for (const part of content) {
+          // Skip tool approval response parts - not supported by Ollama
+          if (part.type === 'tool-approval-response') {
+            continue
+          }
           const output = part.output
           let contentValue = ''
           switch (output.type) {
@@ -141,7 +145,7 @@ export function convertToOllamaChatMessages({
   prompt,
   systemMessageMode = 'system'
 }: {
-  prompt: LanguageModelV2Prompt
+  prompt: LanguageModelV3Prompt
   systemMessageMode?: 'system' | 'developer' | 'remove'
 }): any {
   const messages: any[] = []
@@ -208,6 +212,10 @@ export function convertToOllamaChatMessages({
       }
       case 'tool':
         for (const toolResponse of content) {
+          // Skip tool approval response parts - not supported by Ollama
+          if (toolResponse.type === 'tool-approval-response') {
+            continue
+          }
           const output = toolResponse.output
           let contentValue = ''
           switch (output.type) {

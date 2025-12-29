@@ -1,7 +1,7 @@
 import {
   UnsupportedFunctionalityError,
-  type LanguageModelV2CallOptions,
-  type LanguageModelV2CallWarning
+  type LanguageModelV3CallOptions,
+  type SharedV3Warning
 } from '@ai-sdk/provider'
 import type { JSONSchema7 } from '@ai-sdk/provider'
 
@@ -16,14 +16,14 @@ export function prepareResponsesTools({
   tools,
   toolChoice
 }: {
-  tools: LanguageModelV2CallOptions['tools']
-  toolChoice?: LanguageModelV2CallOptions['toolChoice']
+  tools: LanguageModelV3CallOptions['tools']
+  toolChoice?: LanguageModelV3CallOptions['toolChoice']
 }): {
   tools?: Array<any>
   toolChoice?: ToolChoice
-  toolWarnings: LanguageModelV2CallWarning[]
+  toolWarnings: SharedV3Warning[]
 } {
-  const toolWarnings: LanguageModelV2CallWarning[] = []
+  const toolWarnings: SharedV3Warning[] = []
   const normalizedTools = tools?.length ? tools : undefined
 
   if (!normalizedTools) {
@@ -48,7 +48,7 @@ export function prepareResponsesTools({
         }
       })
     } else {
-      toolWarnings.push({ type: 'unsupported-tool', tool })
+      toolWarnings.push({ type: 'unsupported', feature: `tool:${tool.type}` })
     }
   }
 

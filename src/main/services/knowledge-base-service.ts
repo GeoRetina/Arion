@@ -28,7 +28,7 @@ export class KnowledgeBaseService {
   private db: PGlite | undefined
   private dbPath: string
   private settingsService: SettingsService
-  private embeddingModel: EmbeddingModel<string> | undefined
+  private embeddingModel: EmbeddingModel | undefined
 
   constructor(settingsService: SettingsService) {
     const dbDir = path.join(app.getPath('userData'), KB_DB_SUBFOLDER)
@@ -416,7 +416,7 @@ export class KnowledgeBaseService {
       }
     }
     try {
-      const { embedding }: EmbedResult<string> = await embed({
+      const { embedding }: EmbedResult = await embed({
         model: this.embeddingModel,
         value: text
       })

@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { splitReasoningText } from '../../../../../shared/utils/reasoning-text'
 
 interface UseReasoningNotificationProps {
   isStreamingUi: boolean
@@ -13,12 +14,37 @@ export function useReasoningNotification({
   isStreamingUi,
   chatMessages
 }: UseReasoningNotificationProps) {
+  const lastTextStartRef = useRef<{ id?: string; hasText?: boolean }>({})
+
   useEffect(() => {
-    if (isStreamingUi) {
-      const last = chatMessages[chatMessages.length - 1]
-      if (last && last.role === 'assistant') {
+    if (!isStreamingUi || !Array.isArray(chatMessages)) return
+
+    const lastMessage = chatMessages[chatMessages.length - 1]
+    if (!lastMessage || lastMessage.role !== 'assistant') return
+
+    const parts = Array.isArray(lastMessage.parts) ? lastMessage.parts : []
+    const hasText = parts.some((part) => {
+      if (!part || part.type !== 'text' || typeof part.text !== 'string') return false
+      const { reasoningText, contentText } = splitReasoningText(part.text)
+      if (reasoningText && contentText.length === 0) {
+        return false
+      }
+      return part.state === 'streaming' || contentText.length > 0
+    })
+
+    const lastState = lastTextStartRef.current
+    if (lastState.id !== lastMessage.id) {
+      lastTextStartRef.current = { id: lastMessage.id, hasText }
+      if (hasText) {
         window.dispatchEvent(new Event('ai-assistant-text-start'))
       }
+      return
     }
+
+    if (!lastState.hasText && hasText) {
+      window.dispatchEvent(new Event('ai-assistant-text-start'))
+    }
+
+    lastTextStartRef.current.hasText = hasText
   }, [isStreamingUi, chatMessages])
 }

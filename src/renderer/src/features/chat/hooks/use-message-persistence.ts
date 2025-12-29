@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { type UIMessage } from 'ai'
-import type { Message as SDKMessage } from '@ai-sdk/ui-utils'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 
 /**
@@ -15,6 +14,8 @@ export function getTextFromParts(message: UIMessage<any, any, any>): string {
     .map((p) => p.text as string)
     .join('')
 }
+
+type HydratedMessage = UIMessage & { content?: string; createdAt?: Date; hydrated?: boolean }
 
 interface UseMessagePersistenceProps {
   sdkMessages: UIMessage[]
@@ -101,15 +102,15 @@ export function useMessagePersistence({
       return role
     }
 
-    const normalizedMessages: SDKMessage[] = storeMessages.map((m) => {
+    const normalizedMessages: HydratedMessage[] = storeMessages.map((m) => {
       const textContent = m.content ?? ''
-      const normalizedMessage = {
+      const normalizedMessage: HydratedMessage = {
         id: m.id,
         role: normalizeRole(m.role),
         content: textContent,
         createdAt: m.created_at ? new Date(m.created_at) : undefined,
         parts: textContent ? [{ type: 'text', text: textContent }] : []
-      } as SDKMessage & { hydrated?: boolean }
+      }
       normalizedMessage.hydrated = true
       return normalizedMessage
     })

@@ -1,23 +1,24 @@
-import type { LanguageModelV2FinishReason } from '@ai-sdk/provider'
+import type { LanguageModelV3FinishReason } from '@ai-sdk/provider'
 import { generateId, type ParseResult } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
 import { baseOllamaResponseSchema, type OllamaResponse } from './types'
 
 export function mapOllamaFinishReason(
   finishReason: string | null | undefined
-): LanguageModelV2FinishReason {
+): LanguageModelV3FinishReason {
+  const raw = finishReason ?? undefined
   switch (finishReason) {
     case 'stop':
-      return 'stop'
+      return { unified: 'stop', raw }
     case 'length':
-      return 'length'
+      return { unified: 'length', raw }
     case 'content_filter':
-      return 'content-filter'
+      return { unified: 'content-filter', raw }
     case 'function_call':
     case 'tool_calls':
-      return 'tool-calls'
+      return { unified: 'tool-calls', raw }
     default:
-      return 'unknown'
+      return { unified: 'other', raw }
   }
 }
 

@@ -1,6 +1,6 @@
 import type {
-  LanguageModelV2CallOptions,
-  LanguageModelV2CallWarning
+  LanguageModelV3CallOptions,
+  SharedV3Warning
 } from '@ai-sdk/provider'
 import { parseProviderOptions } from '@ai-sdk/provider-utils'
 import { convertToOllamaResponsesMessages, convertToOllamaChatMessages } from './message-converters'
@@ -25,7 +25,7 @@ export class OllamaRequestBuilder {
     tools,
     toolChoice,
     responseFormat
-  }: LanguageModelV2CallOptions & { modelId: string }) {
+  }: LanguageModelV3CallOptions & { modelId: string }) {
     const warnings = this.collectUnsupportedSettingsWarnings({
       topK,
       seed,
@@ -81,8 +81,8 @@ export class OllamaRequestBuilder {
     presencePenalty?: number
     frequencyPenalty?: number
     stopSequences?: string[]
-  }): LanguageModelV2CallWarning[] {
-    const warnings: LanguageModelV2CallWarning[] = []
+  }): SharedV3Warning[] {
+    const warnings: SharedV3Warning[] = []
     const unsupported = [
       { value: topK, name: 'topK' },
       { value: seed, name: 'seed' },
@@ -93,14 +93,14 @@ export class OllamaRequestBuilder {
 
     for (const { value, name } of unsupported) {
       if (value != null) {
-        warnings.push({ type: 'unsupported-setting', setting: name })
+        warnings.push({ type: 'unsupported', feature: `setting:${name}` })
       }
     }
 
     return warnings
   }
 
-  private async parseProviderOptions(providerOptions?: LanguageModelV2CallOptions['providerOptions']) {
+  private async parseProviderOptions(providerOptions?: LanguageModelV3CallOptions['providerOptions']) {
     if (!providerOptions) return null
 
     const parsed = await parseProviderOptions({

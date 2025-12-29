@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { Message } from '@ai-sdk/react'
+import type { UIMessage } from '@ai-sdk/react'
 import type {
   LayerDefinition,
   LayerGroup,
@@ -13,7 +13,7 @@ import type {
 
 // Define the structure of the chat request body, mirroring preload script
 interface ChatRequestBodyForDTS {
-  messages: Message[]
+  messages: UIMessage[]
   // other properties if added to ChatRequestBody in preload.ts
 }
 

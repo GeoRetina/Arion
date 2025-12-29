@@ -57,7 +57,7 @@ export class MessagePreparationService {
 
     try {
       coreMessages = messageAnalysis.shouldConvert
-        ? (convertToModelMessages(normalizedRendererMessages as any) as unknown as ModelMessage[])
+        ? ((await convertToModelMessages(normalizedRendererMessages as any)) as unknown as ModelMessage[])
         : (normalizedRendererMessages as unknown as ModelMessage[])
       coreMessages = sanitizeModelMessages(coreMessages)
     } catch (e) {
