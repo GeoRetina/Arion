@@ -1,6 +1,6 @@
 {
   "name": "arion",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Arion is an AI agentic desktop application for geospatial analysis.",
   "license": "GPL-3.0-or-later",
   "main": "./out/main/index.js",
