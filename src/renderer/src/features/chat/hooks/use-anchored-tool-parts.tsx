@@ -33,19 +33,22 @@ export function useAnchoredToolParts({
 }: UseAnchoredToolPartsOptions): ReactNode[] | null {
   const toolAnchorRef = useRef<Record<string, number>>({})
 
-  const textPart = useMemo(
+  const textParts = useMemo(
     () =>
       Array.isArray(message.parts)
-        ? message.parts.find((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-        : undefined,
+        ? message.parts.filter((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
+        : [],
     [message.parts]
   )
 
   const textContent = useMemo(
     () =>
-      (textPart && typeof (textPart as any).text === 'string' && (textPart as any).text) ||
-      (typeof message.content === 'string' ? message.content : ''),
-    [textPart, message.content]
+      textParts.length > 0
+        ? textParts.map((part) => (part as any).text as string).join('')
+        : typeof message.content === 'string'
+          ? message.content
+          : '',
+    [textParts, message.content]
   )
 
   const toolParts = useMemo(
@@ -65,8 +68,8 @@ export function useAnchoredToolParts({
   )
 
   const hasAnchoredToolFlow = useMemo(
-    () => Boolean(textPart && toolParts.length > 0 && !isUser),
-    [textPart, toolParts, isUser]
+    () => Boolean(textParts.length > 0 && toolParts.length > 0 && !isUser),
+    [textParts, toolParts, isUser]
   )
 
   const resolveAnchor = (toolCallId: string | undefined) => {
