@@ -40,19 +40,16 @@ export const CopyMessageButton = ({ content }: { content: string }) => {
   )
 }
 
-interface MemoizedMarkdownProps {
+interface MarkdownRendererProps {
   content: string
-  id?: string
-  isAssistant?: boolean
   variant?: 'default' | 'reasoning'
 }
 
 // Streamdown handles memoization internally
-export const MemoizedMarkdown = ({
+export const MarkdownRenderer = ({
   content,
-  isAssistant = false,
   variant = 'default'
-}: MemoizedMarkdownProps) => {
+}: MarkdownRendererProps) => {
   const textSizeClass =
     variant === 'reasoning'
       ? 'text-xs [&_p]:text-xs [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm'

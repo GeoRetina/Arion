@@ -1,6 +1,6 @@
 import { forwardRef } from 'react'
 import { cn } from '@/lib/utils'
-import { MemoizedMarkdown, CopyMessageButton } from '@/components/markdown-renderer'
+import { MarkdownRenderer, CopyMessageButton } from '@/components/markdown-renderer'
 import { MessagePartRenderer } from './message-part-renderer'
 import { useEffect, useRef, useState } from 'react'
 import { AgentGroupIndicator } from '../agent-indicator'
@@ -8,6 +8,16 @@ import OrchestrationTaskList from '../orchestration-task-list'
 import { Subtask } from '../../../../../../shared/ipc-types'
 import { useAnchoredToolParts } from '../../hooks/use-anchored-tool-parts'
 import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
+import { hasRenderableAssistantContent } from '../../utils/message-part-utils'
+
+// Streaming indicator - shown at bottom of message while generating
+const StreamingIndicator = () => (
+  <div className="streaming-indicator">
+    <span className="dot">.</span>
+    <span className="dot">.</span>
+    <span className="dot">.</span>
+  </div>
+)
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
@@ -98,19 +108,25 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           {isUser ? (
             <div className="whitespace-pre-wrap">{primaryText}</div>
           ) : Array.isArray(message.parts) && message.parts.length > 0 ? (
-            anchoredParts ||
-            message.parts.map((part, partIndex) => (
-              <MessagePartRenderer
-                key={`${message.id}-part-${partIndex}`}
-                part={part}
-                messageId={message.id}
-                index={partIndex}
-                collapseReasoning={collapseReasoning}
-              />
-            ))
+            <>
+              {anchoredParts ||
+                message.parts.map((part, partIndex) => (
+                  <MessagePartRenderer
+                    key={`${message.id}-part-${partIndex}`}
+                    part={part}
+                    messageId={message.id}
+                    index={partIndex}
+                    collapseReasoning={collapseReasoning}
+                  />
+                ))}
+              {isStreaming && hasRenderableAssistantContent(message) && <StreamingIndicator />}
+            </>
           ) : (
             <>
-              <MemoizedMarkdown content={primaryText || ''} id={message.id} isAssistant={true} />
+              <MarkdownRenderer content={primaryText || ''} />
+              {isStreaming && primaryText && primaryText.trim().length > 0 && (
+                <StreamingIndicator />
+              )}
 
               {/* Display orchestration UI when metadata is available */}
               {message.orchestration && (

@@ -110,20 +110,20 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       </div>
 
       {/* Primary action */}
-      <div className="p-3 border-b border-border/20">
+      <div className="px-3 pb-3 border-b border-border/20">
         <Button
-          variant="ghost"
+          variant="custom"
           className={cn(
-            'w-full flex items-center rounded-md hover:bg-muted',
-            isExpanded ? 'justify-start px-3 py-2.5 text-base' : 'justify-center p-2'
+            'w-full flex items-center rounded-lg border border-border/60 bg-muted/50 hover:bg-muted hover:border-border transition-all duration-200',
+            isExpanded ? 'justify-start px-3 py-2.5' : 'justify-center p-2.5'
           )}
           title="New Chat"
           onClick={() => navigate('/chat/new')}
         >
-          <span className="flex items-center justify-center rounded-md bg-amber-500 shrink-0 p-1.5">
-            <PlusCircle className="h-4 w-4 text-black" />
-          </span>
-          {isExpanded && <span className="ml-2 font-medium">New Chat</span>}
+          <PlusCircle className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
+          {isExpanded && (
+            <span className="ml-2.5 text-sm font-medium text-foreground/90">New Chat</span>
+          )}
         </Button>
       </div>
 

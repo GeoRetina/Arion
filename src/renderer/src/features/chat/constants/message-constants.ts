@@ -8,6 +8,11 @@ export const COMPONENT_TYPES = {
   REASONING: 'reasoning'
 } as const
 
+/**
+ * Prefix used for dynamic tool type identifiers
+ */
+export const TOOL_PART_PREFIX = 'tool-'
+
 export const TOOL_STATES = {
   RESULT: 'result',
   ERROR: 'error',

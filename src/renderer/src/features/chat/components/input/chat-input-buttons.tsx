@@ -32,6 +32,7 @@ export const ChatInputButtons: React.FC<ChatInputButtonsProps> = ({
           <TooltipTrigger asChild>
             <Button
               type="button"
+              variant="custom"
               size={isStoppingRequested ? 'sm' : 'icon'}
               onClick={onStopStreaming}
               disabled={isStoppingRequested}
@@ -50,6 +51,7 @@ export const ChatInputButtons: React.FC<ChatInputButtonsProps> = ({
           <TooltipTrigger asChild>
             <Button
               type="button"
+              variant="custom"
               onClick={() => handleSubmit()}
               size="icon"
               disabled={!canSubmit}
