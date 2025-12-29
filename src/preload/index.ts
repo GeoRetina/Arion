@@ -52,10 +52,10 @@ import {
   type AgentCapabilitiesResult
 } from '../shared/ipc-types' // Corrected relative path
 
-// This ChatRequestBody is specific to preload, using @ai-sdk/react Message
-import type { Message as AiSdkReactMessage } from '@ai-sdk/react'
+// This ChatRequestBody is specific to preload, using @ai-sdk/react UIMessage
+import type { UIMessage } from '@ai-sdk/react'
 interface PreloadChatRequestBody {
-  messages: AiSdkReactMessage[]
+  messages: UIMessage[]
   // other potential fields from useChat body
 }
 

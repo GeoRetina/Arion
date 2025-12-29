@@ -1,16 +1,17 @@
 import type {
-  LanguageModelV2,
-  LanguageModelV2CallOptions,
-  LanguageModelV2StreamPart
+  LanguageModelV3,
+  LanguageModelV3CallOptions
 } from '@ai-sdk/provider'
 import {
   combineHeaders,
   createJsonResponseHandler,
-  createJsonStreamResponseHandler,
   postJsonToApi,
+  safeParseJSON,
   type ParseResult,
+  type ResponseHandler,
   withoutTrailingSlash
 } from '@ai-sdk/provider-utils'
+import type { ZodSchema } from 'zod'
 import {
   baseOllamaResponseSchema,
   type CreateOllamaOptions,
@@ -22,9 +23,61 @@ import { OllamaRequestBuilder } from './request-builder'
 import { OllamaResponseProcessor } from './response-processor'
 import { OllamaStreamProcessor } from './stream-processor'
 
+/**
+ * Creates a response handler for newline-delimited JSON (NDJSON) streams.
+ * Ollama uses NDJSON format for streaming responses.
+ */
+function createNdjsonStreamResponseHandler<T>(
+  schema: ZodSchema<T>
+): ResponseHandler<ReadableStream<ParseResult<T>>> {
+  return async ({ response }) => {
+    if (!response.body) {
+      throw new Error('Response body is null')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    const stream = new ReadableStream<ParseResult<T>>({
+      async pull(controller) {
+        while (true) {
+          const { done, value } = await reader.read()
+
+          if (done) {
+            // Process any remaining buffer content
+            if (buffer.trim()) {
+              const result = await safeParseJSON({ schema, text: buffer.trim() })
+              controller.enqueue(result)
+            }
+            controller.close()
+            return
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? '' // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.trim()) {
+              const result = await safeParseJSON({ schema, text: line })
+              controller.enqueue(result)
+            }
+          }
+        }
+      },
+      cancel() {
+        reader.cancel()
+      }
+    })
+
+    return { value: stream }
+  }
+}
+
 export function createOllama(options: CreateOllamaOptions) {
   const configuredBase = withoutTrailingSlash(options.baseURL ?? 'http://127.0.0.1:11434')
-  const baseURL = configuredBase.endsWith('/api') ? configuredBase : `${configuredBase}/api`
+  const baseURL = configuredBase?.endsWith('/api') ? configuredBase : `${configuredBase}/api`
   const providerName = options.name ?? 'ollama'
 
   const config: OllamaConfig = {
@@ -34,13 +87,13 @@ export function createOllama(options: CreateOllamaOptions) {
     fetch: options.fetch
   }
 
-  return (modelId: string): LanguageModelV2 => {
+  return (modelId: string): LanguageModelV3 => {
     return new OllamaResponsesLanguageModel(modelId, config)
   }
 }
 
-class OllamaResponsesLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2'
+class OllamaResponsesLanguageModel implements LanguageModelV3 {
+  readonly specificationVersion = 'v3' as const
   readonly modelId: string
 
   private readonly config: OllamaConfig
@@ -61,7 +114,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV2 {
     'image/*': [/^https?:\/\/.*$/]
   }
 
-  async doGenerate(options: LanguageModelV2CallOptions) {
+  async doGenerate(options: LanguageModelV3CallOptions) {
     const { args, warnings } = await this.builder.buildRequest({
       ...options,
       modelId: this.modelId
@@ -72,7 +125,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV2 {
       headers: combineHeaders(this.config.headers(), options.headers),
       body: { ...args, stream: false },
       failedResponseHandler: ollamaFailedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(baseOllamaResponseSchema),
+      successfulResponseHandler: createJsonResponseHandler(baseOllamaResponseSchema as any),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch
     })
@@ -92,7 +145,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV2 {
     }
   }
 
-  async doStream(options: LanguageModelV2CallOptions) {
+  async doStream(options: LanguageModelV3CallOptions) {
     const { args, warnings } = await this.builder.buildRequest({
       ...options,
       modelId: this.modelId
@@ -103,15 +156,14 @@ class OllamaResponsesLanguageModel implements LanguageModelV2 {
       headers: combineHeaders(this.config.headers(), options.headers),
       body: { ...args, stream: true },
       failedResponseHandler: ollamaFailedResponseHandler,
-      successfulResponseHandler: createJsonStreamResponseHandler(baseOllamaResponseSchema),
+      successfulResponseHandler: createNdjsonStreamResponseHandler(baseOllamaResponseSchema),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch
     })
 
     const streamProcessor = new OllamaStreamProcessor(this.config)
-    const typedStream = response as ReadableStream<ParseResult<typeof baseOllamaResponseSchema>>
     return {
-      stream: typedStream.pipeThrough(streamProcessor.createTransformStream(warnings)),
+      stream: response.pipeThrough(streamProcessor.createTransformStream(warnings)),
       request: { body: JSON.stringify(args) },
       response: { headers: responseHeaders }
     }

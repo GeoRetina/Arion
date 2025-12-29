@@ -1,5 +1,5 @@
-import { experimental_createMCPClient } from 'ai'
-import { Experimental_StdioMCPTransport } from 'ai/mcp-stdio'
+import { createMCPClient } from '@ai-sdk/mcp'
+import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import { McpServerConfig } from '../../shared/ipc-types'
 
 /**
@@ -13,7 +13,7 @@ export interface VercelMcpSetupResult {
 }
 
 /**
- * Sets up integration with MCP servers using the Vercel AI SDK's experimental_createMCPClient.
+ * Sets up integration with MCP servers using the Vercel AI SDK's createMCPClient.
  * It initializes clients for each active MCP server configuration and aggregates their tools.
  *
  * @param activeMcpConfigs An array of active McpServerConfig objects.
@@ -44,7 +44,7 @@ export async function setupVercelMcpIntegration(
 
     if (transport) {
       try {
-        const mcpClient = await experimental_createMCPClient({ transport })
+        const mcpClient = await createMCPClient({ transport })
         activeClients.push(mcpClient)
         const toolsFromServer = await mcpClient.tools() // Returns tools in the format expected by Vercel AI SDK
         aggregatedTools = { ...aggregatedTools, ...toolsFromServer }

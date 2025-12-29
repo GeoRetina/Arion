@@ -1,12 +1,10 @@
 // @ts-nocheck
 // TODO: Resolve TypeScript errors after full refactor & once all placeholders are replaced
 
-import { useState, useEffect, useCallback, useRef, startTransition } from 'react'
-import { useChat, type Message, type ToolInvocation } from '@ai-sdk/react'
+import { useState, useEffect, useCallback, useRef, startTransition, useMemo } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport, type UIMessage } from 'ai'
 // import { type ToolInvocation } from "ai"; // From 'ai' package if needed, or @ai-sdk/core
-import { MAX } from 'uuid' // Assuming 'uuid' will be a dependency
-import { v4 as uuidv4 } from 'uuid' // Using uuid for proper ID generation
-import { MAX_LLM_STEPS } from '../constants/llm.constants'
 import { electronChatFetch } from '../utils/chat-fetch'
 
 // FIXME: Placeholder for imports - these will need to be created or paths adjusted
@@ -48,11 +46,62 @@ interface ToolInvocationPart extends MessagePart {
   }
 }
 
+const toolPartPrefix = 'tool-'
+
+const getMessageText = (message: { content?: string; parts?: any[] }): string => {
+  if (typeof message.content === 'string') return message.content
+  if (!Array.isArray(message.parts)) return ''
+  return message.parts
+    .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+    .map((part) => part.text)
+    .join('')
+}
+
+const normalizeToolInvocationPart = (part: any): ToolInvocationPart | null => {
+  if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
+    return null
+  }
+
+  if (part.type === 'tool-invocation' && part.toolInvocation) {
+    return part as ToolInvocationPart
+  }
+
+  if (
+    part.type !== 'dynamic-tool' &&
+    (!part.type.startsWith(toolPartPrefix) || part.type === 'tool-invocation')
+  ) {
+    return null
+  }
+
+  const toolName = part.type === 'dynamic-tool' ? part.toolName : part.type.slice(toolPartPrefix.length)
+  const toolCallId = part.toolCallId ?? part.id
+  if (!toolName || !toolCallId) {
+    return null
+  }
+
+  const errorText =
+    part.errorText ??
+    (part.approval && part.approval.approved === false
+      ? part.approval.reason || 'Tool approval denied.'
+      : undefined)
+
+  return {
+    type: 'tool-invocation',
+    toolInvocation: {
+      toolName,
+      toolCallId,
+      args: part.input ?? part.rawInput ?? {},
+      result: part.output ?? (errorText ? { error: errorText } : undefined),
+      error: errorText
+    }
+  } as ToolInvocationPart
+}
+
 // Helper to get tool invocation parts from a message
-const getToolInvocationParts = (message: Message): ToolInvocationPart[] => {
+const getToolInvocationParts = (message: UIMessage): ToolInvocationPart[] => {
   const parts = (message as any).parts
   if (!Array.isArray(parts)) return []
-  return parts.filter((part): part is ToolInvocationPart => part.type === 'tool-invocation')
+  return parts.map(normalizeToolInvocationPart).filter(Boolean) as ToolInvocationPart[]
 }
 
 interface ToolCallingMessageResults {
@@ -62,7 +111,7 @@ interface ToolCallingMessageResults {
 
 interface UseChatLogicProps {
   chatId: string
-  initialMessages: Message[]
+  initialMessages: UIMessage[]
   isAnalystActive: boolean // This might determine if certain system prompts or tools are available
 }
 
@@ -115,28 +164,31 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
   const messageContentRef = useRef<{ [messageId: string]: string }>({})
   const lastResponseTimestampRef = useRef<number>(0)
 
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat',
+        fetch: electronChatFetch as unknown as typeof fetch
+      }),
+    []
+  )
+
   const {
     messages,
-    append,
-    isLoading,
+    sendMessage,
+    status,
     error,
     stop: originalStop,
     setMessages
   } = useChat({
-    fetch: electronChatFetch as unknown as typeof fetch,
+    transport,
     experimental_throttle: 50,
-    maxSteps: MAX_LLM_STEPS,
     id: chatId,
-    initialMessages,
-    body: {},
-    onResponse: (response) => {
-      lastResponseTimestampRef.current = Date.now()
-      setIsWaitingForFirstResponse(false)
-    },
-    onFinish: (message) => {
+    messages: initialMessages,
+    onFinish: ({ message }) => {
       setCompletedMessageIds((prev) => new Set([...prev, message.id]))
 
-      if (message.role === 'assistant' && message.content?.trim()) {
+      if (message.role === 'assistant' && getMessageText(message).trim()) {
         setMessageStreamingCompleted((prev) => ({ ...prev, [message.id]: true }))
         setMessageContentState((prev) => ({ ...prev, [message.id]: true }))
       }
@@ -151,7 +203,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
         })
       }
       if (latestUserMessageIdRef.current && message.role === 'assistant') {
-        const isTextResponseFinished = !!message.content?.trim()
+        const isTextResponseFinished = Boolean(getMessageText(message).trim())
         const allToolsProcessedForThisMessage = toolInvocationParts.every(
           (p) => p.toolInvocation.result
         )
@@ -175,6 +227,15 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
       }
     }
   })
+
+  const isLoading = status === 'submitted' || status === 'streaming'
+
+  useEffect(() => {
+    if (status === 'streaming') {
+      lastResponseTimestampRef.current = Date.now()
+      setIsWaitingForFirstResponse(false)
+    }
+  }, [status])
 
   const { scrollContainerRef, messagesEndRef, resetScrollBehavior } = useAutoScroll({
     isLoading,
@@ -269,7 +330,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
       const nextAssistantMessage = messages
         .slice(userMessageIndex + 1)
         .find((m) => m.role === 'assistant')
-      if (nextAssistantMessage && nextAssistantMessage.content?.trim()) {
+      if (nextAssistantMessage && getMessageText(nextAssistantMessage).trim()) {
         if (!messageContentState[nextAssistantMessage.id]) {
           setMessageContentState((prev) => ({ ...prev, [nextAssistantMessage.id]: true }))
         }
@@ -302,8 +363,8 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
     (messageId: string) => {
       const msg = messages.find((m) => m.id === messageId)
       const textStreamCompleted = messageStreamingCompleted[messageId] === true
-      const hasTextContent = !!msg?.content?.trim()
-      const hasToolInvocations = (msg?.toolInvocations?.length || 0) > 0
+      const hasTextContent = Boolean(msg && getMessageText(msg).trim())
+      const hasToolInvocations = msg ? getToolInvocationParts(msg).length > 0 : false
 
       if (hasTextContent) return textStreamCompleted
       if (hasToolInvocations) return completedMessageIds.has(messageId)
@@ -315,7 +376,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
   useEffect(() => {
     if (!isLoading) {
       const lastAssistantMessage = [...messages].reverse().find((m) => m.role === 'assistant')
-      if (lastAssistantMessage && lastAssistantMessage.content?.trim()) {
+      if (lastAssistantMessage && getMessageText(lastAssistantMessage).trim()) {
         if (!messageStreamingCompleted[lastAssistantMessage.id]) {
           setMessageStreamingCompleted((prev) => ({ ...prev, [lastAssistantMessage.id]: true }))
         }
@@ -325,8 +386,11 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
 
   useEffect(() => {
     messages.forEach((message) => {
-      if (message.role === 'assistant' && message.content) {
-        messageContentRef.current[message.id] = message.content
+      if (message.role === 'assistant') {
+        const textContent = getMessageText(message)
+        if (textContent) {
+          messageContentRef.current[message.id] = textContent
+        }
       }
     })
   }, [messages])
@@ -341,12 +405,12 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
 
       if (content.trim()) {
         resetScrollBehavior()
-        append({ role: 'user', content: content, id: uuidv4() } as Message)
+        sendMessage({ text: content })
       } else {
         setIsWaitingForFirstResponse(false)
       }
     },
-    [append, isChatStarted, resetScrollBehavior]
+    [sendMessage, isChatStarted, resetScrollBehavior]
   )
 
   const setStoppingRequested = useCallback(

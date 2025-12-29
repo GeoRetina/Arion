@@ -1,7 +1,6 @@
 import type {
-  LanguageModelV2CallOptions,
-  LanguageModelV2FinishReason,
-  LanguageModelV2Usage
+  LanguageModelV3FinishReason,
+  LanguageModelV3Usage
 } from '@ai-sdk/provider'
 import {
   createJsonErrorResponseHandler,
@@ -97,5 +96,5 @@ export const baseOllamaResponseSchema = z.object({
 
 export type OllamaResponse = z.infer<typeof baseOllamaResponseSchema>
 
-export type OllamaUsage = LanguageModelV2Usage
-export type OllamaFinishReason = LanguageModelV2FinishReason
+export type OllamaUsage = LanguageModelV3Usage
+export type OllamaFinishReason = LanguageModelV3FinishReason

@@ -14,7 +14,7 @@ import {
 
 // Interface for the request body from the renderer
 interface ChatRequestBody {
-  messages: ModelMessage[] // Using CoreMessage from 'ai' SDK
+  messages: ModelMessage[] // Using ModelMessage from 'ai' SDK
   // Potentially other properties like model, id, etc. depending on useChat configuration
 }
 

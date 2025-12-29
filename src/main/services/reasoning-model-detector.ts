@@ -2,6 +2,8 @@
  * Utility for detecting reasoning models and handling provider-specific compatibility
  */
 
+export { extractReasoningFromText } from '../../shared/utils/reasoning-text'
+
 export interface ReasoningModelInfo {
   isReasoningModel: boolean
   shouldDisableTools: boolean
@@ -65,40 +67,4 @@ export function isToolSchemaError(errorMessage: string): boolean {
 
   const messageLower = errorMessage.toLowerCase()
   return schemaErrorPatterns.some((pattern) => messageLower.includes(pattern.toLowerCase()))
-}
-
-/**
- * Extract reasoning content from text using common patterns
- */
-export function extractReasoningFromText(text: string): {
-  content: string
-  reasoningText?: string
-} {
-  // Check for XML-like thinking tags
-  const thinkingTagRegex = /<think>([\s\S]*?)<\/think>/i
-  const match = text.match(thinkingTagRegex)
-
-  if (match) {
-    const reasoning = match[1].trim()
-    const content = text.replace(thinkingTagRegex, '').trim()
-    return { content, reasoningText: reasoning }
-  }
-
-  // Check for other common reasoning delimiters
-  const reasoningPatterns = [
-    /^Thinking:([\s\S]*?)(?:\n\n|$)/i,
-    /^Reasoning:([\s\S]*?)(?:\n\n|$)/i,
-    /^\*\*Thinking:\*\*([\s\S]*?)(?:\n\n|$)/i
-  ]
-
-  for (const pattern of reasoningPatterns) {
-    const match = text.match(pattern)
-    if (match) {
-      const reasoning = match[1].trim()
-      const content = text.replace(pattern, '').trim()
-      return { content, reasoningText: reasoning }
-    }
-  }
-
-  return { content: text }
 }

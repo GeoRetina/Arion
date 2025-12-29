@@ -12,6 +12,14 @@ export interface MessagePart {
   type: string
   text?: string
   toolInvocation?: ToolInvocationPart
+  toolCallId?: string
+  toolName?: string
+  input?: unknown
+  output?: unknown
+  errorText?: string
+  state?: string
+  approval?: { id: string; approved?: boolean; reason?: string }
+  providerExecuted?: boolean
 }
 
 export interface ToolInvocationPart {

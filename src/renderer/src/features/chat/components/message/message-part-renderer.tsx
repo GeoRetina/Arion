@@ -14,6 +14,7 @@ import {
   type ToolStatus
 } from '../../constants/message-constants'
 import type { MessagePartRendererProps } from '../../types/message-types'
+import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
 
 /**
  * Determines the status of a tool invocation based on its state and error flags
@@ -33,6 +34,71 @@ function determineToolStatus(toolInvocation: ToolInvocation): ToolStatus {
   }
 
   return TOOL_STATUS.LOADING
+}
+
+const toolPartPrefix = 'tool-'
+
+function isToolUIPart(part: any): boolean {
+  return (
+    part &&
+    typeof part.type === 'string' &&
+    (part.type === 'dynamic-tool' ||
+      (part.type.startsWith(toolPartPrefix) && part.type !== COMPONENT_TYPES.TOOL_INVOCATION))
+  )
+}
+
+function mapToolInvocationState(state?: string): string {
+  switch (state) {
+    case 'output-available':
+      return TOOL_STATES.RESULT
+    case 'output-error':
+    case 'output-denied':
+      return TOOL_STATES.ERROR
+    case 'input-streaming':
+      return TOOL_STATES.PARTIAL_CALL
+    case 'input-available':
+    case 'approval-requested':
+    case 'approval-responded':
+      return TOOL_STATES.CALL
+    default:
+      return TOOL_STATES.CALL
+  }
+}
+
+function normalizeToolInvocationPart(part: any): ToolInvocation | null {
+  if (!part || typeof part !== 'object') {
+    return null
+  }
+
+  if (part.type === COMPONENT_TYPES.TOOL_INVOCATION && part.toolInvocation) {
+    return part.toolInvocation as ToolInvocation
+  }
+
+  if (!isToolUIPart(part)) {
+    return null
+  }
+
+  const toolName = part.type === 'dynamic-tool' ? part.toolName : part.type.slice(toolPartPrefix.length)
+  const toolCallId = part.toolCallId ?? part.id
+  if (!toolName || !toolCallId) {
+    return null
+  }
+
+  const errorText =
+    part.errorText ??
+    (part.approval && part.approval.approved === false
+      ? part.approval.reason || 'Tool approval denied.'
+      : undefined)
+
+  return {
+    toolCallId,
+    toolName,
+    args: part.input ?? part.rawInput ?? {},
+    state: mapToolInvocationState(part.state),
+    result: part.output,
+    error: errorText,
+    isError: Boolean(errorText) || part.state === 'output-error' || part.state === 'output-denied'
+  }
 }
 
 /**
@@ -147,11 +213,11 @@ function ThoughtsPart({
 }) {
   const [isOpen, setIsOpen] = useState(true)
   useEffect(() => {
-    // Auto-expand when reasoning chunks are streaming; collapse when normal text starts
-    if (isStreamingReasoning) {
-      setIsOpen(true)
-    } else if (collapseReasoning) {
+    // Collapse when normal text starts; otherwise keep open while reasoning streams
+    if (collapseReasoning) {
       setIsOpen(false)
+    } else if (isStreamingReasoning) {
+      setIsOpen(true)
     }
   }, [collapseReasoning, isStreamingReasoning])
 
@@ -182,36 +248,88 @@ export const MessagePartRenderer = ({
     return null
   }
 
+  const toolInvocation = normalizeToolInvocationPart(part)
+  if (toolInvocation) {
+    const { toolCallId, toolName, args, state } = toolInvocation
+
+    // Check if this tool should render a special UI component
+    const toolUIComponent = detectToolUIComponent(toolInvocation as ToolInvocation)
+    if (toolUIComponent) {
+      const Component = toolUIComponent.component
+      const baseComponent = (
+        <div className="pt-4">
+          <Component {...toolUIComponent.props} />
+        </div>
+      )
+
+      // Special handling for call_agent tool to also show nested tool calls
+      if (toolName === CALL_AGENT_TOOL_NAME && state === TOOL_STATES.RESULT) {
+        const nestedResult = renderNestedToolCalls(toolInvocation.result, toolCallId, baseComponent)
+        return <div key={toolUIComponent.key}>{nestedResult}</div>
+      }
+
+      // Default rendering for other special UI components
+      return <div key={toolUIComponent.key}>{baseComponent}</div>
+    }
+
+    // Check for nested tool results that should render special UI components
+    if (state === 'result' && toolInvocation.result) {
+      const nestedToolCalls = detectNestedToolCalls(toolInvocation.result, toolCallId)
+
+      if (nestedToolCalls.length > 0) {
+        // Render the main tool call display and nested components
+        return (
+          <div key={toolCallId} className="space-y-4">
+            {/* Render the main tool call display (agent call or regular tool) */}
+            <ToolCallDisplay
+              toolName={toolName}
+              args={args || {}}
+              status="completed"
+              result={toolInvocation.result}
+              className="w-full text-left"
+            />
+            {/* Render nested tool calls using the proper rendering function */}
+            <div className="space-y-2">
+              {nestedToolCalls.map((nestedTool, nestedIndex) =>
+                renderNestedToolCall(nestedTool, toolCallId, nestedIndex)
+              )}
+            </div>
+          </div>
+        )
+      }
+    }
+
+    // For all other tool calls, use ToolCallDisplay with proper error handling
+    const status = determineToolStatus(toolInvocation as ToolInvocation)
+    let toolResultData: any = undefined
+
+    if (state === TOOL_STATES.RESULT) {
+      toolResultData = toolInvocation.result
+    } else if (state === TOOL_STATES.ERROR) {
+      toolResultData = toolInvocation.error
+    }
+
+    return (
+      <ToolCallDisplay
+        key={toolCallId}
+        toolName={toolName}
+        args={args || {}}
+        status={status}
+        result={toolResultData}
+        className="w-full text-left"
+      />
+    )
+  }
+
   try {
     switch (part.type) {
       case COMPONENT_TYPES.TEXT:
         if (typeof part.text === 'string') {
           const text = part.text
-          const openIdx = text.toLowerCase().indexOf('<think>')
-          const closeIdx = text.toLowerCase().indexOf('</think>')
-
-          // Case 1: Open tag present, no close yet -> stream reasoning only
-          if (openIdx >= 0 && (closeIdx === -1 || closeIdx < openIdx)) {
-            const reasoningText = text.slice(openIdx + '<think>'.length).trim()
-            if (reasoningText.length === 0) return null
-            return (
-              <ThoughtsPart
-                text={reasoningText}
-                messageId={messageId}
-                index={index}
-                // Keep expanded while reasoning is streaming
-                collapseReasoning={false}
-                isStreamingReasoning={true}
-              />
-            )
-          }
-
-          // Case 2: Complete <think>...</think> present -> show reasoning + remaining (outside container)
-          if (openIdx >= 0 && closeIdx > openIdx) {
-            const reasoningText = text.slice(openIdx + '<think>'.length, closeIdx).trim()
-            const remaining = (
-              text.slice(0, openIdx) + text.slice(closeIdx + '</think>'.length)
-            ).trim()
+          const { reasoningText, contentText, hasOpenTag } = splitReasoningText(text)
+          if (reasoningText !== undefined) {
+            if (reasoningText.length === 0 && contentText.length === 0) return null
+            const isStreamingReasoning = hasOpenTag || contentText.length === 0
             return (
               <>
                 {reasoningText.length > 0 && (
@@ -219,15 +337,14 @@ export const MessagePartRenderer = ({
                     text={reasoningText}
                     messageId={messageId}
                     index={index}
-                    // Reasoning section completed; allow collapse based on parent signal
                     collapseReasoning={collapseReasoning}
-                    isStreamingReasoning={false}
+                    isStreamingReasoning={isStreamingReasoning}
                   />
                 )}
-                {remaining.length > 0 && (
+                {contentText.length > 0 && (
                   <MemoizedMarkdown
                     key={`${messageId}-text-${index}`}
-                    content={remaining}
+                    content={contentText}
                     id={`${messageId}-text-${index}`}
                     isAssistant={true}
                   />
@@ -236,7 +353,7 @@ export const MessagePartRenderer = ({
             )
           }
 
-          // Case 3: No <think> tags -> render as normal text
+          // No reasoning tags/prefixes -> render as normal text
           return (
             <MemoizedMarkdown
               key={`${messageId}-text-${index}`}
@@ -251,103 +368,18 @@ export const MessagePartRenderer = ({
 
       case COMPONENT_TYPES.REASONING:
         if (typeof (part as any).text === 'string' && (part as any).text.length > 0) {
+          const isStreamingReasoning = (part as any).state === 'streaming'
           return (
             <ThoughtsPart
               text={(part as any).text}
               messageId={messageId}
               index={index}
-              // Keep expanded while reasoning is streaming
-              collapseReasoning={false}
-              isStreamingReasoning={true}
+              collapseReasoning={collapseReasoning}
+              isStreamingReasoning={isStreamingReasoning}
             />
           )
         }
         return null
-
-      case COMPONENT_TYPES.TOOL_INVOCATION:
-        const toolInvocation = part.toolInvocation
-        if (
-          !toolInvocation ||
-          typeof toolInvocation !== 'object' ||
-          typeof toolInvocation.toolCallId !== 'string' ||
-          typeof toolInvocation.toolName !== 'string'
-        ) {
-          return null
-        }
-
-        const { toolCallId, toolName, args, state } = toolInvocation
-
-        // Check if this tool should render a special UI component
-        const toolUIComponent = detectToolUIComponent(toolInvocation as ToolInvocation)
-        if (toolUIComponent) {
-          const Component = toolUIComponent.component
-          const baseComponent = (
-            <div className="pt-4">
-              <Component {...toolUIComponent.props} />
-            </div>
-          )
-
-          // Special handling for call_agent tool to also show nested tool calls
-          if (toolName === CALL_AGENT_TOOL_NAME && state === TOOL_STATES.RESULT) {
-            const nestedResult = renderNestedToolCalls(
-              toolInvocation.result,
-              toolCallId,
-              baseComponent
-            )
-            return <div key={toolUIComponent.key}>{nestedResult}</div>
-          }
-
-          // Default rendering for other special UI components
-          return <div key={toolUIComponent.key}>{baseComponent}</div>
-        }
-
-        // Check for nested tool results that should render special UI components
-        if (state === 'result' && toolInvocation.result) {
-          const nestedToolCalls = detectNestedToolCalls(toolInvocation.result, toolCallId)
-
-          if (nestedToolCalls.length > 0) {
-            // Render the main tool call display and nested components
-            return (
-              <div key={toolCallId} className="space-y-4">
-                {/* Render the main tool call display (agent call or regular tool) */}
-                <ToolCallDisplay
-                  toolName={toolName}
-                  args={args || {}}
-                  status="completed"
-                  result={toolInvocation.result}
-                  className="w-full text-left"
-                />
-                {/* Render nested tool calls using the proper rendering function */}
-                <div className="space-y-2">
-                  {nestedToolCalls.map((nestedTool, index) =>
-                    renderNestedToolCall(nestedTool, toolCallId, index)
-                  )}
-                </div>
-              </div>
-            )
-          }
-        }
-
-        // For all other tool calls, use ToolCallDisplay with proper error handling
-        const status = determineToolStatus(toolInvocation as ToolInvocation)
-        let toolResultData: any = undefined
-
-        if (state === TOOL_STATES.RESULT) {
-          toolResultData = toolInvocation.result
-        } else if (state === TOOL_STATES.ERROR) {
-          toolResultData = toolInvocation.error
-        }
-
-        return (
-          <ToolCallDisplay
-            key={toolCallId}
-            toolName={toolName}
-            args={args || {}}
-            status={status}
-            result={toolResultData}
-            className="w-full text-left"
-          />
-        )
 
       default:
         return null

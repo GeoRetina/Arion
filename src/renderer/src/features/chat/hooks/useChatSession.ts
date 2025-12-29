@@ -3,7 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat-history-store'
 import { resetChatStores, prepareChatSwitch } from '@/lib/chat-store-reset'
 import { v4 as uuidv4 } from 'uuid'
-import type { Message as SDKMessage } from '@ai-sdk/react'
+import type { UIMessage } from 'ai'
+
+type SDKMessage = UIMessage & { content?: string; createdAt?: Date }
 
 interface UseChatSessionReturn {
   stableChatIdForUseChat: string | undefined
@@ -80,21 +82,25 @@ export function useChatSession(): UseChatSessionReturn {
 
     return messagesToConsider
       .map((storeMsg) => {
+        const textContent = storeMsg.content ?? ''
         const sdkMessageCandidate: Partial<SDKMessage> & {
-          role?: 'system' | 'user' | 'assistant' | 'data' // Explicitly list allowed roles
+          role?: 'system' | 'user' | 'assistant' // Explicitly list allowed roles
         } = {
           id: storeMsg.id,
-          content: storeMsg.content,
+          content: textContent,
+          parts: textContent ? [{ type: 'text', text: textContent }] : [],
           createdAt: storeMsg.created_at ? new Date(storeMsg.created_at) : undefined
         }
-        if (['system', 'user', 'assistant', 'data'].includes(storeMsg.role)) {
-          sdkMessageCandidate.role = storeMsg.role as 'system' | 'user' | 'assistant' | 'data'
+        if (['system', 'user', 'assistant'].includes(storeMsg.role)) {
+          sdkMessageCandidate.role = storeMsg.role as 'system' | 'user' | 'assistant'
+        } else {
+          sdkMessageCandidate.role = 'assistant'
         }
         return sdkMessageCandidate
       })
       .filter(
         (msg): msg is SDKMessage =>
-          msg.role !== undefined && typeof msg.id === 'string' && typeof msg.content === 'string'
+          msg.role !== undefined && typeof msg.id === 'string' && Array.isArray(msg.parts)
       )
   }, [currentChatIdFromStore, currentMessagesFromStore, stableChatIdForUseChat])
 

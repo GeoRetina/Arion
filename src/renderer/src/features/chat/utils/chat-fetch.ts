@@ -1,8 +1,8 @@
-import { type Message } from '@ai-sdk/react'
+import { type UIMessage } from 'ai'
 
 // Define the expected structure of the request body for the chat API
 interface ChatRequestBody {
-  messages: Message[] // The @ai-sdk/react useChat hook automatically includes messages
+  messages: UIMessage[] // The @ai-sdk/react useChat hook automatically includes messages
   // Other properties from your useChatLogic's body
   selectedRoiGeometryInChat?: any // Replace 'any' with the actual type
   selectedUserGeospatialSource?: any // Replace 'any' with the actual type
@@ -26,7 +26,7 @@ interface ChatRequestBody {
  */
 export const electronChatFetch = async (
   _url: string, // Typically "/api/chat" or similar, ignored by our IPC bridge
-  { body }: { body?: ChatRequestBody | undefined }
+  { body }: { body?: ChatRequestBody | string }
 ): Promise<Response> => {
   // Ensure the IPC bridge is available on the window object
   if (!window.ctg || !window.ctg.chat || !window.ctg.chat.sendMessageStream) {
@@ -42,12 +42,23 @@ export const electronChatFetch = async (
     // Call the main process handler via the preload script's exposed API
     // The `body` here already includes the `messages` array and any other data
     // you added to the `body` option of `useChat`.
-    const stream = await window.ctg.chat.sendMessageStream(body)
+    const parsedBody =
+      typeof body === 'string' ? (JSON.parse(body) as ChatRequestBody) : body
+    const chunks = await window.ctg.chat.sendMessageStream(parsedBody)
+
+    const stream = new ReadableStream({
+      start(controller) {
+        if (Array.isArray(chunks)) {
+          chunks.forEach((chunk) => controller.enqueue(chunk))
+        }
+        controller.close()
+      }
+    })
 
     // Return a new Response object with the stream from the main process
     return new Response(stream, {
       status: 200,
-      headers: { 'Content-Type': 'text/plain' } // Or 'application/octet-stream' if more appropriate
+      headers: { 'Content-Type': 'text/event-stream' }
     })
   } catch (error) {
     // Return a Response object indicating an error

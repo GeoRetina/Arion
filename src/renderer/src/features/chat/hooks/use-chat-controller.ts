@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useChat } from '@ai-sdk/react'
-import { type UIMessage } from 'ai'
+import { DefaultChatTransport, type UIMessage } from 'ai'
 import { Subtask } from '../../../../../shared/ipc-types'
 
 import { createStreamingFetch } from '../utils/streaming-fetch'
@@ -33,11 +33,18 @@ export function useChatController({
   const persistRef = useRef<(chatId: string) => Promise<void>>(async () => {})
 
   const streamingFetch = useMemo(() => createStreamingFetch(), [])
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: '/api/chat',
+        fetch: streamingFetch as unknown as typeof fetch
+      }),
+    [streamingFetch]
+  )
 
   const chat = useChat({
     id: stableChatIdForUseChat,
-    api: '/api/chat',
-    fetch: streamingFetch as unknown as typeof fetch,
+    transport,
     onError: () => {
       setIsStreamingUi(false)
     },

@@ -6,7 +6,6 @@ import {
   extractReasoningFromText,
   isToolSchemaError
 } from './reasoning-model-detector'
-import { buildToolStreamChunk } from './utils/stream-chunk-builder'
 
 export interface StreamingCallbacks {
   onChunk: (chunk: Uint8Array) => void
@@ -119,47 +118,20 @@ export class StreamingHandlerService {
    */
   async handleStreamAsChunks(options: StreamingOptions): Promise<Uint8Array[]> {
     const streamChunks: Uint8Array[] = []
-    const textEncoder = new TextEncoder()
 
     try {
       const streamTextOptions = this.buildStreamTextOptions(options)
       const result = streamText(streamTextOptions)
-
-      for await (const part of result.fullStream) {
-        switch (part.type) {
-          case 'text-delta':
-            // Stream text back to the renderer
-            streamChunks.push(textEncoder.encode((part as any).text))
-            break
-          case 'tool-call':
-            // Log the tool call attempt (execution is handled internally by SDK via 'execute')
-            // Do not push this part to the client directly unless the UI needs to show pending tool calls.
-            // The SDK handles sending this back to the LLM with the result.
-            break
-          case 'error':
-            // Handle errors reported by the stream
-            // Provide a structured error message back to the client
-            streamChunks.push(
-              textEncoder.encode(JSON.stringify({ streamError: `LLM stream error: ${part.error}` }))
-            )
-            // Depending on the error, you might want to stop processing or throw
-            // For now, we push the error and let the stream end.
-            break
-          case 'finish':
-            // Log the finish event
-            // The onFinish callback handles cleanup.
-            break
-          // Handle other potential part types if the SDK introduces them
-          default:
-            break
-        }
-      }
+      const response = result.toUIMessageStreamResponse()
+      await this.pipeUiMessageStream(response, (chunk) => streamChunks.push(chunk))
 
       return streamChunks
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
       // Ensure a structured error is sent back if an exception escapes the stream loop
-      streamChunks.push(textEncoder.encode(JSON.stringify({ streamError: errorMessage })))
+      const textEncoder = new TextEncoder()
+      const errorChunk = `data: ${JSON.stringify({ type: 'error', errorText: errorMessage })}\n\n`
+      streamChunks.push(textEncoder.encode(errorChunk))
       return streamChunks
     }
   }
@@ -220,101 +192,40 @@ export class StreamingHandlerService {
         callbacks.onComplete()
         return
       }
-
-      let fullText = '' // Accumulate text for reasoning extraction
-      const textEncoder = new TextEncoder()
-
-      // Use fullStream to handle text-delta events directly with error handling
       try {
-        let reasoningOpen = false
-        for await (const part of result.fullStream) {
-          switch (part.type) {
-            case 'text-delta': {
-              const delta = (part as any).text ?? (part as any).delta
-              // If we were streaming reasoning, close the think block before normal text
-              if (reasoningOpen) {
-                const closeThink = `0:${JSON.stringify('</think>')}\n`
-                callbacks.onChunk(textEncoder.encode(closeThink))
-                reasoningOpen = false
-              }
-              fullText += delta || ''
-              // Format chunk for AI SDK compatibility
-              const formattedChunk = `0:${JSON.stringify(delta || '')}\n`
-              callbacks.onChunk(textEncoder.encode(formattedChunk))
-              break
-            }
-            case 'reasoning-delta': {
-              // Send reasoning as text stream wrapped in <think> ... </think> to avoid invalid code errors
-              const reasonDelta = (part as any).text ?? (part as any).delta
-              if (!reasoningOpen) {
-                const openThink = `0:${JSON.stringify('<think>')}\n`
-                callbacks.onChunk(textEncoder.encode(openThink))
-                reasoningOpen = true
-              }
-              const reasoningChunk = `0:${JSON.stringify(reasonDelta || '')}\n`
-              callbacks.onChunk(textEncoder.encode(reasoningChunk))
-
-              break
-            }
-            case 'tool-call':
-            case 'tool-result':
-            case 'tool-error':
-            case 'tool-call-streaming-start':
-            case 'tool-call-delta': {
-              const chunkPayload = buildToolStreamChunk(part)
-              if (chunkPayload) {
-                const chunk = `${chunkPayload.prefix}:${JSON.stringify(chunkPayload.payload)}\n`
-                callbacks.onChunk(textEncoder.encode(chunk))
-              }
-              break
-            }
-            case 'error': {
-              // Send error in AI SDK wire format: code 3 expects a JSON string value
-              const errorMessage =
-                part.error instanceof Error ? part.error.message : String(part.error)
-              const errorChunk = `3:${JSON.stringify(errorMessage)}\n`
-              callbacks.onChunk(textEncoder.encode(errorChunk))
-              callbacks.onError(part.error instanceof Error ? part.error : new Error(errorMessage))
-              return
-            }
-            case 'finish':
-              // Send completion marker for AI SDK
-              const finishData = {
-                finishReason: part.finishReason,
-                usage: part.usage
-              }
-              // Close think section if it was opened
-              if (reasoningOpen) {
-                const closeThink = `0:${JSON.stringify('</think>')}\n`
-                callbacks.onChunk(textEncoder.encode(closeThink))
-                reasoningOpen = false
-              }
-              const finishChunk = `d:${JSON.stringify(finishData)}\n`
-              callbacks.onChunk(textEncoder.encode(finishChunk))
-              break
-            case 'abort':
-              callbacks.onComplete()
-              return
-            default:
-              // Handle other part types as needed
-              break
-          }
-        }
+        const response = result.toUIMessageStreamResponse()
+        await this.pipeUiMessageStream(response, (chunk) => callbacks.onChunk(chunk))
+        callbacks.onComplete()
       } catch (streamError) {
         callbacks.onError(
           streamError instanceof Error ? streamError : new Error(String(streamError))
         )
         callbacks.onComplete()
-        return
       }
-
-      callbacks.onComplete()
     } catch (error) {
       console.error('[StreamingHandlerService] Error in handleRealTimeStreaming:', error)
       callbacks.onError(
         error instanceof Error ? error : new Error('Unknown error in streaming handler')
       )
       callbacks.onComplete()
+    }
+  }
+
+  private async pipeUiMessageStream(
+    response: Response,
+    onChunk: (chunk: Uint8Array) => void
+  ): Promise<void> {
+    if (!response.body) {
+      throw new Error('UI message stream response body is empty.')
+    }
+
+    const reader = response.body.getReader()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        onChunk(value)
+      }
     }
   }
 

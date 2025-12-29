@@ -13,6 +13,42 @@ let dataSourceResolver: ProductionDataSourceResolver
 // Registry for active streams and their abort controllers
 const activeStreams = new Map<string, AbortController>()
 
+const streamTextEncoder = new TextEncoder()
+
+function encodeUiMessageChunk(chunk: Record<string, unknown>): Uint8Array {
+  return streamTextEncoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
+}
+
+function buildUiTextChunks(text: string): Uint8Array[] {
+  const chunks: Uint8Array[] = []
+  chunks.push(encodeUiMessageChunk({ type: 'start' }))
+  chunks.push(encodeUiMessageChunk({ type: 'text-start', id: 'text-1' }))
+  if (text) {
+    chunks.push(encodeUiMessageChunk({ type: 'text-delta', id: 'text-1', delta: text }))
+  }
+  chunks.push(encodeUiMessageChunk({ type: 'text-end', id: 'text-1' }))
+  chunks.push(encodeUiMessageChunk({ type: 'finish', finishReason: 'stop' }))
+  return chunks
+}
+
+function extractMessageText(message: { content: any; parts?: any[] } | undefined): string {
+  if (!message) return ''
+  if (typeof message.content === 'string') return message.content
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text as string)
+      .join('')
+  }
+  if (Array.isArray(message.parts)) {
+    return message.parts
+      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text as string)
+      .join('')
+  }
+  return ''
+}
+
 /**
  * Process mentions in message content if they exist
  */
@@ -26,19 +62,24 @@ async function processMentions(
   // Find the last user message
   const lastUserMessage = messages.filter((m) => m.role === 'user').pop()
 
-  if (!lastUserMessage?.content || typeof lastUserMessage.content !== 'string') {
+  const lastUserMessageText = extractMessageText(lastUserMessage)
+  if (!lastUserMessageText) {
     return
   }
 
   // Check if message has mentions
-  if (!mentionService.hasMentions(lastUserMessage.content)) {
+  if (!mentionService.hasMentions(lastUserMessageText)) {
     return
   }
 
   try {
     // Enhance the message with mention metadata
     const enhanced = await mentionService.enhanceMessage(
-      lastUserMessage as MessageContent,
+      {
+        role: lastUserMessage.role,
+        content: lastUserMessageText,
+        parts: lastUserMessage.parts
+      } as MessageContent,
       dataSourceResolver
     )
 
@@ -72,9 +113,8 @@ export function registerChatIpcHandlers(
     try {
       parsedBody = JSON.parse(jsonBodyString)
     } catch (_e) {
-      const textEncoder = new TextEncoder()
       return [
-        textEncoder.encode(JSON.stringify({ streamError: 'Invalid request format from renderer.' }))
+        encodeUiMessageChunk({ type: 'error', errorText: 'Invalid request format from renderer.' })
       ]
     }
 
@@ -85,15 +125,10 @@ export function registerChatIpcHandlers(
 
       if (!chat) {
         let potentialTitle = 'New Chat'
-        const firstUserMessageContent = parsedBody.messages?.find((m) => m.role === 'user')?.content
-        if (typeof firstUserMessageContent === 'string' && firstUserMessageContent.trim() !== '') {
-          potentialTitle = firstUserMessageContent.substring(0, 75)
-        } else if (
-          Array.isArray(firstUserMessageContent) &&
-          firstUserMessageContent.length > 0 &&
-          typeof firstUserMessageContent[0].text === 'string'
-        ) {
-          potentialTitle = firstUserMessageContent[0].text.substring(0, 75)
+        const firstUserMessage = parsedBody.messages?.find((m) => m.role === 'user')
+        const firstUserMessageText = extractMessageText(firstUserMessage)
+        if (firstUserMessageText.trim() !== '') {
+          potentialTitle = firstUserMessageText.substring(0, 75)
         }
 
         chat = dbService.createChat({ id: chatId, title: potentialTitle })
@@ -117,8 +152,7 @@ export function registerChatIpcHandlers(
     }
 
     if (!chatService) {
-      const textEncoder = new TextEncoder()
-      return [textEncoder.encode(JSON.stringify({ streamError: 'ChatService not available.' }))]
+      return [encodeUiMessageChunk({ type: 'error', errorText: 'ChatService not available.' })]
     }
     try {
       // Check if we should use agent orchestration
@@ -127,7 +161,7 @@ export function registerChatIpcHandlers(
         const lastUserMessage = parsedBody.messages
           ?.filter((m: { role: string; content: any }) => m.role === 'user')
           .pop()
-        if (lastUserMessage?.content) {
+        if (extractMessageText(lastUserMessage)) {
           try {
             // Extract the chat ID from the parsedBody
             const chatId = parsedBody.id as string
@@ -144,33 +178,22 @@ export function registerChatIpcHandlers(
             const orchestratorAgentId = activeModel
 
             // Call the agent routing service's orchestration method
-            const result = await agentRoutingService.orchestrateTask(
-              typeof lastUserMessage.content === 'string'
+            const lastUserMessageText = extractMessageText(lastUserMessage)
+            const orchestrationPrompt =
+              lastUserMessageText ||
+              (typeof lastUserMessage.content === 'string'
                 ? lastUserMessage.content
-                : JSON.stringify(lastUserMessage.content),
+                : JSON.stringify(lastUserMessage.content))
+
+            const result = await agentRoutingService.orchestrateTask(
+              orchestrationPrompt,
               chatId,
               orchestratorAgentId
             )
 
             // If orchestration was successful, return the result directly
             if (result.success) {
-              // Format the response as a stream chunk
-              const textEncoder = new TextEncoder()
-              return [
-                textEncoder.encode(
-                  JSON.stringify({
-                    id: parsedBody.id,
-                    role: 'assistant',
-                    content: result.finalResponse,
-                    // Include orchestration metadata
-                    orchestration: {
-                      subtasks: result.subtasks,
-                      agentsInvolved: result.agentsInvolved,
-                      completionTime: result.completionTime
-                    }
-                  })
-                )
-              ]
+              return buildUiTextChunks(result.finalResponse)
             }
           } catch (_orchestrationError) {
             // Fall back to regular processing if orchestration fails
@@ -181,10 +204,9 @@ export function registerChatIpcHandlers(
       // Regular processing if orchestration is not used or fails
       return await chatService.handleSendMessageStream(parsedBody as any)
     } catch (error) {
-      const textEncoder = new TextEncoder()
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error in chat stream handler'
-      return [textEncoder.encode(JSON.stringify({ streamError: errorMessage }))]
+      return [encodeUiMessageChunk({ type: 'error', errorText: errorMessage })]
     }
   })
 
@@ -218,15 +240,10 @@ export function registerChatIpcHandlers(
 
       if (!chat) {
         let potentialTitle = 'New Chat'
-        const firstUserMessageContent = parsedBody.messages?.find((m) => m.role === 'user')?.content
-        if (typeof firstUserMessageContent === 'string' && firstUserMessageContent.trim() !== '') {
-          potentialTitle = firstUserMessageContent.substring(0, 75)
-        } else if (
-          Array.isArray(firstUserMessageContent) &&
-          firstUserMessageContent.length > 0 &&
-          typeof firstUserMessageContent[0].text === 'string'
-        ) {
-          potentialTitle = firstUserMessageContent[0].text.substring(0, 75)
+        const firstUserMessage = parsedBody.messages?.find((m) => m.role === 'user')
+        const firstUserMessageText = extractMessageText(firstUserMessage)
+        if (firstUserMessageText.trim() !== '') {
+          potentialTitle = firstUserMessageText.substring(0, 75)
         }
 
         chat = dbService.createChat({ id: chatId, title: potentialTitle })
@@ -255,7 +272,7 @@ export function registerChatIpcHandlers(
         const lastUserMessage = parsedBody.messages
           ?.filter((m: { role: string; content: any }) => m.role === 'user')
           .pop()
-        if (lastUserMessage?.content) {
+        if (extractMessageText(lastUserMessage)) {
           try {
             const chatId = parsedBody.id as string
             const activeModel = parsedBody.model || parsedBody.agentId
@@ -266,32 +283,24 @@ export function registerChatIpcHandlers(
 
               try {
                 // Call the orchestration method
-                const result = await agentRoutingService.orchestrateTask(
-                  typeof lastUserMessage.content === 'string'
+                const lastUserMessageText = extractMessageText(lastUserMessage)
+                const orchestrationPrompt =
+                  lastUserMessageText ||
+                  (typeof lastUserMessage.content === 'string'
                     ? lastUserMessage.content
-                    : JSON.stringify(lastUserMessage.content),
+                    : JSON.stringify(lastUserMessage.content))
+
+                const result = await agentRoutingService.orchestrateTask(
+                  orchestrationPrompt,
                   chatId,
                   orchestratorAgentId
                 )
 
                 if (result.success) {
-                  // For streaming, we'll send the orchestration result as a single chunk
-                  const textEncoder = new TextEncoder()
-                  const orchestrationResult = textEncoder.encode(
-                    JSON.stringify({
-                      id: parsedBody.id,
-                      role: 'assistant',
-                      content: result.finalResponse,
-                      orchestration: {
-                        subtasks: result.subtasks,
-                        agentsInvolved: result.agentsInvolved,
-                        completionTime: result.completionTime
-                      }
-                    })
-                  )
-
-                  // Send the result as a single chunk
-                  event.sender.send(`ctg:chat:stream:chunk:${streamId}`, orchestrationResult)
+                  const orchestrationChunks = buildUiTextChunks(result.finalResponse)
+                  orchestrationChunks.forEach((chunk) => {
+                    event.sender.send(`ctg:chat:stream:chunk:${streamId}`, chunk)
+                  })
                   event.sender.send(`ctg:chat:stream:end:${streamId}`)
                   return true
                 }

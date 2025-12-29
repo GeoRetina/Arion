@@ -14,6 +14,18 @@ interface UseAnchoredToolPartsOptions {
   isUser: boolean
 }
 
+const toolPartPrefix = 'tool-'
+
+const isToolPart = (part: any) =>
+  part &&
+  typeof part.type === 'string' &&
+  (part.type === 'tool-invocation' ||
+    part.type === 'dynamic-tool' ||
+    part.type.startsWith(toolPartPrefix))
+
+const getToolCallId = (part: any) =>
+  part?.toolInvocation?.toolCallId ?? part?.toolCallId ?? part?.id
+
 export function useAnchoredToolParts({
   message,
   collapseReasoning,
@@ -39,7 +51,7 @@ export function useAnchoredToolParts({
   const toolParts = useMemo(
     () =>
       Array.isArray(message.parts)
-        ? message.parts.filter((p) => p && p.type === 'tool-invocation' && (p as any).toolInvocation)
+        ? message.parts.filter((p) => isToolPart(p))
         : [],
     [message.parts]
   )
@@ -67,7 +79,7 @@ export function useAnchoredToolParts({
   const firstToolAnchor = useMemo(() => {
     if (!hasAnchoredToolFlow) return textContent.length
     return toolParts
-      .map((part: any) => resolveAnchor(part.toolInvocation?.toolCallId))
+      .map((part: any) => resolveAnchor(getToolCallId(part)))
       .reduce((min: number, val: number) => Math.min(min, val), textContent.length)
   }, [hasAnchoredToolFlow, textContent, toolParts])
 
@@ -81,7 +93,7 @@ export function useAnchoredToolParts({
     if (!hasAnchoredToolFlow) return
     const currentLength = textContent.length
     toolParts.forEach((part: any) => {
-      const id = part.toolInvocation?.toolCallId
+      const id = getToolCallId(part)
       if (id && toolAnchorRef.current[id] === undefined) {
         toolAnchorRef.current[id] = currentLength
       }
@@ -129,8 +141,8 @@ export function useAnchoredToolParts({
       return
     }
 
-    if (part.type === 'tool-invocation' && (part as any).toolInvocation) {
-      const toolCallId = (part as any).toolInvocation.toolCallId
+    if (isToolPart(part)) {
+      const toolCallId = getToolCallId(part)
       const anchor = resolveAnchor(toolCallId) || 0
 
       if (cursor < anchor) {
