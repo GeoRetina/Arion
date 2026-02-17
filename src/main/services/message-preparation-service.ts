@@ -303,10 +303,11 @@ export class MessagePreparationService {
     ]
 
     memories.forEach((memory, index) => {
+      const scopeLabel = memory.scope === 'global' ? 'Global' : 'Chat'
       const typeLabel = memory.memoryType === 'tool_outcome' ? 'Tool outcome' : 'Session outcome'
       const scoreLabel =
         typeof memory.finalScore === 'number' ? ` [score ${memory.finalScore.toFixed(2)}]` : ''
-      lines.push(`${index + 1}. ${typeLabel}${scoreLabel}: ${memory.summary}`)
+      lines.push(`${index + 1}. ${scopeLabel} ${typeLabel}${scoreLabel}: ${memory.summary}`)
     })
 
     return lines.join('\n')

@@ -3,7 +3,8 @@ import {
   IpcChannels,
   KBAddDocumentPayload,
   KBAddDocumentResult,
-  KnowledgeBaseDocumentForClient
+  KnowledgeBaseDocumentForClient,
+  WorkspaceMemoryForClient
 } from '../../shared/ipc-types' // Assuming this path is correct
 import { KnowledgeBaseService } from '../services/knowledge-base-service'
 
@@ -84,6 +85,21 @@ export function registerKnowledgeBaseIpcHandlers(
     try {
       const documents = await kbService.getAllKnowledgeBaseDocuments()
       return { success: true, data: documents }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
+      return { success: false, error: errorMessage, data: [] }
+    }
+  })
+
+  ipcMain.handle(IpcChannels.kbGetWorkspaceMemories, async (_event, limit?: number) => {
+    if (!kbService) {
+      return { success: false, error: 'KnowledgeBaseService not initialized.', data: [] }
+    }
+    try {
+      const normalizedLimit =
+        typeof limit === 'number' && Number.isFinite(limit) ? limit : undefined
+      const memories = await kbService.getWorkspaceMemories({ limit: normalizedLimit })
+      return { success: true, data: memories as WorkspaceMemoryForClient[] }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
       return { success: false, error: errorMessage, data: [] }

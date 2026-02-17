@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, FileText } from 'lucide-react'
 import { useKnowledgeBaseStore, Document, Folder } from '../stores/knowledge-base-store'
 import { DocumentsTable } from './documents-table'
+import { WorkspaceMemoriesTable } from './workspace-memories-table'
 import { FolderManager } from './folder-manager'
 import { DocumentForm } from './document-form'
 import { FolderForm } from './folder-form'
@@ -11,8 +12,15 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 type DocumentDeleteTarget = Document | { id: 'bulk-delete-trigger'; name?: string }
 
 function KnowledgeBase(): React.JSX.Element {
-  const { documents, folders, deleteDocumentAndEmbeddings, fetchDocuments, deleteFolder } =
-    useKnowledgeBaseStore()
+  const {
+    documents,
+    workspaceMemories,
+    folders,
+    deleteDocumentAndEmbeddings,
+    fetchDocuments,
+    fetchWorkspaceMemories,
+    deleteFolder
+  } = useKnowledgeBaseStore()
 
   // State for managing UI interactions
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
@@ -30,7 +38,8 @@ function KnowledgeBase(): React.JSX.Element {
   // Fetch documents on component mount
   useEffect(() => {
     fetchDocuments()
-  }, [fetchDocuments])
+    fetchWorkspaceMemories(200)
+  }, [fetchDocuments, fetchWorkspaceMemories])
 
   // Create a folder name lookup object for quick access
   const folderNameMap = useMemo(() => {
@@ -106,6 +115,7 @@ function KnowledgeBase(): React.JSX.Element {
     : documents.length
 
   const showAddButtonInTable = !(documents.length === 0 && folders.length === 0)
+  const hasDocumentsOrFolders = documents.length > 0 || folders.length > 0
 
   return (
     <div className="flex h-full flex-col">
@@ -139,8 +149,25 @@ function KnowledgeBase(): React.JSX.Element {
 
         {/* Main content area - adjusted for button */}
         <div className="flex-1 p-6 flex flex-col overflow-auto">
-          {documents.length === 0 && folders.length === 0 ? (
-            <div className="flex-grow flex flex-col items-center justify-center text-center">
+          {hasDocumentsOrFolders ? (
+            <div className="relative min-h-[420px]">
+              <DocumentsTable
+                documents={documents}
+                folders={folderNameMap}
+                onEditDocument={handleEditDocument}
+                onDeleteDocument={handleDeleteDocument}
+                currentFolderId={currentFolderId}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onAddDocument={handleAddDocument}
+                showAddDocumentButton={showAddButtonInTable}
+                onSelectionChange={setSelectedDocumentIds}
+                selectedDocumentIds={selectedDocumentIds}
+                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' })}
+              />
+            </div>
+          ) : (
+            <div className="mb-6 rounded-md border px-6 py-10 flex flex-col items-center justify-center text-center">
               <FileText className="h-16 w-16 text-muted-foreground/60 mb-4" />
               <h3 className="text-xl font-semibold">No documents yet</h3>
               <p className="text-muted-foreground mt-2 mb-6 max-w-md">
@@ -158,24 +185,17 @@ function KnowledgeBase(): React.JSX.Element {
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="flex-grow relative">
-              <DocumentsTable
-                documents={documents}
-                folders={folderNameMap}
-                onEditDocument={handleEditDocument}
-                onDeleteDocument={handleDeleteDocument}
-                currentFolderId={currentFolderId}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onAddDocument={handleAddDocument}
-                showAddDocumentButton={showAddButtonInTable}
-                onSelectionChange={setSelectedDocumentIds}
-                selectedDocumentIds={selectedDocumentIds}
-                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' })}
-              />
-            </div>
           )}
+
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Workspace Memories</h2>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
+                {workspaceMemories.length} entr{workspaceMemories.length === 1 ? 'y' : 'ies'}
+              </span>
+            </div>
+            <WorkspaceMemoriesTable memories={workspaceMemories} />
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
-import type { KnowledgeBaseDocumentForClient } from '../../../../../shared/ipc-types'
+import type {
+  KnowledgeBaseDocumentForClient,
+  WorkspaceMemoryForClient
+} from '../../../../../shared/ipc-types'
 
 // Store's internal Document type - uses camelCase and Date objects
 export interface Document {
@@ -25,14 +28,30 @@ export interface Folder {
   updatedAt: Date
 }
 
+export interface WorkspaceMemory {
+  id: string
+  chatId: string
+  scope: 'chat' | 'global'
+  sourceKey: string
+  sourceMessageId?: string
+  memoryType: 'session_outcome' | 'tool_outcome'
+  agentId?: string
+  toolName?: string
+  summary: string
+  details?: unknown
+  createdAt: Date
+}
+
 interface KnowledgeBaseState {
   documents: Document[]
+  workspaceMemories: WorkspaceMemory[]
   folders: Folder[]
   isLoading: boolean
   error: string | null
 
   // Document actions
   setDocuments: (documents: Document[]) => void
+  setWorkspaceMemories: (memories: WorkspaceMemory[]) => void
   addDocument: (docFromBackend: KnowledgeBaseDocumentForClient) => void // Updated to accept backend type
   updateDocument: (
     // Ensure this signature is correct
@@ -41,6 +60,7 @@ interface KnowledgeBaseState {
   ) => void
   removeDocument: (id: string) => void
   fetchDocuments: () => Promise<void>
+  fetchWorkspaceMemories: (limit?: number) => Promise<void>
   deleteDocumentAndEmbeddings: (id: string) => Promise<void>
 
   // Folder actions
@@ -54,12 +74,14 @@ interface KnowledgeBaseState {
 
 export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set, get) => ({
   documents: [],
+  workspaceMemories: [],
   folders: [],
   isLoading: false,
   error: null,
 
   // Document actions
   setDocuments: (documents) => set({ documents, isLoading: false, error: null }),
+  setWorkspaceMemories: (workspaceMemories) => set({ workspaceMemories }),
 
   addDocument: (docFromBackend) => {
     const newDocument: Document = {
@@ -122,6 +144,34 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set, get) => ({
       }
     } catch (err) {
       set({ isLoading: false, error: (err as Error).message })
+    }
+  },
+
+  fetchWorkspaceMemories: async (limit?: number) => {
+    try {
+      const response = await window.ctg.knowledgeBase.getWorkspaceMemories(limit)
+      if (response.success && response.data) {
+        const workspaceMemories: WorkspaceMemory[] = response.data.map(
+          (memory: WorkspaceMemoryForClient) => ({
+            id: memory.id,
+            chatId: memory.chatId,
+            scope: memory.scope,
+            sourceKey: memory.sourceKey,
+            sourceMessageId: memory.sourceMessageId,
+            memoryType: memory.memoryType,
+            agentId: memory.agentId,
+            toolName: memory.toolName,
+            summary: memory.summary,
+            details: memory.details,
+            createdAt: new Date(memory.createdAt)
+          })
+        )
+        set({ workspaceMemories, error: null })
+      } else {
+        throw new Error(response.error || 'Failed to fetch workspace memories')
+      }
+    } catch (err) {
+      set({ error: (err as Error).message })
     }
   },
 

@@ -399,6 +399,8 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.kbFindSimilar, query, limit),
     getChunkCount: () => ipcRenderer.invoke(IpcChannels.kbGetChunkCount),
     getAllDocuments: () => ipcRenderer.invoke(IpcChannels.kbGetAllDocuments),
+    getWorkspaceMemories: (limit?: number) =>
+      ipcRenderer.invoke(IpcChannels.kbGetWorkspaceMemories, limit),
     deleteDocument: (documentId: string) =>
       ipcRenderer.invoke(IpcChannels.kbDeleteDocument, documentId)
   } as KnowledgeBaseApi,
