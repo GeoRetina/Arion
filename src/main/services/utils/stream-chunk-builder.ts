@@ -1,37 +1,51 @@
 interface ChunkPayload {
   prefix: string
-  payload: UnsafeAny
+  payload: unknown
 }
 
-export function buildToolStreamChunk(part: UnsafeAny): ChunkPayload | null {
-  switch (part.type) {
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+export function buildToolStreamChunk(part: unknown): ChunkPayload | null {
+  const partRecord = asRecord(part)
+  if (!partRecord || typeof partRecord.type !== 'string') {
+    return null
+  }
+
+  switch (partRecord.type) {
     case 'tool-call': {
+      const toolRecord = asRecord(partRecord.tool)
       const toolCallCompat = {
         type: 'tool-call',
-        toolCallId: part.toolCallId ?? part.id ?? `tool_${Date.now()}`,
-        toolName: part.toolName ?? part.name ?? part.tool?.name ?? '',
-        args: part.input ?? part.args ?? part.arguments ?? {}
+        toolCallId: partRecord.toolCallId ?? partRecord.id ?? `tool_${Date.now()}`,
+        toolName: partRecord.toolName ?? partRecord.name ?? toolRecord?.name ?? '',
+        args: partRecord.input ?? partRecord.args ?? partRecord.arguments ?? {}
       }
       return { prefix: '9', payload: toolCallCompat }
     }
     case 'tool-result': {
+      const toolRecord = asRecord(partRecord.tool)
       const toolResultCompat = {
         type: 'tool-result',
-        toolCallId: part.toolCallId ?? part.id ?? `tool_${Date.now()}`,
-        toolName: part.toolName ?? part.name ?? part.tool?.name ?? '',
-        result: part.output ?? part.result
+        toolCallId: partRecord.toolCallId ?? partRecord.id ?? `tool_${Date.now()}`,
+        toolName: partRecord.toolName ?? partRecord.name ?? toolRecord?.name ?? '',
+        result: partRecord.output ?? partRecord.result
       }
       return { prefix: 'a', payload: toolResultCompat }
     }
     case 'tool-error': {
+      const toolRecord = asRecord(partRecord.tool)
+      const errorRecord = asRecord(partRecord.error)
       const errorMessage =
-        typeof part.error === 'string'
-          ? part.error
-          : part.error?.message || 'Tool execution failed.'
+        typeof partRecord.error === 'string'
+          ? partRecord.error
+          : (typeof errorRecord?.message === 'string' ? errorRecord.message : null) ||
+            'Tool execution failed.'
       const toolErrorCompat = {
         type: 'tool-result',
-        toolCallId: part.toolCallId ?? part.id ?? `tool_${Date.now()}`,
-        toolName: part.toolName ?? part.name ?? part.tool?.name ?? '',
+        toolCallId: partRecord.toolCallId ?? partRecord.id ?? `tool_${Date.now()}`,
+        toolName: partRecord.toolName ?? partRecord.name ?? toolRecord?.name ?? '',
         result: {
           status: 'error',
           message: errorMessage
@@ -41,9 +55,9 @@ export function buildToolStreamChunk(part: UnsafeAny): ChunkPayload | null {
       return { prefix: 'a', payload: toolErrorCompat }
     }
     case 'tool-call-streaming-start':
-      return { prefix: 'b', payload: part }
+      return { prefix: 'b', payload: partRecord }
     case 'tool-call-delta':
-      return { prefix: 'c', payload: part }
+      return { prefix: 'c', payload: partRecord }
     default:
       return null
   }

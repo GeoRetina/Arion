@@ -1,6 +1,5 @@
 'use client'
 
-import { v4 as uuidv4 } from 'uuid'
 import { useRef, useEffect, useMemo, useState } from 'react'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -67,7 +66,7 @@ export default function ChatInterface(): React.JSX.Element {
   // Notify reasoning container to collapse when assistant starts streaming text
   useReasoningNotification({
     isStreamingUi,
-    chatMessages: chat.messages as UnsafeAny[]
+    chatMessages: chat.messages
   })
 
   // Use error dialog hook
@@ -94,8 +93,7 @@ export default function ChatInterface(): React.JSX.Element {
   const displayMessages = useMemo(() => sdkMessages, [sdkMessages])
 
   const displayIsLoading = isStreamingUi
-  const lastDisplayMessage =
-    displayMessages.length > 0 ? (displayMessages as UnsafeAny[])[displayMessages.length - 1] : null
+  const lastDisplayMessage = displayMessages.at(-1) ?? null
   const shouldShowLoadingIndicator =
     displayIsLoading &&
     (lastDisplayMessage?.role === 'user' ||
@@ -130,13 +128,7 @@ export default function ChatInterface(): React.JSX.Element {
     // If an active provider is configured, send the message using v5 sendMessage
     if (input && input.trim()) {
       setIsStreamingUi(true)
-      const fnSend = (chat as UnsafeAny)?.sendMessage
-      const fnAppend = (chat as UnsafeAny)?.append
-      if (typeof fnSend === 'function') {
-        fnSend({ text: input })
-      } else if (typeof fnAppend === 'function') {
-        fnAppend({ id: uuidv4(), role: 'user', content: input })
-      }
+      chat.sendMessage({ text: input })
       setInput('')
     }
   }
@@ -156,7 +148,7 @@ export default function ChatInterface(): React.JSX.Element {
             <div className="mx-auto w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl px-4 pt-15 pb-6">
               {displayMessages.length === 0 && !displayIsLoading && <EmptyState />}
 
-              {(displayMessages as UnsafeAny[]).map((m: UnsafeAny, index: number) => {
+              {displayMessages.map((m, index: number) => {
                 // Only show streaming state for the latest assistant message
                 const isLatestAssistantMessage =
                   m.role === 'assistant' && index === displayMessages.length - 1 && displayIsLoading

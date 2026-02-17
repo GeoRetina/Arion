@@ -30,7 +30,7 @@ const useAutoScroll = (
 // Define message part types (from Vercel AI SDK or 'ai' package, ensure consistency)
 interface MessagePart {
   type: string
-  [key: string]: UnsafeAny
+  [key: string]: unknown
 }
 
 interface ToolInvocationPart extends MessagePart {
@@ -38,58 +38,83 @@ interface ToolInvocationPart extends MessagePart {
   toolInvocation: {
     toolName: string
     toolCallId: string
-    args: UnsafeAny
-    result?: UnsafeAny
+    args: Record<string, unknown>
+    result?: unknown
+    error?: string
   }
 }
 
 const toolPartPrefix = 'tool-'
 
-const getMessageText = (message: { content?: string; parts?: UnsafeAny[] }): string => {
+type GenericPart = { type?: unknown; text?: unknown }
+type GenericMessage = { content?: unknown; parts?: unknown[] }
+type PendingToolResultData = Record<string, unknown> & {
+  messageId: string
+  toolCallId: string
+  toolName: string
+}
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+
+const getMessageText = (message: GenericMessage): string => {
   if (typeof message.content === 'string') return message.content
   if (!Array.isArray(message.parts)) return ''
   return message.parts
+    .map((part) => part as GenericPart)
     .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
-    .map((part) => part.text)
+    .map((part) => part.text as string)
     .join('')
 }
 
-const normalizeToolInvocationPart = (part: UnsafeAny): ToolInvocationPart | null => {
-  if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
+const normalizeToolInvocationPart = (part: unknown): ToolInvocationPart | null => {
+  const partRecord = asRecord(part)
+  if (!partRecord || typeof partRecord.type !== 'string') {
     return null
   }
 
-  if (part.type === 'tool-invocation' && part.toolInvocation) {
+  if (partRecord.type === 'tool-invocation' && partRecord.toolInvocation) {
     return part as ToolInvocationPart
   }
 
   if (
-    part.type !== 'dynamic-tool' &&
-    (!part.type.startsWith(toolPartPrefix) || part.type === 'tool-invocation')
+    partRecord.type !== 'dynamic-tool' &&
+    (!partRecord.type.startsWith(toolPartPrefix) || partRecord.type === 'tool-invocation')
   ) {
     return null
   }
 
   const toolName =
-    part.type === 'dynamic-tool' ? part.toolName : part.type.slice(toolPartPrefix.length)
-  const toolCallId = part.toolCallId ?? part.id
-  if (!toolName || !toolCallId) {
+    partRecord.type === 'dynamic-tool'
+      ? (partRecord.toolName as string | undefined)
+      : partRecord.type.slice(toolPartPrefix.length)
+  const toolCallId = (partRecord.toolCallId ?? partRecord.id) as string | undefined
+  if (!toolName || !toolCallId || typeof toolCallId !== 'string') {
     return null
   }
 
+  const approval = asRecord(partRecord.approval)
+  const approved = approval?.approved
+  const approvalReason = approval?.reason
   const errorText =
-    part.errorText ??
-    (part.approval && part.approval.approved === false
-      ? part.approval.reason || 'Tool approval denied.'
+    (partRecord.errorText as string | undefined) ??
+    (approved === false
+      ? typeof approvalReason === 'string'
+        ? approvalReason
+        : 'Tool approval denied.'
       : undefined)
+
+  const inputValue = partRecord.input ?? partRecord.rawInput
+  const resultValue = partRecord.output ?? (errorText ? { error: errorText } : undefined)
 
   return {
     type: 'tool-invocation',
     toolInvocation: {
       toolName,
       toolCallId,
-      args: part.input ?? part.rawInput ?? {},
-      result: part.output ?? (errorText ? { error: errorText } : undefined),
+      args:
+        inputValue && typeof inputValue === 'object' ? (inputValue as Record<string, unknown>) : {},
+      result: resultValue,
       error: errorText
     }
   } as ToolInvocationPart
@@ -97,14 +122,14 @@ const normalizeToolInvocationPart = (part: UnsafeAny): ToolInvocationPart | null
 
 // Helper to get tool invocation parts from a message
 const getToolInvocationParts = (message: UIMessage): ToolInvocationPart[] => {
-  const parts = (message as UnsafeAny).parts
+  const parts = (message as { parts?: unknown[] }).parts
   if (!Array.isArray(parts)) return []
   return parts.map(normalizeToolInvocationPart).filter(Boolean) as ToolInvocationPart[]
 }
 
 interface ToolCallingMessageResults {
   // Keeping this structure for potential tool result display
-  [key: string]: UnsafeAny // Simplified for now, specific tool results can be added back later
+  [key: string]: unknown // Simplified for now, specific tool results can be added back later
 }
 
 interface UseChatLogicProps {
@@ -161,7 +186,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps): {
 
   const [, setPendingToolCallIds] = useState<Set<string>>(new Set())
   const [toolResultsProcessed] = useState<Set<string>>(new Set())
-  const [pendingToolResultsData, setPendingToolResultsData] = useState<UnsafeAny[]>([])
+  const [pendingToolResultsData, setPendingToolResultsData] = useState<PendingToolResultData[]>([])
 
   const [toolCallTitlesMap] = useState<{
     [key: string]: { toolCallId: string; toolTitle: string }[]
@@ -296,7 +321,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps): {
   }, []) // Kept empty if other logic dependent on selectedRoiForBanner is added later
 
   useEffect(() => {
-    const newToolData: UnsafeAny[] = []
+    const newToolData: PendingToolResultData[] = []
     messages.forEach((m) => {
       if (m.role === 'assistant') {
         const toolInvocationParts = getToolInvocationParts(m)
@@ -304,8 +329,10 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps): {
           const { toolCallId, toolName, result } = part.toolInvocation
           if (toolName && result && !toolResultsProcessed.has(toolCallId)) {
             toolResultsProcessed.add(toolCallId)
+            const resultRecord =
+              result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
             newToolData.push({
-              ...result,
+              ...resultRecord,
               toolCallId,
               toolName,
               messageId: m.id

@@ -8,6 +8,7 @@
 
 import type { Map } from 'maplibre-gl'
 import * as turf from '@turf/turf'
+import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import type { LayerDefinition } from '../../../shared/types/layer-types'
 
 export interface ZoomToLayerOptions {
@@ -55,7 +56,12 @@ export class LayerZoomService {
 
           if (sourceDataRecord.type === 'FeatureCollection') {
             // Calculate bounds from GeoJSON FeatureCollection
-            bounds = turf.bbox(sourceData as UnsafeAny) as [number, number, number, number]
+            bounds = turf.bbox(sourceData as FeatureCollection | Feature<Geometry>) as [
+              number,
+              number,
+              number,
+              number
+            ]
 
             // Determine if this is primarily a point layer
             const pointFeatures =
@@ -65,7 +71,12 @@ export class LayerZoomService {
             isPoint = pointFeatures.length === (sourceDataRecord.features?.length || 0)
           } else if (sourceDataRecord.type === 'Feature') {
             // Single feature
-            bounds = turf.bbox(sourceData as UnsafeAny) as [number, number, number, number]
+            bounds = turf.bbox(sourceData as FeatureCollection | Feature<Geometry>) as [
+              number,
+              number,
+              number,
+              number
+            ]
             isPoint =
               sourceDataRecord.geometry?.type === 'Point' ||
               sourceDataRecord.geometry?.type === 'MultiPoint'

@@ -9,11 +9,44 @@ import { v4 as uuidv4 } from 'uuid'
 import shp from 'shpjs'
 import type {
   LayerDefinition,
+  GeometryType,
   LayerType,
   LayerSourceConfig
 } from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
+
+type ShapefileRecord = Record<string, unknown>
+type ShapefileFeatureCollection = {
+  type: 'FeatureCollection'
+  features: ShapefileRecord[]
+}
+
+type MetadataFeatureLike = {
+  geometry?: {
+    type?: GeometryType
+    coordinates?: unknown
+  }
+  properties?: Record<string, unknown>
+}
+
+const geometryTypes = new Set<GeometryType>([
+  'Point',
+  'LineString',
+  'Polygon',
+  'MultiPoint',
+  'MultiLineString',
+  'MultiPolygon',
+  'GeometryCollection'
+])
+
+function asRecord(value: unknown): ShapefileRecord | null {
+  return value && typeof value === 'object' ? (value as ShapefileRecord) : null
+}
+
+function isGeometryType(value: unknown): value is GeometryType {
+  return typeof value === 'string' && geometryTypes.has(value as GeometryType)
+}
 
 export class ShapefileProcessor {
   /**
@@ -33,7 +66,12 @@ export class ShapefileProcessor {
       this.validateShapefileData(normalizedData)
 
       // Extract metadata and create style
-      const metadata = VectorMetadataExtractor.extractShapefileMetadata(normalizedData, fileName)
+      const metadata = VectorMetadataExtractor.extractShapefileMetadata(
+        {
+          features: normalizedData.features.map((feature) => this.toMetadataFeature(feature))
+        },
+        fileName
+      )
       const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
 
       return {
@@ -65,7 +103,7 @@ export class ShapefileProcessor {
   /**
    * Normalize shpjs output to consistent FeatureCollection format
    */
-  private static normalizeShapefileOutput(shpjsOutput: UnsafeAny): UnsafeAny {
+  private static normalizeShapefileOutput(shpjsOutput: unknown): ShapefileFeatureCollection {
     // shpjs can return a single FeatureCollection or an array of FeatureCollections
     if (Array.isArray(shpjsOutput)) {
       if (shpjsOutput.length === 0) {
@@ -74,30 +112,39 @@ export class ShapefileProcessor {
 
       // If multiple shapefiles, merge them into a single FeatureCollection
       if (shpjsOutput.length > 1) {
-        const mergedFeatures: UnsafeAny[] = []
-        shpjsOutput.forEach((fc) => {
-          if (fc.features && Array.isArray(fc.features)) {
-            mergedFeatures.push(...fc.features)
-          }
-        })
+        const mergedFeatures = shpjsOutput
+          .map((featureCollection) => this.toFeatureCollection(featureCollection))
+          .filter((featureCollection): featureCollection is ShapefileFeatureCollection =>
+            Boolean(featureCollection)
+          )
+          .flatMap((featureCollection) => featureCollection.features)
 
         return {
           type: 'FeatureCollection',
           features: mergedFeatures
         }
       } else {
-        return shpjsOutput[0]
+        const featureCollection = this.toFeatureCollection(shpjsOutput[0])
+        if (!featureCollection) {
+          throw new Error('Invalid shapefile structure - no features found')
+        }
+        return featureCollection
       }
     }
 
-    return shpjsOutput
+    const featureCollection = this.toFeatureCollection(shpjsOutput)
+    if (!featureCollection) {
+      throw new Error('Invalid shapefile structure - no features found')
+    }
+
+    return featureCollection
   }
 
   /**
    * Validate shapefile data structure
    */
-  private static validateShapefileData(geoJsonData: UnsafeAny): void {
-    if (!geoJsonData || !geoJsonData.features || !Array.isArray(geoJsonData.features)) {
+  private static validateShapefileData(geoJsonData: ShapefileFeatureCollection): void {
+    if (!Array.isArray(geoJsonData.features)) {
       throw new Error('Invalid shapefile structure - no features found')
     }
 
@@ -119,17 +166,23 @@ export class ShapefileProcessor {
       const result = await shp(arrayBuffer)
 
       if (Array.isArray(result)) {
-        if (result.length === 0) {
+        const collections = result
+          .map((item) => this.toFeatureCollection(item))
+          .filter((item): item is ShapefileFeatureCollection => Boolean(item))
+        if (collections.length === 0) {
           return { valid: false, error: 'ZIP archive contains no valid shapefiles' }
         }
         return {
           valid: true,
-          info: `Found ${result.length} shapefile(s) in ZIP archive`
+          info: `Found ${collections.length} shapefile(s) in ZIP archive`
         }
-      } else if (result && result.features) {
+      }
+
+      const collection = this.toFeatureCollection(result)
+      if (collection) {
         return {
           valid: true,
-          info: `Found shapefile with ${result.features.length} features`
+          info: `Found shapefile with ${collection.features.length} features`
         }
       }
 
@@ -154,7 +207,9 @@ export class ShapefileProcessor {
   }> {
     const arrayBuffer = await file.arrayBuffer()
     const shpjsOutput = await shp(arrayBuffer)
-    const shapefiles = Array.isArray(shpjsOutput) ? shpjsOutput : [shpjsOutput]
+    const shapefiles = (Array.isArray(shpjsOutput) ? shpjsOutput : [shpjsOutput])
+      .map((shapefile) => this.toFeatureCollection(shapefile))
+      .filter((shapefile): shapefile is ShapefileFeatureCollection => Boolean(shapefile))
 
     let totalFeatures = 0
     const geometryTypes = new Set<string>()
@@ -162,20 +217,24 @@ export class ShapefileProcessor {
     let hasAttributes = false
 
     shapefiles.forEach((shapefile) => {
-      if (shapefile.features && Array.isArray(shapefile.features)) {
-        totalFeatures += shapefile.features.length
+      totalFeatures += shapefile.features.length
 
-        shapefile.features.forEach((feature: UnsafeAny) => {
-          if (feature.geometry?.type) {
-            geometryTypes.add(feature.geometry.type)
-          }
+      shapefile.features.forEach((feature) => {
+        const featureRecord = asRecord(feature)
+        if (!featureRecord) {
+          return
+        }
+        const geometryRecord = asRecord(featureRecord.geometry)
+        if (typeof geometryRecord?.type === 'string') {
+          geometryTypes.add(geometryRecord.type)
+        }
 
-          if (feature.properties && Object.keys(feature.properties).length > 0) {
-            hasAttributes = true
-            Object.keys(feature.properties).forEach((key) => attributeKeys.add(key))
-          }
-        })
-      }
+        const propertiesRecord = asRecord(featureRecord.properties)
+        if (propertiesRecord && Object.keys(propertiesRecord).length > 0) {
+          hasAttributes = true
+          Object.keys(propertiesRecord).forEach((key) => attributeKeys.add(key))
+        }
+      })
     })
 
     return {
@@ -184,6 +243,43 @@ export class ShapefileProcessor {
       geometryTypes: Array.from(geometryTypes),
       hasAttributes,
       attributeKeys: Array.from(attributeKeys)
+    }
+  }
+
+  private static toFeatureCollection(shpjsOutput: unknown): ShapefileFeatureCollection | null {
+    const outputRecord = asRecord(shpjsOutput)
+    if (!outputRecord) {
+      return null
+    }
+
+    const features = Array.isArray(outputRecord.features)
+      ? outputRecord.features.filter((feature): feature is ShapefileRecord =>
+          Boolean(asRecord(feature))
+        )
+      : null
+
+    if (!features) {
+      return null
+    }
+
+    return {
+      type: 'FeatureCollection',
+      features
+    }
+  }
+
+  private static toMetadataFeature(feature: ShapefileRecord): MetadataFeatureLike {
+    const geometryRecord = asRecord(feature.geometry)
+    const propertiesRecord = asRecord(feature.properties)
+
+    return {
+      geometry: geometryRecord
+        ? {
+            type: isGeometryType(geometryRecord.type) ? geometryRecord.type : undefined,
+            coordinates: geometryRecord.coordinates
+          }
+        : undefined,
+      properties: propertiesRecord ?? undefined
     }
   }
 }

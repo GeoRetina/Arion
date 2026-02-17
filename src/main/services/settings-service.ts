@@ -30,6 +30,24 @@ interface StoredLLMConfig {
   baseURL?: string | null
 }
 
+interface McpServerConfigRow {
+  id: string
+  name: string
+  url: string | null
+  command: string | null
+  args: string | null
+  enabled: number
+}
+
+const mapMcpRowToConfig = (row: McpServerConfigRow): McpServerConfig => ({
+  id: row.id,
+  name: row.name,
+  url: row.url ?? undefined,
+  command: row.command ?? undefined,
+  args: row.args ? (JSON.parse(row.args) as string[]) : undefined,
+  enabled: row.enabled === 1
+})
+
 export class SettingsService {
   private db: Database.Database
 
@@ -75,22 +93,22 @@ export class SettingsService {
     // --- Add missing columns to llm_configs if they don't exist (simple migration) ---
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN project TEXT;')
-    } catch (e: UnsafeAny) {
-      if (!e.message.includes('duplicate column name')) {
+    } catch (e: unknown) {
+      if (!this.isDuplicateColumnError(e)) {
         void 0
       } // Ignore if column already exists
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN location TEXT;')
-    } catch (e: UnsafeAny) {
-      if (!e.message.includes('duplicate column name')) {
+    } catch (e: unknown) {
+      if (!this.isDuplicateColumnError(e)) {
         void 0
       }
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
-    } catch (e: UnsafeAny) {
-      if (!e.message.includes('duplicate column name')) {
+    } catch (e: unknown) {
+      if (!this.isDuplicateColumnError(e)) {
         void 0
       }
     }
@@ -305,12 +323,8 @@ export class SettingsService {
     try {
       const rows = this.db
         .prepare('SELECT id, name, url, command, args, enabled FROM mcp_server_configs')
-        .all() as UnsafeAny[]
-      return rows.map((row) => ({
-        ...row,
-        args: row.args ? JSON.parse(row.args) : undefined,
-        enabled: row.enabled === 1
-      }))
+        .all() as McpServerConfigRow[]
+      return rows.map(mapMcpRowToConfig)
     } catch {
       return []
     }
@@ -343,23 +357,19 @@ export class SettingsService {
     {
       const current = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
-        .get(configId) as McpServerConfig | undefined
+        .get(configId) as McpServerConfigRow | undefined
       if (!current) {
         return null
       }
 
-      const fieldsToUpdate = Object.keys(updates).filter((key) => key !== 'id')
+      const fieldsToUpdate = Object.keys(updates) as Array<keyof Omit<McpServerConfig, 'id'>>
       if (fieldsToUpdate.length === 0) {
-        return {
-          ...current,
-          args: current.args ? JSON.parse(current.args as UnsafeAny) : undefined,
-          enabled: current.enabled === (1 as UnsafeAny)
-        } // Return current if no actual updates
+        return mapMcpRowToConfig(current) // Return current if no actual updates
       }
 
       const setClauses = fieldsToUpdate.map((key) => `${key} = ?`).join(', ')
       const values = fieldsToUpdate.map((key) => {
-        const value = (updates as UnsafeAny)[key]
+        const value = updates[key]
         if (key === 'args' && value !== undefined) return JSON.stringify(value)
         if (key === 'enabled' && typeof value === 'boolean') return value ? 1 : 0
         return value
@@ -371,12 +381,8 @@ export class SettingsService {
 
       const updatedConfigRow = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
-        .get(configId) as UnsafeAny
-      return {
-        ...updatedConfigRow,
-        args: updatedConfigRow.args ? JSON.parse(updatedConfigRow.args) : undefined,
-        enabled: updatedConfigRow.enabled === 1
-      }
+        .get(configId) as McpServerConfigRow
+      return mapMcpRowToConfig(updatedConfigRow)
     }
   }
 
@@ -454,5 +460,9 @@ export class SettingsService {
         userSystemPrompt: ''
       }
     }
+  }
+
+  private isDuplicateColumnError(error: unknown): boolean {
+    return error instanceof Error && error.message.includes('duplicate column name')
   }
 }

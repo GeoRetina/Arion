@@ -68,6 +68,74 @@ export interface LayerDatabase {
   close: () => void
 }
 
+interface LayerRow {
+  id: string
+  name: string
+  type: LayerDefinition['type']
+  source_id: string
+  source_config: string
+  style_config: string
+  visibility: number
+  opacity: number
+  z_index: number
+  metadata: string | null
+  group_id: string | null
+  is_locked: number
+  created_by: LayerDefinition['createdBy']
+  created_at: string
+  updated_at: string
+}
+
+interface GroupRow {
+  id: string
+  name: string
+  parent_id: string | null
+  display_order: number
+  expanded: number
+  color: string | null
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface OperationRow {
+  operation_type: LayerOperation['type']
+  layer_id: string
+  changes: string | null
+  timestamp: string
+  user_id: string | null
+}
+
+interface ErrorRow {
+  error_code: LayerError['code']
+  error_message: string
+  error_details: string | null
+  layer_id: string | null
+  timestamp: string
+}
+
+interface StylePresetRow {
+  id: string
+  name: string
+  description: string | null
+  layer_type: StylePreset['layerType']
+  geometry_type: StylePreset['geometryType']
+  style_config: string
+  preview: string | undefined
+  is_built_in: number
+  tags: string | null
+  created_at: string
+}
+
+interface MetricsRow {
+  layer_id: string
+  load_time: number
+  render_time: number
+  memory_usage: number
+  feature_count: number
+  timestamp: string
+}
+
 export class LayerDatabaseService implements LayerDatabase {
   private db: Database.Database
   private statements: Record<string, Database.Statement> = {}
@@ -263,22 +331,22 @@ export class LayerDatabaseService implements LayerDatabase {
 
   // Layer CRUD implementations
   getAllLayers(): LayerDefinition[] {
-    const rows = this.statements.getAllLayers.all()
+    const rows = this.statements.getAllLayers.all() as LayerRow[]
     return rows.map((row) => this.rowToLayer(row))
   }
 
   getLayerById(id: string): LayerDefinition | undefined {
-    const row = this.statements.getLayerById.get(id)
+    const row = this.statements.getLayerById.get(id) as LayerRow | undefined
     return row ? this.rowToLayer(row) : undefined
   }
 
   getLayersByType(type: 'raster' | 'vector'): LayerDefinition[] {
-    const rows = this.statements.getLayersByType.all(type)
+    const rows = this.statements.getLayersByType.all(type) as LayerRow[]
     return rows.map((row) => this.rowToLayer(row))
   }
 
   getLayersByGroup(groupId: string | null): LayerDefinition[] {
-    const rows = this.statements.getLayersByGroup.all(groupId)
+    const rows = this.statements.getLayersByGroup.all(groupId) as LayerRow[]
     return rows.map((row) => this.rowToLayer(row))
   }
 
@@ -341,12 +409,12 @@ export class LayerDatabaseService implements LayerDatabase {
 
   // Group CRUD implementations
   getAllGroups(): LayerGroup[] {
-    const rows = this.statements.getAllGroups.all()
+    const rows = this.statements.getAllGroups.all() as GroupRow[]
     return rows.map((row) => this.rowToGroup(row))
   }
 
   getGroupById(id: string): LayerGroup | undefined {
-    const row = this.statements.getGroupById.get(id)
+    const row = this.statements.getGroupById.get(id) as GroupRow | undefined
     return row ? this.rowToGroup(row) : undefined
   }
 
@@ -418,7 +486,7 @@ export class LayerDatabaseService implements LayerDatabase {
       LEFT JOIN layer_groups lg ON l.group_id = lg.id 
       WHERE 1=1
     `
-    const params: UnsafeAny[] = []
+    const params: unknown[] = []
 
     if (criteria.query) {
       query += ` AND (l.name LIKE ? OR JSON_EXTRACT(l.metadata, '$.description') LIKE ?)`
@@ -449,7 +517,7 @@ export class LayerDatabaseService implements LayerDatabase {
     query += ` ORDER BY l.z_index DESC, l.created_at DESC`
 
     const stmt = this.db.prepare(query)
-    const rows = stmt.all(...params)
+    const rows = stmt.all(...params) as LayerRow[]
     const layers = rows.map((row) => this.rowToLayer(row))
 
     return {
@@ -471,7 +539,10 @@ export class LayerDatabaseService implements LayerDatabase {
   }
 
   getOperations(layerId?: string): LayerOperation[] {
-    const rows = this.statements.getOperations.all(layerId || null, layerId || null)
+    const rows = this.statements.getOperations.all(
+      layerId || null,
+      layerId || null
+    ) as OperationRow[]
     return rows.map((row) => this.rowToOperation(row))
   }
 
@@ -485,7 +556,7 @@ export class LayerDatabaseService implements LayerDatabase {
   }
 
   getErrors(layerId?: string): LayerError[] {
-    const rows = this.statements.getErrors.all(layerId || null, layerId || null)
+    const rows = this.statements.getErrors.all(layerId || null, layerId || null) as ErrorRow[]
     return rows.map((row) => this.rowToError(row))
   }
 
@@ -495,12 +566,12 @@ export class LayerDatabaseService implements LayerDatabase {
 
   // Style presets
   getAllStylePresets(): StylePreset[] {
-    const rows = this.statements.getAllPresets.all()
+    const rows = this.statements.getAllPresets.all() as StylePresetRow[]
     return rows.map((row) => this.rowToStylePreset(row))
   }
 
   getStylePresetById(id: string): StylePreset | undefined {
-    const row = this.statements.getPresetById.get(id)
+    const row = this.statements.getPresetById.get(id) as StylePresetRow | undefined
     return row ? this.rowToStylePreset(row) : undefined
   }
 
@@ -544,7 +615,7 @@ export class LayerDatabaseService implements LayerDatabase {
   }
 
   getPerformanceMetrics(layerId?: string): LayerPerformanceMetrics[] {
-    const rows = this.statements.getMetrics.all(layerId || null, layerId || null)
+    const rows = this.statements.getMetrics.all(layerId || null, layerId || null) as MetricsRow[]
     return rows.map((row) => this.rowToMetrics(row))
   }
 
@@ -619,7 +690,7 @@ export class LayerDatabaseService implements LayerDatabase {
     return `layer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
   }
 
-  private rowToLayer(row: UnsafeAny): LayerDefinition {
+  private rowToLayer(row: LayerRow): LayerDefinition {
     return {
       id: row.id,
       name: row.name,
@@ -631,7 +702,7 @@ export class LayerDatabaseService implements LayerDatabase {
       opacity: row.opacity,
       zIndex: row.z_index,
       metadata: JSON.parse(row.metadata || '{}'),
-      groupId: row.group_id,
+      groupId: row.group_id ?? undefined,
       isLocked: Boolean(row.is_locked),
       createdBy: row.created_by,
       createdAt: new Date(row.created_at),
@@ -639,60 +710,60 @@ export class LayerDatabaseService implements LayerDatabase {
     }
   }
 
-  private rowToGroup(row: UnsafeAny): LayerGroup {
+  private rowToGroup(row: GroupRow): LayerGroup {
     // Get layer IDs for this group
     const layerIds = this.getLayersByGroup(row.id).map((l) => l.id)
 
     return {
       id: row.id,
       name: row.name,
-      parentId: row.parent_id,
+      parentId: row.parent_id ?? undefined,
       displayOrder: row.display_order,
       expanded: Boolean(row.expanded),
       layerIds,
-      color: row.color,
-      description: row.description,
+      color: row.color ?? undefined,
+      description: row.description ?? undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     }
   }
 
-  private rowToOperation(row: UnsafeAny): LayerOperation {
+  private rowToOperation(row: OperationRow): LayerOperation {
     return {
       type: row.operation_type,
       layerId: row.layer_id,
       changes: row.changes ? JSON.parse(row.changes) : undefined,
       timestamp: new Date(row.timestamp),
-      userId: row.user_id
+      userId: row.user_id ?? undefined
     }
   }
 
-  private rowToError(row: UnsafeAny): LayerError {
+  private rowToError(row: ErrorRow): LayerError {
     return {
       code: row.error_code,
       message: row.error_message,
       details: row.error_details ? JSON.parse(row.error_details) : undefined,
-      layerId: row.layer_id,
+      layerId: row.layer_id ?? undefined,
       timestamp: new Date(row.timestamp)
     }
   }
 
-  private rowToStylePreset(row: UnsafeAny): StylePreset {
+  private rowToStylePreset(row: StylePresetRow): StylePreset {
     return {
       id: row.id,
       name: row.name,
-      description: row.description,
+      description: row.description ?? undefined,
       layerType: row.layer_type,
       geometryType: row.geometry_type,
       style: JSON.parse(row.style_config),
-      preview: row.preview,
+      preview: row.preview ?? undefined,
       isBuiltIn: Boolean(row.is_built_in),
       tags: JSON.parse(row.tags || '[]'),
       createdAt: new Date(row.created_at)
     }
   }
 
-  private rowToMetrics(row: UnsafeAny): LayerPerformanceMetrics {
+  private rowToMetrics(row: MetricsRow): LayerPerformanceMetrics {
     return {
       layerId: row.layer_id,
       loadTime: row.load_time,

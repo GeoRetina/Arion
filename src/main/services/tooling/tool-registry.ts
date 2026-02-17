@@ -2,6 +2,10 @@ import { tool, dynamicTool } from 'ai'
 import { z } from 'zod'
 import type { RegisteredTool } from './tool-types'
 
+interface ExecutableToolDefinition extends Record<string, unknown> {
+  execute: (args: unknown) => Promise<unknown> | unknown
+}
+
 export class ToolRegistry {
   private readonly registeredTools: Map<string, RegisteredTool> = new Map()
 
@@ -38,10 +42,10 @@ export class ToolRegistry {
   }
 
   public createToolDefinitions(
-    executeTool: (toolName: string, args: UnsafeAny) => Promise<UnsafeAny>,
+    executeTool: (toolName: string, args: unknown) => Promise<unknown>,
     allowedToolIds?: string[]
-  ): Record<string, UnsafeAny> {
-    const llmTools: Record<string, UnsafeAny> = {}
+  ): Record<string, ExecutableToolDefinition> {
+    const llmTools: Record<string, ExecutableToolDefinition> = {}
 
     this.registeredTools.forEach((registeredToolEntry) => {
       if (allowedToolIds && !allowedToolIds.includes(registeredToolEntry.name)) {
@@ -52,8 +56,8 @@ export class ToolRegistry {
       llmTools[registeredToolEntry.name] = toolFactory({
         description: registeredToolEntry.definition.description,
         inputSchema: registeredToolEntry.definition.inputSchema,
-        execute: async (args: UnsafeAny) => executeTool(registeredToolEntry.name, args)
-      })
+        execute: async (args: unknown) => executeTool(registeredToolEntry.name, args)
+      }) as unknown as ExecutableToolDefinition
     })
 
     return llmTools

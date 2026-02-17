@@ -26,7 +26,7 @@ export type ConditionOperator =
 export interface PromptCondition {
   field: string
   operator: ConditionOperator
-  value?: UnsafeAny
+  value?: unknown
 }
 
 /**
@@ -105,7 +105,7 @@ export interface PromptAssemblyRequest {
   taskModules?: PromptModuleParameters[]
   agentModules: PromptModuleParameters[]
   ruleModules?: PromptModuleParameters[]
-  context?: Record<string, UnsafeAny> // Additional context for condition evaluation
+  context?: Record<string, unknown> // Additional context for condition evaluation
 }
 
 /**

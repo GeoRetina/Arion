@@ -2,6 +2,7 @@ import type { LlmToolService } from './llm-tool-service'
 import { AgentRegistryService } from './agent-registry-service'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
 import type { AgentDefinition } from '../../shared/types/agent-types'
+import type { ToolSet } from 'ai'
 
 export class AgentToolManager {
   private llmToolService: LlmToolService
@@ -55,7 +56,7 @@ export class AgentToolManager {
    * @param agent Agent definition to check
    * @returns boolean indicating if the agent is an orchestrator
    */
-  public isOrchestratorAgent(agent: UnsafeAny): boolean {
+  public isOrchestratorAgent(agent: AgentDefinition | null | undefined): boolean {
     return isOrchestratorAgent(agent)
   }
 
@@ -64,11 +65,11 @@ export class AgentToolManager {
    * @param agentId Optional agent ID to get tools for. If not provided, treats as main orchestrator.
    * @returns Object containing tool definitions suitable for the agent
    */
-  async getToolsForAgent(agentId?: string): Promise<Record<string, UnsafeAny>> {
-    let combinedTools: Record<string, UnsafeAny> = {}
+  async getToolsForAgent(agentId?: string): Promise<ToolSet> {
+    let combinedTools: ToolSet = {}
 
     // Get ALL tools first
-    const allTools = this.llmToolService.getToolDefinitionsForLLM()
+    const allTools = this.llmToolService.getToolDefinitionsForLLM() as ToolSet
 
     // Case 1: Specific agent is provided
     if (agentId && this.agentRegistryService) {
@@ -104,16 +105,14 @@ export class AgentToolManager {
    * @param allTools All available tool definitions
    * @returns Filtered tools for orchestrator
    */
-  private async getOrchestratorTools(
-    allTools: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
+  private async getOrchestratorTools(allTools: ToolSet): Promise<ToolSet> {
     // For orchestrator: Filter out tools assigned to specialized agents
     const specializedAgentTools = await this.getToolsAssignedToSpecializedAgents()
 
     // Filter out tools that are assigned to specialized agents
     const combinedTools = Object.fromEntries(
       Object.entries(allTools).filter(([toolName]) => !specializedAgentTools.includes(toolName))
-    )
+    ) as ToolSet
 
     return combinedTools
   }
@@ -125,19 +124,19 @@ export class AgentToolManager {
    */
   private async getSpecializedAgentTools(
     agent: Pick<AgentDefinition, 'toolAccess'>
-  ): Promise<Record<string, unknown>> {
+  ): Promise<ToolSet> {
     // For specialized agents: Use only their assigned tools
 
     if (Array.isArray(agent.toolAccess) && agent.toolAccess.length > 0) {
       // Get tools with the agent's specific tool access list
-      const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess)
+      const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess) as ToolSet
 
       // Only exclude call_agent tool for specialized agents (to prevent recursion)
       const combinedTools = Object.fromEntries(
         Object.entries(agentTools).filter(
           ([toolName]) => toolName !== 'call_agent' // Explicitly prevent specialized agents from calling call_agent
         )
-      )
+      ) as ToolSet
       return combinedTools
     } else {
       return {} // No tools assigned to this agent
@@ -148,8 +147,8 @@ export class AgentToolManager {
    * Get all available tools from LlmToolService
    * @returns All tool definitions
    */
-  getAllTools(): Record<string, unknown> {
-    return this.llmToolService.getToolDefinitionsForLLM()
+  getAllTools(): ToolSet {
+    return this.llmToolService.getToolDefinitionsForLLM() as ToolSet
   }
 
   /**
@@ -157,7 +156,7 @@ export class AgentToolManager {
    * @param toolAccessList List of tool names to retrieve
    * @returns Tool definitions for the specified tools
    */
-  getToolsForAccessList(toolAccessList: string[]): Record<string, unknown> {
-    return this.llmToolService.getToolDefinitionsForLLM(toolAccessList)
+  getToolsForAccessList(toolAccessList: string[]): ToolSet {
+    return this.llmToolService.getToolDefinitionsForLLM(toolAccessList) as ToolSet
   }
 }

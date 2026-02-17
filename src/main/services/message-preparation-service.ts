@@ -13,18 +13,34 @@ export interface PreparedMessagesResult {
   finalSystemPrompt: string | null
 }
 
+interface McpToolLike {
+  name: string
+  description?: string
+  serverName?: string
+}
+
+interface LlmToolServiceLike {
+  getMcpTools: () => McpToolLike[]
+}
+
+type RendererMessageLike = Record<string, unknown>
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
 export class MessagePreparationService {
   private settingsService: SettingsService
   private modularPromptManager: ModularPromptManager
   private agentRegistryService?: AgentRegistryService
-  private llmToolService?: UnsafeAny // Will be injected to get MCP tools
+  private llmToolService?: LlmToolServiceLike // Will be injected to get MCP tools
   private agentToolManager?: AgentToolManager // Added for agent tool access
 
   constructor(
     settingsService: SettingsService,
     modularPromptManager: ModularPromptManager,
     agentRegistryService?: AgentRegistryService,
-    llmToolService?: UnsafeAny,
+    llmToolService?: LlmToolServiceLike,
     agentToolManager?: AgentToolManager
   ) {
     this.settingsService = settingsService
@@ -42,7 +58,7 @@ export class MessagePreparationService {
    * @returns Prepared messages and system prompt
    */
   async prepareMessagesAndSystemPrompt(
-    rendererMessages: Array<UnsafeAny>,
+    rendererMessages: RendererMessageLike[],
     chatId?: string,
     agentId?: string
   ): Promise<PreparedMessagesResult> {
@@ -55,7 +71,7 @@ export class MessagePreparationService {
     try {
       coreMessages = messageAnalysis.shouldConvert
         ? ((await convertToModelMessages(
-            normalizedRendererMessages as UnsafeAny
+            normalizedRendererMessages as Parameters<typeof convertToModelMessages>[0]
           )) as unknown as ModelMessage[])
         : (normalizedRendererMessages as unknown as ModelMessage[])
       coreMessages = sanitizeModelMessages(coreMessages)
@@ -332,7 +348,7 @@ export class MessagePreparationService {
     return await this.settingsService.getSystemPromptConfig()
   }
 
-  private analyzeRendererMessages(rendererMessages: Array<UnsafeAny>): {
+  private analyzeRendererMessages(rendererMessages: unknown[]): {
     shouldConvert: boolean
     convertReasons: string[]
     logDetails: {
@@ -386,7 +402,7 @@ export class MessagePreparationService {
   }
 
   private createMessageSummaryForLog(
-    message: UnsafeAny,
+    message: unknown,
     index: number
   ): {
     index: number
@@ -406,36 +422,40 @@ export class MessagePreparationService {
         }>
       | undefined
   } {
-    const hasPartsProp = Boolean(message && typeof message === 'object' && 'parts' in message)
-    const partsCount = Array.isArray(message?.parts) ? message.parts.length : undefined
-    const hasToolInvocationsProp = Boolean(
-      message && typeof message === 'object' && 'toolInvocations' in message
-    )
-    const toolInvocationCount = Array.isArray(message?.toolInvocations)
-      ? message.toolInvocations.length
+    const messageRecord = asRecord(message)
+    const partsValue = messageRecord?.parts
+    const toolInvocationsValue = messageRecord?.toolInvocations
+    const hasPartsProp = Boolean(messageRecord && 'parts' in messageRecord)
+    const partsCount = Array.isArray(partsValue) ? partsValue.length : undefined
+    const hasToolInvocationsProp = Boolean(messageRecord && 'toolInvocations' in messageRecord)
+    const toolInvocationCount = Array.isArray(toolInvocationsValue)
+      ? toolInvocationsValue.length
       : undefined
 
     return {
       index,
-      role: message?.role,
+      role: messageRecord?.role,
       hasPartsProp,
       partsCount,
       hasToolInvocationsProp,
       toolInvocationCount,
-      contentDescriptor: this.describeContentForLog(message?.content),
-      partsPreview: Array.isArray(message?.parts)
-        ? message.parts.slice(0, 3).map((part: UnsafeAny) => ({
-            type: part?.type,
-            state: part?.state,
-            providerExecuted: part?.providerExecuted,
-            hasResult: Boolean(part?.result),
-            hasArgs: Boolean(part?.args)
-          }))
+      contentDescriptor: this.describeContentForLog(messageRecord?.content),
+      partsPreview: Array.isArray(partsValue)
+        ? partsValue.slice(0, 3).map((part) => {
+            const partRecord = asRecord(part)
+            return {
+              type: partRecord?.type,
+              state: partRecord?.state,
+              providerExecuted: partRecord?.providerExecuted,
+              hasResult: Boolean(partRecord?.result),
+              hasArgs: Boolean(partRecord?.args)
+            }
+          })
         : undefined
     }
   }
 
-  private describeContentForLog(content: UnsafeAny): string {
+  private describeContentForLog(content: unknown): string {
     if (content === null || content === undefined) {
       return 'nullish'
     }
@@ -446,7 +466,10 @@ export class MessagePreparationService {
     if (Array.isArray(content)) {
       const partTypes = content
         .slice(0, 3)
-        .map((part) => (part?.type ? part.type : typeof part))
+        .map((part) => {
+          const partRecord = asRecord(part)
+          return partRecord?.type ? String(partRecord.type) : typeof part
+        })
         .join(',')
       return `array(${content.length})[${partTypes}]`
     }

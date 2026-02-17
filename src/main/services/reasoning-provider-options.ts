@@ -20,23 +20,33 @@ const DEFAULT_OPENAI_REASONING = {
   reasoningSummary: 'auto' as 'auto' | 'detailed' | undefined
 }
 
+type ProviderOptionsContainer = {
+  providerOptions?: Record<string, unknown>
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
 /**
  * Applies provider-specific reasoning options into streamText options.
  * Mutates and returns the provided options object to simplify call sites.
  */
-export function applyReasoningProviderOptions<T extends Record<string, UnsafeAny>>(
+export function applyReasoningProviderOptions<T extends Record<string, unknown>>(
   providerId: string | undefined,
   streamTextOptions: T
 ): T {
+  const optionsWithProvider = streamTextOptions as T & ProviderOptionsContainer
+
   if (providerId === 'google') {
-    const current = (streamTextOptions as UnsafeAny).providerOptions || {}
-    const currentGoogle = current.google || {}
-    ;(streamTextOptions as UnsafeAny).providerOptions = {
+    const current = asRecord(optionsWithProvider.providerOptions) ?? {}
+    const currentGoogle = asRecord(current.google) ?? {}
+    optionsWithProvider.providerOptions = {
       ...current,
       google: {
         ...currentGoogle,
         thinkingConfig: {
-          ...(currentGoogle.thinkingConfig || {}),
+          ...(asRecord(currentGoogle.thinkingConfig) ?? {}),
           ...DEFAULT_GOOGLE_THINKING
         }
       }
@@ -44,9 +54,9 @@ export function applyReasoningProviderOptions<T extends Record<string, UnsafeAny
   }
 
   if (providerId === 'openai') {
-    const current = (streamTextOptions as UnsafeAny).providerOptions || {}
-    const currentOpenAI = current.openai || {}
-    ;(streamTextOptions as UnsafeAny).providerOptions = {
+    const current = asRecord(optionsWithProvider.providerOptions) ?? {}
+    const currentOpenAI = asRecord(current.openai) ?? {}
+    optionsWithProvider.providerOptions = {
       ...current,
       openai: {
         ...currentOpenAI,

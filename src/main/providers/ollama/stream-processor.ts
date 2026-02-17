@@ -7,7 +7,7 @@ import {
 } from '@ai-sdk/provider'
 import { generateId, type ParseResult } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
-import type { OllamaConfig } from './types'
+import type { OllamaConfig, OllamaResponse } from './types'
 import {
   createToolCallId,
   extractOllamaResponseObjectsFromChunk,
@@ -17,6 +17,10 @@ import {
   serializeToolArguments
 } from './utils'
 import { baseOllamaResponseSchema } from './types'
+
+type ToolCallStreamPartWithArgs = Extract<LanguageModelV3StreamPart, { type: 'tool-call' }> & {
+  args: unknown
+}
 
 export class OllamaStreamProcessor {
   private state = this.createInitialState()
@@ -95,7 +99,7 @@ export class OllamaStreamProcessor {
   }
 
   private processResponseValue(
-    value: UnsafeAny,
+    value: OllamaResponse,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
   ): void {
     if (!this.state.hasSentMetadata) {
@@ -131,7 +135,7 @@ export class OllamaStreamProcessor {
   }
 
   private emitText(
-    value: UnsafeAny,
+    value: OllamaResponse,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
   ): void {
     const delta = value.message.content
@@ -150,7 +154,7 @@ export class OllamaStreamProcessor {
   }
 
   private emitThinking(
-    value: UnsafeAny,
+    value: OllamaResponse,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
   ): void {
     const thoughts = value.message.thinking
@@ -169,7 +173,7 @@ export class OllamaStreamProcessor {
   }
 
   private emitToolCalls(
-    value: UnsafeAny,
+    value: OllamaResponse,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
   ): void {
     for (const toolCall of value.message.tool_calls ?? []) {
@@ -190,7 +194,7 @@ export class OllamaStreamProcessor {
         toolName: toolCall.function.name,
         input: serialized,
         args
-      } as UnsafeAny)
+      } as ToolCallStreamPartWithArgs)
     }
   }
 

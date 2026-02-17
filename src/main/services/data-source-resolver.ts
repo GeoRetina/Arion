@@ -8,17 +8,33 @@
 import { DataSourceResolver, type MentionMetadata } from './mention-service'
 import type { KnowledgeBaseService } from './knowledge-base-service'
 import type { LayerDefinition } from '../../shared/types/layer-types'
+import type { KnowledgeBaseDocumentForClient } from '../../shared/ipc-types'
 import { fromFile as geoTiffFromFile } from 'geotiff'
 import fs from 'fs'
+
+export interface LayerDbManagerLike {
+  getAllLayers: () => LayerDefinition[] | Promise<LayerDefinition[]>
+}
+
+type GeoJsonFeatureLike = {
+  geometry?: {
+    type?: string
+  }
+  properties?: Record<string, unknown>
+}
+
+type GeoJsonFeatureCollectionLike = {
+  features?: GeoJsonFeatureLike[]
+}
 
 /**
  * Production implementation that integrates with existing services and utilities
  */
 export class ProductionDataSourceResolver extends DataSourceResolver {
   private knowledgeBaseService: KnowledgeBaseService | null = null
-  private layerDbManager: UnsafeAny = null
+  private layerDbManager: LayerDbManagerLike | null = null
 
-  constructor(knowledgeBaseService?: KnowledgeBaseService, layerDbManager?: UnsafeAny) {
+  constructor(knowledgeBaseService?: KnowledgeBaseService, layerDbManager?: LayerDbManagerLike) {
     super()
     this.knowledgeBaseService = knowledgeBaseService || null
     this.layerDbManager = layerDbManager || null
@@ -128,7 +144,10 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Check if document matches mention criteria
    */
-  private matchesDocumentMention(document: UnsafeAny, mentionId: string): boolean {
+  private matchesDocumentMention(
+    document: KnowledgeBaseDocumentForClient,
+    mentionId: string
+  ): boolean {
     const lowerMentionId = mentionId.toLowerCase()
     const lowerName = document.name.toLowerCase()
     const lowerFileName = document.original_file_name?.toLowerCase() || ''
@@ -210,8 +229,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Extract metadata from vector layer using existing utilities
    */
-  private async extractVectorMetadata(layer: LayerDefinition): Promise<Record<string, UnsafeAny>> {
-    const metadata: Record<string, UnsafeAny> = {
+  private async extractVectorMetadata(layer: LayerDefinition): Promise<Record<string, unknown>> {
+    const metadata: Record<string, unknown> = {
       geometryType: layer.metadata.geometryType,
       featureCount: layer.metadata.featureCount,
       bounds: layer.metadata.bounds,
@@ -220,13 +239,13 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
 
     // If we have GeoJSON data directly in the source config
     if (layer.sourceConfig.type === 'geojson' && typeof layer.sourceConfig.data === 'object') {
-      const geoJsonData = layer.sourceConfig.data as UnsafeAny
+      const geoJsonData = layer.sourceConfig.data as GeoJsonFeatureCollectionLike
       if (geoJsonData.features && Array.isArray(geoJsonData.features)) {
         metadata.actualFeatureCount = geoJsonData.features.length
 
         // Extract geometry types from features
-        const geometryTypes = new Set()
-        geoJsonData.features.forEach((feature: UnsafeAny) => {
+        const geometryTypes = new Set<string>()
+        geoJsonData.features.forEach((feature) => {
           if (feature.geometry && feature.geometry.type) {
             geometryTypes.add(feature.geometry.type)
           }
@@ -250,8 +269,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Extract metadata from raster layer using existing geotiff utilities
    */
-  private async extractRasterMetadata(layer: LayerDefinition): Promise<Record<string, UnsafeAny>> {
-    const metadata: Record<string, UnsafeAny> = {
+  private async extractRasterMetadata(layer: LayerDefinition): Promise<Record<string, unknown>> {
+    const metadata: Record<string, unknown> = {
       bounds: layer.metadata.bounds,
       crs: layer.metadata.crs,
       layerType: 'raster',
@@ -287,13 +306,14 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
           }
 
           // Get band information
-          metadata.bands = []
+          const bands: Array<{ index: number; description: string }> = []
           for (let i = 0; i < image.getSamplesPerPixel(); i++) {
-            metadata.bands.push({
+            bands.push({
               index: i + 1,
               description: `Band ${i + 1}`
             })
           }
+          metadata.bands = bands
         } catch {
           metadata.extractionError = 'Failed to read GeoTIFF metadata'
         }

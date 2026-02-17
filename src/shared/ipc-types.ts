@@ -296,7 +296,7 @@ export interface SettingsApi {
 
 // Type for the Chat API arguments and return type
 export interface ChatRequestBodyForPreload {
-  messages: UnsafeAny[] // Using any[] for now, can be refined to @ai-sdk/react Message[] if shared
+  messages: unknown[] // Can be refined to @ai-sdk/react UIMessage[] if needed
   // other potential fields from useChat body
 }
 
@@ -389,7 +389,7 @@ export interface AddMapFeaturePayload {
  */
 export interface SetPaintPropertiesPayload {
   sourceId: string // The ID of the source whose layers should be styled
-  paintProperties: Record<string, UnsafeAny> // The MapLibre paint properties object
+  paintProperties: Record<string, unknown> // The MapLibre paint properties object
   layerIdPattern?: string // Optional: A pattern to identify specific layers associated with the source (e.g., `${sourceId}-fill-layer`)
   // If not provided, the renderer might try to apply to all layers using this source or a default one.
 }
@@ -634,7 +634,7 @@ export interface PostgreSQLFieldInfo {
 
 export interface PostgreSQLQueryResult {
   success: boolean
-  rows?: UnsafeAny[]
+  rows?: unknown[]
   rowCount?: number
   fields?: PostgreSQLFieldInfo[]
   executionTime?: number
@@ -714,7 +714,7 @@ export interface PostgreSQLApi {
   testConnection: (config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
   createConnection: (id: string, config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
   closeConnection: (id: string) => Promise<void>
-  executeQuery: (id: string, query: string, params?: UnsafeAny[]) => Promise<PostgreSQLQueryResult>
+  executeQuery: (id: string, query: string, params?: unknown[]) => Promise<PostgreSQLQueryResult>
   executeTransaction: (id: string, queries: string[]) => Promise<PostgreSQLQueryResult>
   getActiveConnections: () => Promise<string[]>
   getConnectionInfo: (id: string) => Promise<PostgreSQLConnectionInfo>

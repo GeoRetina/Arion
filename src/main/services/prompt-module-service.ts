@@ -12,6 +12,26 @@ import {
   PromptModuleInfo
 } from '../../shared/types/prompt-types'
 
+type DbServiceWithDb = {
+  db: better_sqlite3.Database
+}
+
+interface PromptModuleRow {
+  id: string
+  name: string
+  description?: string | null
+  type: PromptModuleType
+  content: string
+  parameters?: string | null
+  dependencies?: string | null
+  conditions?: string | null
+  priority?: number | null
+  version: string
+  created_at: string
+  updated_at: string
+  author?: string | null
+}
+
 /**
  * Service for managing prompt modules and assembling system prompts
  */
@@ -22,7 +42,7 @@ export class PromptModuleService {
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
     // This is necessary because the db property is private in DBService
-    return (dbService as UnsafeAny).db
+    return (dbService as unknown as DbServiceWithDb).db
   }
 
   // In-memory cache of prompt modules
@@ -115,7 +135,7 @@ export class PromptModuleService {
   private async refreshCache(): Promise<void> {
     {
       const db = this.getDb()
-      const modules = db.prepare('SELECT * FROM prompt_modules').all() as UnsafeAny[]
+      const modules = db.prepare('SELECT * FROM prompt_modules').all() as PromptModuleRow[]
 
       // Clear existing cache
       this.moduleCache.clear()
@@ -135,7 +155,7 @@ export class PromptModuleService {
           version: moduleRow.version,
           createdAt: moduleRow.created_at,
           updatedAt: moduleRow.updated_at,
-          author: moduleRow.author
+          author: moduleRow.author ?? undefined
         }
 
         this.moduleCache.set(module.id, module)
@@ -274,7 +294,7 @@ export class PromptModuleService {
       // Build update SQL dynamically based on provided fields
       const db = this.getDb()
       const fields: string[] = []
-      const values: UnsafeAny[] = []
+      const values: unknown[] = []
 
       if (updates.name !== undefined) {
         fields.push('name = ?')
@@ -533,13 +553,13 @@ export class PromptModuleService {
           return fieldValue !== value
         case 'contains':
           return typeof fieldValue === 'string'
-            ? fieldValue.includes(value)
+            ? typeof value === 'string' && fieldValue.includes(value)
             : Array.isArray(fieldValue)
               ? fieldValue.includes(value)
               : false
         case 'not_contains':
           return typeof fieldValue === 'string'
-            ? !fieldValue.includes(value)
+            ? typeof value === 'string' && !fieldValue.includes(value)
             : Array.isArray(fieldValue)
               ? !fieldValue.includes(value)
               : true

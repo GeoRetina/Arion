@@ -12,6 +12,15 @@ type ToolChoice =
   | { type: 'web_search_preview' }
   | { type: 'function'; name: string }
 
+type PreparedFunctionTool = {
+  type: 'function'
+  function: {
+    name: string
+    description?: string
+    parameters: JSONSchema7
+  }
+}
+
 export function prepareResponsesTools({
   tools,
   toolChoice
@@ -19,7 +28,7 @@ export function prepareResponsesTools({
   tools: LanguageModelV3CallOptions['tools']
   toolChoice?: LanguageModelV3CallOptions['toolChoice']
 }): {
-  tools?: Array<UnsafeAny>
+  tools?: PreparedFunctionTool[]
   toolChoice?: ToolChoice
   toolWarnings: SharedV3Warning[]
 } {
@@ -30,7 +39,7 @@ export function prepareResponsesTools({
     return { tools: undefined, toolChoice: undefined, toolWarnings }
   }
 
-  const mappedTools: Array<UnsafeAny> = []
+  const mappedTools: PreparedFunctionTool[] = []
   for (const tool of normalizedTools) {
     if (tool.type === 'function') {
       const parameters =
@@ -71,9 +80,11 @@ export function prepareResponsesTools({
             : { type: 'function', name: toolChoice.toolName },
         toolWarnings
       }
-    default:
+    default: {
+      const unknownChoice = toolChoice as { type?: string }
       throw new UnsupportedFunctionalityError({
-        functionality: `tool choice type: ${(toolChoice as UnsafeAny)?.type ?? 'unknown'}`
+        functionality: `tool choice type: ${unknownChoice.type ?? 'unknown'}`
       })
+    }
   }
 }

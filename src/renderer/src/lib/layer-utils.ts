@@ -18,6 +18,19 @@ import type {
   SpatialStats
 } from '../../../shared/types/layer-types'
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function isCoordinatePair(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    typeof value[0] === 'number' &&
+    typeof value[1] === 'number'
+  )
+}
+
 // Color utilities
 export class ColorUtils {
   /**
@@ -98,10 +111,11 @@ export class GeometryUtils {
       maxLat = Math.max(maxLat, lat)
     }
 
-    const processCoordinates = (coords: UnsafeAny): void => {
+    const processCoordinates = (coords: unknown): void => {
+      if (!Array.isArray(coords) || coords.length === 0) return
       if (Array.isArray(coords[0])) {
-        coords.forEach(processCoordinates)
-      } else {
+        coords.forEach((coord) => processCoordinates(coord))
+      } else if (isCoordinatePair(coords)) {
         processCoordinate(coords)
       }
     }
@@ -531,7 +545,7 @@ export class LayerTransformUtils {
   /**
    * Convert layer to export format
    */
-  static toExportFormat(layer: LayerDefinition): UnsafeAny {
+  static toExportFormat(layer: LayerDefinition): Record<string, unknown> {
     return {
       version: '1.0',
       layer: {
@@ -547,20 +561,20 @@ export class LayerTransformUtils {
   /**
    * Create layer from import data
    */
-  static fromImportFormat(
-    data: UnsafeAny
-  ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    if (!data.layer) {
+  static fromImportFormat(data: unknown): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
+    const dataRecord = asRecord(data)
+    const layerRecord = asRecord(dataRecord?.layer)
+    if (!layerRecord) {
       throw new Error('Invalid import format: missing layer data')
     }
 
-    const layerData = { ...data.layer }
+    const layerData = { ...layerRecord }
     delete layerData.id
     delete layerData.createdAt
     delete layerData.updatedAt
 
     // Convert date strings back to Date objects if they exist
-    return layerData
+    return layerData as Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
   }
 }
 

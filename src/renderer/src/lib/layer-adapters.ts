@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/ipc-types'
 import type {
   LayerDefinition,
+  AttributeInfo,
   LayerSourceConfig,
   LayerStyle,
   LayerMetadata
@@ -188,8 +189,8 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
 /**
  * Extract attribute information from feature properties
  */
-function extractAttributeInfo(properties: Record<string, UnsafeAny>): Record<string, UnsafeAny> {
-  const attributes: Record<string, UnsafeAny> = {}
+function extractAttributeInfo(properties: Record<string, unknown>): Record<string, AttributeInfo> {
+  const attributes: Record<string, AttributeInfo> = {}
 
   for (const [key, value] of Object.entries(properties)) {
     // Skip style-related properties
@@ -209,7 +210,7 @@ function extractAttributeInfo(properties: Record<string, UnsafeAny>): Record<str
       continue
     }
 
-    let type: string
+    let type: AttributeInfo['type']
     if (typeof value === 'string') {
       type = 'string'
     } else if (typeof value === 'number') {

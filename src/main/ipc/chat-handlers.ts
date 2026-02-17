@@ -5,6 +5,7 @@ import { AgentRoutingService } from '../services/agent-routing-service'
 import { MentionService, type MessageContent } from '../services/mention-service'
 import { ProductionDataSourceResolver } from '../services/data-source-resolver'
 import type { KnowledgeBaseService } from '../services/knowledge-base-service'
+import type { LayerDbManagerLike } from '../services/data-source-resolver'
 
 // Initialize mention processing services
 const mentionService = MentionService.getInstance()
@@ -110,7 +111,7 @@ export function registerChatIpcHandlers(
   chatService: ChatService,
   agentRoutingService?: AgentRoutingService,
   knowledgeBaseService?: KnowledgeBaseService,
-  layerDbManager?: unknown
+  layerDbManager?: LayerDbManagerLike
 ): void {
   // Initialize production resolver with real services
   dataSourceResolver = new ProductionDataSourceResolver(knowledgeBaseService, layerDbManager)

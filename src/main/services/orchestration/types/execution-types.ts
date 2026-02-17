@@ -3,8 +3,8 @@ export interface AgentExecutionResult {
   toolResults: Array<{
     toolCallId: string
     toolName: string
-    args: UnsafeAny
-    result: UnsafeAny
+    args: unknown
+    result: unknown
   }>
   success: boolean
   error?: string
@@ -17,8 +17,8 @@ export interface SubtaskExecutionResult {
   toolResults?: Array<{
     toolCallId: string
     toolName: string
-    args: UnsafeAny
-    result: UnsafeAny
+    args: unknown
+    result: unknown
   }>
   success: boolean
   error?: string

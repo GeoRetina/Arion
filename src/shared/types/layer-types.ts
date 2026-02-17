@@ -35,7 +35,7 @@ export interface LayerContext {
   chatId?: string | null // Associated chat session ID
   userId?: string // User who initiated the action
   source?: string // Source component/service name
-  metadata?: Record<string, UnsafeAny> // Additional context metadata
+  metadata?: Record<string, unknown> // Additional context metadata
 }
 
 // Source configuration for different layer types
@@ -140,9 +140,9 @@ export interface LayerStyle {
   iconOffset?: [number, number]
 
   // Advanced styling
-  filter?: UnsafeAny[] // MapLibre GL filter expression
-  layout?: Record<string, UnsafeAny> // Custom layout properties
-  paint?: Record<string, UnsafeAny> // Custom paint properties
+  filter?: unknown[] // MapLibre GL filter expression
+  layout?: Record<string, unknown> // Custom layout properties
+  paint?: Record<string, unknown> // Custom paint properties
 }
 
 // Extended layer metadata
@@ -305,7 +305,7 @@ export interface StylePreset {
 export interface LayerError {
   code: LayerErrorCode
   message: string
-  details?: UnsafeAny
+  details?: unknown
   layerId?: string
   timestamp: Date
 }

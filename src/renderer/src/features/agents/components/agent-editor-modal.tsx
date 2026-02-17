@@ -58,7 +58,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     useLLMStore()
 
   // State to hold full agent details for tool checking (excluding current agent)
-  const [otherAgents, setOtherAgents] = useState<UnsafeAny[]>([])
+  const [otherAgents, setOtherAgents] = useState<AgentDefinition[]>([])
 
   // Load full agent details (excluding current agent) when modal opens
   useEffect(() => {
@@ -68,7 +68,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
         const otherAgentsList = agents.filter((a) => a.id !== agentId)
         const fullAgentPromises = otherAgentsList.map((a) => getAgentById(a.id))
         const fullAgentResults = await Promise.all(fullAgentPromises)
-        const validAgents = fullAgentResults.filter((a) => a !== null)
+        const validAgents = fullAgentResults.filter((a): a is AgentDefinition => a !== null)
         setOtherAgents(validAgents)
       }
       loadOtherAgentDetails()
@@ -176,7 +176,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }
 
   // Handle agent field updates
-  const updateAgentField = (field: keyof AgentDefinition, value: UnsafeAny): void => {
+  const updateAgentField = (field: keyof AgentDefinition, value: unknown): void => {
     if (!agent) return
 
     setAgent({
@@ -207,7 +207,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }
 
   // Update model config parameter
-  const updateModelParameter = (parameter: string, value: UnsafeAny): void => {
+  const updateModelParameter = (parameter: string, value: unknown): void => {
     if (!agent) return
 
     const updatedModelConfig = {
@@ -226,12 +226,18 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     return agent?.modelConfig.parameters?.[parameter] ?? defaultValue
   }
 
+  const readModelFromConfig = (config: unknown, configKey: string): string | null => {
+    if (!config || typeof config !== 'object') return null
+    const modelValue = (config as Record<string, unknown>)[configKey]
+    return typeof modelValue === 'string' && modelValue.length > 0 ? modelValue : null
+  }
+
   // Get available models based on selected provider
-  const availableModels = React.useMemo(() => {
+  const availableModels = React.useMemo<string[]>(() => {
     if (!agent?.modelConfig.provider) return []
 
     // Map of provider IDs to their config objects
-    const configMap: Record<NonNullable<LLMProviderType>, UnsafeAny> = {
+    const configMap: Record<NonNullable<LLMProviderType>, unknown> = {
       openai: openaiConfig,
       google: googleConfig,
       anthropic: anthropicConfig,
@@ -243,8 +249,8 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     const config = configMap[agent.modelConfig.provider as NonNullable<LLMProviderType>]
     const configKey =
       PROVIDER_CONFIG_KEYS[agent.modelConfig.provider as NonNullable<LLMProviderType>]
-
-    return config && config[configKey] ? [config[configKey]] : []
+    const model = readModelFromConfig(config, configKey)
+    return model ? [model] : []
   }, [
     agent?.modelConfig.provider,
     openaiConfig,

@@ -15,6 +15,37 @@ import type {
   UpdateAgentParams
 } from '../../shared/types/agent-types'
 
+interface AgentRow {
+  id: string
+  name: string
+  description: string | null
+  type: string
+  role: AgentDefinition['role'] | null
+  icon: string | null
+  model_config: string
+  tool_access: string | null
+  memory_config: string | null
+  relationships: string | null
+  created_at: string
+  updated_at: string
+  created_by: string | null
+}
+
+interface AgentCapabilityRow {
+  id: string
+  name: string
+  description: string | null
+  tools: string
+  example_tasks: string | null
+}
+
+interface AgentPromptConfigRow {
+  core_modules: string
+  task_modules: string | null
+  agent_modules: string
+  rule_modules: string | null
+}
+
 /**
  * Service for managing agent definitions and lifecycle
  */
@@ -26,7 +57,7 @@ export class AgentRegistryService {
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
     // This is necessary because the db property is private in DBService
-    return (dbService as UnsafeAny).db
+    return (dbService as unknown as { db: better_sqlite3.Database }).db
   }
 
   // In-memory cache of agent definitions
@@ -106,7 +137,7 @@ export class AgentRegistryService {
       const db = this.getDb()
 
       // Get all agents
-      const agents = db.prepare('SELECT * FROM agents').all() as UnsafeAny[]
+      const agents = db.prepare('SELECT * FROM agents').all() as AgentRow[]
 
       // Clear existing cache
       this.agentCache.clear()
@@ -118,12 +149,12 @@ export class AgentRegistryService {
         // Get agent capabilities
         const capabilities = db
           .prepare('SELECT * FROM agent_capabilities WHERE agent_id = ?')
-          .all(agentId) as UnsafeAny[]
+          .all(agentId) as AgentCapabilityRow[]
 
         // Get agent prompt config
         const promptConfigRow = db
           .prepare('SELECT * FROM agent_prompt_configs WHERE agent_id = ?')
-          .get(agentId) as UnsafeAny
+          .get(agentId) as AgentPromptConfigRow | undefined
 
         if (!promptConfigRow) {
           continue
@@ -137,7 +168,7 @@ export class AgentRegistryService {
           ? JSON.parse(agentRow.relationships)
           : undefined
 
-        const parsedCapabilities: AgentCapability[] = capabilities.map((cap: UnsafeAny) => ({
+        const parsedCapabilities: AgentCapability[] = capabilities.map((cap) => ({
           id: cap.id,
           name: cap.name,
           description: cap.description || '',
@@ -163,7 +194,7 @@ export class AgentRegistryService {
           description: agentRow.description || '',
           type: agentRow.type as AgentType,
           role: agentRow.role || 'specialist', // Default to specialist if not specified
-          icon: agentRow.icon,
+          icon: agentRow.icon ?? undefined,
           capabilities: parsedCapabilities,
           promptConfig,
           modelConfig,
@@ -172,7 +203,7 @@ export class AgentRegistryService {
           relationships,
           createdAt: agentRow.created_at,
           updatedAt: agentRow.updated_at,
-          createdBy: agentRow.created_by
+          createdBy: agentRow.created_by ?? undefined
         }
 
         // Add to cache
@@ -362,7 +393,7 @@ export class AgentRegistryService {
 
       try {
         // Update agent record
-        const agentUpdates: UnsafeAny[] = []
+        const agentUpdates: unknown[] = []
         const agentUpdateFields: string[] = []
 
         if (updates.name !== undefined) {

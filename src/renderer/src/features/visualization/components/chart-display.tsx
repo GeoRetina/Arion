@@ -46,8 +46,8 @@ export interface ChartDisplayData {
     | 'radialBar'
     | 'donut'
     | 'treemap'
-  data: Record<string, UnsafeAny>[]
-  config: Record<string, UnsafeAny> // Contains specific config like xAxisKey, yAxisKeys, nameKey, valueKey, etc.
+  data: Record<string, unknown>[]
+  config: Record<string, unknown> // Contains specific config like xAxisKey, yAxisKeys, nameKey, valueKey, etc.
 }
 
 export interface ChartDisplayProps {
@@ -112,6 +112,18 @@ interface ScatterChartConfig {
   yAxisLabel?: string
 }
 
+interface TreemapContentProps {
+  depth?: number
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  index?: number
+  name?: string | number
+  value?: string | number
+  colors?: string[]
+}
+
 const DEFAULT_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -130,11 +142,23 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
 
   // Custom content renderer for Treemap to handle colors and text
   const TreemapCustomContent = (
-    props: UnsafeAny
+    props: TreemapContentProps
   ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
-    const { depth, x, y, width, height, index, name, value, colors } = props
+    const {
+      depth = 0,
+      x = 0,
+      y = 0,
+      width = 0,
+      height = 0,
+      index = 0,
+      name = '',
+      value = '',
+      colors = []
+    } = props
     const color =
-      colors?.[index % colors?.length || 0] || DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+      colors.length > 0
+        ? colors[index % colors.length]
+        : DEFAULT_COLORS[index % DEFAULT_COLORS.length]
 
     return (
       <g>
@@ -181,7 +205,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
     (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
       switch (chartType) {
         case 'bar': {
-          const barConfig = rawConfig as CategoryChartConfig
+          const barConfig = rawConfig as unknown as CategoryChartConfig
           return (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
@@ -242,7 +266,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           )
         }
         case 'line': {
-          const lineConfig = rawConfig as CategoryChartConfig
+          const lineConfig = rawConfig as unknown as CategoryChartConfig
           return (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
@@ -307,7 +331,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
         }
         case 'pie':
         case 'donut': {
-          const pieConfig = rawConfig as PieDonutChartConfig
+          const pieConfig = rawConfig as unknown as PieDonutChartConfig
           const outerRadius = chartType === 'donut' ? 100 : 120
           const innerRadius =
             chartType === 'donut' ? outerRadius * (pieConfig.innerRadiusRatio ?? 0.5) : 0
@@ -355,7 +379,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           )
         }
         case 'area': {
-          const areaConfig = rawConfig as CategoryChartConfig
+          const areaConfig = rawConfig as unknown as CategoryChartConfig
           return (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
@@ -421,7 +445,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           )
         }
         case 'scatter': {
-          const scatterConfig = rawConfig as ScatterChartConfig & {
+          const scatterConfig = rawConfig as unknown as ScatterChartConfig & {
             xAxisKey?: string
             yAxisKeys?: string[]
           }
@@ -504,7 +528,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           )
         }
         case 'radar': {
-          const radarConfig = rawConfig as RadarChartConfig
+          const radarConfig = rawConfig as unknown as RadarChartConfig
           return (
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart
@@ -557,7 +581,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           )
         }
         case 'radialBar': {
-          const radialBarConfig = rawConfig as RadialBarChartConfig
+          const radialBarConfig = rawConfig as unknown as RadialBarChartConfig
           const radialData = data.map((item, index) => ({
             name: item[radialBarConfig.nameKey],
             value: item[radialBarConfig.valueKey],
@@ -610,7 +634,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           )
         }
         case 'treemap': {
-          const treemapConfig = rawConfig as TreemapChartConfig
+          const treemapConfig = rawConfig as unknown as TreemapChartConfig
           return (
             <ResponsiveContainer width="100%" height="100%">
               <Treemap

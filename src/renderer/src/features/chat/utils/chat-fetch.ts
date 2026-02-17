@@ -4,8 +4,8 @@ import { type UIMessage } from 'ai'
 interface ChatRequestBody {
   messages: UIMessage[] // The @ai-sdk/react useChat hook automatically includes messages
   // Other properties from your useChatLogic's body
-  selectedRoiGeometryInChat?: UnsafeAny // Replace 'any' with the actual type
-  selectedUserGeospatialSource?: UnsafeAny // Replace 'any' with the actual type
+  selectedRoiGeometryInChat?: unknown
+  selectedUserGeospatialSource?: unknown
   isAnalystActive?: boolean
   mapLayersNames?: string[]
   // chat ID is usually handled by useChat options directly or as part of the URL

@@ -14,16 +14,23 @@ import {
 import { type SettingsService } from '../services/settings-service'
 import { type MCPClientService } from '../services/mcp-client-service'
 
+type SettingsServiceWithGenericOps = SettingsService & {
+  getSetting?: (key: string) => unknown | Promise<unknown>
+  setSetting?: (key: string, value: unknown) => void | Promise<void>
+}
+
 export function registerSettingsIpcHandlers(
   ipcMain: IpcMain,
   settingsService: SettingsService,
   mcpClientService: MCPClientService
 ): void {
+  const genericSettingsService = settingsService as SettingsServiceWithGenericOps
+
   // --- Generic SettingsService IPC Handlers (if still needed) ---
   ipcMain.handle('ctg:settings:get', async (_event, key: string) => {
     try {
-      if (typeof (settingsService as UnsafeAny).getSetting === 'function') {
-        return (settingsService as UnsafeAny).getSetting(key)
+      if (typeof genericSettingsService.getSetting === 'function') {
+        return genericSettingsService.getSetting(key)
       }
       return undefined
     } catch {
@@ -33,8 +40,8 @@ export function registerSettingsIpcHandlers(
 
   ipcMain.handle('ctg:settings:set', async (_event, key: string, value: unknown) => {
     try {
-      if (typeof (settingsService as UnsafeAny).setSetting === 'function') {
-        ;(settingsService as UnsafeAny).setSetting(key, value)
+      if (typeof genericSettingsService.setSetting === 'function') {
+        await genericSettingsService.setSetting(key, value)
         return { success: true }
       }
       return { success: false, error: 'setSetting not available' }

@@ -170,7 +170,7 @@ export class LLMProviderFactory {
     const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
     // IMPORTANT: use auto API selection so reasoning models (o3/o4-mini) use Responses API
     // which supports reasoning summaries and streaming reasoning events.
-    return customOpenAI(model as UnsafeAny)
+    return customOpenAI(model as Parameters<typeof customOpenAI>[0])
   }
 
   /**
@@ -182,7 +182,7 @@ export class LLMProviderFactory {
       throw new Error('Google provider is not configured correctly.')
     }
     const customGoogleProvider = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
-    return customGoogleProvider(model as UnsafeAny)
+    return customGoogleProvider(model as Parameters<typeof customGoogleProvider>[0])
   }
 
   /**
@@ -210,7 +210,7 @@ export class LLMProviderFactory {
       throw new Error('Anthropic provider is not configured correctly.')
     }
     const customAnthropic = createAnthropic({ apiKey: anthropicConfig.apiKey })
-    return customAnthropic.messages(model as UnsafeAny)
+    return customAnthropic.messages(model as Parameters<typeof customAnthropic.messages>[0])
   }
 
   /**
@@ -221,10 +221,13 @@ export class LLMProviderFactory {
     if (!vertexConfig?.apiKey || !vertexConfig.project || !vertexConfig.location) {
       throw new Error('Vertex AI provider is not configured correctly.')
     }
-    let credentialsJson: UnsafeAny = undefined
+    let credentialsJson: Record<string, unknown> | undefined = undefined
     try {
       if (vertexConfig.apiKey.trim().startsWith('{')) {
-        credentialsJson = JSON.parse(vertexConfig.apiKey)
+        const parsed = JSON.parse(vertexConfig.apiKey)
+        if (parsed && typeof parsed === 'object') {
+          credentialsJson = parsed as Record<string, unknown>
+        }
       }
     } catch {
       void 0
@@ -234,7 +237,7 @@ export class LLMProviderFactory {
       project: vertexConfig.project,
       location: vertexConfig.location
     })
-    return vertexProvider(model as UnsafeAny) as unknown as LanguageModel
+    return vertexProvider(model as Parameters<typeof vertexProvider>[0]) as unknown as LanguageModel
   }
 
   /**
@@ -258,11 +261,11 @@ export class LLMProviderFactory {
     const isReasoningModel = detectReasoningModel(model)
     if (!isReasoningModel) {
       return wrapLanguageModel({
-        model: ollamaProvider(model as UnsafeAny),
+        model: ollamaProvider(model as Parameters<typeof ollamaProvider>[0]),
         middleware: simulateStreamingMiddleware()
       })
     }
 
-    return ollamaProvider(model as UnsafeAny)
+    return ollamaProvider(model as Parameters<typeof ollamaProvider>[0])
   }
 }

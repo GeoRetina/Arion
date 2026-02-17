@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, type UIMessage } from 'ai'
+import { useChat, type UseChatHelpers } from '@ai-sdk/react'
+import { DefaultChatTransport, type UIDataTypes, type UIMessage, type UITools } from 'ai'
 import { Subtask } from '../../../../../shared/ipc-types'
 
 import { createStreamingFetch } from '../utils/streaming-fetch'
@@ -8,7 +8,9 @@ import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat
 import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 import { useMessagePersistence, getTextFromParts } from './use-message-persistence'
 
-type ExtendedMessage = UIMessage<UnsafeAny, UnsafeAny, UnsafeAny> & {
+export type ChatMessage = UIMessage<unknown, UIDataTypes, UITools>
+
+type ExtendedMessage = ChatMessage & {
   orchestration?: {
     subtasks?: Subtask[]
     agentsInvolved?: string[]
@@ -29,18 +31,8 @@ export function useChatController({
   currentChatIdFromStore,
   setIsStreamingUi
 }: UseChatControllerOptions): {
-  chat: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/react/dist/index').UseChatHelpers<
-    UIMessage<
-      unknown,
-      import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UIDataTypes,
-      import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UITools
-    >
-  >
-  sdkMessages: UIMessage<
-    unknown,
-    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UIDataTypes,
-    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UITools
-  >[]
+  chat: UseChatHelpers<ChatMessage>
+  sdkMessages: ChatMessage[]
   sdkError: Error | undefined
   stop: (() => void) | undefined
 } {
@@ -57,14 +49,14 @@ export function useChatController({
     [streamingFetch]
   )
 
-  const chat = useChat({
+  const chat = useChat<ChatMessage>({
     id: stableChatIdForUseChat,
     transport,
     onError: () => {
       setIsStreamingUi(false)
     },
-    onFinish: async (args: UnsafeAny) => {
-      const assistantMessage = (args?.message || args) as ExtendedMessage
+    onFinish: async ({ message }) => {
+      const assistantMessage: ExtendedMessage = { ...message }
       setIsStreamingUi(false)
       let currentChatId = useChatHistoryStore.getState().currentChatId
       if (!currentChatId && stableChatIdForUseChat) {
@@ -88,15 +80,13 @@ export function useChatController({
       if (currentChatId) {
         await persistRef.current(currentChatId)
 
-        const existingMsg = currentMessagesFromStore.find(
-          (m) => m.id === (assistantMessage as UnsafeAny).id
-        )
+        const existingMsg = currentMessagesFromStore.find((m) => m.id === assistantMessage.id)
         const text = getTextFromParts(assistantMessage)
         if (!existingMsg && text && text.trim().length > 0) {
           await addMessageToCurrentChat({
-            id: (assistantMessage as UnsafeAny).id,
+            id: assistantMessage.id,
             chat_id: currentChatId,
-            role: assistantMessage.role as UnsafeAny,
+            role: assistantMessage.role,
             content: text,
             orchestration: assistantMessage.orchestration
               ? JSON.stringify(assistantMessage.orchestration)
@@ -107,7 +97,7 @@ export function useChatController({
     }
   })
 
-  const sdkMessages = chat.messages as UIMessage[]
+  const sdkMessages = chat.messages
   const { persistPendingUserMessages } = useMessagePersistence({
     sdkMessages,
     currentMessagesFromStore,
@@ -123,7 +113,7 @@ export function useChatController({
   return {
     chat,
     sdkMessages,
-    sdkError: chat.error as Error | undefined,
-    stop: chat.stop as (() => void) | undefined
+    sdkError: chat.error,
+    stop: chat.stop
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
+  type AgentLike,
   fetchAvailableTools,
   getAssignedToolsFromAgents,
   filterUnassignedTools
@@ -12,7 +13,7 @@ import {
  * @returns Object containing tool-related state and functions
  */
 export function useAgentTools(
-  agents: UnsafeAny[] = [],
+  agents: AgentLike[] = [],
   shouldFetch: boolean = true
 ): {
   allTools: string[]

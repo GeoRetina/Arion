@@ -77,7 +77,7 @@ function renderNestedToolCall(
  * Renders nested tool calls for agent execution results
  */
 function renderNestedToolCalls(
-  toolResult: UnsafeAny,
+  toolResult: unknown,
   parentToolCallId: string,
   parentComponent: React.ReactElement
 ): React.ReactElement | null {
@@ -165,7 +165,7 @@ export const MessagePartRenderer = ({
     const { toolCallId, toolName, args, state } = toolInvocation
 
     // Check if this tool should render a special UI component
-    const toolUIComponent = detectToolUIComponent(toolInvocation as ToolInvocation)
+    const toolUIComponent = detectToolUIComponent(toolInvocation)
     if (toolUIComponent) {
       const Component = toolUIComponent.component
       const baseComponent = (
@@ -212,8 +212,8 @@ export const MessagePartRenderer = ({
     }
 
     // For all other tool calls, use ToolCallDisplay with proper error handling
-    const status = determineToolStatus(toolInvocation as ToolInvocation)
-    let toolResultData: UnsafeAny = undefined
+    const status = determineToolStatus(toolInvocation)
+    let toolResultData: unknown = undefined
 
     if (state === TOOL_STATES.RESULT) {
       toolResultData = toolInvocation.result
@@ -243,7 +243,7 @@ export const MessagePartRenderer = ({
             const trimmedReasoning = reasoningText.trim()
             const trimmedContent = contentText.trim()
             if (trimmedReasoning.length === 0 && trimmedContent.length === 0) return null
-            const isStreamingReasoning = hasOpenTag || (part as UnsafeAny).state === 'streaming'
+            const isStreamingReasoning = hasOpenTag || part.state === 'streaming'
             return (
               <>
                 {trimmedReasoning.length > 0 && (
@@ -269,10 +269,10 @@ export const MessagePartRenderer = ({
         }
 
       case COMPONENT_TYPES.REASONING:
-        if (typeof (part as UnsafeAny).text === 'string') {
-          const reasoningText = (part as UnsafeAny).text as string
+        if (typeof part.text === 'string') {
+          const reasoningText = part.text
           if (reasoningText.trim().length === 0) return null
-          const isStreamingReasoning = (part as UnsafeAny).state === 'streaming'
+          const isStreamingReasoning = part.state === 'streaming'
           return (
             <ThoughtsPart
               text={reasoningText}

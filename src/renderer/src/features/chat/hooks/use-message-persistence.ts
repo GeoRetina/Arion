@@ -1,28 +1,33 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { type UIMessage } from 'ai'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
+import type { Message } from '@/stores/chat-history-store'
 
 /**
  * Helper to read text from UIMessage parts
  * Exported for use in other components that need to extract text from messages
  */
-export function getTextFromParts(message: UIMessage<UnsafeAny, UnsafeAny, UnsafeAny>): string {
-  const parts = (message as UnsafeAny).parts as Array<UnsafeAny> | undefined
+export function getTextFromParts(message: UIMessage): string {
+  const parts = (message as { parts?: unknown[] }).parts
   if (!Array.isArray(parts)) return ''
   return parts
+    .map((p) => p as { type?: unknown; text?: unknown })
     .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
     .map((p) => p.text as string)
     .join('')
 }
 
 type HydratedMessage = UIMessage & { content?: string; createdAt?: Date; hydrated?: boolean }
+type ChatControllerLike = {
+  setMessages?: (messages: HydratedMessage[]) => void
+}
 
 interface UseMessagePersistenceProps {
   sdkMessages: UIMessage[]
-  currentMessagesFromStore: UnsafeAny[]
+  currentMessagesFromStore: Message[]
   stableChatIdForUseChat: string | null
   currentChatIdFromStore: string | null
-  chat: UnsafeAny
+  chat: ChatControllerLike
 }
 
 /**
@@ -47,7 +52,7 @@ export function useMessagePersistence({
       const storeMessages = useChatHistoryStore.getState().currentMessages
       const baselineMessages =
         storeMessages && storeMessages.length > 0 ? storeMessages : currentMessagesFromStore
-      const persistedIds = new Set((baselineMessages || []).map((m: UnsafeAny) => m.id))
+      const persistedIds = new Set((baselineMessages || []).map((m) => m.id))
 
       for (const message of sdkMessages) {
         if (message.role !== 'user' || !message.id || persistedIds.has(message.id)) {
@@ -62,7 +67,7 @@ export function useMessagePersistence({
         await addMessageToCurrentChat({
           id: message.id,
           chat_id: chatId,
-          role: message.role as UnsafeAny,
+          role: message.role as Message['role'],
           content: text
         })
         persistedIds.add(message.id)
@@ -93,13 +98,13 @@ export function useMessagePersistence({
       lastHydrationRef.current.messageCount === storeCount
     if (alreadyHydrated) return
 
-    const setMessages = (chat as UnsafeAny)?.setMessages
+    const setMessages = chat?.setMessages
     if (typeof setMessages !== 'function') return
 
     // Map DB messages to UIMessage shape (parts-based)
-    const normalizeRole = (role: string): UnsafeAny => {
+    const normalizeRole = (role: string): UIMessage['role'] => {
       if (role === 'data' || role === 'function' || role === 'tool') return 'assistant'
-      return role
+      return role as UIMessage['role']
     }
 
     const normalizedMessages: HydratedMessage[] = storeMessages.map((m) => {

@@ -8,11 +8,41 @@
 import { v4 as uuidv4 } from 'uuid'
 import type {
   LayerDefinition,
+  GeometryType,
   LayerType,
   LayerSourceConfig
 } from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
+
+type GeoJsonRecord = Record<string, unknown>
+type GeoJsonFeatureCollection = { type: 'FeatureCollection'; features: GeoJsonRecord[] }
+
+type MetadataFeatureLike = {
+  geometry?: {
+    type?: GeometryType
+    coordinates?: unknown
+  }
+  properties?: Record<string, unknown>
+}
+
+const geometryTypes = new Set<GeometryType>([
+  'Point',
+  'LineString',
+  'Polygon',
+  'MultiPoint',
+  'MultiLineString',
+  'MultiPolygon',
+  'GeometryCollection'
+])
+
+function asRecord(value: unknown): GeoJsonRecord | null {
+  return value && typeof value === 'object' ? (value as GeoJsonRecord) : null
+}
+
+function isGeometryType(value: unknown): value is GeometryType {
+  return typeof value === 'string' && geometryTypes.has(value as GeometryType)
+}
 
 export class GeoJSONProcessor {
   /**
@@ -20,7 +50,7 @@ export class GeoJSONProcessor {
    */
   static async processFile(file: File, fileName: string): Promise<LayerDefinition> {
     const text = await file.text()
-    let geoJsonData: UnsafeAny
+    let geoJsonData: unknown
 
     try {
       geoJsonData = JSON.parse(text)
@@ -32,7 +62,9 @@ export class GeoJSONProcessor {
     const normalizedData = this.normalizeToFeatureCollection(geoJsonData)
 
     // Extract metadata and create style
-    const metadata = VectorMetadataExtractor.extractGeoJSONMetadata(normalizedData)
+    const metadata = VectorMetadataExtractor.extractGeoJSONMetadata({
+      features: normalizedData.features.map((feature) => this.toMetadataFeature(feature))
+    })
     const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
 
     return {
@@ -59,26 +91,40 @@ export class GeoJSONProcessor {
   /**
    * Normalize GeoJSON to FeatureCollection format
    */
-  private static normalizeToFeatureCollection(geoJsonData: UnsafeAny): UnsafeAny {
-    if (geoJsonData.type === 'FeatureCollection') {
-      return geoJsonData
+  private static normalizeToFeatureCollection(geoJsonData: unknown): GeoJsonFeatureCollection {
+    const geoJsonRecord = asRecord(geoJsonData)
+    const geoJsonType = geoJsonRecord?.type
+    if (!geoJsonRecord || typeof geoJsonType !== 'string') {
+      throw new Error('Invalid GeoJSON structure')
     }
 
-    if (geoJsonData.type === 'Feature') {
+    if (geoJsonType === 'FeatureCollection') {
+      const features = Array.isArray(geoJsonRecord.features)
+        ? geoJsonRecord.features.filter((feature): feature is GeoJsonRecord =>
+            Boolean(asRecord(feature))
+          )
+        : []
       return {
         type: 'FeatureCollection',
-        features: [geoJsonData]
+        features
       }
     }
 
-    if (geoJsonData.type && geoJsonData.coordinates) {
+    if (geoJsonType === 'Feature') {
+      return {
+        type: 'FeatureCollection',
+        features: [geoJsonRecord]
+      }
+    }
+
+    if (geoJsonRecord.coordinates) {
       // Single geometry
       return {
         type: 'FeatureCollection',
         features: [
           {
             type: 'Feature',
-            geometry: geoJsonData,
+            geometry: geoJsonRecord,
             properties: {}
           }
         ]
@@ -91,14 +137,16 @@ export class GeoJSONProcessor {
   /**
    * Validate GeoJSON structure
    */
-  static validateGeoJSON(data: UnsafeAny): { valid: boolean; error?: string } {
-    if (!data || typeof data !== 'object') {
+  static validateGeoJSON(data: unknown): { valid: boolean; error?: string } {
+    const dataRecord = asRecord(data)
+    if (!dataRecord) {
       return { valid: false, error: 'Invalid GeoJSON: not an object' }
     }
 
-    if (!data.type) {
+    if (typeof dataRecord.type !== 'string') {
       return { valid: false, error: 'Invalid GeoJSON: missing type property' }
     }
+    const dataType = dataRecord.type
 
     const validTypes = [
       'FeatureCollection',
@@ -112,19 +160,19 @@ export class GeoJSONProcessor {
       'GeometryCollection'
     ]
 
-    if (!validTypes.includes(data.type)) {
-      return { valid: false, error: `Invalid GeoJSON: invalid type '${data.type}'` }
+    if (!validTypes.includes(dataType)) {
+      return { valid: false, error: `Invalid GeoJSON: invalid type '${dataType}'` }
     }
 
     // Additional validation based on type
-    if (data.type === 'FeatureCollection') {
-      if (!Array.isArray(data.features)) {
+    if (dataType === 'FeatureCollection') {
+      if (!Array.isArray(dataRecord.features)) {
         return { valid: false, error: 'Invalid FeatureCollection: features must be an array' }
       }
     }
 
-    if (data.type === 'Feature') {
-      if (!data.geometry) {
+    if (dataType === 'Feature') {
+      if (!dataRecord.geometry) {
         return { valid: false, error: 'Invalid Feature: missing geometry' }
       }
     }
@@ -132,11 +180,11 @@ export class GeoJSONProcessor {
     // Geometry types need coordinates
     if (
       ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon'].includes(
-        data.type
+        dataType
       )
     ) {
-      if (!data.coordinates) {
-        return { valid: false, error: `Invalid ${data.type}: missing coordinates` }
+      if (!dataRecord.coordinates) {
+        return { valid: false, error: `Invalid ${dataType}: missing coordinates` }
       }
     }
 
@@ -146,7 +194,7 @@ export class GeoJSONProcessor {
   /**
    * Extract summary information from GeoJSON
    */
-  static getSummaryInfo(geoJsonData: UnsafeAny): {
+  static getSummaryInfo(geoJsonData: unknown): {
     featureCount: number
     geometryTypes: string[]
     hasProperties: boolean
@@ -159,14 +207,21 @@ export class GeoJSONProcessor {
     const propertyKeys = new Set<string>()
     let hasProperties = false
 
-    features.forEach((feature: UnsafeAny) => {
-      if (feature.geometry?.type) {
-        geometryTypes.add(feature.geometry.type)
+    features.forEach((feature) => {
+      const featureRecord = asRecord(feature)
+      if (!featureRecord) {
+        return
       }
 
-      if (feature.properties && Object.keys(feature.properties).length > 0) {
+      const geometryRecord = asRecord(featureRecord.geometry)
+      if (typeof geometryRecord?.type === 'string') {
+        geometryTypes.add(geometryRecord.type)
+      }
+
+      const propertiesRecord = asRecord(featureRecord.properties)
+      if (propertiesRecord && Object.keys(propertiesRecord).length > 0) {
         hasProperties = true
-        Object.keys(feature.properties).forEach((key) => propertyKeys.add(key))
+        Object.keys(propertiesRecord).forEach((key) => propertyKeys.add(key))
       }
     })
 
@@ -175,6 +230,21 @@ export class GeoJSONProcessor {
       geometryTypes: Array.from(geometryTypes),
       hasProperties,
       propertyKeys: Array.from(propertyKeys)
+    }
+  }
+
+  private static toMetadataFeature(feature: GeoJsonRecord): MetadataFeatureLike {
+    const geometryRecord = asRecord(feature.geometry)
+    const propertiesRecord = asRecord(feature.properties)
+
+    return {
+      geometry: geometryRecord
+        ? {
+            type: isGeometryType(geometryRecord.type) ? geometryRecord.type : undefined,
+            coordinates: geometryRecord.coordinates
+          }
+        : undefined,
+      properties: propertiesRecord ?? undefined
     }
   }
 }
