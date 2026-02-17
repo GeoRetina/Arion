@@ -7,6 +7,8 @@ import { getArionSystemPrompt } from '../constants/system-prompts'
 import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
 import { normalizeRendererMessages, sanitizeModelMessages } from './utils/message-normalizer'
+import type { KnowledgeBaseService, WorkspaceMemoryEntry } from './knowledge-base-service'
+import type { SystemPromptConfig } from '../../shared/ipc-types'
 
 export interface PreparedMessagesResult {
   processedMessages: ModelMessage[]
@@ -35,19 +37,22 @@ export class MessagePreparationService {
   private agentRegistryService?: AgentRegistryService
   private llmToolService?: LlmToolServiceLike // Will be injected to get MCP tools
   private agentToolManager?: AgentToolManager // Added for agent tool access
+  private knowledgeBaseService?: KnowledgeBaseService
 
   constructor(
     settingsService: SettingsService,
     modularPromptManager: ModularPromptManager,
     agentRegistryService?: AgentRegistryService,
     llmToolService?: LlmToolServiceLike,
-    agentToolManager?: AgentToolManager
+    agentToolManager?: AgentToolManager,
+    knowledgeBaseService?: KnowledgeBaseService
   ) {
     this.settingsService = settingsService
     this.modularPromptManager = modularPromptManager
     this.agentRegistryService = agentRegistryService
     this.llmToolService = llmToolService
     this.agentToolManager = agentToolManager
+    this.knowledgeBaseService = knowledgeBaseService
   }
 
   /**
@@ -90,6 +95,13 @@ export class MessagePreparationService {
       normalizedRendererMessages as RendererMessageLike[],
       chatId,
       agentId
+    )
+
+    // Inject workspace memory context with recency-aware ranking when available.
+    finalSystemPrompt = await this.appendWorkspaceMemoryContext(
+      finalSystemPrompt,
+      coreMessages,
+      chatId
     )
 
     // Remove any existing system message from coreMessages as it will be passed separately
@@ -190,6 +202,114 @@ export class MessagePreparationService {
     } catch {
       return null
     }
+  }
+
+  private async appendWorkspaceMemoryContext(
+    systemPrompt: string | null,
+    coreMessages: ModelMessage[],
+    chatId?: string
+  ): Promise<string | null> {
+    if (!this.knowledgeBaseService || !chatId || !coreMessages.length) {
+      return systemPrompt
+    }
+
+    const latestUserQuery = this.extractLatestUserQuery(coreMessages)
+    if (!latestUserQuery) {
+      return systemPrompt
+    }
+
+    try {
+      const memories = await this.knowledgeBaseService.findRelevantWorkspaceMemories({
+        chatId,
+        query: latestUserQuery,
+        limit: 5,
+        candidateLimit: 24,
+        scoreConfig: {
+          similarityWeight: 0.75,
+          recencyWeight: 0.25,
+          halfLifeHours: 72
+        }
+      })
+
+      if (!memories.length) {
+        return systemPrompt
+      }
+
+      const memoryBlock = this.buildWorkspaceMemoryContextBlock(memories)
+      if (!memoryBlock) {
+        return systemPrompt
+      }
+
+      const basePrompt = systemPrompt || ''
+      return `${basePrompt}\n\n${memoryBlock}`.trim()
+    } catch {
+      return systemPrompt
+    }
+  }
+
+  private extractLatestUserQuery(coreMessages: ModelMessage[]): string {
+    for (let index = coreMessages.length - 1; index >= 0; index -= 1) {
+      const message = coreMessages[index]
+      if (message.role !== 'user') {
+        continue
+      }
+
+      const contentText = this.extractTextFromMessageContent(message.content)
+      if (contentText) {
+        return contentText
+      }
+    }
+
+    return ''
+  }
+
+  private extractTextFromMessageContent(content: unknown): string {
+    if (typeof content === 'string') {
+      return content.trim()
+    }
+
+    if (!Array.isArray(content)) {
+      return ''
+    }
+
+    const text = content
+      .map((part) => {
+        const partRecord = asRecord(part)
+        if (!partRecord) {
+          return ''
+        }
+
+        if (partRecord.type === 'text' && typeof partRecord.text === 'string') {
+          return partRecord.text
+        }
+
+        return ''
+      })
+      .join('')
+
+    return text.trim()
+  }
+
+  private buildWorkspaceMemoryContextBlock(memories: WorkspaceMemoryEntry[]): string {
+    if (!memories.length) {
+      return ''
+    }
+
+    const lines: string[] = [
+      'WORKSPACE MEMORY (ranked by relevance and recency):',
+      '- Use these items as optional context for continuity.',
+      '- Prioritize current user intent if any memory conflicts with the present request.',
+      ''
+    ]
+
+    memories.forEach((memory, index) => {
+      const typeLabel = memory.memoryType === 'tool_outcome' ? 'Tool outcome' : 'Session outcome'
+      const scoreLabel =
+        typeof memory.finalScore === 'number' ? ` [score ${memory.finalScore.toFixed(2)}]` : ''
+      lines.push(`${index + 1}. ${typeLabel}${scoreLabel}: ${memory.summary}`)
+    })
+
+    return lines.join('\n')
   }
 
   /**
@@ -369,9 +489,7 @@ export class MessagePreparationService {
    * Get basic system prompt configuration
    * @returns System prompt configuration
    */
-  async getSystemPromptConfig(): Promise<
-    import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').SystemPromptConfig
-  > {
+  async getSystemPromptConfig(): Promise<SystemPromptConfig> {
     return await this.settingsService.getSystemPromptConfig()
   }
 

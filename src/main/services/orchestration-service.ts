@@ -1,7 +1,11 @@
 import { AgentRegistryService } from './agent-registry-service'
 import { ChatService } from './chat-service'
 import { LlmToolService } from './llm-tool-service'
-import type { OrchestrationResult } from './types/orchestration-types'
+import type {
+  AgentExecutionContext,
+  OrchestrationResult,
+  Subtask
+} from './types/orchestration-types'
 
 import { PromptManager } from './orchestration/prompt-manager'
 import { TaskAnalyzer } from './orchestration/task-analyzer'
@@ -197,10 +201,7 @@ export class OrchestrationService {
   public async getOrchestrationStatus(sessionId?: string): Promise<{
     success: boolean
     activeSessions?: string[]
-    subtasks?: Record<
-      string,
-      import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').Subtask[]
-    >
+    subtasks?: Record<string, Subtask[]>
     error?: string
   }> {
     await this.ensureInitialized()
@@ -210,11 +211,7 @@ export class OrchestrationService {
   /**
    * Get execution context for a session
    */
-  public getExecutionContext(
-    sessionId: string
-  ):
-    | import('/mnt/e/Coding/open-source/Arion/src/main/services/types/orchestration-types').AgentExecutionContext
-    | undefined {
+  public getExecutionContext(sessionId: string): AgentExecutionContext | undefined {
     return this.contextManager.getExecutionContext(sessionId)
   }
 

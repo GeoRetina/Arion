@@ -2,7 +2,11 @@ import { AgentRegistryService } from './agent-registry-service'
 import { ChatService } from './chat-service'
 import { LlmToolService } from './llm-tool-service'
 
-import { type Subtask, type OrchestrationResult } from './types/orchestration-types'
+import {
+  type AgentExecutionContext,
+  type Subtask,
+  type OrchestrationResult
+} from './types/orchestration-types'
 import { OrchestrationService } from './orchestration-service'
 import { isOrchestratorAgent } from '../../shared/utils/agent-utils'
 
@@ -189,11 +193,7 @@ export class AgentRoutingService {
     }
   }
 
-  public getExecutionContext(
-    sessionId: string
-  ):
-    | import('/mnt/e/Coding/open-source/Arion/src/main/services/types/orchestration-types').AgentExecutionContext
-    | undefined {
+  public getExecutionContext(sessionId: string): AgentExecutionContext | undefined {
     return this.orchestrationService.getExecutionContext(sessionId)
   }
 

@@ -14,7 +14,7 @@ import {
 import { integrationRegistry } from '../integrations'
 import type { IntegrationConfig } from '../types/integration'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
-import { PostgreSQLConfig } from '../../../../../shared/ipc-types'
+import type { PostgreSQLConfig, PostgreSQLConnectionResult } from '../../../../../shared/ipc-types'
 
 const IntegrationsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] =
@@ -112,9 +112,7 @@ const IntegrationsPage: React.FC = () => {
 
   const handlePostgreSQLTest = async (
     config: PostgreSQLConfig
-  ): Promise<
-    import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').PostgreSQLConnectionResult
-  > => {
+  ): Promise<PostgreSQLConnectionResult> => {
     return await window.ctg.postgresql.testConnection(config)
   }
 
