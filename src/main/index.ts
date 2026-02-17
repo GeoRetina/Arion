@@ -15,6 +15,7 @@ import { PromptModuleService } from './services/prompt-module-service'
 import { AgentRegistryService } from './services/agent-registry-service'
 import { ModularPromptManager } from './services/modular-prompt-manager'
 import { AgentRoutingService } from './services/agent-routing-service'
+import { SkillPackService } from './services/skill-pack-service'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -41,6 +42,7 @@ let promptModuleServiceInstance: PromptModuleService
 let agentRegistryServiceInstance: AgentRegistryService
 let modularPromptManagerInstance: ModularPromptManager
 let agentRoutingServiceInstance: AgentRoutingService
+let skillPackServiceInstance: SkillPackService
 
 function createWindow(): void {
   const preloadPath = join(__dirname, '../preload/index.js')
@@ -128,6 +130,12 @@ app.whenReady().then(async () => {
   // Instantiate agent system services
   promptModuleServiceInstance = new PromptModuleService()
   agentRegistryServiceInstance = new AgentRegistryService(promptModuleServiceInstance)
+  skillPackServiceInstance = new SkillPackService({
+    getUserDataPath: () => app.getPath('userData'),
+    getAppPath: () => app.getAppPath(),
+    getResourcesPath: () => process.resourcesPath,
+    getCwd: () => process.cwd()
+  })
 
   // Create llmToolService initially without agent services
   llmToolServiceInstance = new LlmToolService(
@@ -142,7 +150,8 @@ app.whenReady().then(async () => {
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
   modularPromptManagerInstance = new ModularPromptManager(
     promptModuleServiceInstance,
-    agentRegistryServiceInstance
+    agentRegistryServiceInstance,
+    skillPackServiceInstance
   )
 
   // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
@@ -195,7 +204,12 @@ app.whenReady().then(async () => {
   })
 
   // --- Register IPC Handlers ---
-  registerSettingsIpcHandlers(ipcMain, settingsServiceInstance, mcpClientServiceInstance)
+  registerSettingsIpcHandlers(
+    ipcMain,
+    settingsServiceInstance,
+    mcpClientServiceInstance,
+    skillPackServiceInstance
+  )
   registerChatIpcHandlers(
     ipcMain,
     chatServiceInstance,

@@ -9,10 +9,13 @@ import {
   McpServerConfig,
   VertexConfig,
   OllamaConfig,
-  SystemPromptConfig
+  SystemPromptConfig,
+  SkillPackConfig,
+  SkillPackInfo
 } from '../../shared/ipc-types' // Adjusted path
 import { type SettingsService } from '../services/settings-service'
 import { type MCPClientService } from '../services/mcp-client-service'
+import { type SkillPackService } from '../services/skill-pack-service'
 
 type SettingsServiceWithGenericOps = SettingsService & {
   getSetting?: (key: string) => unknown | Promise<unknown>
@@ -22,7 +25,8 @@ type SettingsServiceWithGenericOps = SettingsService & {
 export function registerSettingsIpcHandlers(
   ipcMain: IpcMain,
   settingsService: SettingsService,
-  mcpClientService: MCPClientService
+  mcpClientService: MCPClientService,
+  skillPackService: SkillPackService
 ): void {
   const genericSettingsService = settingsService as SettingsServiceWithGenericOps
 
@@ -284,6 +288,76 @@ export function registerSettingsIpcHandlers(
       return { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }
+    }
+  })
+
+  // --- Skill Pack Configuration IPC Handlers ---
+  ipcMain.handle(IpcChannels.getSkillPackConfig, async () => {
+    try {
+      return await settingsService.getSkillPackConfig()
+    } catch {
+      return {
+        workspaceRoot: null
+      } satisfies SkillPackConfig
+    }
+  })
+
+  ipcMain.handle(IpcChannels.setSkillPackConfig, async (_event, config: SkillPackConfig) => {
+    try {
+      const safeConfig: SkillPackConfig = {
+        workspaceRoot:
+          typeof config?.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
+            ? config.workspaceRoot.trim()
+            : null
+      }
+
+      await settingsService.setSkillPackConfig(safeConfig)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle(IpcChannels.listAvailableSkills, async (_event, workspaceRoot?: string) => {
+    try {
+      const storedConfig = await settingsService.getSkillPackConfig()
+      const safeWorkspaceRoot =
+        typeof workspaceRoot === 'string' && workspaceRoot.trim().length > 0
+          ? workspaceRoot.trim()
+          : typeof storedConfig.workspaceRoot === 'string' &&
+              storedConfig.workspaceRoot.trim().length > 0
+            ? storedConfig.workspaceRoot.trim()
+            : undefined
+
+      const skills = skillPackService.listAvailableSkills({ workspaceRoot: safeWorkspaceRoot })
+      return skills.map(
+        (skill): SkillPackInfo => ({
+          id: skill.id,
+          name: skill.name,
+          description: skill.description,
+          source: skill.source,
+          sourcePath: skill.sourcePath
+        })
+      )
+    } catch {
+      return []
+    }
+  })
+
+  ipcMain.handle(IpcChannels.bootstrapWorkspaceTemplates, async (_event, workspaceRoot: string) => {
+    try {
+      if (typeof workspaceRoot !== 'string' || workspaceRoot.trim().length === 0) {
+        throw new Error('workspaceRoot is required')
+      }
+
+      const normalizedRoot = workspaceRoot.trim()
+      const result = skillPackService.bootstrapWorkspaceTemplateFiles(normalizedRoot)
+      await settingsService.setSkillPackConfig({ workspaceRoot: normalizedRoot })
+      return result
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : 'Failed to bootstrap workspace templates'
+      )
     }
   })
 }

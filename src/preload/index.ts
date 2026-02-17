@@ -28,6 +28,9 @@ import {
   type RemoveSourceAndLayersPayload,
   type SetMapViewPayload,
   type SystemPromptConfig,
+  type SkillPackConfig,
+  type SkillPackInfo,
+  type SkillPackTemplateBootstrapResult,
   type SetMapSidebarVisibilityPayload,
   type AddGeoreferencedImageLayerPayload,
   type KnowledgeBaseApi,
@@ -189,7 +192,17 @@ const ctgApi = {
     getSystemPromptConfig: (): Promise<SystemPromptConfig> =>
       ipcRenderer.invoke(IpcChannels.getSystemPromptConfig),
     setSystemPromptConfig: (config: SystemPromptConfig): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.setSystemPromptConfig, config)
+      ipcRenderer.invoke(IpcChannels.setSystemPromptConfig, config),
+    getSkillPackConfig: (): Promise<SkillPackConfig> =>
+      ipcRenderer.invoke(IpcChannels.getSkillPackConfig),
+    setSkillPackConfig: (config: SkillPackConfig): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.setSkillPackConfig, config),
+    listAvailableSkills: (workspaceRoot?: string): Promise<SkillPackInfo[]> =>
+      ipcRenderer.invoke(IpcChannels.listAvailableSkills, workspaceRoot),
+    bootstrapWorkspaceTemplates: (
+      workspaceRoot: string
+    ): Promise<SkillPackTemplateBootstrapResult> =>
+      ipcRenderer.invoke(IpcChannels.bootstrapWorkspaceTemplates, workspaceRoot)
   } as SettingsApi,
   chat: {
     sendMessageStream: async (body: PreloadChatRequestBody | undefined): Promise<Uint8Array[]> => {

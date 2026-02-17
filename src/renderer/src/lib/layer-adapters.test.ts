@@ -58,12 +58,14 @@ describe('layer-adapters', () => {
     }
 
     const layer = convertImageToLayer(payload)
+    const expectedBounds: [number, number, number, number] = [0, 0, 10, 10]
 
     expect(layer.type).toBe('raster')
     expect(layer.sourceConfig.type).toBe('image')
-    expect(layer.sourceConfig.options?.bounds).toEqual(payload.coordinates)
+    expect(layer.sourceConfig.options?.bounds).toEqual(expectedBounds)
     expect(layer.opacity).toBe(0.6)
     expect(layer.metadata.tags).toContain('georeferenced')
+    expect(layer.metadata.bounds).toEqual(expectedBounds)
     expect(isLegacyImageLayer(layer)).toBe(true)
   })
 })

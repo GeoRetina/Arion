@@ -14,7 +14,8 @@ import {
   LLMProviderType,
   AllLLMConfigurations,
   McpServerConfig,
-  SystemPromptConfig
+  SystemPromptConfig,
+  SkillPackConfig
 } from '../../shared/ipc-types'
 
 const SERVICE_NAME = 'ArionLLMCredentials'
@@ -138,6 +139,20 @@ export class SettingsService {
       this.db
         .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
         .run('systemPromptConfig', JSON.stringify(initialConfig))
+    }
+
+    // Initialize skill pack config if not set
+    const skillPackRow = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('skillPackConfig') as { value: string } | undefined
+
+    if (!skillPackRow) {
+      const initialSkillPackConfig: SkillPackConfig = {
+        workspaceRoot: null
+      }
+      this.db
+        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
+        .run('skillPackConfig', JSON.stringify(initialSkillPackConfig))
     }
   }
 
@@ -458,6 +473,41 @@ export class SettingsService {
       // Return default values if there's an error
       return {
         userSystemPrompt: ''
+      }
+    }
+  }
+
+  // --- Skill Pack Configuration ---
+  async setSkillPackConfig(config: SkillPackConfig): Promise<void> {
+    {
+      this.db
+        .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+        .run('skillPackConfig', JSON.stringify(config))
+    }
+  }
+
+  async getSkillPackConfig(): Promise<SkillPackConfig> {
+    try {
+      const row = this.db
+        .prepare('SELECT value FROM app_settings WHERE key = ?')
+        .get('skillPackConfig') as { value: string } | undefined
+
+      if (!row) {
+        return {
+          workspaceRoot: null
+        }
+      }
+
+      const parsed = JSON.parse(row.value) as SkillPackConfig
+      return {
+        workspaceRoot:
+          typeof parsed.workspaceRoot === 'string' && parsed.workspaceRoot.trim().length > 0
+            ? parsed.workspaceRoot
+            : null
+      }
+    } catch {
+      return {
+        workspaceRoot: null
       }
     }
   }
