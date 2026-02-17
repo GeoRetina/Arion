@@ -2,6 +2,16 @@
 
 import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import OpenAIConfigModal from './openai-config-modal'
 import GoogleConfigModal from './google-config-modal'
 import AnthropicConfigModal from './anthropic-config-modal'
@@ -9,6 +19,7 @@ import VertexConfigModal from './vertex-config-modal'
 import OllamaConfigModal from './ollama-config-modal'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
+import { CheckCircle, Info } from 'lucide-react'
 
 import {
   Card,
@@ -25,6 +36,12 @@ import {
   PROVIDER_BACKGROUNDS,
   PROVIDER_PROGRESS_COLORS
 } from '@/constants/llm-providers'
+import {
+  EMBEDDING_PROVIDER_LABELS,
+  SUPPORTED_EMBEDDING_PROVIDERS,
+  DEFAULT_EMBEDDING_MODEL_BY_PROVIDER
+} from '../../../../../shared/embedding-constants'
+import type { EmbeddingProviderType } from '../../../../../shared/ipc-types'
 
 export default function ModelsPage(): React.JSX.Element {
   // Modal open states
@@ -39,6 +56,10 @@ export default function ModelsPage(): React.JSX.Element {
   const [isClearDialogOpen, setIsClearDialogOpen] = useState(false)
   const [providerToClear, setProviderToClear] = useState<NonNullable<LLMProvider> | null>(null)
 
+  // Inline embedding config state
+  const [embeddingProvider, setEmbeddingProvider] = useState<EmbeddingProviderType>('openai')
+  const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_EMBEDDING_MODEL_BY_PROVIDER.openai)
+
   // Get states and actions from the store
   const {
     openaiConfig,
@@ -47,8 +68,10 @@ export default function ModelsPage(): React.JSX.Element {
     anthropicConfig,
     vertexConfig,
     ollamaConfig,
+    embeddingConfig,
     isConfigured,
     clearProviderConfig,
+    setEmbeddingConfig,
     initializeStore,
     isInitialized
   } = useLLMStore()
@@ -59,6 +82,14 @@ export default function ModelsPage(): React.JSX.Element {
       initializeStore()
     }
   }, [isInitialized, initializeStore])
+
+  // Sync local embedding state from store
+  useEffect(() => {
+    setEmbeddingProvider(embeddingConfig.provider)
+    setEmbeddingModel(
+      embeddingConfig.model || DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[embeddingConfig.provider]
+    )
+  }, [embeddingConfig])
 
   // OpenAI handlers
   const handleOpenAIOpenModal = (): void => setIsOpenAIModalOpen(true)
@@ -218,6 +249,46 @@ export default function ModelsPage(): React.JSX.Element {
     )
   }
 
+  const isEmbeddingProviderCredentialsConfigured = (provider: EmbeddingProviderType): boolean => {
+    switch (provider) {
+      case 'openai':
+        return Boolean(openaiConfig.apiKey)
+      case 'google':
+        return Boolean(googleConfig.apiKey)
+      case 'anthropic':
+        return Boolean(anthropicConfig.apiKey)
+      case 'azure':
+        return Boolean(azureConfig.apiKey && azureConfig.endpoint)
+      case 'vertex':
+        return Boolean(vertexConfig.apiKey && vertexConfig.project && vertexConfig.location)
+      case 'ollama':
+        return Boolean(ollamaConfig.baseURL)
+      default:
+        return false
+    }
+  }
+
+  const handleEmbeddingProviderChange = (value: string): void => {
+    const nextProvider = value as EmbeddingProviderType
+    setEmbeddingProvider(nextProvider)
+    setEmbeddingModel(DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[nextProvider])
+  }
+
+  const handleSaveEmbeddingConfig = (): void => {
+    if (!embeddingModel.trim()) return
+    setEmbeddingConfig({
+      provider: embeddingProvider,
+      model: embeddingModel.trim()
+    })
+  }
+
+  const hasEmbeddingCredentials = isEmbeddingProviderCredentialsConfigured(embeddingProvider)
+  const embeddingProviderLabel = EMBEDDING_PROVIDER_LABELS[embeddingProvider]
+  const hasEmbeddingChanges =
+    embeddingProvider !== embeddingConfig.provider ||
+    embeddingModel.trim() !== (embeddingConfig.model || '')
+  const isEmbeddingSaved = Boolean(embeddingConfig.model) && !hasEmbeddingChanges
+
   return (
     <ScrollArea className="h-full">
       <div className="py-8 px-4 md:px-6">
@@ -225,57 +296,145 @@ export default function ModelsPage(): React.JSX.Element {
           <div>
             <h1 className="text-3xl font-semibold mb-2">AI Models</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Connect Arion to your preferred LLM provider. Your API keys are securely stored.
+              Configure your chat and embedding models. Your API keys are securely stored.
             </p>
           </div>
 
-          <div className="w-full">
-            <h2 className="text-xl font-medium mb-5">Providers</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-              {createProviderCard(
-                'openai',
-                'OpenAI',
-                'gpt-series, o-series',
-                openaiConfig,
-                handleOpenAIOpenModal
-              )}
-              {createProviderCard(
-                'google',
-                'Google',
-                'Gemini Pro, Gemini Flash',
-                googleConfig,
-                handleGoogleOpenModal
-              )}
-              {createProviderCard(
-                'azure',
-                'Azure OpenAI',
-                'Enterprise OpenAI services',
-                azureConfig,
-                handleAzureOpenModal
-              )}
-              {createProviderCard(
-                'anthropic',
-                'Anthropic',
-                'Claude Opus, Sonnet, Haiku',
-                anthropicConfig,
-                handleAnthropicOpenModal
-              )}
-              {createProviderCard(
-                'vertex',
-                'Google Vertex AI',
-                'Gemini and third-party models',
-                vertexConfig,
-                handleVertexOpenModal
-              )}
-              {createProviderCard(
-                'ollama',
-                'Ollama',
-                'Run local LLMs (gpt-oss, Llama, Mistral, etc)',
-                ollamaConfig,
-                handleOllamaOpenModal
-              )}
-            </div>
-          </div>
+          <Tabs defaultValue="chat-models" className="w-full">
+            <TabsList>
+              <TabsTrigger value="chat-models">Chat Models</TabsTrigger>
+              <TabsTrigger value="embedding">Embedding Model</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="chat-models">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
+                {createProviderCard(
+                  'openai',
+                  'OpenAI',
+                  'gpt-series, o-series',
+                  openaiConfig,
+                  handleOpenAIOpenModal
+                )}
+                {createProviderCard(
+                  'google',
+                  'Google',
+                  'Gemini Pro, Gemini Flash',
+                  googleConfig,
+                  handleGoogleOpenModal
+                )}
+                {createProviderCard(
+                  'azure',
+                  'Azure OpenAI',
+                  'Enterprise OpenAI services',
+                  azureConfig,
+                  handleAzureOpenModal
+                )}
+                {createProviderCard(
+                  'anthropic',
+                  'Anthropic',
+                  'Claude Opus, Sonnet, Haiku',
+                  anthropicConfig,
+                  handleAnthropicOpenModal
+                )}
+                {createProviderCard(
+                  'vertex',
+                  'Google Vertex AI',
+                  'Gemini and third-party models',
+                  vertexConfig,
+                  handleVertexOpenModal
+                )}
+                {createProviderCard(
+                  'ollama',
+                  'Ollama',
+                  'Run local LLMs (gpt-oss, Llama, Mistral, etc)',
+                  ollamaConfig,
+                  handleOllamaOpenModal
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="embedding">
+              <div className="max-w-lg mt-4">
+                <h2 className="text-xl font-semibold mb-1">Embedding Model</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Select the provider and model used for Knowledge Base indexing and retrieval.
+                </p>
+              </div>
+              <Card
+                className={`max-w-lg surface-elevated ${isEmbeddingSaved && hasEmbeddingCredentials ? 'border-emerald-500 ring-1 ring-emerald-500' : ''}`}
+              >
+                {isEmbeddingSaved && (
+                  <CardHeader className="pb-0">
+                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground bg-emerald-500/10 rounded-md px-2.5 py-1.5">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                      Currently using{' '}
+                      <span className="font-medium text-foreground">
+                        {EMBEDDING_PROVIDER_LABELS[embeddingConfig.provider]}
+                      </span>{' '}
+                      / <span className="font-medium text-foreground">{embeddingConfig.model}</span>
+                    </p>
+                  </CardHeader>
+                )}
+
+                <CardContent className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="embedding-provider" className="font-medium">
+                      Provider <span className="text-destructive">*</span>
+                    </Label>
+                    <Select value={embeddingProvider} onValueChange={handleEmbeddingProviderChange}>
+                      <SelectTrigger id="embedding-provider">
+                        <SelectValue placeholder="Select embedding provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SUPPORTED_EMBEDDING_PROVIDERS.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {EMBEDDING_PROVIDER_LABELS[p]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="embedding-model" className="font-medium">
+                      Model <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="embedding-model"
+                      value={embeddingModel}
+                      onChange={(e) => setEmbeddingModel(e.target.value)}
+                      placeholder="Enter embedding model or deployment name"
+                    />
+                  </div>
+
+                  {!hasEmbeddingCredentials && (
+                    <p className="text-sm text-amber-600">
+                      {embeddingProviderLabel} credentials are not configured. Go to the{' '}
+                      <span className="font-medium">Chat Models</span> tab to set up{' '}
+                      {embeddingProviderLabel} first.
+                    </p>
+                  )}
+
+                  <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <p>
+                      Arion enforces 1536-dimension embeddings for schema compatibility. Make sure
+                      the selected model outputs 1536-dimension vectors.
+                    </p>
+                  </div>
+                </CardContent>
+
+                <CardFooter>
+                  <Button
+                    onClick={handleSaveEmbeddingConfig}
+                    disabled={!embeddingModel.trim() || !hasEmbeddingChanges}
+                  >
+                    Save Configuration
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 

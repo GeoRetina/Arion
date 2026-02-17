@@ -4,13 +4,28 @@ import path from 'path'
 import fs from 'fs'
 import { app } from 'electron'
 import { embedMany, embed, type EmbeddingModel, type EmbedResult } from 'ai'
+import type {
+  EmbeddingModelV3,
+  EmbeddingModelV3CallOptions,
+  EmbeddingModelV3Result
+} from '@ai-sdk/provider'
 import { createOpenAI } from '@ai-sdk/openai'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createVertex } from '@ai-sdk/google-vertex'
+import { createAzure } from '@ai-sdk/azure'
+import { Ollama } from 'ollama'
 import { SettingsService } from './settings-service'
 import { nanoid } from 'nanoid'
 import { EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_MODEL_ID } from '../constants/llm-constants'
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
-import type { KBAddDocumentPayload, KnowledgeBaseDocumentForClient } from '../../shared/ipc-types'
+import type {
+  KBAddDocumentPayload,
+  KnowledgeBaseDocumentForClient,
+  EmbeddingConfig,
+  EmbeddingProviderType
+} from '../../shared/ipc-types'
+import { DEFAULT_EMBEDDING_MODEL_BY_PROVIDER } from '../../shared/embedding-constants'
 import {
   scoreWorkspaceMemory,
   type WorkspaceMemoryScoreConfig
@@ -48,11 +63,55 @@ export interface WorkspaceMemoryEntry {
   finalScore?: number
 }
 
+class OllamaEmbeddingModel implements EmbeddingModelV3 {
+  readonly specificationVersion = 'v3' as const
+  readonly provider = 'ollama.embed'
+  readonly maxEmbeddingsPerCall = undefined
+  readonly supportsParallelCalls = true
+  readonly modelId: string
+
+  private readonly client: Ollama
+
+  constructor(modelId: string, baseURL: string) {
+    this.modelId = modelId
+    this.client = new Ollama({ host: baseURL })
+  }
+
+  async doEmbed(options: EmbeddingModelV3CallOptions): Promise<EmbeddingModelV3Result> {
+    const response = await this.client.embed({
+      model: this.modelId,
+      input: options.values,
+      dimensions: EMBEDDING_DIMENSIONS
+    })
+
+    return {
+      embeddings: response.embeddings,
+      usage:
+        typeof response.prompt_eval_count === 'number'
+          ? { tokens: response.prompt_eval_count }
+          : undefined,
+      response: { body: response },
+      warnings: []
+    }
+  }
+}
+
+const normalizeOllamaBaseURL = (baseURL: string): string => {
+  return baseURL
+    .trim()
+    .replace(/\/$/, '')
+    .replace(/\/api\/?$/, '')
+}
+
 export class KnowledgeBaseService {
   private db: PGlite | undefined
   private dbPath: string
   private settingsService: SettingsService
   private embeddingModel: EmbeddingModel | undefined
+  private embeddingProvider: EmbeddingProviderType | undefined
+  private embeddingModelId: string | undefined
+  private embeddingModelSignature: string | undefined
+  private embeddingModelInitializationError: string | undefined
 
   constructor(settingsService: SettingsService) {
     const dbDir = path.join(app.getPath('userData'), KB_DB_SUBFOLDER)
@@ -85,7 +144,7 @@ export class KnowledgeBaseService {
       await this.initializeEmbeddingModel()
     } catch (error) {
       this.db = undefined
-      this.embeddingModel = undefined
+      this.clearEmbeddingModel()
       throw error
     }
   }
@@ -205,18 +264,211 @@ export class KnowledgeBaseService {
     }
   }
 
+  private clearEmbeddingModel(): void {
+    this.embeddingModel = undefined
+    this.embeddingProvider = undefined
+    this.embeddingModelId = undefined
+    this.embeddingModelSignature = undefined
+  }
+
+  private getCredentialFingerprint(secret: string): string {
+    return `${secret.length}:${secret.slice(-6)}`
+  }
+
   private async initializeEmbeddingModel(): Promise<void> {
+    this.embeddingModelInitializationError = undefined
     try {
-      const openaiConfig = await this.settingsService.getOpenAIConfig()
-      if (!openaiConfig?.apiKey) {
-        this.embeddingModel = undefined
+      const embeddingConfig = await this.settingsService.getEmbeddingConfig()
+      const provider = embeddingConfig.provider
+      const modelId = this.resolveEmbeddingModelId(embeddingConfig)
+      const embeddingState = await this.createEmbeddingModel(provider, modelId)
+
+      if (!embeddingState) {
+        this.clearEmbeddingModel()
+        this.embeddingModelInitializationError = `Embedding provider "${provider}" is not configured.`
         return
       }
-      // const embeddingModelId = 'text-embedding-ada-002' // MOVED to llm.constants.ts
-      const openai = createOpenAI({ apiKey: openaiConfig.apiKey })
-      this.embeddingModel = openai.embedding(DEFAULT_EMBEDDING_MODEL_ID)
-    } catch {
-      this.embeddingModel = undefined
+
+      const nextSignature = `${provider}:${modelId}:${embeddingState.signatureKey}`
+      if (this.embeddingModel && this.embeddingModelSignature === nextSignature) {
+        return
+      }
+
+      this.embeddingModel = embeddingState.model
+      this.embeddingProvider = provider
+      this.embeddingModelId = modelId
+      this.embeddingModelSignature = nextSignature
+    } catch (error) {
+      this.clearEmbeddingModel()
+      this.embeddingModelInitializationError =
+        error instanceof Error ? error.message : 'Failed to initialize embedding model.'
+    }
+  }
+
+  private async createEmbeddingModel(
+    provider: EmbeddingProviderType,
+    modelId: string
+  ): Promise<{ model: EmbeddingModel; signatureKey: string } | null> {
+    switch (provider) {
+      case 'openai': {
+        const openaiConfig = await this.settingsService.getOpenAIConfig()
+        if (!openaiConfig?.apiKey) {
+          return null
+        }
+
+        const openai = createOpenAI({ apiKey: openaiConfig.apiKey })
+        return {
+          model: openai.embedding(modelId as Parameters<typeof openai.embedding>[0]),
+          signatureKey: this.getCredentialFingerprint(openaiConfig.apiKey)
+        }
+      }
+      case 'google': {
+        const googleConfig = await this.settingsService.getGoogleConfig()
+        if (!googleConfig?.apiKey) {
+          return null
+        }
+
+        const google = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
+        return {
+          model: google.embedding(modelId as Parameters<typeof google.embedding>[0]),
+          signatureKey: this.getCredentialFingerprint(googleConfig.apiKey)
+        }
+      }
+      case 'anthropic': {
+        const anthropicConfig = await this.settingsService.getAnthropicConfig()
+        if (!anthropicConfig?.apiKey) {
+          return null
+        }
+
+        throw new Error(
+          'Anthropic embeddings are not supported yet. Use OpenAI, Google, Vertex, Azure, or Ollama for embeddings.'
+        )
+      }
+      case 'azure': {
+        const azureConfig = await this.settingsService.getAzureConfig()
+        if (!azureConfig?.apiKey || !azureConfig.endpoint) {
+          return null
+        }
+
+        const azure = createAzure({
+          apiKey: azureConfig.apiKey,
+          baseURL: azureConfig.endpoint,
+          apiVersion: '2024-04-01-preview'
+        })
+        return {
+          model: azure.embedding(modelId),
+          signatureKey: `${this.getCredentialFingerprint(azureConfig.apiKey)}:${azureConfig.endpoint}`
+        }
+      }
+      case 'vertex': {
+        const vertexConfig = await this.settingsService.getVertexConfig()
+        if (!vertexConfig?.apiKey || !vertexConfig.project || !vertexConfig.location) {
+          return null
+        }
+
+        let credentialsJson: Record<string, unknown> | undefined = undefined
+        try {
+          if (vertexConfig.apiKey.trim().startsWith('{')) {
+            const parsed = JSON.parse(vertexConfig.apiKey)
+            if (parsed && typeof parsed === 'object') {
+              credentialsJson = parsed as Record<string, unknown>
+            }
+          }
+        } catch {
+          void 0
+        }
+
+        const vertex = createVertex({
+          ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
+          project: vertexConfig.project,
+          location: vertexConfig.location
+        })
+
+        return {
+          model: vertex.textEmbeddingModel(
+            modelId as Parameters<typeof vertex.textEmbeddingModel>[0]
+          ),
+          signatureKey: `${this.getCredentialFingerprint(vertexConfig.apiKey)}:${vertexConfig.project}:${vertexConfig.location}`
+        }
+      }
+      case 'ollama': {
+        const ollamaConfig = await this.settingsService.getOllamaConfig()
+        if (!ollamaConfig?.baseURL) {
+          return null
+        }
+
+        const baseURL = normalizeOllamaBaseURL(ollamaConfig.baseURL)
+        if (!baseURL) {
+          return null
+        }
+
+        return {
+          model: new OllamaEmbeddingModel(modelId, baseURL),
+          signatureKey: baseURL
+        }
+      }
+      default:
+        return null
+    }
+  }
+
+  private resolveEmbeddingModelId(config: EmbeddingConfig): string {
+    const modelId = config.model?.trim()
+    return (
+      modelId || DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[config.provider] || DEFAULT_EMBEDDING_MODEL_ID
+    )
+  }
+
+  private getEmbeddingProviderOptions():
+    | { openai: { dimensions: number } }
+    | { google: { outputDimensionality: number } }
+    | { vertex: { outputDimensionality: number } }
+    | undefined {
+    switch (this.embeddingProvider) {
+      case 'openai':
+      case 'azure':
+        return {
+          openai: {
+            dimensions: EMBEDDING_DIMENSIONS
+          }
+        }
+      case 'google':
+        return {
+          google: {
+            outputDimensionality: EMBEDDING_DIMENSIONS
+          }
+        }
+      case 'vertex':
+        return {
+          vertex: {
+            outputDimensionality: EMBEDDING_DIMENSIONS
+          }
+        }
+      default:
+        return undefined
+    }
+  }
+
+  private getEmbeddingDescriptor(): string {
+    return `${this.embeddingProvider ?? 'unknown'}:${this.embeddingModelId ?? 'unknown'}`
+  }
+
+  private getEmbeddingInitializationErrorMessage(fallback: string): string {
+    return this.embeddingModelInitializationError || fallback
+  }
+
+  private assertEmbeddingDimension(embedding: number[], context: string): void {
+    if (embedding.length !== EMBEDDING_DIMENSIONS) {
+      throw new Error(
+        `${context} returned ${embedding.length} dimensions for ${this.getEmbeddingDescriptor()}. Expected ${EMBEDDING_DIMENSIONS}.`
+      )
+    }
+  }
+
+  private assertEmbeddingBatchDimensions(embeddings: number[][], context: string): void {
+    for (let i = 0; i < embeddings.length; i++) {
+      const embedding = embeddings[i]
+      this.assertEmbeddingDimension(embedding, `${context} item ${i}`)
     }
   }
 
@@ -246,11 +498,13 @@ export class KnowledgeBaseService {
     if (!this.db) {
       throw new Error('Database not initialized.')
     }
+    await this.initializeEmbeddingModel()
     if (!this.embeddingModel) {
-      await this.initializeEmbeddingModel()
-      if (!this.embeddingModel) {
-        throw new Error('Embedding model is not available. Check OpenAI configuration.')
-      }
+      throw new Error(
+        this.getEmbeddingInitializationErrorMessage(
+          'Embedding model is not available. Check embedding model and provider configuration.'
+        )
+      )
     }
 
     const chunks = this.generateChunks(documentContent)
@@ -259,14 +513,17 @@ export class KnowledgeBaseService {
     }
 
     try {
+      const providerOptions = this.getEmbeddingProviderOptions()
       const { embeddings } = await embedMany({
         model: this.embeddingModel,
-        values: chunks
+        values: chunks,
+        ...(providerOptions ? { providerOptions } : {})
       })
 
       if (embeddings.length !== chunks.length) {
         throw new Error('Embedding generation failed: counts mismatch.')
       }
+      this.assertEmbeddingBatchDimensions(embeddings, 'Embedding generation')
 
       // Use standard SQL transactions with PGlite
       await this.db.query('BEGIN;')
@@ -353,13 +610,13 @@ export class KnowledgeBaseService {
     if (!this.db) {
       throw new Error('[KnowledgeBaseService] Database not initialized.')
     }
+    await this.initializeEmbeddingModel()
     if (!this.embeddingModel) {
-      await this.initializeEmbeddingModel()
-      if (!this.embeddingModel) {
-        throw new Error(
-          '[KnowledgeBaseService] Embedding model not initialized and failed to re-initialize.'
+      throw new Error(
+        this.getEmbeddingInitializationErrorMessage(
+          '[KnowledgeBaseService] Embedding model not initialized. Check embedding model and provider configuration.'
         )
-      }
+      )
     }
 
     // If filePath is not provided but buffer is, save the buffer to a local cache and use that path
@@ -424,15 +681,18 @@ export class KnowledgeBaseService {
       ])
 
       // 2. Generate embeddings and insert chunks
+      const providerOptions = this.getEmbeddingProviderOptions()
       const { embeddings } = await embedMany({
         model: this.embeddingModel,
-        values: chunks
+        values: chunks,
+        ...(providerOptions ? { providerOptions } : {})
       })
 
       if (embeddings.length !== chunks.length) {
         await this.db.query('ROLLBACK;') // Rollback on error
         throw new Error('Embedding generation failed: counts mismatch.')
       }
+      this.assertEmbeddingBatchDimensions(embeddings, 'Embedding generation')
 
       for (let i = 0; i < chunks.length; i++) {
         const chunkId = nanoid()
@@ -476,17 +736,22 @@ export class KnowledgeBaseService {
 
   // New public method to embed a single text string
   public async embedText(text: string): Promise<number[]> {
+    await this.initializeEmbeddingModel()
     if (!this.embeddingModel) {
-      await this.initializeEmbeddingModel()
-      if (!this.embeddingModel) {
-        throw new Error('Embedding model is not available. Check OpenAI configuration.')
-      }
+      throw new Error(
+        this.getEmbeddingInitializationErrorMessage(
+          'Embedding model is not available. Check embedding model and provider configuration.'
+        )
+      )
     }
     {
+      const providerOptions = this.getEmbeddingProviderOptions()
       const { embedding }: EmbedResult = await embed({
         model: this.embeddingModel,
-        value: text
+        value: text,
+        ...(providerOptions ? { providerOptions } : {})
       })
+      this.assertEmbeddingDimension(embedding, 'Embedding generation')
       return embedding
     }
   }
@@ -547,11 +812,9 @@ export class KnowledgeBaseService {
       return null
     }
 
+    await this.initializeEmbeddingModel()
     if (!this.embeddingModel) {
-      await this.initializeEmbeddingModel()
-      if (!this.embeddingModel) {
-        return null
-      }
+      return null
     }
 
     const createdAt = payload.createdAt || new Date().toISOString()
@@ -661,11 +924,9 @@ export class KnowledgeBaseService {
       return []
     }
 
+    await this.initializeEmbeddingModel()
     if (!this.embeddingModel) {
-      await this.initializeEmbeddingModel()
-      if (!this.embeddingModel) {
-        return []
-      }
+      return []
     }
 
     const limit = Math.max(1, Math.min(params.limit ?? 5, 20))
