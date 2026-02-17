@@ -1,7 +1,4 @@
-import type {
-  LanguageModelV3CallOptions,
-  SharedV3Warning
-} from '@ai-sdk/provider'
+import type { LanguageModelV3CallOptions, SharedV3Warning } from '@ai-sdk/provider'
 import { parseProviderOptions } from '@ai-sdk/provider-utils'
 import { convertToOllamaResponsesMessages, convertToOllamaChatMessages } from './message-converters'
 import { prepareResponsesTools } from './tool-prep'
@@ -56,7 +53,11 @@ export class OllamaRequestBuilder {
       })
     }
 
-    const { tools: mappedTools, toolChoice: mappedChoice, toolWarnings } = prepareResponsesTools({
+    const {
+      tools: mappedTools,
+      toolChoice: mappedChoice,
+      toolWarnings
+    } = prepareResponsesTools({
       tools,
       toolChoice
     })
@@ -100,7 +101,9 @@ export class OllamaRequestBuilder {
     return warnings
   }
 
-  private async parseProviderOptions(providerOptions?: LanguageModelV3CallOptions['providerOptions']) {
+  private async parseProviderOptions(
+    providerOptions?: LanguageModelV3CallOptions['providerOptions']
+  ) {
     if (!providerOptions) return null
 
     const parsed = await parseProviderOptions({

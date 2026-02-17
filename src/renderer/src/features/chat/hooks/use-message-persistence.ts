@@ -120,13 +120,7 @@ export function useMessagePersistence({
       chatId: stableChatIdForUseChat,
       messageCount: storeCount
     }
-  }, [
-    sdkMessages,
-    stableChatIdForUseChat,
-    currentChatIdFromStore,
-    currentMessagesFromStore,
-    chat
-  ])
+  }, [sdkMessages, stableChatIdForUseChat, currentChatIdFromStore, currentMessagesFromStore, chat])
 
   return {
     persistPendingUserMessages

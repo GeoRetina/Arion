@@ -19,7 +19,7 @@ if (typeof self !== 'undefined' && !(self as any).__publicField) {
 }
 
 // Patch URL.createObjectURL so worker blobs get the polyfill prepended
-(() => {
+;(() => {
   if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') return
 
   const originalCreateObjectURL = URL.createObjectURL.bind(URL)

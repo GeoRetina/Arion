@@ -46,10 +46,7 @@ interface MarkdownRendererProps {
 }
 
 // Streamdown handles memoization internally
-export const MarkdownRenderer = ({
-  content,
-  variant = 'default'
-}: MarkdownRendererProps) => {
+export const MarkdownRenderer = ({ content, variant = 'default' }: MarkdownRendererProps) => {
   const textSizeClass =
     variant === 'reasoning'
       ? 'text-xs [&_p]:text-xs [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm'
@@ -63,9 +60,7 @@ export const MarkdownRenderer = ({
         ${textSizeClass}
       `}
     >
-      <Streamdown shikiTheme={['github-light', 'github-dark']}>
-        {content}
-      </Streamdown>
+      <Streamdown shikiTheme={['github-light', 'github-dark']}>{content}</Streamdown>
     </div>
   )
 }

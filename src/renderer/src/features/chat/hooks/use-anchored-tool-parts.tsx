@@ -52,17 +52,16 @@ export function useAnchoredToolParts({
   )
 
   const toolParts = useMemo(
-    () =>
-      Array.isArray(message.parts)
-        ? message.parts.filter((p) => isToolPart(p))
-        : [],
+    () => (Array.isArray(message.parts) ? message.parts.filter((p) => isToolPart(p)) : []),
     [message.parts]
   )
 
   const textPartIndex = useMemo(
     () =>
       Array.isArray(message.parts)
-        ? message.parts.findIndex((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
+        ? message.parts.findIndex(
+            (p) => p && p.type === 'text' && typeof (p as any).text === 'string'
+          )
         : -1,
     [message.parts]
   )
@@ -149,7 +148,10 @@ export function useAnchoredToolParts({
       const anchor = resolveAnchor(toolCallId) || 0
 
       if (cursor < anchor) {
-        pushTextSlice(textContent.slice(cursor, anchor), `${message.id}-text-before-${toolCallId || partIndex}`)
+        pushTextSlice(
+          textContent.slice(cursor, anchor),
+          `${message.id}-text-before-${toolCallId || partIndex}`
+        )
         cursor = anchor
       }
 

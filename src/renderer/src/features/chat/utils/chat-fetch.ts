@@ -42,8 +42,7 @@ export const electronChatFetch = async (
     // Call the main process handler via the preload script's exposed API
     // The `body` here already includes the `messages` array and any other data
     // you added to the `body` option of `useChat`.
-    const parsedBody =
-      typeof body === 'string' ? (JSON.parse(body) as ChatRequestBody) : body
+    const parsedBody = typeof body === 'string' ? (JSON.parse(body) as ChatRequestBody) : body
     const chunks = await window.ctg.chat.sendMessageStream(parsedBody)
 
     const stream = new ReadableStream({

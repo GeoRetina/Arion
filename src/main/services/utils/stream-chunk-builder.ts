@@ -25,7 +25,9 @@ export function buildToolStreamChunk(part: any): ChunkPayload | null {
     }
     case 'tool-error': {
       const errorMessage =
-        typeof part.error === 'string' ? part.error : part.error?.message || 'Tool execution failed.'
+        typeof part.error === 'string'
+          ? part.error
+          : part.error?.message || 'Tool execution failed.'
       const toolErrorCompat = {
         type: 'tool-result',
         toolCallId: part.toolCallId ?? part.id ?? `tool_${Date.now()}`,

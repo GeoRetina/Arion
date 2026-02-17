@@ -386,7 +386,7 @@ export class AgentRegistryService {
           agentUpdateFields.push('type = ?')
           agentUpdates.push(updates.type)
         }
-        
+
         if (updates.role !== undefined) {
           agentUpdateFields.push('role = ?')
           agentUpdates.push(updates.role)

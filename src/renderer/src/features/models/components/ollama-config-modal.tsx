@@ -130,8 +130,8 @@ export default function OllamaConfigModal({
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  The name of the Ollama model you want to use. Ensure the
-                  model is pulled in Ollama first. See available models on the
+                  The name of the Ollama model you want to use. Ensure the model is pulled in Ollama
+                  first. See available models on the
                   <a
                     href="https://ollama.com/library"
                     target="_blank"

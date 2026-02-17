@@ -151,9 +151,7 @@ export default function ModelsPage(): React.JSX.Element {
               />
             </div>
             <div>
-              <CardTitle className="text-xl">
-                {title}
-              </CardTitle>
+              <CardTitle className="text-xl">{title}</CardTitle>
               <CardDescription className="text-sm">{description}</CardDescription>
             </div>
           </div>

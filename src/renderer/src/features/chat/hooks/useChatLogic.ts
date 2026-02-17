@@ -73,7 +73,8 @@ const normalizeToolInvocationPart = (part: any): ToolInvocationPart | null => {
     return null
   }
 
-  const toolName = part.type === 'dynamic-tool' ? part.toolName : part.type.slice(toolPartPrefix.length)
+  const toolName =
+    part.type === 'dynamic-tool' ? part.toolName : part.type.slice(toolPartPrefix.length)
   const toolCallId = part.toolCallId ?? part.id
   if (!toolName || !toolCallId) {
     return null

@@ -6,10 +6,7 @@ import { AgentToolManager } from './agent-tool-manager'
 import { getArionSystemPrompt } from '../constants/system-prompts'
 import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
-import {
-  normalizeRendererMessages,
-  sanitizeModelMessages
-} from './utils/message-normalizer'
+import { normalizeRendererMessages, sanitizeModelMessages } from './utils/message-normalizer'
 
 export interface PreparedMessagesResult {
   processedMessages: ModelMessage[]
@@ -57,7 +54,9 @@ export class MessagePreparationService {
 
     try {
       coreMessages = messageAnalysis.shouldConvert
-        ? ((await convertToModelMessages(normalizedRendererMessages as any)) as unknown as ModelMessage[])
+        ? ((await convertToModelMessages(
+            normalizedRendererMessages as any
+          )) as unknown as ModelMessage[])
         : (normalizedRendererMessages as unknown as ModelMessage[])
       coreMessages = sanitizeModelMessages(coreMessages)
     } catch (e) {
@@ -94,21 +93,21 @@ export class MessagePreparationService {
     try {
       // Get MCP tools if available
       const mcpTools = await this.getMCPTools()
-      
+
       // Get agent tool access list if available and agentId is provided
       let agentToolAccess: string[] | undefined = undefined
-      
+
       // Use AgentToolManager if available to determine agent tool access
       if (this.agentToolManager) {
         try {
           if (agentId && this.agentRegistryService) {
             // For specific agent ID, check if it's an orchestrator or specialized agent
             const agent = await this.agentRegistryService.getAgentById(agentId)
-            
+
             if (agent) {
               // Check if this is an orchestrator agent
               const isOrchestrator = isOrchestratorAgent(agent)
-              
+
               if (isOrchestrator) {
                 // For orchestrators, use the AgentToolManager to get tool names for orchestrator
                 const orchestratorTools = await this.agentToolManager.getToolsForAgent(agentId)
@@ -426,5 +425,4 @@ export class MessagePreparationService {
     }
     return typeof content
   }
-
 }

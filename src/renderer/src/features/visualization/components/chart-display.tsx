@@ -420,13 +420,13 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
         }
         const scatterXAxisKey = scatterConfig.xKey || scatterConfig.xAxisKey || 'x'
         const scatterSeriesKeys =
-          (scatterConfig.yKeys && scatterConfig.yKeys.length > 0
+          scatterConfig.yKeys && scatterConfig.yKeys.length > 0
             ? scatterConfig.yKeys
             : scatterConfig.yAxisKeys && scatterConfig.yAxisKeys.length > 0
               ? scatterConfig.yAxisKeys
               : scatterConfig.yKey
                 ? [scatterConfig.yKey]
-                : ['y'])
+                : ['y']
 
         const scatterSeriesData = scatterSeriesKeys.map((seriesKey) =>
           data.map((point) => ({

@@ -257,5 +257,4 @@ export class LLMProviderFactory {
 
     return ollamaProvider(model as any)
   }
-
 }

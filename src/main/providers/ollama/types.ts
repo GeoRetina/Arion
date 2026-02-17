@@ -1,11 +1,5 @@
-import type {
-  LanguageModelV3FinishReason,
-  LanguageModelV3Usage
-} from '@ai-sdk/provider'
-import {
-  createJsonErrorResponseHandler,
-  type FetchFunction
-} from '@ai-sdk/provider-utils'
+import type { LanguageModelV3FinishReason, LanguageModelV3Usage } from '@ai-sdk/provider'
+import { createJsonErrorResponseHandler, type FetchFunction } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
 
 export type CreateOllamaOptions = {

@@ -51,8 +51,7 @@ export class ConnectionCredentialInjector {
         CONNECTION_PLACEHOLDER_LOOKUP[key as keyof typeof CONNECTION_PLACEHOLDER_LOOKUP]
 
       const isPlaceholderValue =
-        typeof currentValue === 'string' &&
-        placeholderSet?.has(currentValue.toLowerCase().trim())
+        typeof currentValue === 'string' && placeholderSet?.has(currentValue.toLowerCase().trim())
 
       if (currentValue === undefined || isPlaceholderValue) {
         enrichedArgs[key] = value

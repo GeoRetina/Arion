@@ -33,13 +33,7 @@ export type {
   UpdatePromptModuleParams
 } from './types/prompt-types'
 
-export type LLMProviderType =
-  | 'openai'
-  | 'google'
-  | 'azure'
-  | 'anthropic'
-  | 'vertex'
-  | 'ollama'
+export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
 
 export interface OpenAIConfig {
   apiKey: string

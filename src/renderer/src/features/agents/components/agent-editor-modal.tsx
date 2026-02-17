@@ -77,7 +77,11 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
 
   // Use the agent tools hook to manage available tools
   // Pass other agents (excluding current) so current agent's tools are shown as available
-  const { allTools, isLoading: isLoadingTools, error: toolsError } = useAgentTools(otherAgents, isOpen)
+  const {
+    allTools,
+    isLoading: isLoadingTools,
+    error: toolsError
+  } = useAgentTools(otherAgents, isOpen)
 
   // Load agent data when modal opens or agentId changes
   useEffect(() => {

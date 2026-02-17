@@ -275,9 +275,7 @@ export function McpSettingsManager(): React.JSX.Element {
       setTestResult({
         success: false,
         error:
-          err instanceof Error
-            ? err.message
-            : 'Failed to run MCP server test. Please try again.'
+          err instanceof Error ? err.message : 'Failed to run MCP server test. Please try again.'
       })
     } finally {
       setIsTesting(false)

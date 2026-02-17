@@ -164,7 +164,10 @@ export function convertToOllamaChatMessages({
           messages.push({ role: 'user', content: content[0].text })
           break
         }
-        const userText = content.filter((part) => part.type === 'text').map((part) => part.text).join('')
+        const userText = content
+          .filter((part) => part.type === 'text')
+          .map((part) => part.text)
+          .join('')
         const images = content
           .filter((part) => part.type === 'file' && part.mediaType.startsWith('image/'))
           .map((part) => (part as any).data)

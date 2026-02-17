@@ -55,7 +55,7 @@ export class AgentToolManager {
    * @returns boolean indicating if the agent is an orchestrator
    */
   public isOrchestratorAgent(agent: any): boolean {
-    return isOrchestratorAgent(agent);
+    return isOrchestratorAgent(agent)
   }
 
   /**

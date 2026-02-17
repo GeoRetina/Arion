@@ -319,8 +319,7 @@ const searchLayersImpl = (
 }
 
 // Persist only layers that have a string-based data reference (e.g., URL/file path).
-const isPersistableLayer = (layer: LayerDefinition) =>
-  typeof layer.sourceConfig?.data === 'string'
+const isPersistableLayer = (layer: LayerDefinition) => typeof layer.sourceConfig?.data === 'string'
 
 // Create the store
 export const useLayerStore = create<LayerStore>()(
@@ -872,7 +871,9 @@ export const useLayerStore = create<LayerStore>()(
       set({ isLoading: true })
       try {
         // Save non-imported layers to database (imported layers are session-only)
-        const layers = Array.from(get().layers.values()).filter((layer) => isPersistableLayer(layer))
+        const layers = Array.from(get().layers.values()).filter((layer) =>
+          isPersistableLayer(layer)
+        )
         const groups = Array.from(get().groups.values())
 
         // Save each layer individually to maintain referential integrity

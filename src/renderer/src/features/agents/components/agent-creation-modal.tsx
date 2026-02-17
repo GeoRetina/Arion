@@ -96,7 +96,11 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   }, [isOpen, agents, getAgentById])
 
   // Use the agent tools hook to manage available and assigned tools
-  const { availableTools, isLoading: isLoadingTools, error: toolsError } = useAgentTools(fullAgents, isOpen)
+  const {
+    availableTools,
+    isLoading: isLoadingTools,
+    error: toolsError
+  } = useAgentTools(fullAgents, isOpen)
 
   // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
@@ -313,7 +317,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                       required
                     />
                   </div>
-                  
+
                   {/* All user-created agents are automatically assigned the 'specialist' role */}
                 </div>
               </TabsContent>

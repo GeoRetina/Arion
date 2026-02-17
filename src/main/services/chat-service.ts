@@ -44,7 +44,7 @@ export class ChatService {
       modularPromptManager,
       agentRegistryService,
       llmToolService,
-      this.agentToolManager  // Pass the agentToolManager to enable tool filtering
+      this.agentToolManager // Pass the agentToolManager to enable tool filtering
     )
     this.streamingHandlerService = new StreamingHandlerService()
   }

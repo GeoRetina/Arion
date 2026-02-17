@@ -121,8 +121,7 @@ export default function ChatInterface(): React.JSX.Element {
         })
       } else {
         toast.error('No AI model configured', {
-          description:
-            "Please configure an AI model from the 'Models' page to start chatting."
+          description: "Please configure an AI model from the 'Models' page to start chatting."
         })
       }
       return // Stop submission

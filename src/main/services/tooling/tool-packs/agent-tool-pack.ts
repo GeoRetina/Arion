@@ -1,4 +1,8 @@
-import { callAgentToolDefinition, callAgentToolName, type CallAgentParams } from '../../../llm-tools/agent-tools/call-agent-tool'
+import {
+  callAgentToolDefinition,
+  callAgentToolName,
+  type CallAgentParams
+} from '../../../llm-tools/agent-tools/call-agent-tool'
 import type { ToolRegistry } from '../tool-registry'
 import type { AgentRegistryService } from '../../agent-registry-service'
 import type { OrchestrationService } from '../../orchestration-service'
@@ -44,7 +48,12 @@ export function registerAgentTools(registry: ToolRegistry, deps: AgentToolDepend
 
         const { callAgent } = await import('../../../llm-tools/agent-tools/call-agent-tool')
 
-        return await callAgent(enhancedParams, actualChatId, agentRegistryService, orchestrationService)
+        return await callAgent(
+          enhancedParams,
+          actualChatId,
+          agentRegistryService,
+          orchestrationService
+        )
       } catch (error) {
         return {
           status: 'error',

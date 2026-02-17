@@ -6,11 +6,12 @@ import {
   detectNestedToolCalls
 } from '../../utils/tool-ui-component-detection'
 import type { ToolInvocation } from '../../utils/tool-ui-component-detection'
+import { determineToolStatus, normalizeToolInvocationPart } from '../../utils/message-part-utils'
 import {
-  determineToolStatus,
-  normalizeToolInvocationPart
-} from '../../utils/message-part-utils'
-import { COMPONENT_TYPES, TOOL_STATES, CALL_AGENT_TOOL_NAME } from '../../constants/message-constants'
+  COMPONENT_TYPES,
+  TOOL_STATES,
+  CALL_AGENT_TOOL_NAME
+} from '../../constants/message-constants'
 import type { MessagePartRendererProps } from '../../types/message-types'
 import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
 

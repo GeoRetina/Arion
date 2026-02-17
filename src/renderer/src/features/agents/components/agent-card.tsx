@@ -93,11 +93,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
         <CardFooter className="flex justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleEditClick}
-              >
+              <Button variant="outline" size="icon" onClick={handleEditClick}>
                 <Edit className="h-4 w-4" />
               </Button>
             </TooltipTrigger>

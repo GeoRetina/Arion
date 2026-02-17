@@ -1,7 +1,4 @@
-import type {
-  LanguageModelV3,
-  LanguageModelV3CallOptions
-} from '@ai-sdk/provider'
+import type { LanguageModelV3, LanguageModelV3CallOptions } from '@ai-sdk/provider'
 import {
   combineHeaders,
   createJsonResponseHandler,
@@ -120,7 +117,11 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
       modelId: this.modelId
     })
 
-    const { responseHeaders, value: response, rawValue } = await postJsonToApi({
+    const {
+      responseHeaders,
+      value: response,
+      rawValue
+    } = await postJsonToApi({
       url: this.config.url({ path: '/chat', modelId: this.modelId }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: { ...args, stream: false },

@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import type { LLMProviderType as LLMProvider, VertexConfig, OllamaConfig } from '../../../shared/ipc-types'
+import type {
+  LLMProviderType as LLMProvider,
+  VertexConfig,
+  OllamaConfig
+} from '../../../shared/ipc-types'
 
 export type { LLMProvider }
 

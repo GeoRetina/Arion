@@ -139,8 +139,12 @@ export const ChatHistoryList: React.FC = () => {
                     >
                       {chat.title || `Chat ${chat.id.substring(0, 8)}...`}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(chat.updated_at)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(chat.created_at)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(chat.updated_at)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(chat.created_at)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

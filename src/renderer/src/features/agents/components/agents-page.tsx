@@ -83,8 +83,8 @@ const AgentsPage: React.FC = () => {
           <div className="w-full">
             <h1 className="text-3xl font-semibold mb-2">AI Agents</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Manage your AI agents and their capabilities. Create specialized agents for
-              different tasks.
+              Manage your AI agents and their capabilities. Create specialized agents for different
+              tasks.
             </p>
           </div>
 

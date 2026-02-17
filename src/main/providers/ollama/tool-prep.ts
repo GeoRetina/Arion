@@ -34,7 +34,8 @@ export function prepareResponsesTools({
   for (const tool of normalizedTools) {
     if (tool.type === 'function') {
       const parameters =
-        tool.inputSchema ?? ({
+        tool.inputSchema ??
+        ({
           type: 'object',
           properties: {},
           required: []

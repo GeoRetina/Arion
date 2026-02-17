@@ -5,11 +5,7 @@ import type {
 } from '@ai-sdk/provider'
 import { generateId } from '@ai-sdk/provider-utils'
 import type { OllamaConfig, OllamaResponse } from './types'
-import {
-  mapOllamaFinishReason,
-  normalizeToolArguments,
-  serializeToolArguments
-} from './utils'
+import { mapOllamaFinishReason, normalizeToolArguments, serializeToolArguments } from './utils'
 
 export class OllamaResponseProcessor {
   constructor(private readonly config: OllamaConfig) {}
