@@ -29,10 +29,12 @@ export interface KBRecord {
 }
 
 export type WorkspaceMemoryType = 'session_outcome' | 'tool_outcome'
+export type WorkspaceMemoryScope = 'chat' | 'global'
 
 export interface WorkspaceMemoryEntry {
   id: string
   chatId: string
+  scope: WorkspaceMemoryScope
   sourceKey: string
   sourceMessageId?: string
   memoryType: WorkspaceMemoryType
@@ -162,6 +164,7 @@ export class KnowledgeBaseService {
         CREATE TABLE IF NOT EXISTS workspace_memories (
           id TEXT PRIMARY KEY,
           chat_id TEXT NOT NULL,
+          memory_scope TEXT NOT NULL DEFAULT 'chat' CHECK (memory_scope IN ('chat', 'global')),
           source_key TEXT NOT NULL UNIQUE,
           source_message_id TEXT,
           memory_type TEXT NOT NULL CHECK (memory_type IN ('session_outcome', 'tool_outcome')),
@@ -175,11 +178,23 @@ export class KnowledgeBaseService {
       `
       await this.db.query(createWorkspaceMemoriesTableQuery)
 
+      const addWorkspaceMemoryScopeColumnQuery = `
+        ALTER TABLE workspace_memories
+        ADD COLUMN IF NOT EXISTS memory_scope TEXT NOT NULL DEFAULT 'chat';
+      `
+      await this.db.query(addWorkspaceMemoryScopeColumnQuery)
+
       const createWorkspaceMemoriesByChatIndex = `
         CREATE INDEX IF NOT EXISTS idx_workspace_memories_chat_created
         ON workspace_memories (chat_id, created_at DESC);
       `
       await this.db.query(createWorkspaceMemoriesByChatIndex)
+
+      const createWorkspaceMemoriesScopeIndex = `
+        CREATE INDEX IF NOT EXISTS idx_workspace_memories_scope_chat_created
+        ON workspace_memories (memory_scope, chat_id, created_at DESC);
+      `
+      await this.db.query(createWorkspaceMemoriesScopeIndex)
 
       const createWorkspaceMemoriesEmbeddingIndex = `
         CREATE INDEX IF NOT EXISTS idx_workspace_memories_embedding_cosine
@@ -513,6 +528,7 @@ export class KnowledgeBaseService {
 
   public async upsertWorkspaceMemoryEntry(payload: {
     chatId: string
+    scope?: WorkspaceMemoryScope
     sourceKey: string
     sourceMessageId?: string
     memoryType: WorkspaceMemoryType
@@ -539,6 +555,7 @@ export class KnowledgeBaseService {
     }
 
     const createdAt = payload.createdAt || new Date().toISOString()
+    const scope = this.normalizeWorkspaceMemoryScope(payload.scope)
     const embedding = await this.embedText(normalizedSummary)
     const embeddingString = JSON.stringify(embedding)
 
@@ -555,6 +572,7 @@ export class KnowledgeBaseService {
       INSERT INTO workspace_memories (
         id,
         chat_id,
+        memory_scope,
         source_key,
         source_message_id,
         memory_type,
@@ -565,9 +583,10 @@ export class KnowledgeBaseService {
         embedding,
         created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::vector, $12)
       ON CONFLICT (source_key) DO UPDATE
       SET
+        memory_scope = EXCLUDED.memory_scope,
         source_message_id = EXCLUDED.source_message_id,
         memory_type = EXCLUDED.memory_type,
         agent_id = EXCLUDED.agent_id,
@@ -579,6 +598,7 @@ export class KnowledgeBaseService {
       RETURNING
         id,
         chat_id,
+        memory_scope,
         source_key,
         source_message_id,
         memory_type,
@@ -592,6 +612,7 @@ export class KnowledgeBaseService {
     const result = await this.db.query<{
       id: string
       chat_id: string
+      memory_scope: WorkspaceMemoryScope
       source_key: string
       source_message_id: string | null
       memory_type: WorkspaceMemoryType
@@ -603,6 +624,7 @@ export class KnowledgeBaseService {
     }>(query, [
       nanoid(),
       payload.chatId,
+      scope,
       payload.sourceKey,
       payload.sourceMessageId || null,
       payload.memoryType,
@@ -625,6 +647,7 @@ export class KnowledgeBaseService {
   public async findRelevantWorkspaceMemories(params: {
     chatId: string
     query: string
+    includeGlobal?: boolean
     limit?: number
     candidateLimit?: number
     scoreConfig?: WorkspaceMemoryScoreConfig
@@ -647,6 +670,7 @@ export class KnowledgeBaseService {
 
     const limit = Math.max(1, Math.min(params.limit ?? 5, 20))
     const candidateLimit = Math.max(limit, Math.min(params.candidateLimit ?? limit * 4, 100))
+    const includeGlobal = params.includeGlobal !== false
     const queryEmbedding = await this.embedText(normalizedQuery)
     const queryEmbeddingString = JSON.stringify(queryEmbedding)
 
@@ -654,6 +678,7 @@ export class KnowledgeBaseService {
       SELECT
         id,
         chat_id,
+        COALESCE(memory_scope, 'chat') AS memory_scope,
         source_key,
         source_message_id,
         memory_type,
@@ -664,7 +689,11 @@ export class KnowledgeBaseService {
         created_at,
         embedding <=> $2::vector AS distance
       FROM workspace_memories
-      WHERE chat_id = $1
+      WHERE ${
+        includeGlobal
+          ? "COALESCE(memory_scope, 'chat') = 'global' OR (COALESCE(memory_scope, 'chat') = 'chat' AND chat_id = $1)"
+          : "COALESCE(memory_scope, 'chat') = 'chat' AND chat_id = $1"
+      }
       ORDER BY embedding <=> $2::vector
       LIMIT $3;
     `
@@ -672,6 +701,7 @@ export class KnowledgeBaseService {
     const result = await this.db.query<{
       id: string
       chat_id: string
+      memory_scope: WorkspaceMemoryScope
       source_key: string
       source_message_id: string | null
       memory_type: WorkspaceMemoryType
@@ -685,11 +715,13 @@ export class KnowledgeBaseService {
 
     const scoredEntries = (result.rows || []).map((row) => {
       const score = scoreWorkspaceMemory(Number(row.distance), row.created_at, params.scoreConfig)
+      const scope = this.normalizeWorkspaceMemoryScope(row.memory_scope)
+      const scopeBoost = scope === 'chat' && row.chat_id === params.chatId ? 0.08 : 0
       return {
         ...this.mapWorkspaceMemoryRow(row),
         similarityScore: score.similarityScore,
         recencyScore: score.recencyScore,
-        finalScore: score.finalScore
+        finalScore: Math.min(1, score.finalScore + scopeBoost)
       }
     })
 
@@ -714,6 +746,7 @@ export class KnowledgeBaseService {
   private mapWorkspaceMemoryRow(row: {
     id: string
     chat_id: string
+    memory_scope: WorkspaceMemoryScope
     source_key: string
     source_message_id: string | null
     memory_type: WorkspaceMemoryType
@@ -726,6 +759,7 @@ export class KnowledgeBaseService {
     return {
       id: row.id,
       chatId: row.chat_id,
+      scope: this.normalizeWorkspaceMemoryScope(row.memory_scope),
       sourceKey: row.source_key,
       sourceMessageId: row.source_message_id || undefined,
       memoryType: row.memory_type,
@@ -735,6 +769,46 @@ export class KnowledgeBaseService {
       details: this.safeParseJson(row.details_json),
       createdAt: row.created_at
     }
+  }
+
+  public async getWorkspaceMemories(params?: { limit?: number }): Promise<WorkspaceMemoryEntry[]> {
+    if (!this.db) {
+      throw new Error('Database not initialized.')
+    }
+
+    const limit = Math.max(1, Math.min(params?.limit ?? 200, 1000))
+    const query = `
+      SELECT
+        id,
+        chat_id,
+        COALESCE(memory_scope, 'chat') AS memory_scope,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at
+      FROM workspace_memories
+      ORDER BY created_at DESC
+      LIMIT $1;
+    `
+    const result = await this.db.query<{
+      id: string
+      chat_id: string
+      memory_scope: WorkspaceMemoryScope
+      source_key: string
+      source_message_id: string | null
+      memory_type: WorkspaceMemoryType
+      agent_id: string | null
+      tool_name: string | null
+      summary: string
+      details_json: string | null
+      created_at: string
+    }>(query, [limit])
+
+    return (result.rows || []).map((row) => this.mapWorkspaceMemoryRow(row))
   }
 
   private safeParseJson(value: string | null): unknown {
@@ -747,6 +821,12 @@ export class KnowledgeBaseService {
     } catch {
       return undefined
     }
+  }
+
+  private normalizeWorkspaceMemoryScope(
+    scope: WorkspaceMemoryScope | string | null | undefined
+  ): WorkspaceMemoryScope {
+    return scope === 'chat' ? 'chat' : 'global'
   }
 
   public async getChunkCount(): Promise<number> {

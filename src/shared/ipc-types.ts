@@ -209,6 +209,7 @@ export const IpcChannels = {
   kbFindSimilar: 'ctg:kb:findSimilar',
   kbGetChunkCount: 'ctg:kb:getChunkCount',
   kbGetAllDocuments: 'ctg:kb:getAllDocuments',
+  kbGetWorkspaceMemories: 'ctg:kb:getWorkspaceMemories',
   kbDeleteDocument: 'ctg:kb:deleteDocument',
 
   // UI Control IPC Channels
@@ -482,6 +483,23 @@ export interface KBRecordForClient {
   created_at: string
 }
 
+export type WorkspaceMemoryTypeForClient = 'session_outcome' | 'tool_outcome'
+export type WorkspaceMemoryScopeForClient = 'chat' | 'global'
+
+export interface WorkspaceMemoryForClient {
+  id: string
+  chatId: string
+  scope: WorkspaceMemoryScopeForClient
+  sourceKey: string
+  sourceMessageId?: string
+  memoryType: WorkspaceMemoryTypeForClient
+  agentId?: string
+  toolName?: string
+  summary: string
+  details?: unknown
+  createdAt: string
+}
+
 // Type for the payload of kbAddDocument
 export interface KBAddDocumentPayload {
   documentId: string
@@ -509,6 +527,7 @@ export interface KnowledgeBaseApi {
   ) => Promise<{ success: boolean; data?: KBRecordForClient[]; error?: string }>
   getChunkCount: () => Promise<{ success: boolean; data?: number; error?: string }>
   getAllDocuments: () => Promise<IPCResponse<KnowledgeBaseDocumentForClient[]>>
+  getWorkspaceMemories: (limit?: number) => Promise<IPCResponse<WorkspaceMemoryForClient[]>>
   deleteDocument: (documentId: string) => Promise<IPCResponse<null>>
 }
 

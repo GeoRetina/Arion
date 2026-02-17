@@ -460,6 +460,7 @@ export class ChatService {
       if (sessionSummary) {
         await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
           chatId,
+          scope: 'global',
           sourceKey: `${chatId}:structured:${executionStamp}:session`,
           memoryType: 'session_outcome',
           agentId,
@@ -482,6 +483,7 @@ export class ChatService {
 
         await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
           chatId,
+          scope: 'global',
           sourceKey: `${chatId}:structured:${executionStamp}:tool:${index}:${toolResult.toolCallId || toolResult.toolName}`,
           memoryType: 'tool_outcome',
           agentId,
@@ -534,6 +536,7 @@ export class ChatService {
           if (summary) {
             await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
               chatId,
+              scope: 'global',
               sourceKey: `${chatId}:history:${sourceMessageId}:session`,
               sourceMessageId,
               memoryType: 'session_outcome',
@@ -563,6 +566,7 @@ export class ChatService {
 
           await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
             chatId,
+            scope: 'global',
             sourceKey: `${chatId}:history:${sourceMessageId}:tool:${toolIndex}:${createContentHash(toolHashInput)}`,
             sourceMessageId,
             memoryType: 'tool_outcome',
