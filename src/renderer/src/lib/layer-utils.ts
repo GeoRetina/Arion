@@ -514,7 +514,11 @@ export class LayerTransformUtils {
     layer: LayerDefinition,
     modifications: Partial<LayerDefinition> = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+    const layerData = Object.fromEntries(
+      Object.entries(layer).filter(
+        ([key]) => key !== 'id' && key !== 'createdAt' && key !== 'updatedAt'
+      )
+    ) as Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
 
     return {
       ...layerData,

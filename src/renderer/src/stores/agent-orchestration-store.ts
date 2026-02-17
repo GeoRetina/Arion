@@ -1,9 +1,5 @@
 import { create } from 'zustand'
-import {
-  Subtask,
-  AgentCapabilitiesResult,
-  OrchestrationStatus
-} from '../../../shared/ipc-types'
+import { Subtask, AgentCapabilitiesResult, OrchestrationStatus } from '../../../shared/ipc-types'
 import type { AgentDisplayInfo } from '../features/chat/components/agent-indicator'
 
 export interface AgentOrchestrationState {

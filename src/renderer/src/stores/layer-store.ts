@@ -136,6 +136,14 @@ interface LayerStore {
   cleanup: () => void
 }
 
+const omitKeys = <T extends object, K extends keyof T>(value: T, keys: K[]): Omit<T, K> => {
+  const next = { ...value } as Omit<T, K> & Record<string, unknown>
+  keys.forEach((key) => {
+    delete next[key as string]
+  })
+  return next as Omit<T, K>
+}
+
 // Default layer style
 const DEFAULT_LAYER_STYLE: LayerStyle = {
   // Vector defaults
@@ -435,7 +443,7 @@ export const useLayerStore = create<LayerStore>()(
       const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
         {
-          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+          const layerData = omitKeys(layer, ['id', 'createdAt', 'updatedAt'])
           await window.ctg.layers.create(layerData)
         }
       }
@@ -694,13 +702,7 @@ export const useLayerStore = create<LayerStore>()(
 
       // Persist to database first
       {
-        const {
-          id: _id,
-          createdAt: _createdAt,
-          updatedAt: _updatedAt,
-          layerIds: _layerIds,
-          ...groupData
-        } = group
+        const groupData = omitKeys(group, ['id', 'createdAt', 'updatedAt', 'layerIds'])
         await window.ctg.layers.groups.create(groupData)
       }
 
@@ -876,7 +878,7 @@ export const useLayerStore = create<LayerStore>()(
           } catch {
             // If update fails, try to create the layer
             {
-              const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+              const layerData = omitKeys(layer, ['id', 'createdAt', 'updatedAt'])
               await window.ctg.layers.create(layerData)
             }
           }
@@ -889,13 +891,7 @@ export const useLayerStore = create<LayerStore>()(
           } catch {
             // If update fails, try to create the group
             {
-              const {
-                id: _id,
-                createdAt: _createdAt,
-                updatedAt: _updatedAt,
-                layerIds: _layerIds,
-                ...groupData
-              } = group
+              const groupData = omitKeys(group, ['id', 'createdAt', 'updatedAt', 'layerIds'])
               await window.ctg.layers.groups.create(groupData)
             }
           }

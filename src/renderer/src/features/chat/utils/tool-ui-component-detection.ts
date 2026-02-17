@@ -180,8 +180,8 @@ export function detectNestedToolCalls(
         result: nestedToolRecord.result,
         isError: Boolean(
           nestedToolRecord.isError ||
-            nestedToolRecord.error ||
-            (nestedToolRecord.result as { isError?: unknown } | undefined)?.isError
+          nestedToolRecord.error ||
+          (nestedToolRecord.result as { isError?: unknown } | undefined)?.isError
         )
       }
 
