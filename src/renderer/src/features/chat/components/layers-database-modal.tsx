@@ -228,12 +228,9 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     if (isOpen && !hasLoadedOnOpen) {
       loadFromPersistence(true) // Include imported layers for database modal
         .then(() => {
-          const allLayers = Array.from(layers.values())
-          const persistentLayers = allLayers.filter((l) => l.createdBy !== 'import')
-          const importedLayers = allLayers.filter((l) => l.createdBy === 'import')
           setHasLoadedOnOpen(true)
         })
-        .catch((error) => {
+        .catch(() => {
           // Still mark as loaded to prevent repeated attempts
           setHasLoadedOnOpen(true)
         })
@@ -243,7 +240,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     if (!isOpen && hasLoadedOnOpen) {
       setHasLoadedOnOpen(false)
     }
-  }, [isOpen, hasLoadedOnOpen, loadFromPersistence, layers.size])
+  }, [isOpen, hasLoadedOnOpen, loadFromPersistence])
 
   // Show all layers from the database
   const databaseLayers = Array.from(layers.values())

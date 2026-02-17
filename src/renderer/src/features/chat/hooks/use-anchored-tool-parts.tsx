@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { MessagePartRenderer } from '../components/message/message-part-renderer'
 
 type AnchoredMessage = {
@@ -71,19 +71,22 @@ export function useAnchoredToolParts({
     [textParts, toolParts, isUser]
   )
 
-  const resolveAnchor = (toolCallId: string | undefined) => {
-    if (toolCallId && toolAnchorRef.current[toolCallId] !== undefined) {
-      return toolAnchorRef.current[toolCallId]
-    }
-    return textContent.length
-  }
+  const resolveAnchor = useCallback(
+    (toolCallId: string | undefined) => {
+      if (toolCallId && toolAnchorRef.current[toolCallId] !== undefined) {
+        return toolAnchorRef.current[toolCallId]
+      }
+      return textContent.length
+    },
+    [textContent.length]
+  )
 
   const firstToolAnchor = useMemo(() => {
     if (!hasAnchoredToolFlow) return textContent.length
     return toolParts
       .map((part: any) => resolveAnchor(getToolCallId(part)))
       .reduce((min: number, val: number) => Math.min(min, val), textContent.length)
-  }, [hasAnchoredToolFlow, textContent, toolParts])
+  }, [hasAnchoredToolFlow, resolveAnchor, textContent, toolParts])
 
   // Reset anchors when the message changes
   useEffect(() => {

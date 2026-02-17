@@ -258,7 +258,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
         setProgressSteps((prev) => ({ ...prev, [userMessageId]: [] }))
       }
     }
-  }, [messages])
+  }, [messages, progressSteps, toolSequences])
 
   useEffect(() => {
     // REMOVED: selectedRoiGeometryInChat dependency and logic, selectedRoiForBanner is now driven by handleSendMessage directly

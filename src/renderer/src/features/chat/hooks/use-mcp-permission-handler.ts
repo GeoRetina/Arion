@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
 import type { McpServerConfig } from '../../../../../shared/ipc-types'
 
@@ -40,20 +40,23 @@ export const useMcpPermissionHandler = () => {
   }
 
   // Handle MCP permission dialog requests from main process
-  const handleMcpPermissionRequest = async (request: any) => {
-    // Check if we already have permission for this tool in this chat
-    const existingPermission = hasPermission(request.chatId, request.toolName)
-    if (existingPermission !== null) {
-      // Send response back to main process
-      if (window.ctg?.mcp?.permissionResponse) {
-        window.ctg.mcp.permissionResponse(request.requestId, existingPermission)
+  const handleMcpPermissionRequest = useCallback(
+    async (request: any) => {
+      // Check if we already have permission for this tool in this chat
+      const existingPermission = hasPermission(request.chatId, request.toolName)
+      if (existingPermission !== null) {
+        // Send response back to main process
+        if (window.ctg?.mcp?.permissionResponse) {
+          window.ctg.mcp.permissionResponse(request.requestId, existingPermission)
+        }
+        return
       }
-      return
-    }
 
-    // Set pending permission to trigger the dialog UI
-    setPendingPermission(request)
-  }
+      // Set pending permission to trigger the dialog UI
+      setPendingPermission(request)
+    },
+    [hasPermission, setPendingPermission]
+  )
 
   // Register the MCP permission dialog handler
   useEffect(() => {
@@ -62,7 +65,7 @@ export const useMcpPermissionHandler = () => {
       return () => unsubscribe()
     }
     return undefined
-  }, [hasPermission, setPendingPermission])
+  }, [handleMcpPermissionRequest])
 
   return {
     pendingPermission,
