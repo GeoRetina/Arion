@@ -17,10 +17,36 @@ export interface MapLayerManagementDependencies {
   mapLayerTracker: MapLayerTracker
 }
 
+type RuntimeLayerRecord = {
+  id?: string
+  name?: string
+  sourceId?: string
+  sourceConfig?: { type?: string }
+  type?: string
+  geometryType?: string
+  createdBy?: string
+  createdAt?: unknown
+  updatedAt?: unknown
+  visibility?: boolean
+  opacity?: number
+  zIndex?: number
+  metadata?: {
+    geometryType?: string
+    tags?: string[]
+    description?: string
+    bounds?: [number, number, number, number]
+    featureCount?: number
+  }
+}
+
+function asRuntimeLayer(value: unknown): RuntimeLayerRecord | null {
+  return value && typeof value === 'object' ? (value as RuntimeLayerRecord) : null
+}
+
 export function registerMapLayerManagementTools(
   registry: ToolRegistry,
   deps: MapLayerManagementDependencies
-) {
+): void {
   const layerDbService = getLayerDbService()
   const { mapLayerTracker } = deps
 
@@ -37,14 +63,17 @@ export function registerMapLayerManagementTools(
         ? getRuntimeLayerSnapshot()
         : []
 
-      const sessionLayers = runtimeLayers.filter((layer: any) => {
-        const idMatch = layer.id && persistedIds.has(layer.id)
-        const sourceMatch = layer.sourceId && persistedSourceIds.has(layer.sourceId)
-        const explicitSession = layer.createdBy === 'import'
-        return explicitSession || (!idMatch && !sourceMatch)
-      })
+      const sessionLayers = runtimeLayers
+        .map((layer) => asRuntimeLayer(layer))
+        .filter((layer): layer is RuntimeLayerRecord => Boolean(layer))
+        .filter((layer) => {
+          const idMatch = layer.id && persistedIds.has(layer.id)
+          const sourceMatch = layer.sourceId && persistedSourceIds.has(layer.sourceId)
+          const explicitSession = layer.createdBy === 'import'
+          return explicitSession || (!idMatch && !sourceMatch)
+        })
 
-      const layers = sessionLayers.map((layer: any) => ({
+      const layers = sessionLayers.map((layer) => ({
         id: layer.id,
         name: layer.name,
         sourceId: layer.sourceId,

@@ -49,7 +49,7 @@ export function registerPostgreSQLIpcHandlers(
     async (_event, id: string): Promise<void> => {
       try {
         await postgresqlService.closeConnection(id)
-      } catch (error) {
+      } catch {
         // Don't throw here as this is cleanup
       }
     }
@@ -58,7 +58,12 @@ export function registerPostgreSQLIpcHandlers(
   // Execute PostgreSQL query
   ipcMain.handle(
     IpcChannels.postgresqlExecuteQuery,
-    async (_event, id: string, query: string, params?: any[]): Promise<PostgreSQLQueryResult> => {
+    async (
+      _event,
+      id: string,
+      query: string,
+      params?: unknown[]
+    ): Promise<PostgreSQLQueryResult> => {
       try {
         return await postgresqlService.executeQuery(id, query, params)
       } catch (error) {
@@ -87,10 +92,10 @@ export function registerPostgreSQLIpcHandlers(
   )
 
   // Get active PostgreSQL connections
-  ipcMain.handle(IpcChannels.postgresqlGetActiveConnections, async (_event): Promise<string[]> => {
+  ipcMain.handle(IpcChannels.postgresqlGetActiveConnections, async (): Promise<string[]> => {
     try {
       return await postgresqlService.getActiveConnections()
-    } catch (error) {
+    } catch {
       return []
     }
   })
@@ -101,7 +106,7 @@ export function registerPostgreSQLIpcHandlers(
     async (_event, id: string): Promise<PostgreSQLConnectionInfo> => {
       try {
         return await postgresqlService.getConnectionInfo(id)
-      } catch (error) {
+      } catch {
         return { connected: false }
       }
     }

@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
 import { useLayerStore } from '../stores/layer-store'
 import { useMapStore } from '../stores/map-store'
 
-export function useLayerSync() {
+export function useLayerSync(): { isInitialized: boolean } {
   const mapInstance = useMapStore((state) => state.mapInstance)
   const isMapReady = useMapStore((state) => state.isMapReadyForOperations)
   const setMapInstance = useLayerStore((state) => state.setMapInstance)
@@ -26,7 +26,7 @@ export function useLayerSync() {
   useEffect(() => {
     if (!mapInstance || !isMapReady) {
       // Clear map instance if map is not ready
-      setMapInstance(null).catch((error) => {})
+      setMapInstance(null).catch(() => {})
       return
     }
 
@@ -39,10 +39,10 @@ export function useLayerSync() {
       .then(() => {
         isInitializedRef.current = true
       })
-      .catch((error) => {})
+      .catch(() => {})
 
     return () => {
-      setMapInstance(null).catch((error) => {})
+      setMapInstance(null).catch(() => {})
       isInitializedRef.current = false
     }
   }, [mapInstance, isMapReady, setMapInstance])
@@ -72,7 +72,7 @@ export function useLayerSync() {
     saveTimeoutRef.current = setTimeout(() => {
       saveToPersistence()
         .then(() => {})
-        .catch((error) => {})
+        .catch(() => {})
     }, 1000) // 1 second debounce
 
     return () => {
@@ -100,7 +100,7 @@ export function useLayerSync() {
 /**
  * Hook for accessing layer management utilities
  */
-export function useLayerSyncStats() {
+export function useLayerSyncStats(): { isInitialized: boolean } {
   const { isInitialized } = useLayerSync()
 
   return {

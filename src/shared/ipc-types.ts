@@ -4,7 +4,6 @@ import type {
   AgentDefinition,
   CreateAgentParams,
   UpdateAgentParams,
-  PromptModuleInfo,
   AgentCapability
 } from './types/agent-types'
 export type {
@@ -12,7 +11,6 @@ export type {
   AgentRegistryEntry,
   CreateAgentParams,
   UpdateAgentParams,
-  PromptModuleInfo,
   AgentCapability
 } from './types/agent-types'
 
@@ -20,6 +18,7 @@ export type {
 export type { OrchestrationResult, Subtask } from '../main/services/types/orchestration-types'
 import type {
   PromptModule,
+  PromptModuleInfo,
   PromptAssemblyRequest,
   PromptAssemblyResult,
   CreatePromptModuleParams,
@@ -27,19 +26,14 @@ import type {
 } from './types/prompt-types'
 export type {
   PromptModule,
+  PromptModuleInfo,
   PromptAssemblyRequest,
   PromptAssemblyResult,
   CreatePromptModuleParams,
   UpdatePromptModuleParams
 } from './types/prompt-types'
 
-export type LLMProviderType =
-  | 'openai'
-  | 'google'
-  | 'azure'
-  | 'anthropic'
-  | 'vertex'
-  | 'ollama'
+export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
 
 export interface OpenAIConfig {
   apiKey: string
@@ -302,7 +296,7 @@ export interface SettingsApi {
 
 // Type for the Chat API arguments and return type
 export interface ChatRequestBodyForPreload {
-  messages: any[] // Using any[] for now, can be refined to @ai-sdk/react Message[] if shared
+  messages: unknown[] // Can be refined to @ai-sdk/react UIMessage[] if needed
   // other potential fields from useChat body
 }
 
@@ -395,7 +389,7 @@ export interface AddMapFeaturePayload {
  */
 export interface SetPaintPropertiesPayload {
   sourceId: string // The ID of the source whose layers should be styled
-  paintProperties: Record<string, any> // The MapLibre paint properties object
+  paintProperties: Record<string, unknown> // The MapLibre paint properties object
   layerIdPattern?: string // Optional: A pattern to identify specific layers associated with the source (e.g., `${sourceId}-fill-layer`)
   // If not provided, the renderer might try to apply to all layers using this source or a default one.
 }
@@ -640,7 +634,7 @@ export interface PostgreSQLFieldInfo {
 
 export interface PostgreSQLQueryResult {
   success: boolean
-  rows?: any[]
+  rows?: unknown[]
   rowCount?: number
   fields?: PostgreSQLFieldInfo[]
   executionTime?: number
@@ -713,6 +707,9 @@ export interface LayerApi {
     fileBuffer: ArrayBuffer,
     fileName: string
   ) => Promise<{ imageUrl: string; bounds?: [number, number, number, number] }>
+
+  // Generic invoke method for additional operations
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
 }
 
 // PostgreSQL API for preload script
@@ -720,7 +717,7 @@ export interface PostgreSQLApi {
   testConnection: (config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
   createConnection: (id: string, config: PostgreSQLConfig) => Promise<PostgreSQLConnectionResult>
   closeConnection: (id: string) => Promise<void>
-  executeQuery: (id: string, query: string, params?: any[]) => Promise<PostgreSQLQueryResult>
+  executeQuery: (id: string, query: string, params?: unknown[]) => Promise<PostgreSQLQueryResult>
   executeTransaction: (id: string, queries: string[]) => Promise<PostgreSQLQueryResult>
   getActiveConnections: () => Promise<string[]>
   getConnectionInfo: (id: string) => Promise<PostgreSQLConnectionInfo>

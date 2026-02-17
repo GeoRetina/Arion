@@ -59,7 +59,7 @@ export interface LayerApi {
   import: (data: string, targetGroupId?: string) => Promise<string[]>
 
   // Generic invoke method for additional operations
-  invoke: (channel: string, ...args: any[]) => Promise<any>
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
 }
 
 // Import the full SettingsApi type from shared types

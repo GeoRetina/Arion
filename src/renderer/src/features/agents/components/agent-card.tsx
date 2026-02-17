@@ -31,16 +31,16 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
       : 'bg-emerald-500/10 border-emerald-500/20'
 
   // Handle edit button click
-  const handleEditClick = () => {
+  const handleEditClick = (): void => {
     onEdit(agent.id)
   }
 
   // Handle delete button click with confirmation
-  const handleDeleteClick = () => {
+  const handleDeleteClick = (): void => {
     setIsDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = (): void => {
     onDelete(agent.id)
   }
 
@@ -93,11 +93,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
         <CardFooter className="flex justify-end gap-2 pt-2">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleEditClick}
-              >
+              <Button variant="outline" size="icon" onClick={handleEditClick}>
                 <Edit className="h-4 w-4" />
               </Button>
             </TooltipTrigger>

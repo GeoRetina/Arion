@@ -3,6 +3,10 @@ import { generateId, type ParseResult } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
 import { baseOllamaResponseSchema, type OllamaResponse } from './types'
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
 export function mapOllamaFinishReason(
   finishReason: string | null | undefined
 ): LanguageModelV3FinishReason {
@@ -30,7 +34,7 @@ export function extractOllamaResponseObjectsFromChunk(
   }
 
   const results: OllamaResponse[] = []
-  const raw = (chunk.error as any)?.text
+  const raw = asRecord(chunk.error)?.text
   if (typeof raw !== 'string' || raw.length === 0) {
     return results
   }
@@ -53,7 +57,11 @@ export function extractOllamaResponseObjectsFromChunk(
   return results
 }
 
-export function getResponseMetadata(value: { created_at?: string | null; model?: string | null }) {
+export function getResponseMetadata(value: { created_at?: string | null; model?: string | null }): {
+  id: undefined
+  modelId: string | undefined
+  timestamp: Date | undefined
+} {
   return {
     id: undefined,
     modelId: value.model ?? undefined,
@@ -61,7 +69,7 @@ export function getResponseMetadata(value: { created_at?: string | null; model?:
   }
 }
 
-export function normalizeToolArguments(input: unknown) {
+export function normalizeToolArguments(input: unknown): unknown {
   if (typeof input === 'string') {
     try {
       return JSON.parse(input)
@@ -72,7 +80,7 @@ export function normalizeToolArguments(input: unknown) {
   return input ?? {}
 }
 
-export function serializeToolArguments(input: unknown) {
+export function serializeToolArguments(input: unknown): string {
   if (typeof input === 'string') {
     return input
   }
@@ -83,6 +91,6 @@ export function serializeToolArguments(input: unknown) {
   }
 }
 
-export function createToolCallId(generator?: () => string) {
+export function createToolCallId(generator?: () => string): string {
   return generator?.() ?? generateId()
 }

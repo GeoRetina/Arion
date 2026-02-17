@@ -1,28 +1,33 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { type UIMessage } from 'ai'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
+import type { Message } from '@/stores/chat-history-store'
 
 /**
  * Helper to read text from UIMessage parts
  * Exported for use in other components that need to extract text from messages
  */
-export function getTextFromParts(message: UIMessage<any, any, any>): string {
-  const parts = (message as any).parts as Array<any> | undefined
+export function getTextFromParts(message: UIMessage): string {
+  const parts = (message as { parts?: unknown[] }).parts
   if (!Array.isArray(parts)) return ''
   return parts
+    .map((p) => p as { type?: unknown; text?: unknown })
     .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
     .map((p) => p.text as string)
     .join('')
 }
 
 type HydratedMessage = UIMessage & { content?: string; createdAt?: Date; hydrated?: boolean }
+type ChatControllerLike = {
+  setMessages?: (messages: HydratedMessage[]) => void
+}
 
 interface UseMessagePersistenceProps {
   sdkMessages: UIMessage[]
-  currentMessagesFromStore: any[]
+  currentMessagesFromStore: Message[]
   stableChatIdForUseChat: string | null
   currentChatIdFromStore: string | null
-  chat: any
+  chat: ChatControllerLike
 }
 
 /**
@@ -35,7 +40,7 @@ export function useMessagePersistence({
   stableChatIdForUseChat,
   currentChatIdFromStore,
   chat
-}: UseMessagePersistenceProps) {
+}: UseMessagePersistenceProps): { persistPendingUserMessages: (chatId: string) => Promise<void> } {
   const { addMessageToCurrentChat } = useChatHistoryStore()
   const lastHydrationRef = useRef<{ chatId: string | null; messageCount: number }>({
     chatId: null,
@@ -47,7 +52,7 @@ export function useMessagePersistence({
       const storeMessages = useChatHistoryStore.getState().currentMessages
       const baselineMessages =
         storeMessages && storeMessages.length > 0 ? storeMessages : currentMessagesFromStore
-      const persistedIds = new Set((baselineMessages || []).map((m: any) => m.id))
+      const persistedIds = new Set((baselineMessages || []).map((m) => m.id))
 
       for (const message of sdkMessages) {
         if (message.role !== 'user' || !message.id || persistedIds.has(message.id)) {
@@ -62,7 +67,7 @@ export function useMessagePersistence({
         await addMessageToCurrentChat({
           id: message.id,
           chat_id: chatId,
-          role: message.role as any,
+          role: message.role as Message['role'],
           content: text
         })
         persistedIds.add(message.id)
@@ -93,13 +98,13 @@ export function useMessagePersistence({
       lastHydrationRef.current.messageCount === storeCount
     if (alreadyHydrated) return
 
-    const setMessages = (chat as any)?.setMessages
+    const setMessages = chat?.setMessages
     if (typeof setMessages !== 'function') return
 
     // Map DB messages to UIMessage shape (parts-based)
-    const normalizeRole = (role: string): any => {
+    const normalizeRole = (role: string): UIMessage['role'] => {
       if (role === 'data' || role === 'function' || role === 'tool') return 'assistant'
-      return role
+      return role as UIMessage['role']
     }
 
     const normalizedMessages: HydratedMessage[] = storeMessages.map((m) => {
@@ -120,13 +125,7 @@ export function useMessagePersistence({
       chatId: stableChatIdForUseChat,
       messageCount: storeCount
     }
-  }, [
-    sdkMessages,
-    stableChatIdForUseChat,
-    currentChatIdFromStore,
-    currentMessagesFromStore,
-    chat
-  ])
+  }, [sdkMessages, stableChatIdForUseChat, currentChatIdFromStore, currentMessagesFromStore, chat])
 
   return {
     persistPendingUserMessages

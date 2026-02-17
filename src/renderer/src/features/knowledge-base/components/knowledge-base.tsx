@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, FileText, Trash2 } from 'lucide-react'
+import { Plus, FileText } from 'lucide-react'
 import { useKnowledgeBaseStore, Document, Folder } from '../stores/knowledge-base-store'
 import { DocumentsTable } from './documents-table'
 import { FolderManager } from './folder-manager'
@@ -8,24 +8,20 @@ import { DocumentForm } from './document-form'
 import { FolderForm } from './folder-form'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
+type DocumentDeleteTarget = Document | { id: 'bulk-delete-trigger'; name?: string }
+
 function KnowledgeBase(): React.JSX.Element {
-  const {
-    documents,
-    folders,
-    updateDocument,
-    deleteDocumentAndEmbeddings,
-    fetchDocuments,
-    addFolder,
-    updateFolder,
-    deleteFolder
-  } = useKnowledgeBaseStore()
+  const { documents, folders, deleteDocumentAndEmbeddings, fetchDocuments, deleteFolder } =
+    useKnowledgeBaseStore()
 
   // State for managing UI interactions
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
   const [searchQuery, setSearchQuery] = useState('')
   const [documentToEdit, setDocumentToEdit] = useState<Document | undefined>(undefined)
   const [folderToEdit, setFolderToEdit] = useState<Folder | undefined>(undefined)
-  const [documentToDelete, setDocumentToDelete] = useState<Document | undefined>(undefined)
+  const [documentToDelete, setDocumentToDelete] = useState<DocumentDeleteTarget | undefined>(
+    undefined
+  )
   const [folderToDelete, setFolderToDelete] = useState<Folder | undefined>(undefined)
   const [isAddDocumentOpen, setIsAddDocumentOpen] = useState(false)
   const [isAddFolderOpen, setIsAddFolderOpen] = useState(false)
@@ -46,21 +42,21 @@ function KnowledgeBase(): React.JSX.Element {
   }, [folders])
 
   // Handlers for document operations
-  const handleAddDocument = () => {
+  const handleAddDocument = (): void => {
     setDocumentToEdit(undefined)
     setIsAddDocumentOpen(true)
   }
 
-  const handleEditDocument = (document: Document) => {
+  const handleEditDocument = (document: Document): void => {
     setDocumentToEdit(document)
     setIsAddDocumentOpen(true)
   }
 
-  const handleDeleteDocument = (document: Document) => {
+  const handleDeleteDocument = (document: Document): void => {
     setDocumentToDelete(document)
   }
 
-  const confirmDeleteDocument = () => {
+  const confirmDeleteDocument = (): void => {
     if (documentToDelete) {
       deleteDocumentAndEmbeddings(documentToDelete.id)
       setDocumentToDelete(undefined)
@@ -69,21 +65,21 @@ function KnowledgeBase(): React.JSX.Element {
   }
 
   // Handlers for folder operations
-  const handleAddFolder = () => {
+  const handleAddFolder = (): void => {
     setFolderToEdit(undefined)
     setIsAddFolderOpen(true)
   }
 
-  const handleEditFolder = (folder: Folder) => {
+  const handleEditFolder = (folder: Folder): void => {
     setFolderToEdit(folder)
     setIsAddFolderOpen(true)
   }
 
-  const handleDeleteFolder = (folder: Folder) => {
+  const handleDeleteFolder = (folder: Folder): void => {
     setFolderToDelete(folder)
   }
 
-  const confirmDeleteFolder = () => {
+  const confirmDeleteFolder = (): void => {
     if (folderToDelete) {
       deleteFolder(folderToDelete.id)
       // If we're currently viewing the folder being deleted, go back to All Documents
@@ -94,13 +90,7 @@ function KnowledgeBase(): React.JSX.Element {
     }
   }
 
-  // Handler for bulk document deletion
-  const handleDeleteSelectedDocuments = () => {
-    // No need to set documentToDelete, directly proceed to confirm bulk delete
-    // This will trigger the ConfirmationDialog with appropriate messaging
-  }
-
-  const confirmBulkDeleteDocuments = () => {
+  const confirmBulkDeleteDocuments = (): void => {
     selectedDocumentIds.forEach((id) => {
       deleteDocumentAndEmbeddings(id)
     })
@@ -182,7 +172,7 @@ function KnowledgeBase(): React.JSX.Element {
                 showAddDocumentButton={showAddButtonInTable}
                 onSelectionChange={setSelectedDocumentIds}
                 selectedDocumentIds={selectedDocumentIds}
-                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' } as any)}
+                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' })}
               />
             </div>
           )}

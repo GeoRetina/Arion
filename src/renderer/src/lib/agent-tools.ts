@@ -2,6 +2,27 @@
  * Utility functions for agent tool management
  */
 
+interface AgentCapabilityLike {
+  tools?: unknown
+}
+
+export interface AgentLike {
+  toolAccess?: unknown
+  capabilities?: unknown
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
+}
+
+function asCapabilityArray(value: unknown): AgentCapabilityLike[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is AgentCapabilityLike => Boolean(item && typeof item === 'object'))
+    : []
+}
+
 /**
  * Fetches all available tools from the main process (includes both builtin and MCP tools)
  * @returns Promise<string[]> Array of available tool names
@@ -21,27 +42,17 @@ export async function fetchAvailableTools(): Promise<string[]> {
  * @param agents Array of agent definitions
  * @returns Set<string> Set of assigned tool names
  */
-export function getAssignedToolsFromAgents(agents: any[]): Set<string> {
+export function getAssignedToolsFromAgents(agents: AgentLike[]): Set<string> {
   const assignedTools = new Set<string>()
 
   agents.forEach((agent) => {
     // Check for tools in agent.toolAccess
-    if (agent?.toolAccess && Array.isArray(agent.toolAccess)) {
-      agent.toolAccess.forEach((tool: string) => {
-        assignedTools.add(tool)
-      })
-    }
+    asStringArray(agent?.toolAccess).forEach((tool) => assignedTools.add(tool))
 
     // Check for tools in capabilities
-    if (agent?.capabilities && Array.isArray(agent.capabilities)) {
-      agent.capabilities.forEach((capability: any) => {
-        if (capability?.tools && Array.isArray(capability.tools)) {
-          capability.tools.forEach((tool: string) => {
-            assignedTools.add(tool)
-          })
-        }
-      })
-    }
+    asCapabilityArray(agent?.capabilities).forEach((capability) => {
+      asStringArray(capability.tools).forEach((tool) => assignedTools.add(tool))
+    })
   })
 
   return assignedTools
@@ -62,7 +73,7 @@ export function filterUnassignedTools(allTools: string[], assignedTools: Set<str
  * @param agents Array of agents to check for assigned tools
  * @returns Promise<string[]> Array of available unassigned tools
  */
-export async function getAvailableUnassignedTools(agents: any[]): Promise<string[]> {
+export async function getAvailableUnassignedTools(agents: AgentLike[]): Promise<string[]> {
   const allTools = await fetchAvailableTools()
   const assignedTools = getAssignedToolsFromAgents(agents)
   return filterUnassignedTools(allTools, assignedTools)

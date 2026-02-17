@@ -76,7 +76,7 @@ export class LLMProviderFactory {
           provider = (await this.settingsService.getActiveLLMProvider()) || ''
           model = await this.getGlobalModelForProvider(provider)
         }
-      } catch (error) {
+      } catch {
         // Fall back to global settings
         provider = (await this.settingsService.getActiveLLMProvider()) || ''
         model = await this.getGlobalModelForProvider(provider)
@@ -130,24 +130,30 @@ export class LLMProviderFactory {
    */
   private async getGlobalModelForProvider(provider: string): Promise<string> {
     switch (provider) {
-      case 'openai':
+      case 'openai': {
         const openaiConfig = await this.settingsService.getOpenAIConfig()
         return openaiConfig?.model || ''
-      case 'google':
+      }
+      case 'google': {
         const googleConfig = await this.settingsService.getGoogleConfig()
         return googleConfig?.model || ''
-      case 'azure':
+      }
+      case 'azure': {
         const azureConfig = await this.settingsService.getAzureConfig()
         return azureConfig?.deploymentName || ''
-      case 'anthropic':
+      }
+      case 'anthropic': {
         const anthropicConfig = await this.settingsService.getAnthropicConfig()
         return anthropicConfig?.model || ''
-      case 'vertex':
+      }
+      case 'vertex': {
         const vertexConfig = await this.settingsService.getVertexConfig()
         return vertexConfig?.model || ''
-      case 'ollama':
+      }
+      case 'ollama': {
         const ollamaConfig = await this.settingsService.getOllamaConfig()
         return ollamaConfig?.model || ''
+      }
       default:
         return ''
     }
@@ -164,7 +170,7 @@ export class LLMProviderFactory {
     const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
     // IMPORTANT: use auto API selection so reasoning models (o3/o4-mini) use Responses API
     // which supports reasoning summaries and streaming reasoning events.
-    return customOpenAI(model as any)
+    return customOpenAI(model as Parameters<typeof customOpenAI>[0])
   }
 
   /**
@@ -176,7 +182,7 @@ export class LLMProviderFactory {
       throw new Error('Google provider is not configured correctly.')
     }
     const customGoogleProvider = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
-    return customGoogleProvider(model as any)
+    return customGoogleProvider(model as Parameters<typeof customGoogleProvider>[0])
   }
 
   /**
@@ -204,7 +210,7 @@ export class LLMProviderFactory {
       throw new Error('Anthropic provider is not configured correctly.')
     }
     const customAnthropic = createAnthropic({ apiKey: anthropicConfig.apiKey })
-    return customAnthropic.messages(model as any)
+    return customAnthropic.messages(model as Parameters<typeof customAnthropic.messages>[0])
   }
 
   /**
@@ -215,18 +221,23 @@ export class LLMProviderFactory {
     if (!vertexConfig?.apiKey || !vertexConfig.project || !vertexConfig.location) {
       throw new Error('Vertex AI provider is not configured correctly.')
     }
-    let credentialsJson: any = undefined
+    let credentialsJson: Record<string, unknown> | undefined = undefined
     try {
       if (vertexConfig.apiKey.trim().startsWith('{')) {
-        credentialsJson = JSON.parse(vertexConfig.apiKey)
+        const parsed = JSON.parse(vertexConfig.apiKey)
+        if (parsed && typeof parsed === 'object') {
+          credentialsJson = parsed as Record<string, unknown>
+        }
       }
-    } catch (e) {}
+    } catch {
+      void 0
+    }
     const vertexProvider = createVertex({
       ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
       project: vertexConfig.project,
       location: vertexConfig.location
     })
-    return vertexProvider(model as any) as unknown as LanguageModel
+    return vertexProvider(model as Parameters<typeof vertexProvider>[0]) as unknown as LanguageModel
   }
 
   /**
@@ -250,12 +261,11 @@ export class LLMProviderFactory {
     const isReasoningModel = detectReasoningModel(model)
     if (!isReasoningModel) {
       return wrapLanguageModel({
-        model: ollamaProvider(model as any),
+        model: ollamaProvider(model as Parameters<typeof ollamaProvider>[0]),
         middleware: simulateStreamingMiddleware()
       })
     }
 
-    return ollamaProvider(model as any)
+    return ollamaProvider(model as Parameters<typeof ollamaProvider>[0])
   }
-
 }

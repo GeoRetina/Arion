@@ -31,7 +31,7 @@ export class AgentSelector implements IAgentSelector {
       }
 
       return agentInfoText
-    } catch (error) {
+    } catch {
       return 'Error: Could not retrieve agent information.'
     }
   }

@@ -1,22 +1,27 @@
+import type { ElementType } from 'react'
 import ChartDisplay from '../../visualization/components/chart-display'
 import type { ChartDisplayProps } from '../../visualization/components/chart-display'
 import AgentCallDisplay from '../components/agent-call-display'
 import { useAgentStore } from '@/stores/agent-store'
 
 export interface ToolUIComponent {
-  component: React.ComponentType<any>
-  props: any
+  component: ElementType
+  props: Record<string, unknown>
   key: string
 }
 
 export interface ToolInvocation {
   toolCallId: string
   toolName: string
-  args: any
+  args: Record<string, unknown>
   state: string
-  result?: any
-  error?: any
+  result?: unknown
+  error?: unknown
   isError?: boolean
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
 /**
@@ -25,14 +30,17 @@ export interface ToolInvocation {
  */
 export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUIComponent | null {
   const { toolName, state, result, toolCallId } = toolInvocation
+  const resultRecord = asRecord(result)
 
   // Chart display detection
-  if (toolName === 'display_chart' && state === 'result' && result) {
+  if (toolName === 'display_chart' && state === 'result' && resultRecord) {
     const chartDisplayData: ChartDisplayProps['chartData'] = {
-      chartId: result.chartId,
-      chartType: result.chartType,
-      data: result.data,
-      config: result.config
+      chartId: String(resultRecord.chartId ?? ''),
+      chartType: resultRecord.chartType as ChartDisplayProps['chartData']['chartType'],
+      data: Array.isArray(resultRecord.data)
+        ? (resultRecord.data as ChartDisplayProps['chartData']['data'])
+        : [],
+      config: asRecord(resultRecord.config) ?? {}
     }
 
     if (
@@ -54,15 +62,19 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
     const { message, agent_id, agent_name } = toolInvocation.args || {}
 
     // Extract agent name with priority: result > args > store lookup > formatted ID
-    let agentName = result?.agent_name || agent_name
+    let agentName =
+      (typeof resultRecord?.agent_name === 'string' ? resultRecord.agent_name : undefined) ||
+      (typeof agent_name === 'string' ? agent_name : undefined)
     if (!agentName) {
-      agentName = useAgentStore.getState().getAgentName(agent_id) || `Agent ${agent_id}`
+      const agentIdForLookup = typeof agent_id === 'string' ? agent_id : String(agent_id ?? '')
+      agentName =
+        useAgentStore.getState().getAgentName(agentIdForLookup) || `Agent ${agentIdForLookup}`
     }
 
     // Determine status based on tool state
     let status: 'loading' | 'completed' | 'error' = 'loading'
     if (state === 'result') {
-      const isError = toolInvocation.isError || (result && result.status === 'error')
+      const isError = toolInvocation.isError || resultRecord?.status === 'error'
       status = isError ? 'error' : 'completed'
     } else if (state === 'error') {
       status = 'error'
@@ -72,8 +84,8 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
       component: AgentCallDisplay,
       props: {
         agentName,
-        agentId: agent_id,
-        message: message || 'No message provided',
+        agentId: typeof agent_id === 'string' ? agent_id : '',
+        message: typeof message === 'string' ? message : 'No message provided',
         status,
         result: state === 'result' ? result : undefined
       },
@@ -97,27 +109,30 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
 /**
  * Finds nested tool results that should render special UI components
  */
-export function detectNestedToolUIComponents(toolResult: any): ToolUIComponent[] {
-  if (!toolResult?.toolResults || !Array.isArray(toolResult.toolResults)) {
+export function detectNestedToolUIComponents(toolResult: unknown): ToolUIComponent[] {
+  const toolResultRecord = asRecord(toolResult)
+  const toolResults = toolResultRecord?.toolResults
+  if (!Array.isArray(toolResults)) {
     return []
   }
 
   const uiComponents: ToolUIComponent[] = []
 
-  toolResult.toolResults.forEach((nestedTool: any, index: number) => {
-    if (nestedTool.toolName && nestedTool.result) {
+  toolResults.forEach((nestedTool: unknown, index: number) => {
+    const nestedToolRecord = asRecord(nestedTool)
+    if (typeof nestedToolRecord?.toolName === 'string' && nestedToolRecord.result) {
       const mockInvocation: ToolInvocation = {
         toolCallId: `nested-${index}`,
-        toolName: nestedTool.toolName,
-        args: nestedTool.args || {},
+        toolName: nestedToolRecord.toolName,
+        args: asRecord(nestedToolRecord.args) ?? {},
         state: 'result',
-        result: nestedTool.result
+        result: nestedToolRecord.result
       }
 
       const uiComponent = detectToolUIComponent(mockInvocation)
       if (uiComponent) {
         // Update key to be more specific for nested components
-        uiComponent.key = `nested-${nestedTool.toolName}-${index}`
+        uiComponent.key = `nested-${nestedToolRecord.toolName}-${index}`
         uiComponents.push(uiComponent)
       }
     }
@@ -133,37 +148,62 @@ export function detectNestedToolUIComponents(toolResult: any): ToolUIComponent[]
  * @param toolResult - The result object from a tool execution that may contain nested tool results
  * @returns Array of ToolInvocation objects representing nested tool calls
  */
-export function detectNestedToolCalls(toolResult: any, parentToolCallId: string): ToolInvocation[] {
+export function detectNestedToolCalls(
+  toolResult: unknown,
+  parentToolCallId: string
+): ToolInvocation[] {
   // Guard clause: ensure we have valid nested tool results
   if (!toolResult || typeof toolResult !== 'object') {
     return []
   }
 
-  const toolResults = toolResult.toolResults
+  const toolResultRecord = toolResult as { toolResults?: unknown[] }
+  const toolResults = toolResultRecord.toolResults
   if (!Array.isArray(toolResults) || toolResults.length === 0) {
     return []
   }
 
   const nestedToolCalls: ToolInvocation[] = []
 
-  toolResults.forEach((nestedTool: any, index: number) => {
+  toolResults.forEach((nestedTool: unknown, index: number) => {
+    const nestedToolRecord = nestedTool as {
+      toolName?: unknown
+      args?: unknown
+      result?: unknown
+      isError?: unknown
+      error?: unknown
+    }
+
     // Skip invalid nested tools
-    if (!nestedTool || typeof nestedTool !== 'object' || typeof nestedTool.toolName !== 'string') {
+    if (
+      !nestedTool ||
+      typeof nestedTool !== 'object' ||
+      typeof nestedToolRecord.toolName !== 'string'
+    ) {
       return
     }
 
     try {
       const mockInvocation: ToolInvocation = {
-        toolCallId: `${parentToolCallId}-nested-${nestedTool.toolName}-${index}`, // Stable ID
-        toolName: nestedTool.toolName,
-        args: nestedTool.args && typeof nestedTool.args === 'object' ? nestedTool.args : {},
+        toolCallId: `${parentToolCallId}-nested-${nestedToolRecord.toolName}-${index}`, // Stable ID
+        toolName: nestedToolRecord.toolName,
+        args:
+          nestedToolRecord.args && typeof nestedToolRecord.args === 'object'
+            ? (nestedToolRecord.args as Record<string, unknown>)
+            : {},
         state: 'result',
-        result: nestedTool.result,
-        isError: Boolean(nestedTool.isError || nestedTool.error || nestedTool.result?.isError)
+        result: nestedToolRecord.result,
+        isError: Boolean(
+          nestedToolRecord.isError ||
+          nestedToolRecord.error ||
+          (nestedToolRecord.result as { isError?: unknown } | undefined)?.isError
+        )
       }
 
       nestedToolCalls.push(mockInvocation)
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   })
 
   return nestedToolCalls

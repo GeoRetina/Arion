@@ -19,7 +19,7 @@ export interface MentionMetadata {
   name: string
   type: DataSourceType
   description?: string
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 // Message content with mention information
@@ -27,6 +27,30 @@ export interface MessageContent {
   role: string
   content: string
   parts?: Array<{ type: string; text: string }>
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function asStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  const allStrings = value.every((item) => typeof item === 'string')
+  return allStrings ? (value as string[]) : null
+}
+
+function asBounds(value: unknown): [number, number, number, number] | null {
+  if (!Array.isArray(value) || value.length !== 4) return null
+  const [minLng, minLat, maxLng, maxLat] = value
+  if (
+    typeof minLng === 'number' &&
+    typeof minLat === 'number' &&
+    typeof maxLng === 'number' &&
+    typeof maxLat === 'number'
+  ) {
+    return [minLng, minLat, maxLng, maxLat]
+  }
+  return null
 }
 
 /**
@@ -121,7 +145,7 @@ export class MentionService {
             )
           ])
           return result
-        } catch (error) {
+        } catch {
           return null
         }
       })
@@ -160,7 +184,7 @@ export class MentionService {
       }
 
       return enhancedMessage
-    } catch (error) {
+    } catch {
       return message // Return original message on error
     }
   }
@@ -237,38 +261,41 @@ export class MentionService {
   /**
    * Add layer-specific metadata to formatted output
    */
-  private addLayerMetadata(lines: string[], metadata: Record<string, any>): void {
-    if (metadata.geometryType) {
+  private addLayerMetadata(lines: string[], metadata: Record<string, unknown>): void {
+    if (typeof metadata.geometryType === 'string') {
       lines.push(`  Geometry Type: ${metadata.geometryType}`)
     }
-    if (metadata.featureCount !== undefined) {
+    if (typeof metadata.featureCount === 'number') {
       lines.push(`  Feature Count: ${metadata.featureCount}`)
     }
-    if (metadata.bounds && Array.isArray(metadata.bounds)) {
-      const [minLng, minLat, maxLng, maxLat] = metadata.bounds
+    const bounds = asBounds(metadata.bounds)
+    if (bounds) {
+      const [minLng, minLat, maxLng, maxLat] = bounds
       lines.push(
         `  Bounds: [${minLng.toFixed(3)}, ${minLat.toFixed(3)}, ${maxLng.toFixed(3)}, ${maxLat.toFixed(3)}]`
       )
     }
-    if (metadata.tags && Array.isArray(metadata.tags)) {
-      lines.push(`  Tags: ${metadata.tags.join(', ')}`)
+    const tags = asStringArray(metadata.tags)
+    if (tags && tags.length > 0) {
+      lines.push(`  Tags: ${tags.join(', ')}`)
     }
   }
 
   /**
    * Add document-specific metadata to formatted output
    */
-  private addDocumentMetadata(lines: string[], metadata: Record<string, any>): void {
-    if (metadata.fileType) {
+  private addDocumentMetadata(lines: string[], metadata: Record<string, unknown>): void {
+    if (typeof metadata.fileType === 'string') {
       lines.push(`  File Type: ${metadata.fileType}`)
     }
-    if (metadata.fileSize) {
-      lines.push(`  File Size: ${this.formatFileSize(metadata.fileSize)}`)
+    const fileSize = asFiniteNumber(metadata.fileSize)
+    if (fileSize !== null) {
+      lines.push(`  File Size: ${this.formatFileSize(fileSize)}`)
     }
-    if (metadata.chunkCount !== undefined) {
+    if (typeof metadata.chunkCount === 'number') {
       lines.push(`  Content Chunks: ${metadata.chunkCount}`)
     }
-    if (metadata.createdAt) {
+    if (typeof metadata.createdAt === 'string' || typeof metadata.createdAt === 'number') {
       lines.push(`  Added: ${new Date(metadata.createdAt).toLocaleDateString()}`)
     }
   }
@@ -320,7 +347,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Resolve layer data by searching layer name/id
    */
-  private async resolveLayerByName(_mentionId: string): Promise<MentionMetadata | null> {
+  private async resolveLayerByName(mentionId: string): Promise<MentionMetadata | null> {
+    void mentionId
     try {
       // This would need to be implemented to access the layer database
       // For now, return null as the integration point
@@ -333,7 +361,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       // )
 
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -341,7 +369,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Resolve knowledge base document by name/id
    */
-  private async resolveDocumentByName(_mentionId: string): Promise<MentionMetadata | null> {
+  private async resolveDocumentByName(mentionId: string): Promise<MentionMetadata | null> {
+    void mentionId
     try {
       // This would need to be implemented to access the knowledge base
       // For now, return null as the integration point
@@ -354,7 +383,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       // )
 
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   }

@@ -1,4 +1,4 @@
-﻿import { BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 import { z } from 'zod'
 import type { KnowledgeBaseService } from './knowledge-base-service'
 import type { MCPClientService, DiscoveredMcpTool } from './mcp-client-service'
@@ -66,7 +66,7 @@ export class LlmToolService {
     this.isInitialized = true
   }
 
-  public setMainWindow(window: BrowserWindow) {
+  public setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
     this.mapLayerTracker.setMainWindow(window)
     if (this.mcpPermissionService) {
@@ -74,14 +74,14 @@ export class LlmToolService {
     }
   }
 
-  public setCurrentChatId(chatId: string | null) {
+  public setCurrentChatId(chatId: string | null): void {
     this.currentChatId = chatId
   }
 
   public setAgentServices(
     agentRegistryService: AgentRegistryService,
     orchestrationService: OrchestrationService
-  ) {
+  ): void {
     this.agentRegistryService = agentRegistryService
     this.orchestrationService = orchestrationService
   }
@@ -103,12 +103,12 @@ export class LlmToolService {
       )
 
       return result
-    } catch (error) {
+    } catch {
       return false
     }
   }
 
-  private assimilateAndRegisterMcpTools() {
+  private assimilateAndRegisterMcpTools(): void {
     if (!this.mcpClientService) {
       return
     }
@@ -148,21 +148,25 @@ export class LlmToolService {
           }
 
           const injectedArgs = await this.credentialInjector.inject(args)
+          const normalizedArgs =
+            injectedArgs && typeof injectedArgs === 'object'
+              ? (injectedArgs as { [key: string]: unknown })
+              : undefined
 
-          return this.mcpClientService.callTool(mcpTool.serverId, mcpTool.name, injectedArgs)
+          return this.mcpClientService.callTool(mcpTool.serverId, mcpTool.name, normalizedArgs)
         }
       })
     })
   }
 
-  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, any> {
+  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, unknown> {
     return this.toolRegistry.createToolDefinitions(
       (toolName, args) => this.executeTool(toolName, args),
       allowedToolIds
     )
   }
 
-  public async executeTool(toolName: string, args: any): Promise<any> {
+  public async executeTool(toolName: string, args: unknown): Promise<unknown> {
     const toolEntry = this.toolRegistry.get(toolName)
     if (!toolEntry) {
       throw new Error(`Tool "${toolName}" not found.`)
@@ -182,7 +186,7 @@ export class LlmToolService {
     }
   }
 
-  public getMcpTools() {
+  public getMcpTools(): DiscoveredMcpTool[] {
     if (!this.mcpClientService) {
       return []
     }

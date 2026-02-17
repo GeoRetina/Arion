@@ -13,6 +13,12 @@ const trimArgs = (args?: string[]): string[] | undefined => {
   return trimmed.length > 0 ? trimmed : args
 }
 
+const omitId = (value: Record<string, unknown>): Omit<McpServerConfig, 'id'> => {
+  const next = { ...value }
+  delete next.id
+  return next as Omit<McpServerConfig, 'id'>
+}
+
 export const sanitizeConfig = (
   config: Omit<McpServerConfig, 'id'>,
   connectionType: ConnectionType
@@ -52,19 +58,25 @@ export const buildNormalizedConfig = ({
     try {
       const parsedJson = JSON.parse(jsonString)
       if (isEditingExistingServer && editingConfig && 'id' in editingConfig) {
-        const { id: _ignoredId, ...rest } = parsedJson
-        return { config: sanitizeConfig(rest, connectionType) }
+        return {
+          config: sanitizeConfig(omitId(parsedJson as Record<string, unknown>), connectionType)
+        }
       }
-      const { id, ...rest } = parsedJson
-      return { config: sanitizeConfig(rest, connectionType) }
+      return {
+        config: sanitizeConfig(omitId(parsedJson as Record<string, unknown>), connectionType)
+      }
     } catch {
       return { config: null, error: 'Invalid JSON configuration.' }
     }
   }
 
   if ('id' in editingConfig) {
-    const { id, ...rest } = editingConfig
-    return { config: sanitizeConfig(rest, connectionType) }
+    return {
+      config: sanitizeConfig(
+        omitId(editingConfig as unknown as Record<string, unknown>),
+        connectionType
+      )
+    }
   }
 
   return { config: sanitizeConfig(editingConfig, connectionType) }

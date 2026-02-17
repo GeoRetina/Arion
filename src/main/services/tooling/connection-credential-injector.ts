@@ -4,18 +4,19 @@ import { CONNECTION_PLACEHOLDER_LOOKUP } from './database-placeholders'
 export class ConnectionCredentialInjector {
   private postgresqlService: PostgreSQLService | null = null
 
-  public setPostgresqlService(service: PostgreSQLService | null) {
+  public setPostgresqlService(service: PostgreSQLService | null): void {
     this.postgresqlService = service
   }
 
-  public async inject(args: any): Promise<any> {
-    if (!args || typeof args !== 'object' || args === null) {
+  public async inject(args: unknown): Promise<unknown> {
+    if (!args || typeof args !== 'object') {
       return args
     }
 
-    const rawConnectionId = args.connection_id
+    const argsRecord = args as Record<string, unknown>
+    const rawConnectionId = argsRecord.connection_id
     if (typeof rawConnectionId !== 'string' || rawConnectionId.trim().length === 0) {
-      return args
+      return argsRecord
     }
 
     if (!this.postgresqlService) {
@@ -31,7 +32,7 @@ export class ConnectionCredentialInjector {
       )
     }
 
-    const enrichedArgs = { ...args }
+    const enrichedArgs: Record<string, unknown> = { ...argsRecord }
     const credentials = {
       host: connectionInfo.config.host,
       port: connectionInfo.config.port,
@@ -51,8 +52,7 @@ export class ConnectionCredentialInjector {
         CONNECTION_PLACEHOLDER_LOOKUP[key as keyof typeof CONNECTION_PLACEHOLDER_LOOKUP]
 
       const isPlaceholderValue =
-        typeof currentValue === 'string' &&
-        placeholderSet?.has(currentValue.toLowerCase().trim())
+        typeof currentValue === 'string' && placeholderSet?.has(currentValue.toLowerCase().trim())
 
       if (currentValue === undefined || isPlaceholderValue) {
         enrichedArgs[key] = value

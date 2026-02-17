@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react'
+import type { UIDataTypes, UIMessage, UITools } from 'ai'
 import { splitReasoningText } from '../../../../../shared/utils/reasoning-text'
+
+type ChatMessage = UIMessage<unknown, UIDataTypes, UITools>
 
 interface UseReasoningNotificationProps {
   isStreamingUi: boolean
-  chatMessages: any[]
+  chatMessages: ChatMessage[]
 }
 
 /**
@@ -13,7 +16,7 @@ interface UseReasoningNotificationProps {
 export function useReasoningNotification({
   isStreamingUi,
   chatMessages
-}: UseReasoningNotificationProps) {
+}: UseReasoningNotificationProps): void {
   const lastTextStartRef = useRef<{ id?: string; hasText?: boolean }>({})
 
   useEffect(() => {

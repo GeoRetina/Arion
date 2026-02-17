@@ -13,7 +13,10 @@ interface UseAutoScrollProps {
  * @param props Configuration options
  * @returns Object containing refs and helper functions
  */
-export function useAutoScroll(props: UseAutoScrollProps) {
+export function useAutoScroll(props: UseAutoScrollProps): {
+  latestUserMessageRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<HTMLDivElement | null>
+  isLatestUserMessage: (message: UIMessage, index: number) => boolean
+} {
   const { messages, marginTop = '60px', scrollDelay = 100, clearMarginDelay = 1000 } = props
 
   // Ref to track the latest user message element
@@ -47,6 +50,7 @@ export function useAutoScroll(props: UseAutoScrollProps) {
               }
             }, clearMarginDelay)
           } else {
+            void 0
           }
         }, scrollDelay)
       }

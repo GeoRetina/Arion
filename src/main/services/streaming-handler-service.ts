@@ -1,4 +1,11 @@
-import { streamText, smoothStream, stepCountIs, type ModelMessage, type LanguageModel } from 'ai'
+import {
+  streamText,
+  smoothStream,
+  stepCountIs,
+  type ModelMessage,
+  type LanguageModel,
+  type ToolSet
+} from 'ai'
 import { MAX_LLM_STEPS } from '../constants/llm-constants'
 import { applyReasoningProviderOptions } from './reasoning-provider-options'
 import {
@@ -17,22 +24,31 @@ export interface StreamingOptions {
   model: LanguageModel
   messages: ModelMessage[]
   system?: string
-  tools?: Record<string, any>
+  tools?: ToolSet
   maxSteps?: number
   providerId?: string // Add provider ID for reasoning detection
   modelId?: string // V5: LanguageModel no longer guarantees a modelId property
   abortSignal?: AbortSignal
 }
 
+export interface StructuredToolResult {
+  toolCallId: string
+  toolName: string
+  args?: unknown
+  result?: unknown
+}
+
 export interface StructuredExecutionResult {
   textResponse: string
-  toolResults: any[]
+  toolResults: StructuredToolResult[]
   success: boolean
   error?: string
 }
 
 export class StreamingHandlerService {
-  constructor() {}
+  constructor() {
+    void 0
+  }
 
   /**
    * Execute agent and collect structured result including both text and tool results
@@ -45,14 +61,13 @@ export class StreamingHandlerService {
       const result = streamText(streamTextOptions)
 
       let textResponse = ''
-      const toolResults: any[] = []
+      const toolResults: StructuredToolResult[] = []
 
       // Process the full stream to collect both text and tool results
       for await (const part of result.fullStream) {
         switch (part.type) {
           case 'text-delta': {
-            const delta = (part as any).text
-            textResponse += delta || ''
+            textResponse += part.text || ''
             break
           }
           case 'tool-call':
@@ -77,22 +92,20 @@ export class StreamingHandlerService {
         const steps = await result.steps
         if (steps && steps.length > 0) {
           for (const step of steps) {
-            // Use type assertion since the AI SDK types are complex
-            const stepAny = step as any
-            if (stepAny.toolResults && stepAny.toolResults.length > 0) {
-              for (const toolResult of stepAny.toolResults) {
-                toolResults.push({
-                  toolCallId: toolResult.toolCallId,
-                  toolName: toolResult.toolName,
-                  // v5 uses input/output; provide compatibility fields expected by renderer
-                  args: toolResult.args ?? toolResult.input,
-                  result: toolResult.result ?? toolResult.output
-                })
-              }
+            for (const toolResult of step.toolResults) {
+              toolResults.push({
+                toolCallId: toolResult.toolCallId,
+                toolName: toolResult.toolName,
+                // v5 uses input/output; provide compatibility fields expected by renderer
+                args: toolResult.input,
+                result: toolResult.output
+              })
             }
           }
         }
-      } catch (error) {}
+      } catch {
+        void 0
+      }
 
       // Extract reasoning content if present
       const { content } = extractReasoningFromText(textResponse)
@@ -248,7 +261,7 @@ export class StreamingHandlerService {
         !reasoningInfo.shouldDisableTools && { tools: options.tools }),
       stopWhen: stepCountIs(options.maxSteps || MAX_LLM_STEPS),
       experimental_transform: smoothStream({}),
-      onFinish: async (_event) => {},
+      onFinish: async () => {},
       // Add abort signal support
       ...(options.abortSignal && { abortSignal: options.abortSignal })
     }
@@ -291,5 +304,4 @@ export class StreamingHandlerService {
       error: errorMessage
     }
   }
-
 }

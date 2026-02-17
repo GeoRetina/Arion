@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/ipc-types'
 import type {
   LayerDefinition,
+  AttributeInfo,
   LayerSourceConfig,
   LayerStyle,
   LayerMetadata
@@ -38,7 +39,9 @@ export function convertFeatureToLayer(payload: AddMapFeaturePayload): LayerDefin
   try {
     const bbox = turf.bbox(feature)
     bounds = [bbox[0], bbox[1], bbox[2], bbox[3]]
-  } catch (error) {}
+  } catch {
+    void 0
+  }
 
   // Create source configuration
   const sourceConfig: LayerSourceConfig = {
@@ -105,7 +108,7 @@ export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload):
     type: 'image',
     data: imageUrl,
     options: {
-      bounds: coordinates
+      bounds
     }
   }
 
@@ -186,8 +189,8 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
 /**
  * Extract attribute information from feature properties
  */
-function extractAttributeInfo(properties: Record<string, any>): Record<string, any> {
-  const attributes: Record<string, any> = {}
+function extractAttributeInfo(properties: Record<string, unknown>): Record<string, AttributeInfo> {
+  const attributes: Record<string, AttributeInfo> = {}
 
   for (const [key, value] of Object.entries(properties)) {
     // Skip style-related properties
@@ -207,7 +210,7 @@ function extractAttributeInfo(properties: Record<string, any>): Record<string, a
       continue
     }
 
-    let type: string
+    let type: AttributeInfo['type']
     if (typeof value === 'string') {
       type = 'string'
     } else if (typeof value === 'number') {

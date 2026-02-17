@@ -59,11 +59,11 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
   const groupLayers = layers.filter((layer) => layer.groupId === group.id)
   const visibleLayersCount = groupLayers.filter((layer) => layer.visibility).length
 
-  const handleToggleExpanded = () => {
+  const handleToggleExpanded = (): void => {
     onToggleGroup(group.id)
   }
 
-  const handleGroupVisibilityToggle = () => {
+  const handleGroupVisibilityToggle = (): void => {
     // Toggle visibility of all layers in the group
     const newVisibility = visibleLayersCount === 0
     groupLayers.forEach((layer) => {

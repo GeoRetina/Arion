@@ -14,7 +14,9 @@ export class PostgreSQLService {
   private readonly connectionTimeout = 30000
   private readonly idleTimeout = 30000
 
-  constructor() {}
+  constructor() {
+    void 0
+  }
 
   async testConnection(config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> {
     let client: PoolClient | null = null
@@ -44,7 +46,9 @@ export class PostgreSQLService {
       try {
         const postgisResult = await client.query('SELECT PostGIS_Version()')
         postgisVersion = postgisResult.rows[0]?.postgis_version || null
-      } catch (error) {}
+      } catch {
+        void 0
+      }
 
       client.release()
       client = null
@@ -123,7 +127,11 @@ export class PostgreSQLService {
     await this.removeCredentials(id)
   }
 
-  async executeQuery(id: string, query: string, params?: any[]): Promise<PostgreSQLQueryResult> {
+  async executeQuery(
+    id: string,
+    query: string,
+    params?: unknown[]
+  ): Promise<PostgreSQLQueryResult> {
     const pool = this.pools.get(id)
     if (!pool) {
       return {
@@ -185,7 +193,7 @@ export class PostgreSQLService {
       const startTime = Date.now()
       await client.query('BEGIN')
 
-      const results: any[] = []
+      const results: unknown[][] = []
       for (const query of queries) {
         const result = await client.query(query)
         results.push(result.rows)
@@ -197,7 +205,7 @@ export class PostgreSQLService {
       return {
         success: true,
         rows: results,
-        rowCount: results.reduce((sum, rows) => sum + rows.length, 0),
+        rowCount: results.reduce((sum: number, rows) => sum + rows.length, 0),
         fields: [],
         executionTime,
         message: `Transaction executed successfully in ${executionTime}ms`
@@ -206,7 +214,9 @@ export class PostgreSQLService {
       if (client) {
         try {
           await client.query('ROLLBACK')
-        } catch (rollbackError) {}
+        } catch {
+          void 0
+        }
       }
 
       return {
@@ -236,13 +246,13 @@ export class PostgreSQLService {
         connected: true,
         config: config || undefined
       }
-    } catch (error) {
+    } catch {
       return { connected: false }
     }
   }
 
   private async storeCredentials(id: string, config: PostgreSQLConfig): Promise<void> {
-    try {
+    {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       const credentials = JSON.stringify({
         host: config.host,
@@ -254,8 +264,6 @@ export class PostgreSQLService {
       })
 
       await keytar.setPassword(SERVICE_NAME, credentialsKey, credentials)
-    } catch (error) {
-      throw error
     }
   }
 
@@ -269,7 +277,7 @@ export class PostgreSQLService {
       }
 
       return JSON.parse(credentials) as PostgreSQLConfig
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -278,14 +286,18 @@ export class PostgreSQLService {
     try {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       await keytar.deletePassword(SERVICE_NAME, credentialsKey)
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   async cleanup(): Promise<void> {
-    for (const [id, pool] of this.pools) {
+    for (const [, pool] of this.pools) {
       try {
         await pool.end()
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
 
     this.pools.clear()

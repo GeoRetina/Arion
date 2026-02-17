@@ -59,7 +59,7 @@ export default function OllamaConfigModal({
         }
         // The ollama-ai-provider defaults to adding /api, so we should provide the base
         // e.g. http://localhost:11434
-      } catch (e) {
+      } catch {
         toast.error('Invalid Base URL format', {
           description: 'Please enter a valid URL (e.g., http://localhost:11434).'
         })
@@ -111,7 +111,7 @@ export default function OllamaConfigModal({
               </div>
               <p className="text-xs text-muted-foreground">
                 The API endpoint for your Ollama server (e.g., http://localhost:11434). The provider
-                will append '/api'.
+                will append &apos;/api&apos;.
               </p>
             </div>
 
@@ -130,8 +130,8 @@ export default function OllamaConfigModal({
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                 <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                 <p>
-                  The name of the Ollama model you want to use. Ensure the
-                  model is pulled in Ollama first. See available models on the
+                  The name of the Ollama model you want to use. Ensure the model is pulled in Ollama
+                  first. See available models on the
                   <a
                     href="https://ollama.com/library"
                     target="_blank"

@@ -17,7 +17,7 @@ export function HelpTooltip({
   iconClassName,
   side = 'top',
   sideOffset = 4
-}: HelpTooltipProps) {
+}: HelpTooltipProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

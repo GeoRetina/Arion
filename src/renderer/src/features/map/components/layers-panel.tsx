@@ -52,7 +52,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
 
     if (importedLayersNeedingTag.length === 0) return
 
-    const tagLayerToChat = async () => {
+    const tagLayerToChat = async (): Promise<void> => {
       for (const layer of importedLayersNeedingTag) {
         const tags = Array.from(
           new Set([...(layer.metadata.tags || []), 'session-import', currentChatId])
@@ -65,7 +65,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
               tags
             }
           })
-        } catch (error) {
+        } catch {
           // Silent fail to avoid interrupting UI; errors are already handled elsewhere
         }
       }
@@ -85,17 +85,19 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
   const displayLayers = sessionLayers
 
   // Event handlers
-  const handleToggleLayerVisibility = async (layerId: string, visible: boolean) => {
+  const handleToggleLayerVisibility = async (layerId: string, visible: boolean): Promise<void> => {
     try {
       await setLayerVisibility(layerId, visible)
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
-  const handleSelectLayer = (layerId: string) => {
+  const handleSelectLayer = (layerId: string): void => {
     selectLayer(layerId === selectedLayerId ? null : layerId)
   }
 
-  const handleDeleteLayer = async (layerId: string) => {
+  const handleDeleteLayer = async (layerId: string): Promise<void> => {
     try {
       const layer = layers.get(layerId)
       await removeLayer(layerId)
@@ -109,15 +111,15 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
     }
   }
 
-  const handleShowStyleEditor = (layerId: string) => {
+  const handleShowStyleEditor = (layerId: string): void => {
     setStyleEditorLayerId(layerId)
   }
 
-  const handleCloseStyleEditor = () => {
+  const handleCloseStyleEditor = (): void => {
     setStyleEditorLayerId(null)
   }
 
-  const handleStyleChange = async (layerId: string, style: Partial<LayerStyle>) => {
+  const handleStyleChange = async (layerId: string, style: Partial<LayerStyle>): Promise<void> => {
     try {
       await updateLayerStyle(layerId, style)
     } catch (error) {
@@ -127,7 +129,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
     }
   }
 
-  const handleZoomToLayer = async (layerId: string) => {
+  const handleZoomToLayer = async (layerId: string): Promise<void> => {
     const layer = layers.get(layerId)
     if (!layer || !mapInstance) {
       return

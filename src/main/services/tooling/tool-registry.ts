@@ -2,10 +2,14 @@ import { tool, dynamicTool } from 'ai'
 import { z } from 'zod'
 import type { RegisteredTool } from './tool-types'
 
+interface ExecutableToolDefinition extends Record<string, unknown> {
+  execute: (args: unknown) => Promise<unknown> | unknown
+}
+
 export class ToolRegistry {
   private readonly registeredTools: Map<string, RegisteredTool> = new Map()
 
-  public register(tool: RegisteredTool) {
+  public register(tool: RegisteredTool): void {
     if (this.registeredTools.has(tool.name)) {
       return
     }
@@ -21,11 +25,11 @@ export class ToolRegistry {
     this.registeredTools.set(tool.name, tool)
   }
 
-  public get(toolName: string) {
+  public get(toolName: string): RegisteredTool | undefined {
     return this.registeredTools.get(toolName)
   }
 
-  public has(toolName: string) {
+  public has(toolName: string): boolean {
     return this.registeredTools.has(toolName)
   }
 
@@ -33,15 +37,15 @@ export class ToolRegistry {
     return Array.from(this.registeredTools.keys())
   }
 
-  public forEach(callback: (tool: RegisteredTool, name: string) => void) {
+  public forEach(callback: (tool: RegisteredTool, name: string) => void): void {
     this.registeredTools.forEach((value, key) => callback(value, key))
   }
 
   public createToolDefinitions(
-    executeTool: (toolName: string, args: any) => Promise<any>,
+    executeTool: (toolName: string, args: unknown) => Promise<unknown>,
     allowedToolIds?: string[]
-  ): Record<string, any> {
-    const llmTools: Record<string, any> = {}
+  ): Record<string, ExecutableToolDefinition> {
+    const llmTools: Record<string, ExecutableToolDefinition> = {}
 
     this.registeredTools.forEach((registeredToolEntry) => {
       if (allowedToolIds && !allowedToolIds.includes(registeredToolEntry.name)) {
@@ -52,8 +56,8 @@ export class ToolRegistry {
       llmTools[registeredToolEntry.name] = toolFactory({
         description: registeredToolEntry.definition.description,
         inputSchema: registeredToolEntry.definition.inputSchema,
-        execute: async (args: any) => executeTool(registeredToolEntry.name, args)
-      })
+        execute: async (args: unknown) => executeTool(registeredToolEntry.name, args)
+      }) as unknown as ExecutableToolDefinition
     })
 
     return llmTools

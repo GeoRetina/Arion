@@ -64,16 +64,18 @@ export function convertToOllamaResponsesMessages({
                   functionality: `file part media type ${part.mediaType || 'unknown'}`
                 })
               }
-              default:
+              default: {
+                const unknownPart = part as { type?: string }
                 throw new UnsupportedFunctionalityError({
-                  functionality: `user content type ${(part as any)?.type ?? 'unknown'}`
+                  functionality: `user content type ${unknownPart.type ?? 'unknown'}`
                 })
+              }
             }
           })
         })
         break
       case 'assistant': {
-        const assistantContent: any[] = []
+        const assistantContent: Array<{ type: 'output_text'; text: string }> = []
         for (const part of content) {
           switch (part.type) {
             case 'text':
@@ -147,8 +149,8 @@ export function convertToOllamaChatMessages({
 }: {
   prompt: LanguageModelV3Prompt
   systemMessageMode?: 'system' | 'developer' | 'remove'
-}): any {
-  const messages: any[] = []
+}): Record<string, unknown>[] {
+  const messages: Record<string, unknown>[] = []
 
   for (const { role, content } of prompt) {
     switch (role) {
@@ -164,10 +166,14 @@ export function convertToOllamaChatMessages({
           messages.push({ role: 'user', content: content[0].text })
           break
         }
-        const userText = content.filter((part) => part.type === 'text').map((part) => part.text).join('')
+        const userText = content
+          .filter((part) => part.type === 'text')
+          .map((part) => part.text)
+          .join('')
         const images = content
           .filter((part) => part.type === 'file' && part.mediaType.startsWith('image/'))
-          .map((part) => (part as any).data)
+          .map((part) => ('data' in part ? part.data : undefined))
+          .filter((imageData): imageData is Exclude<typeof imageData, undefined> => !!imageData)
         messages.push({
           role: 'user',
           content: userText.length > 0 ? userText : [],

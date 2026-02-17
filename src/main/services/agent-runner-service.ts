@@ -11,7 +11,7 @@ interface AgentStdioMessage {
     | 'error'
     | 'agent_response'
     | 'mcp_tools_list'
-  payload: any
+  payload: unknown
   requestId?: string // For correlating requests and responses
 }
 
@@ -20,6 +20,10 @@ interface AgentConfig {
   scriptPath: string // Absolute path to the Python agent script
   pythonExecutable?: string // Path to python executable if not default
   // Potentially add llmConfig, initialPrompt, etc.
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
 export class AgentRunnerService {
@@ -53,14 +57,14 @@ export class AgentRunnerService {
         this.handleAgentStdioMessage(config.agentId, data, 'stdout')
       })
 
-      agentProcess.stderr?.on('data', (data) => {})
+      agentProcess.stderr?.on('data', () => {})
 
-      agentProcess.on('error', (err) => {
+      agentProcess.on('error', () => {
         this.runningAgents.delete(config.agentId)
         // TODO: Notify renderer or manage state about this failure
       })
 
-      agentProcess.on('close', (code) => {
+      agentProcess.on('close', () => {
         this.runningAgents.delete(config.agentId)
         // TODO: Notify renderer or manage state
       })
@@ -69,7 +73,7 @@ export class AgentRunnerService {
       await this.sendMcpToolsToAgent(config.agentId)
 
       return config.agentId
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -90,7 +94,9 @@ export class AgentRunnerService {
 
     try {
       agentProcess.stdin.write(JSON.stringify(message) + '\n')
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   private handleAgentStdioMessage(
@@ -114,9 +120,10 @@ export class AgentRunnerService {
           // Handle other message types like 'agent_response', 'error' from agent, etc.
           default:
         }
-      } catch (error) {
+      } catch {
         // If not JSON, treat as plain log from stdout
         if (streamType === 'stdout') {
+          void 0
         } else {
           // stderr is already logged raw
           //
@@ -134,8 +141,12 @@ export class AgentRunnerService {
       return
     }
 
-    const { serverId, toolName, args } = requestMessage.payload // Assuming payload structure
-    let responsePayload
+    const payload = asRecord(requestMessage.payload)
+    const serverId = typeof payload?.serverId === 'string' ? payload.serverId : undefined
+    const toolName = typeof payload?.toolName === 'string' ? payload.toolName : undefined
+    const args = payload?.args as { [key: string]: unknown } | undefined
+
+    let responsePayload: Record<string, unknown>
     let success = false
 
     if (!serverId || !toolName) {
@@ -143,7 +154,8 @@ export class AgentRunnerService {
     } else {
       try {
         const result = await this.mcpClientService.callTool(serverId, toolName, args)
-        responsePayload = result
+        responsePayload =
+          result && typeof result === 'object' ? (result as Record<string, unknown>) : { result }
         success = true // Assuming callTool doesn't throw for operational errors but returns them in result if needed
       } catch (error) {
         responsePayload = {
@@ -160,7 +172,9 @@ export class AgentRunnerService {
 
     try {
       agentProcess.stdin.write(JSON.stringify(responseMsg) + '\n')
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   public terminateAgent(agentId: string): boolean {

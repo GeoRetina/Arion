@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import type { LLMProviderType as LLMProvider, VertexConfig, OllamaConfig } from '../../../shared/ipc-types'
+import type {
+  LLMProviderType as LLMProvider,
+  VertexConfig,
+  OllamaConfig
+} from '../../../shared/ipc-types'
 
 export type { LLMProvider }
 
@@ -99,7 +103,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       } else {
         set({ isInitialized: true })
       }
-    } catch (error) {
+    } catch {
       set({ isInitialized: true })
     }
   },
@@ -113,6 +117,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       if (settings?.setActiveLLMProvider) {
         await settings.setActiveLLMProvider(provider)
       } else {
+        void 0
       }
     } catch (err) {
       set({ activeProvider: oldActiveProvider })
@@ -144,6 +149,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('openai')
         }
       } else {
+        void 0
       }
     } catch (err) {
       set({ openaiConfig: oldConfig, activeProvider: oldActiveProvider })
@@ -175,6 +181,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('google')
         }
       } else {
+        void 0
       }
     } catch (err) {
       set({ googleConfig: oldConfig, activeProvider: oldActiveProvider })
@@ -209,6 +216,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('azure')
         }
       } else {
+        void 0
       }
     } catch (err) {
       set({ azureConfig: oldConfig, activeProvider: oldActiveProvider })
@@ -240,6 +248,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('anthropic')
         }
       } else {
+        void 0
       }
     } catch (err) {
       set({ anthropicConfig: oldConfig, activeProvider: oldActiveProvider })
@@ -274,6 +283,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('vertex')
         }
       } else {
+        void 0
       }
     } catch (err) {
       set({ vertexConfig: oldConfig, activeProvider: oldActiveProvider })
@@ -305,6 +315,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           await settings.setActiveLLMProvider('ollama')
         }
       } else {
+        void 0
       }
     } catch (err) {
       set({ ollamaConfig: oldConfig, activeProvider: oldActiveProvider })

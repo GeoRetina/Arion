@@ -9,7 +9,7 @@ interface UseScrollResetProps {
  * Hook to reset scroll position when switching chats
  * Finds the Radix UI ScrollArea viewport and resets its scroll position
  */
-export function useScrollReset({ scrollAreaRef, chatId }: UseScrollResetProps) {
+export function useScrollReset({ scrollAreaRef, chatId }: UseScrollResetProps): void {
   useEffect(() => {
     if (scrollAreaRef.current) {
       // Find the scroll container inside ScrollArea (it's a div with data-radix-scroll-area-viewport)

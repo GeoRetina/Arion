@@ -5,16 +5,21 @@ import type {
 } from '@ai-sdk/provider'
 import { generateId } from '@ai-sdk/provider-utils'
 import type { OllamaConfig, OllamaResponse } from './types'
-import {
-  mapOllamaFinishReason,
-  normalizeToolArguments,
-  serializeToolArguments
-} from './utils'
+import { mapOllamaFinishReason, normalizeToolArguments, serializeToolArguments } from './utils'
+
+type ToolCallContentWithArgs = Extract<LanguageModelV3Content, { type: 'tool-call' }> & {
+  args: unknown
+}
 
 export class OllamaResponseProcessor {
   constructor(private readonly config: OllamaConfig) {}
 
-  processGenerateResponse(response: OllamaResponse) {
+  processGenerateResponse(response: OllamaResponse): {
+    content: LanguageModelV3Content[]
+    finishReason: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3FinishReason
+    usage: LanguageModelV3Usage
+    providerMetadata: SharedV3ProviderMetadata
+  } {
     const content = this.extractContent(response)
     const finishReason = mapOllamaFinishReason(response.done_reason)
     const usage = this.extractUsage(response)
@@ -49,7 +54,7 @@ export class OllamaResponseProcessor {
         toolName: toolCall.function.name,
         input: serialized,
         args
-      } as any)
+      } as ToolCallContentWithArgs)
     }
 
     return content

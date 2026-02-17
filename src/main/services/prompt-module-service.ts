@@ -12,6 +12,26 @@ import {
   PromptModuleInfo
 } from '../../shared/types/prompt-types'
 
+type DbServiceWithDb = {
+  db: better_sqlite3.Database
+}
+
+interface PromptModuleRow {
+  id: string
+  name: string
+  description?: string | null
+  type: PromptModuleType
+  content: string
+  parameters?: string | null
+  dependencies?: string | null
+  conditions?: string | null
+  priority?: number | null
+  version: string
+  created_at: string
+  updated_at: string
+  author?: string | null
+}
+
 /**
  * Service for managing prompt modules and assembling system prompts
  */
@@ -22,13 +42,15 @@ export class PromptModuleService {
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
     // This is necessary because the db property is private in DBService
-    return (dbService as any).db
+    return (dbService as unknown as DbServiceWithDb).db
   }
 
   // In-memory cache of prompt modules
   private moduleCache: Map<string, PromptModule> = new Map()
 
-  constructor() {}
+  constructor() {
+    void 0
+  }
 
   /**
    * Initialize the service and database schema
@@ -66,7 +88,7 @@ export class PromptModuleService {
           description: 'Custom prompt content provided by the user for agent definition',
           type: 'agent',
           content: '{{content}}',
-          inputSchema: ['content'],
+          parameters: ['content'],
           priority: 100,
           author: 'system'
         },
@@ -101,11 +123,9 @@ export class PromptModuleService {
       CREATE INDEX IF NOT EXISTS idx_prompt_modules_type ON prompt_modules(type);
     `
 
-    try {
+    {
       const db = this.getDb()
       db.exec(createTablesSQL)
-    } catch (error) {
-      throw error
     }
   }
 
@@ -113,9 +133,9 @@ export class PromptModuleService {
    * Refresh the in-memory cache from database
    */
   private async refreshCache(): Promise<void> {
-    try {
+    {
       const db = this.getDb()
-      const modules = db.prepare('SELECT * FROM prompt_modules').all() as any[]
+      const modules = db.prepare('SELECT * FROM prompt_modules').all() as PromptModuleRow[]
 
       // Clear existing cache
       this.moduleCache.clear()
@@ -128,20 +148,18 @@ export class PromptModuleService {
           description: moduleRow.description || '',
           type: moduleRow.type as PromptModuleType,
           content: moduleRow.content,
-          inputSchema: moduleRow.parameters ? JSON.parse(moduleRow.parameters) : undefined,
+          parameters: moduleRow.parameters ? JSON.parse(moduleRow.parameters) : undefined,
           dependencies: moduleRow.dependencies ? JSON.parse(moduleRow.dependencies) : undefined,
           conditions: moduleRow.conditions ? JSON.parse(moduleRow.conditions) : undefined,
           priority: moduleRow.priority || 0,
           version: moduleRow.version,
           createdAt: moduleRow.created_at,
           updatedAt: moduleRow.updated_at,
-          author: moduleRow.author
+          author: moduleRow.author ?? undefined
         }
 
         this.moduleCache.set(module.id, module)
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -157,7 +175,7 @@ export class PromptModuleService {
       description: module.description,
       type: module.type,
       version: module.version,
-      inputSchema: module.parameters
+      parameters: module.parameters
     }))
   }
 
@@ -192,7 +210,7 @@ export class PromptModuleService {
       description: params.description,
       type: params.type,
       content: params.content,
-      inputSchema: params.parameters,
+      parameters: params.parameters,
       dependencies: params.dependencies,
       conditions: params.conditions,
       priority: params.priority || 0,
@@ -202,7 +220,7 @@ export class PromptModuleService {
       author: params.author
     }
 
-    try {
+    {
       // Check if module with this ID already exists in the database
       const db = this.getDb()
       const existingModule = db.prepare('SELECT id FROM prompt_modules WHERE id = ?').get(id)
@@ -242,8 +260,6 @@ export class PromptModuleService {
       this.moduleCache.set(newModule.id, newModule)
 
       return newModule
-    } catch (error) {
-      throw error
     }
   }
 
@@ -274,11 +290,11 @@ export class PromptModuleService {
       updatedAt: now
     }
 
-    try {
+    {
       // Build update SQL dynamically based on provided fields
       const db = this.getDb()
       const fields: string[] = []
-      const values: any[] = []
+      const values: unknown[] = []
 
       if (updates.name !== undefined) {
         fields.push('name = ?')
@@ -337,8 +353,6 @@ export class PromptModuleService {
       this.moduleCache.set(id, updatedModule)
 
       return updatedModule
-    } catch (error) {
-      throw error
     }
   }
 
@@ -348,7 +362,7 @@ export class PromptModuleService {
   public async deleteModule(id: string): Promise<boolean> {
     await this.ensureInitialized()
 
-    try {
+    {
       const db = this.getDb()
       const result = db.prepare('DELETE FROM prompt_modules WHERE id = ?').run(id)
 
@@ -358,11 +372,10 @@ export class PromptModuleService {
         // Remove from cache
         this.moduleCache.delete(id)
       } else {
+        void 0
       }
 
       return success
-    } catch (error) {
-      throw error
     }
   }
 
@@ -372,7 +385,7 @@ export class PromptModuleService {
   public async assemblePrompt(request: PromptAssemblyRequest): Promise<PromptAssemblyResult> {
     await this.ensureInitialized()
 
-    try {
+    {
       // Collect and validate all modules
       const modulesToInclude: PromptModule[] = []
       const warnings: string[] = []
@@ -381,7 +394,7 @@ export class PromptModuleService {
       // Helper to collect modules with validation
       const collectModules = async (
         moduleParams: { moduleId: string; parameters: Record<string, string> }[]
-      ) => {
+      ): Promise<void> => {
         for (const { moduleId, parameters } of moduleParams) {
           const module = this.moduleCache.get(moduleId)
 
@@ -459,7 +472,7 @@ export class PromptModuleService {
 
       const addParams = (
         moduleRefs: { moduleId: string; parameters: Record<string, string> }[]
-      ) => {
+      ): void => {
         for (const { moduleId, parameters } of moduleRefs) {
           allParams[moduleId] = parameters
         }
@@ -510,15 +523,16 @@ export class PromptModuleService {
       }
 
       return result
-    } catch (error) {
-      throw error
     }
   }
 
   /**
    * Evaluate conditions against context
    */
-  private evaluateConditions(conditions: PromptCondition[], context: Record<string, any>): boolean {
+  private evaluateConditions(
+    conditions: PromptCondition[],
+    context: Record<string, unknown>
+  ): boolean {
     // If no conditions, include by default
     if (!conditions || conditions.length === 0) {
       return true
@@ -539,13 +553,13 @@ export class PromptModuleService {
           return fieldValue !== value
         case 'contains':
           return typeof fieldValue === 'string'
-            ? fieldValue.includes(value)
+            ? typeof value === 'string' && fieldValue.includes(value)
             : Array.isArray(fieldValue)
               ? fieldValue.includes(value)
               : false
         case 'not_contains':
           return typeof fieldValue === 'string'
-            ? !fieldValue.includes(value)
+            ? typeof value === 'string' && !fieldValue.includes(value)
             : Array.isArray(fieldValue)
               ? !fieldValue.includes(value)
               : true

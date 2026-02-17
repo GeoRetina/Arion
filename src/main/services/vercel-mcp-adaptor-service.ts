@@ -1,5 +1,6 @@
 import { createMCPClient } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
+import type { ToolSet } from 'ai'
 import { McpServerConfig } from '../../shared/ipc-types'
 
 /**
@@ -7,7 +8,7 @@ import { McpServerConfig } from '../../shared/ipc-types'
  */
 export interface VercelMcpSetupResult {
   /** The aggregated tools object compatible with Vercel AI SDK functions like streamText. */
-  tools: Record<string, any> // Using Record<string, any> for simplicity, as the structure is dynamic based on server tools
+  tools: ToolSet
   /** An array of active Vercel MCP client instances that need to be closed after use. */
   activeClients: Array<{ close: () => Promise<void> }>
 }
@@ -23,7 +24,7 @@ export async function setupVercelMcpIntegration(
   activeMcpConfigs: McpServerConfig[]
 ): Promise<VercelMcpSetupResult> {
   const activeClients: Array<{ close: () => Promise<void> }> = []
-  let aggregatedTools: Record<string, any> = {}
+  let aggregatedTools: ToolSet = {}
 
   for (const config of activeMcpConfigs) {
     let transport
@@ -48,11 +49,14 @@ export async function setupVercelMcpIntegration(
         activeClients.push(mcpClient)
         const toolsFromServer = await mcpClient.tools() // Returns tools in the format expected by Vercel AI SDK
         aggregatedTools = { ...aggregatedTools, ...toolsFromServer }
-      } catch (mcpClientError) {}
+      } catch {
+        void 0
+      }
     }
   }
 
   if (Object.keys(aggregatedTools).length > 0) {
+    void 0
   }
 
   return { tools: aggregatedTools, activeClients }
@@ -72,6 +76,8 @@ export async function cleanupVercelMcpClients(
   for (const client of clients) {
     try {
       await client.close()
-    } catch (closeError) {}
+    } catch {
+      void 0
+    }
   }
 }

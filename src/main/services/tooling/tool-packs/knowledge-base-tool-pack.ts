@@ -14,7 +14,7 @@ export interface KnowledgeBaseToolDependencies {
 export function registerKnowledgeBaseTools(
   registry: ToolRegistry,
   deps: KnowledgeBaseToolDependencies
-) {
+): void {
   registry.register({
     name: queryKnowledgeBaseToolName,
     definition: queryKnowledgeBaseToolDefinition,

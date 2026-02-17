@@ -1,9 +1,5 @@
 import { create } from 'zustand'
-import {
-  OrchestrationSubtask,
-  AgentCapabilitiesResult,
-  OrchestrationStatus
-} from '../../../shared/ipc-types'
+import { Subtask, AgentCapabilitiesResult, OrchestrationStatus } from '../../../shared/ipc-types'
 import type { AgentDisplayInfo } from '../features/chat/components/agent-indicator'
 
 export interface AgentOrchestrationState {
@@ -15,9 +11,9 @@ export interface AgentOrchestrationState {
   setActiveSessionId: (sessionId: string | null) => void
 
   // Subtasks for the active session
-  subtasks: OrchestrationSubtask[]
-  setSubtasks: (subtasks: OrchestrationSubtask[]) => void
-  updateSubtaskStatus: (subtaskId: string, status: OrchestrationSubtask['status']) => void
+  subtasks: Subtask[]
+  setSubtasks: (subtasks: Subtask[]) => void
+  updateSubtaskStatus: (subtaskId: string, status: Subtask['status']) => void
 
   // Agents involved in orchestration
   agentsInvolved: AgentDisplayInfo[]
@@ -102,6 +98,7 @@ export const useAgentOrchestrationStore = create<AgentOrchestrationState>((set, 
         if (capabilitiesResult.success) {
           set({ capabilities: capabilitiesResult.capabilities })
         } else {
+          void 0
         }
       }
 
@@ -150,7 +147,7 @@ export const useAgentOrchestrationStore = create<AgentOrchestrationState>((set, 
             set({ agentsInvolved: agentDisplayInfo })
           }
 
-          return result.result || ''
+          return result.finalResponse || ''
         } else {
           throw new Error(result.error || 'Unknown orchestration error')
         }
@@ -182,7 +179,7 @@ export const useAgentOrchestrationStore = create<AgentOrchestrationState>((set, 
             set({ agentsInvolved: agentDisplayInfo })
           }
 
-          return result.result || ''
+          return result.finalResponse || ''
         } else {
           throw new Error(result.error || 'Unknown orchestration error')
         }
@@ -214,7 +211,7 @@ export const useAgentOrchestrationStore = create<AgentOrchestrationState>((set, 
         }
       }
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   },

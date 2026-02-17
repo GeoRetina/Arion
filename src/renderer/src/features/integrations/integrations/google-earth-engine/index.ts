@@ -1,4 +1,3 @@
-import { Layers } from 'lucide-react'
 import type { Integration, IntegrationConfig } from '../../types/integration'
 
 export const googleEarthEngineIntegration: Integration = {

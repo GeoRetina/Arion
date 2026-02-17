@@ -22,7 +22,7 @@ type ChartContextProps = {
 
 const ChartContext = React.createContext<ChartContextProps | null>(null)
 
-function useChart() {
+function useChart(): ChartContextProps {
   const context = React.useContext(ChartContext)
 
   if (!context) {
@@ -41,7 +41,7 @@ function ChartContainer({
 }: React.ComponentProps<'div'> & {
   config: ChartConfig
   children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>['children']
-}) {
+}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   const uniqueId = React.useId()
   const chartId = `chart-${id || uniqueId.replace(/:/g, '')}`
 
@@ -63,7 +63,15 @@ function ChartContainer({
   )
 }
 
-const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
+const ChartStyle = ({
+  id,
+  config
+}: {
+  id: string
+  config: ChartConfig
+}):
+  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+  | null => {
   const colorConfig = Object.entries(config).filter(([, config]) => config.theme || config.color)
 
   if (!colorConfig.length) {
@@ -115,7 +123,9 @@ function ChartTooltipContent({
     indicator?: 'line' | 'dot' | 'dashed'
     nameKey?: string
     labelKey?: string
-  }) {
+  }):
+  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+  | null {
   const { config } = useChart()
 
   const tooltipLabel = React.useMemo(() => {
@@ -240,7 +250,9 @@ function ChartLegendContent({
   Pick<RechartsPrimitive.LegendProps, 'payload' | 'verticalAlign'> & {
     hideIcon?: boolean
     nameKey?: string
-  }) {
+  }):
+  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+  | null {
   const { config } = useChart()
 
   if (!payload?.length) {
@@ -285,7 +297,16 @@ function ChartLegendContent({
 }
 
 // Helper to extract item config from a payload.
-function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
+function getPayloadConfigFromPayload(
+  config: ChartConfig,
+  payload: unknown,
+  key: string
+):
+  | ({ label?: React.ReactNode; icon?: React.ComponentType } & (
+      | { color?: string; theme?: never }
+      | { color?: never; theme: Record<keyof typeof THEMES, string> }
+    ))
+  | undefined {
   if (typeof payload !== 'object' || payload === null) {
     return undefined
   }

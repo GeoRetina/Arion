@@ -4,8 +4,8 @@ import { type UIMessage } from 'ai'
 interface ChatRequestBody {
   messages: UIMessage[] // The @ai-sdk/react useChat hook automatically includes messages
   // Other properties from your useChatLogic's body
-  selectedRoiGeometryInChat?: any // Replace 'any' with the actual type
-  selectedUserGeospatialSource?: any // Replace 'any' with the actual type
+  selectedRoiGeometryInChat?: unknown
+  selectedUserGeospatialSource?: unknown
   isAnalystActive?: boolean
   mapLayersNames?: string[]
   // chat ID is usually handled by useChat options directly or as part of the URL
@@ -42,8 +42,7 @@ export const electronChatFetch = async (
     // Call the main process handler via the preload script's exposed API
     // The `body` here already includes the `messages` array and any other data
     // you added to the `body` option of `useChat`.
-    const parsedBody =
-      typeof body === 'string' ? (JSON.parse(body) as ChatRequestBody) : body
+    const parsedBody = typeof body === 'string' ? (JSON.parse(body) as ChatRequestBody) : body
     const chunks = await window.ctg.chat.sendMessageStream(parsedBody)
 
     const stream = new ReadableStream({

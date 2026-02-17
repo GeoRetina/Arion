@@ -7,7 +7,11 @@ import { app } from 'electron'
 import { generateToolDescriptions, type ToolDescription } from './tool-constants'
 
 // Function to load the system prompt from XML file
-function loadSystemPromptFromFile(fileName: string, mcpTools: ToolDescription[] = [], agentToolAccess?: string[]): string {
+function loadSystemPromptFromFile(
+  fileName: string,
+  mcpTools: ToolDescription[] = [],
+  agentToolAccess?: string[]
+): string {
   const promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
   const promptPath = path.join(promptsBasePath, fileName)
 
@@ -22,7 +26,10 @@ function loadSystemPromptFromFile(fileName: string, mcpTools: ToolDescription[] 
 }
 
 // Export function to get system prompt with optional MCP tools
-export function getArionSystemPrompt(mcpTools: ToolDescription[] = [], agentToolAccess?: string[]): string {
+export function getArionSystemPrompt(
+  mcpTools: ToolDescription[] = [],
+  agentToolAccess?: string[]
+): string {
   return loadSystemPromptFromFile('arion-system-prompt.xml', mcpTools, agentToolAccess)
 }
 

@@ -33,7 +33,10 @@ function Toggle({
   variant,
   size,
   ...props
-}: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
+}: React.ComponentProps<typeof TogglePrimitive.Root> &
+  VariantProps<
+    typeof toggleVariants
+  >): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
@@ -43,4 +46,7 @@ function Toggle({
   )
 }
 
-export { Toggle, toggleVariants }
+export { Toggle }
+
+// eslint-disable-next-line react-refresh/only-export-components
+export { toggleVariants }

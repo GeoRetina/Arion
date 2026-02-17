@@ -67,7 +67,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible, onSearch
       const searchControl: IControl = (() => {
         let container: HTMLDivElement | null = null
         let button: HTMLButtonElement | null = null
-        const handleClick = () => {
+        const handleClick = (): void => {
           searchClickRef.current?.()
         }
 
@@ -116,7 +116,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible, onSearch
       if (searchControlRef.current) {
         try {
           mapInstance.removeControl(searchControlRef.current)
-        } catch (error) {
+        } catch {
           // Control might already be removed with the map instance
         }
         searchControlRef.current = null

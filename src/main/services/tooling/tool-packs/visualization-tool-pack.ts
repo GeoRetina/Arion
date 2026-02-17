@@ -34,7 +34,7 @@ export interface VisualizationToolDependencies {
 export function registerVisualizationTools(
   registry: ToolRegistry,
   deps: VisualizationToolDependencies
-) {
+): void {
   const { mapLayerTracker } = deps
 
   registry.register({

@@ -6,14 +6,26 @@
  * maintaining optimal performance through batching and debouncing.
  */
 
-import type { Map as MapLibreMap, LayerSpecification, SourceSpecification } from 'maplibre-gl'
+import type {
+  Map as MapLibreMap,
+  LayerSpecification,
+  SourceSpecification,
+  GeoJSONSource
+} from 'maplibre-gl'
+import type { GeoJSON } from 'geojson'
 import { useLayerStore } from '../stores/layer-store'
 import type { LayerDefinition, LayerStyle } from '../../../shared/types/layer-types'
 
 interface SyncOperation {
   type: 'add' | 'update' | 'remove' | 'style' | 'visibility' | 'opacity' | 'reorder'
   layerId: string
-  data?: any
+  data?:
+    | LayerDefinition
+    | { current: LayerDefinition; previous: LayerDefinition }
+    | LayerStyle
+    | boolean
+    | number
+    | string[]
   timestamp: number
 }
 
@@ -22,6 +34,10 @@ interface SyncOptions {
   batchSize: number
   enableLogging: boolean
 }
+
+type LayerStoreSnapshot = { layers: Map<string, LayerDefinition>; selectedLayerId: string | null }
+type SourceEventLike = { sourceId?: string }
+type MapErrorEventLike = { error?: unknown }
 
 export class LayerSyncService {
   private mapInstance: MapLibreMap | null = null
@@ -98,7 +114,13 @@ export class LayerSyncService {
   /**
    * Get synchronization statistics
    */
-  getStats() {
+  getStats(): {
+    totalSyncs: number
+    totalTime: number
+    lastSyncTime: number
+    averageTime: number
+    errors: number
+  } {
     return { ...this.syncStats }
   }
 
@@ -152,7 +174,7 @@ export class LayerSyncService {
         this.handleStoreChange(current, previous)
       },
       {
-        equalityFn: (a: any, b: any) => {
+        equalityFn: (a: LayerStoreSnapshot, b: LayerStoreSnapshot) => {
           // Custom equality check for performance
           return a.layers === b.layers && a.selectedLayerId === b.selectedLayerId
         }
@@ -345,24 +367,29 @@ export class LayerSyncService {
         await this.syncLayerToMapLibre(data as LayerDefinition)
         break
       case 'update':
-        await this.updateLayerInMapLibre(layerId, data.current, data.previous)
+        if (data && typeof data === 'object' && 'current' in data && 'previous' in data) {
+          const updateData = data as { current: LayerDefinition; previous: LayerDefinition }
+          await this.updateLayerInMapLibre(layerId, updateData.current, updateData.previous)
+        }
         break
       case 'remove':
         await this.removeLayerFromMapLibre(layerId)
         break
       case 'style':
-        await this.syncLayerStyle(layerId, data)
+        await this.syncLayerStyle(layerId, data as LayerStyle)
         break
       case 'visibility':
-        await this.syncLayerVisibility(layerId, data)
+        await this.syncLayerVisibility(layerId, Boolean(data))
         break
       case 'opacity':
-        await this.syncLayerOpacity(layerId, data)
+        await this.syncLayerOpacity(layerId, Number(data))
         break
       case 'reorder':
-        const store = useLayerStore.getState()
-        const layers = Array.from(store.layers.values())
-        await this.syncLayerOrder(layers)
+        {
+          const store = useLayerStore.getState()
+          const layers = Array.from(store.layers.values())
+          await this.syncLayerOrder(layers)
+        }
         break
       default:
         this.log(`Unknown sync operation type: ${type}`)
@@ -418,7 +445,7 @@ export class LayerSyncService {
       if (JSON.stringify(current.sourceConfig) !== JSON.stringify(previous.sourceConfig)) {
         const source = this.mapInstance.getSource(current.sourceId)
         if (source && source.type === 'geojson') {
-          ;(source as any).setData(current.sourceConfig.data)
+          ;(source as GeoJSONSource).setData(current.sourceConfig.data as GeoJSON)
           this.log(`Updated source data: ${current.sourceId}`)
         }
       }
@@ -664,7 +691,7 @@ export class LayerSyncService {
       case 'geojson':
         return {
           type: 'geojson',
-          data: sourceConfig.data as any,
+          data: sourceConfig.data as GeoJSON,
           ...(sourceConfig.options?.buffer && { buffer: sourceConfig.options.buffer }),
           ...(sourceConfig.options?.tolerance && { tolerance: sourceConfig.options.tolerance }),
           ...(sourceConfig.options?.cluster && {
@@ -836,7 +863,8 @@ export class LayerSyncService {
   /**
    * Sync specific layer opacity
    */
-  private async syncLayerOpacity(layerId: string, _opacity: number): Promise<void> {
+  private async syncLayerOpacity(layerId: string, opacity: number): Promise<void> {
+    void opacity
     const layer = useLayerStore.getState().getLayer(layerId)
     if (!layer || !this.mapInstance) return
 
@@ -846,7 +874,8 @@ export class LayerSyncService {
   /**
    * Sync specific layer style
    */
-  private async syncLayerStyle(layerId: string, _style: LayerStyle): Promise<void> {
+  private async syncLayerStyle(layerId: string, style: LayerStyle): Promise<void> {
+    void style
     const layer = useLayerStore.getState().getLayer(layerId)
     if (!layer || !this.mapInstance) return
 
@@ -909,25 +938,27 @@ export class LayerSyncService {
   /**
    * Handle source loading events
    */
-  private handleSourceLoading(event: any): void {
-    if (this.managedSources.has(event.sourceId)) {
-      this.log(`Source loading: ${event.sourceId}`)
+  private handleSourceLoading(event: SourceEventLike): void {
+    const sourceId = event.sourceId
+    if (typeof sourceId === 'string' && this.managedSources.has(sourceId)) {
+      this.log(`Source loading: ${sourceId}`)
     }
   }
 
   /**
    * Handle source data changed events
    */
-  private handleSourceChanged(event: any): void {
-    if (this.managedSources.has(event.sourceId)) {
-      this.log(`Source data changed: ${event.sourceId}`)
+  private handleSourceChanged(event: SourceEventLike): void {
+    const sourceId = event.sourceId
+    if (typeof sourceId === 'string' && this.managedSources.has(sourceId)) {
+      this.log(`Source data changed: ${sourceId}`)
     }
   }
 
   /**
    * Handle map errors
    */
-  private handleMapError(event: any): void {
+  private handleMapError(event: MapErrorEventLike): void {
     this.log('Map error:', event.error)
     this.updateSyncStats(0, true)
   }
@@ -951,8 +982,9 @@ export class LayerSyncService {
   /**
    * Logging helper
    */
-  private log(message: string, ...args: any[]): void {
+  private log(message: string, ...args: unknown[]): void {
     if (this.options.enableLogging) {
+      console.log('[LayerSyncService]', message, ...args)
     }
   }
 }

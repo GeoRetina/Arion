@@ -44,7 +44,9 @@ export const resetChatStores = (): void => {
     // Reset agent orchestration store - clear active orchestration session
     const agentOrchestrationStore = useAgentOrchestrationStore.getState()
     agentOrchestrationStore.resetOrchestration()
-  } catch (error) {}
+  } catch {
+    void 0
+  }
 }
 
 /**
@@ -64,7 +66,9 @@ export const resetChatStoreForChatId = (chatId: string): void => {
     if (typeof layerStore.clearSessionLayersForChat === 'function') {
       layerStore.clearSessionLayersForChat(chatId)
     }
-  } catch (error) {}
+  } catch {
+    void 0
+  }
 }
 
 /**

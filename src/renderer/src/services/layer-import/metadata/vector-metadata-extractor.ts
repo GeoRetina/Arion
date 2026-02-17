@@ -11,11 +11,25 @@ import type {
   BoundingBox
 } from '../../../../../shared/types/layer-types'
 
+type FeatureLike = {
+  geometry?: {
+    type?: GeometryType
+    coordinates?: unknown
+  }
+  properties?: Record<string, unknown>
+}
+
+type GeoJsonLike = {
+  features?: FeatureLike[]
+}
+
+type CoordinateLike = [number, number]
+
 export class VectorMetadataExtractor {
   /**
    * Extract metadata from GeoJSON data
    */
-  static extractGeoJSONMetadata(geoJson: any): LayerMetadata {
+  static extractGeoJSONMetadata(geoJson: GeoJsonLike): LayerMetadata {
     const features = geoJson.features || []
     const featureCount = features.length
 
@@ -38,7 +52,8 @@ export class VectorMetadataExtractor {
   /**
    * Extract metadata from Shapefile (converted to GeoJSON)
    */
-  static extractShapefileMetadata(geoJson: any, _fileName: string): LayerMetadata {
+  static extractShapefileMetadata(geoJson: GeoJsonLike, fileName: string): LayerMetadata {
+    void fileName
     const features = geoJson.features || []
     const featureCount = features.length
 
@@ -61,7 +76,7 @@ export class VectorMetadataExtractor {
   /**
    * Determine primary geometry type from features
    */
-  private static determineGeometryType(features: any[]): GeometryType {
+  private static determineGeometryType(features: FeatureLike[]): GeometryType {
     if (features.length === 0) return 'Point'
 
     // Count geometry types
@@ -90,7 +105,7 @@ export class VectorMetadataExtractor {
   /**
    * Calculate bounding box from features
    */
-  private static calculateBounds(features: any[]): BoundingBox {
+  private static calculateBounds(features: FeatureLike[]): BoundingBox {
     let minLng = Infinity
     let minLat = Infinity
     let maxLng = -Infinity
@@ -113,8 +128,11 @@ export class VectorMetadataExtractor {
   /**
    * Recursively traverse coordinate arrays
    */
-  private static traverseCoordinates(coords: any, callback: (lng: number, lat: number) => void) {
-    if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+  private static traverseCoordinates(
+    coords: unknown,
+    callback: (lng: number, lat: number) => void
+  ): void {
+    if (this.isCoordinatePair(coords)) {
       // Single coordinate pair
       callback(coords[0], coords[1])
     } else if (Array.isArray(coords)) {
@@ -126,10 +144,13 @@ export class VectorMetadataExtractor {
   /**
    * Extract attribute schema from features
    */
-  private static extractAttributeSchema(features: any[]): Record<string, any> {
+  private static extractAttributeSchema(
+    features: FeatureLike[]
+  ): Record<string, { type: 'string' | 'number' | 'boolean'; nullable: boolean }> {
     if (features.length === 0) return {}
 
-    const attributes: Record<string, any> = {}
+    const attributes: Record<string, { type: 'string' | 'number' | 'boolean'; nullable: boolean }> =
+      {}
 
     // Use first feature as schema sample
     const sampleProperties = features[0].properties || {}
@@ -147,7 +168,7 @@ export class VectorMetadataExtractor {
   /**
    * Infer data type from value
    */
-  private static inferDataType(value: any): 'string' | 'number' | 'boolean' {
+  private static inferDataType(value: unknown): 'string' | 'number' | 'boolean' {
     if (typeof value === 'number') return 'number'
     if (typeof value === 'boolean') return 'boolean'
     return 'string'
@@ -156,7 +177,7 @@ export class VectorMetadataExtractor {
   /**
    * Analyze geometry distribution across features
    */
-  static analyzeGeometryDistribution(features: any[]): Record<GeometryType, number> {
+  static analyzeGeometryDistribution(features: FeatureLike[]): Record<GeometryType, number> {
     const distribution: Record<string, number> = {}
 
     features.forEach((feature) => {
@@ -172,10 +193,20 @@ export class VectorMetadataExtractor {
   /**
    * Calculate detailed statistics for numeric attributes
    */
-  static calculateAttributeStatistics(features: any[], attributeName: string) {
+  static calculateAttributeStatistics(
+    features: FeatureLike[],
+    attributeName: string
+  ): {
+    min: number
+    max: number
+    mean: number
+    median: number
+    count: number
+    unique: number
+  } | null {
     const values = features
       .map((f) => f.properties?.[attributeName])
-      .filter((v) => typeof v === 'number' && !isNaN(v))
+      .filter((v): v is number => typeof v === 'number' && !Number.isNaN(v))
 
     if (values.length === 0) return null
 
@@ -193,5 +224,14 @@ export class VectorMetadataExtractor {
       count: values.length,
       unique: new Set(values).size
     }
+  }
+
+  private static isCoordinatePair(coords: unknown): coords is CoordinateLike {
+    return (
+      Array.isArray(coords) &&
+      coords.length >= 2 &&
+      typeof coords[0] === 'number' &&
+      typeof coords[1] === 'number'
+    )
   }
 }

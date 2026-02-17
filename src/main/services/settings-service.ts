@@ -30,6 +30,24 @@ interface StoredLLMConfig {
   baseURL?: string | null
 }
 
+interface McpServerConfigRow {
+  id: string
+  name: string
+  url: string | null
+  command: string | null
+  args: string | null
+  enabled: number
+}
+
+const mapMcpRowToConfig = (row: McpServerConfigRow): McpServerConfig => ({
+  id: row.id,
+  name: row.name,
+  url: row.url ?? undefined,
+  command: row.command ?? undefined,
+  args: row.args ? (JSON.parse(row.args) as string[]) : undefined,
+  enabled: row.enabled === 1
+})
+
 export class SettingsService {
   private db: Database.Database
 
@@ -75,20 +93,23 @@ export class SettingsService {
     // --- Add missing columns to llm_configs if they don't exist (simple migration) ---
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN project TEXT;')
-    } catch (e: any) {
-      if (!e.message.includes('duplicate column name')) {
+    } catch (e: unknown) {
+      if (!this.isDuplicateColumnError(e)) {
+        void 0
       } // Ignore if column already exists
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN location TEXT;')
-    } catch (e: any) {
-      if (!e.message.includes('duplicate column name')) {
+    } catch (e: unknown) {
+      if (!this.isDuplicateColumnError(e)) {
+        void 0
       }
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
-    } catch (e: any) {
-      if (!e.message.includes('duplicate column name')) {
+    } catch (e: unknown) {
+      if (!this.isDuplicateColumnError(e)) {
+        void 0
       }
     }
     // --- End simple migration ---
@@ -302,13 +323,9 @@ export class SettingsService {
     try {
       const rows = this.db
         .prepare('SELECT id, name, url, command, args, enabled FROM mcp_server_configs')
-        .all() as any[]
-      return rows.map((row) => ({
-        ...row,
-        args: row.args ? JSON.parse(row.args) : undefined,
-        enabled: row.enabled === 1
-      }))
-    } catch (error) {
+        .all() as McpServerConfigRow[]
+      return rows.map(mapMcpRowToConfig)
+    } catch {
       return []
     }
   }
@@ -316,7 +333,7 @@ export class SettingsService {
   async addMcpServerConfiguration(config: Omit<McpServerConfig, 'id'>): Promise<McpServerConfig> {
     const newId = uuidv4()
     const newConfig: McpServerConfig = { ...config, id: newId }
-    try {
+    {
       this.db
         .prepare(
           'INSERT INTO mcp_server_configs (id, name, url, command, args, enabled) VALUES (?, ?, ?, ?, ?, ?)'
@@ -330,8 +347,6 @@ export class SettingsService {
           newConfig.enabled ? 1 : 0
         )
       return newConfig
-    } catch (error) {
-      throw error // Re-throw to allow caller to handle
     }
   }
 
@@ -339,26 +354,22 @@ export class SettingsService {
     configId: string,
     updates: Partial<Omit<McpServerConfig, 'id'>>
   ): Promise<McpServerConfig | null> {
-    try {
+    {
       const current = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
-        .get(configId) as McpServerConfig | undefined
+        .get(configId) as McpServerConfigRow | undefined
       if (!current) {
         return null
       }
 
-      const fieldsToUpdate = Object.keys(updates).filter((key) => key !== 'id')
+      const fieldsToUpdate = Object.keys(updates) as Array<keyof Omit<McpServerConfig, 'id'>>
       if (fieldsToUpdate.length === 0) {
-        return {
-          ...current,
-          args: current.args ? JSON.parse(current.args as any) : undefined,
-          enabled: current.enabled === (1 as any)
-        } // Return current if no actual updates
+        return mapMcpRowToConfig(current) // Return current if no actual updates
       }
 
       const setClauses = fieldsToUpdate.map((key) => `${key} = ?`).join(', ')
       const values = fieldsToUpdate.map((key) => {
-        const value = (updates as any)[key]
+        const value = updates[key]
         if (key === 'args' && value !== undefined) return JSON.stringify(value)
         if (key === 'enabled' && typeof value === 'boolean') return value ? 1 : 0
         return value
@@ -370,14 +381,8 @@ export class SettingsService {
 
       const updatedConfigRow = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
-        .get(configId) as any
-      return {
-        ...updatedConfigRow,
-        args: updatedConfigRow.args ? JSON.parse(updatedConfigRow.args) : undefined,
-        enabled: updatedConfigRow.enabled === 1
-      }
-    } catch (error) {
-      throw error
+        .get(configId) as McpServerConfigRow
+      return mapMcpRowToConfig(updatedConfigRow)
     }
   }
 
@@ -386,9 +391,10 @@ export class SettingsService {
       const result = this.db.prepare('DELETE FROM mcp_server_configs WHERE id = ?').run(configId)
       const success = result.changes > 0
       if (success) {
+        void 0
       }
       return success
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -426,12 +432,10 @@ export class SettingsService {
 
   // --- System Prompt Configuration ---
   async setSystemPromptConfig(config: SystemPromptConfig): Promise<void> {
-    try {
+    {
       this.db
         .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
         .run('systemPromptConfig', JSON.stringify(config))
-    } catch (error) {
-      throw error
     }
   }
 
@@ -450,11 +454,15 @@ export class SettingsService {
       }
 
       return JSON.parse(row.value) as SystemPromptConfig
-    } catch (error) {
+    } catch {
       // Return default values if there's an error
       return {
         userSystemPrompt: ''
       }
     }
+  }
+
+  private isDuplicateColumnError(error: unknown): boolean {
+    return error instanceof Error && error.message.includes('duplicate column name')
   }
 }

@@ -6,28 +6,41 @@ import { AgentToolManager } from './agent-tool-manager'
 import { getArionSystemPrompt } from '../constants/system-prompts'
 import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
-import {
-  normalizeRendererMessages,
-  sanitizeModelMessages
-} from './utils/message-normalizer'
+import { normalizeRendererMessages, sanitizeModelMessages } from './utils/message-normalizer'
 
 export interface PreparedMessagesResult {
   processedMessages: ModelMessage[]
   finalSystemPrompt: string | null
 }
 
+interface McpToolLike {
+  name: string
+  description?: string
+  serverName?: string
+}
+
+interface LlmToolServiceLike {
+  getMcpTools: () => McpToolLike[]
+}
+
+type RendererMessageLike = Record<string, unknown>
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
 export class MessagePreparationService {
   private settingsService: SettingsService
   private modularPromptManager: ModularPromptManager
   private agentRegistryService?: AgentRegistryService
-  private llmToolService?: any // Will be injected to get MCP tools
+  private llmToolService?: LlmToolServiceLike // Will be injected to get MCP tools
   private agentToolManager?: AgentToolManager // Added for agent tool access
 
   constructor(
     settingsService: SettingsService,
     modularPromptManager: ModularPromptManager,
     agentRegistryService?: AgentRegistryService,
-    llmToolService?: any,
+    llmToolService?: LlmToolServiceLike,
     agentToolManager?: AgentToolManager
   ) {
     this.settingsService = settingsService
@@ -45,7 +58,7 @@ export class MessagePreparationService {
    * @returns Prepared messages and system prompt
    */
   async prepareMessagesAndSystemPrompt(
-    rendererMessages: Array<any>,
+    rendererMessages: RendererMessageLike[],
     chatId?: string,
     agentId?: string
   ): Promise<PreparedMessagesResult> {
@@ -57,10 +70,12 @@ export class MessagePreparationService {
 
     try {
       coreMessages = messageAnalysis.shouldConvert
-        ? ((await convertToModelMessages(normalizedRendererMessages as any)) as unknown as ModelMessage[])
+        ? ((await convertToModelMessages(
+            normalizedRendererMessages as Parameters<typeof convertToModelMessages>[0]
+          )) as unknown as ModelMessage[])
         : (normalizedRendererMessages as unknown as ModelMessage[])
       coreMessages = sanitizeModelMessages(coreMessages)
-    } catch (e) {
+    } catch {
       coreMessages = (normalizedRendererMessages as unknown as ModelMessage[]) || []
     }
     let finalSystemPrompt: string | null = null
@@ -94,21 +109,21 @@ export class MessagePreparationService {
     try {
       // Get MCP tools if available
       const mcpTools = await this.getMCPTools()
-      
+
       // Get agent tool access list if available and agentId is provided
       let agentToolAccess: string[] | undefined = undefined
-      
+
       // Use AgentToolManager if available to determine agent tool access
       if (this.agentToolManager) {
         try {
           if (agentId && this.agentRegistryService) {
             // For specific agent ID, check if it's an orchestrator or specialized agent
             const agent = await this.agentRegistryService.getAgentById(agentId)
-            
+
             if (agent) {
               // Check if this is an orchestrator agent
               const isOrchestrator = isOrchestratorAgent(agent)
-              
+
               if (isOrchestrator) {
                 // For orchestrators, use the AgentToolManager to get tool names for orchestrator
                 const orchestratorTools = await this.agentToolManager.getToolsForAgent(agentId)
@@ -149,7 +164,7 @@ export class MessagePreparationService {
       }
 
       return finalSystemPrompt
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -182,7 +197,7 @@ export class MessagePreparationService {
       }
 
       return toolDescriptions
-    } catch (error) {
+    } catch {
       return []
     }
   }
@@ -225,7 +240,7 @@ export class MessagePreparationService {
       }
 
       return availableAgentsInfo
-    } catch (error) {
+    } catch {
       return ''
     }
   }
@@ -264,7 +279,7 @@ export class MessagePreparationService {
         } else {
           return baseSystemPrompt || ''
         }
-      } catch (error) {
+      } catch {
         return baseSystemPrompt || ''
       }
     } else {
@@ -327,11 +342,21 @@ export class MessagePreparationService {
    * Get basic system prompt configuration
    * @returns System prompt configuration
    */
-  async getSystemPromptConfig() {
+  async getSystemPromptConfig(): Promise<
+    import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').SystemPromptConfig
+  > {
     return await this.settingsService.getSystemPromptConfig()
   }
 
-  private analyzeRendererMessages(rendererMessages: Array<any>) {
+  private analyzeRendererMessages(rendererMessages: unknown[]): {
+    shouldConvert: boolean
+    convertReasons: string[]
+    logDetails: {
+      totalMessages: number
+      indicatorCounts: { parts: number; toolInvocations: number }
+      recentMessages: Array<ReturnType<MessagePreparationService['createMessageSummaryForLog']>>
+    }
+  } {
     if (!Array.isArray(rendererMessages) || rendererMessages.length === 0) {
       return {
         shouldConvert: false,
@@ -376,37 +401,61 @@ export class MessagePreparationService {
     }
   }
 
-  private createMessageSummaryForLog(message: any, index: number) {
-    const hasPartsProp = Boolean(message && typeof message === 'object' && 'parts' in message)
-    const partsCount = Array.isArray(message?.parts) ? message.parts.length : undefined
-    const hasToolInvocationsProp = Boolean(
-      message && typeof message === 'object' && 'toolInvocations' in message
-    )
-    const toolInvocationCount = Array.isArray(message?.toolInvocations)
-      ? message.toolInvocations.length
+  private createMessageSummaryForLog(
+    message: unknown,
+    index: number
+  ): {
+    index: number
+    role: unknown
+    hasPartsProp: boolean
+    partsCount: number | undefined
+    hasToolInvocationsProp: boolean
+    toolInvocationCount: number | undefined
+    contentDescriptor: string
+    partsPreview:
+      | Array<{
+          type: unknown
+          state: unknown
+          providerExecuted: unknown
+          hasResult: boolean
+          hasArgs: boolean
+        }>
+      | undefined
+  } {
+    const messageRecord = asRecord(message)
+    const partsValue = messageRecord?.parts
+    const toolInvocationsValue = messageRecord?.toolInvocations
+    const hasPartsProp = Boolean(messageRecord && 'parts' in messageRecord)
+    const partsCount = Array.isArray(partsValue) ? partsValue.length : undefined
+    const hasToolInvocationsProp = Boolean(messageRecord && 'toolInvocations' in messageRecord)
+    const toolInvocationCount = Array.isArray(toolInvocationsValue)
+      ? toolInvocationsValue.length
       : undefined
 
     return {
       index,
-      role: message?.role,
+      role: messageRecord?.role,
       hasPartsProp,
       partsCount,
       hasToolInvocationsProp,
       toolInvocationCount,
-      contentDescriptor: this.describeContentForLog(message?.content),
-      partsPreview: Array.isArray(message?.parts)
-        ? message.parts.slice(0, 3).map((part: any) => ({
-            type: part?.type,
-            state: part?.state,
-            providerExecuted: part?.providerExecuted,
-            hasResult: Boolean(part?.result),
-            hasArgs: Boolean(part?.args)
-          }))
+      contentDescriptor: this.describeContentForLog(messageRecord?.content),
+      partsPreview: Array.isArray(partsValue)
+        ? partsValue.slice(0, 3).map((part) => {
+            const partRecord = asRecord(part)
+            return {
+              type: partRecord?.type,
+              state: partRecord?.state,
+              providerExecuted: partRecord?.providerExecuted,
+              hasResult: Boolean(partRecord?.result),
+              hasArgs: Boolean(partRecord?.args)
+            }
+          })
         : undefined
     }
   }
 
-  private describeContentForLog(content: any): string {
+  private describeContentForLog(content: unknown): string {
     if (content === null || content === undefined) {
       return 'nullish'
     }
@@ -417,7 +466,10 @@ export class MessagePreparationService {
     if (Array.isArray(content)) {
       const partTypes = content
         .slice(0, 3)
-        .map((part) => (part?.type ? part.type : typeof part))
+        .map((part) => {
+          const partRecord = asRecord(part)
+          return partRecord?.type ? String(partRecord.type) : typeof part
+        })
         .join(',')
       return `array(${content.length})[${partTypes}]`
     }
@@ -426,5 +478,4 @@ export class MessagePreparationService {
     }
     return typeof content
   }
-
 }

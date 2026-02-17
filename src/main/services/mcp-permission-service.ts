@@ -4,10 +4,10 @@ export class McpPermissionService {
   private mainWindow: BrowserWindow | null = null
   private pendingRequests = new Map<
     string,
-    { resolve: (value: boolean) => void; reject: (reason?: any) => void }
+    { resolve: (value: boolean) => void; reject: (reason?: unknown) => void }
   >()
 
-  setMainWindow(window: BrowserWindow) {
+  setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
   }
 
@@ -34,18 +34,19 @@ export class McpPermissionService {
     })
   }
 
-  resolvePermission(requestId: string, granted: boolean) {
+  resolvePermission(requestId: string, granted: boolean): void {
     const pending = this.pendingRequests.get(requestId)
     if (pending) {
       this.pendingRequests.delete(requestId)
       pending.resolve(granted)
     } else {
+      void 0
     }
   }
 
   // Clean up all pending requests (e.g., on app shutdown or window close)
-  cleanup() {
-    for (const [requestId, pending] of this.pendingRequests) {
+  cleanup(): void {
+    for (const [, pending] of this.pendingRequests) {
       pending.reject(new Error('Application is shutting down'))
     }
     this.pendingRequests.clear()

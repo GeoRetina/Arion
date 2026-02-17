@@ -16,7 +16,10 @@ interface UseMentionDataOptions {
   enabled: boolean
 }
 
-export const useMentionData = ({ searchQuery, enabled }: UseMentionDataOptions) => {
+export const useMentionData = ({
+  searchQuery,
+  enabled
+}: UseMentionDataOptions): { items: MentionItem[]; isLoading: boolean } => {
   const layers = useLayerStore((state) => state.layers)
   const documents = useKnowledgeBaseStore((state) => state.documents)
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)

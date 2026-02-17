@@ -8,6 +8,7 @@
 
 import type { Map } from 'maplibre-gl'
 import * as turf from '@turf/turf'
+import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import type { LayerDefinition } from '../../../shared/types/layer-types'
 
 export interface ZoomToLayerOptions {
@@ -47,24 +48,43 @@ export class LayerZoomService {
         const sourceData = layer.sourceConfig.data
 
         if (typeof sourceData === 'object') {
-          if (sourceData.type === 'FeatureCollection') {
+          const sourceDataRecord = sourceData as {
+            type?: string
+            features?: Array<{ geometry?: { type?: string } }>
+            geometry?: { type?: string }
+          }
+
+          if (sourceDataRecord.type === 'FeatureCollection') {
             // Calculate bounds from GeoJSON FeatureCollection
-            bounds = turf.bbox(sourceData) as [number, number, number, number]
+            bounds = turf.bbox(sourceData as FeatureCollection | Feature<Geometry>) as [
+              number,
+              number,
+              number,
+              number
+            ]
 
             // Determine if this is primarily a point layer
             const pointFeatures =
-              sourceData.features?.filter(
+              sourceDataRecord.features?.filter(
                 (f) => f.geometry?.type === 'Point' || f.geometry?.type === 'MultiPoint'
               ) || []
-            isPoint = pointFeatures.length === sourceData.features?.length
-          } else if (sourceData.type === 'Feature') {
+            isPoint = pointFeatures.length === (sourceDataRecord.features?.length || 0)
+          } else if (sourceDataRecord.type === 'Feature') {
             // Single feature
-            bounds = turf.bbox(sourceData) as [number, number, number, number]
+            bounds = turf.bbox(sourceData as FeatureCollection | Feature<Geometry>) as [
+              number,
+              number,
+              number,
+              number
+            ]
             isPoint =
-              sourceData.geometry?.type === 'Point' || sourceData.geometry?.type === 'MultiPoint'
+              sourceDataRecord.geometry?.type === 'Point' ||
+              sourceDataRecord.geometry?.type === 'MultiPoint'
           }
         }
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
 
     // Validate bounds
@@ -141,7 +161,7 @@ export class LayerZoomService {
       }
 
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -197,7 +217,7 @@ export class LayerZoomService {
       })
 
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }

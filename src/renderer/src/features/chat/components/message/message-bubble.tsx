@@ -9,24 +9,26 @@ import { Subtask } from '../../../../../../shared/ipc-types'
 import { useAnchoredToolParts } from '../../hooks/use-anchored-tool-parts'
 import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
 import { hasRenderableAssistantContent } from '../../utils/message-part-utils'
+import type { UIDataTypes, UIMessage, UITools } from 'ai'
 
 // Streaming indicator - shown at bottom of message while generating
-const StreamingIndicator = () => (
-  <div className="streaming-indicator">
-    <span className="dot">.</span>
-    <span className="dot">.</span>
-    <span className="dot">.</span>
-  </div>
-)
+const StreamingIndicator =
+  (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
+    <div className="streaming-indicator">
+      <span className="dot">.</span>
+      <span className="dot">.</span>
+      <span className="dot">.</span>
+    </div>
+  )
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
   id: string
-  role: 'system' | 'user' | 'assistant' | 'data' | 'tool'
+  role: UIMessage['role']
   content?: string
   createdAt?: Date
-  parts?: any[]
-  toolInvocations?: any[]
+  parts: UIMessage<unknown, UIDataTypes, UITools>['parts']
+  hydrated?: boolean
   orchestration?: {
     subtasks?: Subtask[]
     agentsInvolved?: string[]
@@ -44,29 +46,26 @@ interface MessageBubbleProps {
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
   ({ message, isLatestUserMessage, isStreaming = false }, ref) => {
     const isUser = message.role === 'user'
-    const textFromParts = Array.isArray(message.parts)
-      ? message.parts
-          .filter((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-          .map((p) => (p as any).text as string)
-          .join('')
-      : ''
+    const textFromParts = message.parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join('')
     const primaryText = message.content ?? textFromParts
 
-    const isHydratedSnapshot = Boolean((message as any).hydrated)
+    const isHydratedSnapshot = Boolean(message.hydrated)
     const [collapseReasoning, setCollapseReasoning] = useState(
       isHydratedSnapshot && !isUser ? true : false
     )
     const anchoredParts = useAnchoredToolParts({ message, collapseReasoning, isUser })
     const hasNonReasoningText =
       !isUser &&
-      Array.isArray(message.parts) &&
       message.parts.some((part) => {
-        if (!part || part.type !== 'text' || typeof (part as any).text !== 'string') return false
-        const { reasoningText, contentText } = splitReasoningText((part as any).text as string)
+        if (part.type !== 'text') return false
+        const { reasoningText, contentText } = splitReasoningText(part.text)
         if (reasoningText && contentText.length === 0) {
           return false
         }
-        return (part as any).state === 'streaming' || contentText.length > 0
+        return part.state === 'streaming' || contentText.length > 0
       })
 
     useEffect(() => {
@@ -82,12 +81,12 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     }, [hasNonReasoningText])
 
     // Collapse reasoning when assistant text starts streaming: heuristic via a custom event
-    const hasAssistantParts = !isUser && Array.isArray(message.parts)
+    const hasAssistantParts = !isUser && message.parts.length > 0
     const initializedRef = useRef(false)
     useEffect(() => {
       if (!hasAssistantParts || initializedRef.current) return
       initializedRef.current = true
-      const handler = () => setCollapseReasoning(true)
+      const handler = (): void => setCollapseReasoning(true)
       window.addEventListener('ai-assistant-text-start', handler)
       return () => window.removeEventListener('ai-assistant-text-start', handler)
     }, [hasAssistantParts])
@@ -107,7 +106,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         >
           {isUser ? (
             <div className="whitespace-pre-wrap">{primaryText}</div>
-          ) : Array.isArray(message.parts) && message.parts.length > 0 ? (
+          ) : message.parts.length > 0 ? (
             <>
               {anchoredParts ||
                 message.parts.map((part, partIndex) => (

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { MessagePartRenderer } from '../components/message/message-part-renderer'
+import type { MessagePart } from '../types/message-types'
 
 type AnchoredMessage = {
   id: string
   role: string
   content?: string
-  parts?: any[]
+  parts?: unknown[]
 }
 
 interface UseAnchoredToolPartsOptions {
@@ -16,15 +17,32 @@ interface UseAnchoredToolPartsOptions {
 
 const toolPartPrefix = 'tool-'
 
-const isToolPart = (part: any) =>
-  part &&
-  typeof part.type === 'string' &&
-  (part.type === 'tool-invocation' ||
-    part.type === 'dynamic-tool' ||
-    part.type.startsWith(toolPartPrefix))
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
 
-const getToolCallId = (part: any) =>
-  part?.toolInvocation?.toolCallId ?? part?.toolCallId ?? part?.id
+function isTextPart(part: unknown): part is { type: 'text'; text: string } {
+  const partRecord = asObject(part)
+  return Boolean(partRecord && partRecord.type === 'text' && typeof partRecord.text === 'string')
+}
+
+const isToolPart = (part: unknown): boolean => {
+  const partRecord = asObject(part)
+  const partType = partRecord?.type
+  return (
+    typeof partType === 'string' &&
+    (partType === 'tool-invocation' ||
+      partType === 'dynamic-tool' ||
+      partType.startsWith(toolPartPrefix))
+  )
+}
+
+const getToolCallId = (part: unknown): string | undefined => {
+  const partRecord = asObject(part)
+  const toolInvocation = asObject(partRecord?.toolInvocation)
+  const toolCallId = toolInvocation?.toolCallId ?? partRecord?.toolCallId ?? partRecord?.id
+  return typeof toolCallId === 'string' ? toolCallId : undefined
+}
 
 export function useAnchoredToolParts({
   message,
@@ -34,17 +52,14 @@ export function useAnchoredToolParts({
   const toolAnchorRef = useRef<Record<string, number>>({})
 
   const textParts = useMemo(
-    () =>
-      Array.isArray(message.parts)
-        ? message.parts.filter((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-        : [],
+    () => (Array.isArray(message.parts) ? message.parts.filter((p) => isTextPart(p)) : []),
     [message.parts]
   )
 
   const textContent = useMemo(
     () =>
       textParts.length > 0
-        ? textParts.map((part) => (part as any).text as string).join('')
+        ? textParts.map((part) => part.text).join('')
         : typeof message.content === 'string'
           ? message.content
           : '',
@@ -52,18 +67,12 @@ export function useAnchoredToolParts({
   )
 
   const toolParts = useMemo(
-    () =>
-      Array.isArray(message.parts)
-        ? message.parts.filter((p) => isToolPart(p))
-        : [],
+    () => (Array.isArray(message.parts) ? message.parts.filter((p) => isToolPart(p)) : []),
     [message.parts]
   )
 
   const textPartIndex = useMemo(
-    () =>
-      Array.isArray(message.parts)
-        ? message.parts.findIndex((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-        : -1,
+    () => (Array.isArray(message.parts) ? message.parts.findIndex((p) => isTextPart(p)) : -1),
     [message.parts]
   )
 
@@ -72,19 +81,22 @@ export function useAnchoredToolParts({
     [textParts, toolParts, isUser]
   )
 
-  const resolveAnchor = (toolCallId: string | undefined) => {
-    if (toolCallId && toolAnchorRef.current[toolCallId] !== undefined) {
-      return toolAnchorRef.current[toolCallId]
-    }
-    return textContent.length
-  }
+  const resolveAnchor = useCallback(
+    (toolCallId: string | undefined) => {
+      if (toolCallId && toolAnchorRef.current[toolCallId] !== undefined) {
+        return toolAnchorRef.current[toolCallId]
+      }
+      return textContent.length
+    },
+    [textContent.length]
+  )
 
   const firstToolAnchor = useMemo(() => {
     if (!hasAnchoredToolFlow) return textContent.length
     return toolParts
-      .map((part: any) => resolveAnchor(getToolCallId(part)))
+      .map((part) => resolveAnchor(getToolCallId(part)))
       .reduce((min: number, val: number) => Math.min(min, val), textContent.length)
-  }, [hasAnchoredToolFlow, textContent, toolParts])
+  }, [hasAnchoredToolFlow, resolveAnchor, textContent, toolParts])
 
   // Reset anchors when the message changes
   useEffect(() => {
@@ -95,7 +107,7 @@ export function useAnchoredToolParts({
   useEffect(() => {
     if (!hasAnchoredToolFlow) return
     const currentLength = textContent.length
-    toolParts.forEach((part: any) => {
+    toolParts.forEach((part) => {
       const id = getToolCallId(part)
       if (id && toolAnchorRef.current[id] === undefined) {
         toolAnchorRef.current[id] = currentLength
@@ -112,7 +124,7 @@ export function useAnchoredToolParts({
     return parts.map((part, partIndex) => (
       <MessagePartRenderer
         key={`${message.id}-part-${partIndex}`}
-        part={part}
+        part={part as MessagePart}
         messageId={message.id}
         index={partIndex}
         collapseReasoning={collapseReasoning}
@@ -124,12 +136,12 @@ export function useAnchoredToolParts({
   let cursor = 0
   let syntheticIndex = 0
 
-  const pushTextSlice = (slice: string, key: string) => {
+  const pushTextSlice = (slice: string, key: string): void => {
     if (!slice || slice.length === 0) return
     rendered.push(
       <MessagePartRenderer
         key={key}
-        part={{ type: 'text', text: slice } as any}
+        part={{ type: 'text', text: slice }}
         messageId={message.id}
         index={syntheticIndex++}
         collapseReasoning={collapseReasoning}
@@ -138,8 +150,9 @@ export function useAnchoredToolParts({
   }
 
   parts.forEach((part, partIndex) => {
-    if (!part || typeof part !== 'object') return
-    if (part.type === 'text') {
+    const partRecord = asObject(part)
+    if (!partRecord) return
+    if (partRecord.type === 'text') {
       // Text is handled via slices.
       return
     }
@@ -149,14 +162,17 @@ export function useAnchoredToolParts({
       const anchor = resolveAnchor(toolCallId) || 0
 
       if (cursor < anchor) {
-        pushTextSlice(textContent.slice(cursor, anchor), `${message.id}-text-before-${toolCallId || partIndex}`)
+        pushTextSlice(
+          textContent.slice(cursor, anchor),
+          `${message.id}-text-before-${toolCallId || partIndex}`
+        )
         cursor = anchor
       }
 
       rendered.push(
         <MessagePartRenderer
           key={`${message.id}-part-${partIndex}`}
-          part={part}
+          part={part as MessagePart}
           messageId={message.id}
           index={partIndex}
           collapseReasoning={collapseReasoning}
@@ -180,7 +196,7 @@ export function useAnchoredToolParts({
     rendered.push(
       <MessagePartRenderer
         key={`${message.id}-part-${partIndex}`}
-        part={part}
+        part={part as MessagePart}
         messageId={message.id}
         index={partIndex}
         collapseReasoning={collapseReasoning}

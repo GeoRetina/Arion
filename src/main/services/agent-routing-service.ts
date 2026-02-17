@@ -11,7 +11,6 @@ import { isOrchestratorAgent } from '../../shared/utils/agent-utils'
  */
 export class AgentRoutingService {
   private agentRegistryService: AgentRegistryService
-  private chatService: ChatService
   private orchestrationService: OrchestrationService
   // LlmToolService might be useful in future extensions
   private initialized = false
@@ -22,7 +21,6 @@ export class AgentRoutingService {
     llmToolService: LlmToolService
   ) {
     this.agentRegistryService = agentRegistryService
-    this.chatService = chatService
     this.orchestrationService = new OrchestrationService(
       agentRegistryService,
       chatService,
@@ -63,7 +61,7 @@ export class AgentRoutingService {
    */
   public async getAgentCapabilities(): Promise<{
     success: boolean
-    capabilities: any[]
+    capabilities: Array<{ id: string; name: string; description: string; agents: string[] }>
     error?: string
   }> {
     await this.ensureInitialized()
@@ -191,7 +189,11 @@ export class AgentRoutingService {
     }
   }
 
-  public getExecutionContext(sessionId: string) {
+  public getExecutionContext(
+    sessionId: string
+  ):
+    | import('/mnt/e/Coding/open-source/Arion/src/main/services/types/orchestration-types').AgentExecutionContext
+    | undefined {
     return this.orchestrationService.getExecutionContext(sessionId)
   }
 

@@ -3,7 +3,7 @@ import path from 'path'
 import os from 'os'
 import mime from 'mime-types'
 import { fromFile as geoTiffFromFile } from 'geotiff'
-// @ts-ignore
+// @ts-ignore -- fast-png does not expose compatible typings in this import form
 import { encode as encodePng } from 'fast-png'
 
 /**

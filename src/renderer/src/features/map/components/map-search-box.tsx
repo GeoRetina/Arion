@@ -31,13 +31,13 @@ export const MapSearchBox: React.FC<MapSearchBoxProps> = ({
     setSelectedIndex(0)
   }, [results])
 
-  const handleSelectResult = (result: GeocodingResult) => {
+  const handleSelectResult = (result: GeocodingResult): void => {
     onSelectResult(result)
     clearSearch()
     onClose()
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       onClose()
       return
@@ -96,14 +96,10 @@ export const MapSearchBox: React.FC<MapSearchBoxProps> = ({
         {/* Results List - Positioned absolutely */}
         {query && (
           <div className="absolute top-full left-0 right-0 bg-background/95 backdrop-blur-md rounded-lg border-x border-b border-border shadow-lg overflow-hidden">
-            {error && (
-              <div className="p-4 text-sm text-destructive text-center">{error}</div>
-            )}
+            {error && <div className="p-4 text-sm text-destructive text-center">{error}</div>}
 
             {!error && !isLoading && results.length === 0 && (
-              <div className="p-4 text-sm text-muted-foreground text-center">
-                No results found
-              </div>
+              <div className="p-4 text-sm text-muted-foreground text-center">No results found</div>
             )}
 
             {!error && results.length > 0 && (
@@ -136,7 +132,6 @@ export const MapSearchBox: React.FC<MapSearchBoxProps> = ({
             )}
           </div>
         )}
-
       </div>
     </div>
   )

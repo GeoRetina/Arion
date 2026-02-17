@@ -99,10 +99,11 @@ export class LayerImportService {
     const warnings: string[] = []
 
     switch (format) {
-      case 'geotiff':
+      case 'geotiff': {
         const rasterRecommendations = RasterProcessor.getProcessingRecommendations(file)
         warnings.push(...rasterRecommendations.warnings.map((w) => `${file.name}: ${w}`))
         break
+      }
 
       case 'shapefile':
         // Add shapefile-specific warnings if needed
@@ -125,7 +126,7 @@ export class LayerImportService {
     format?: ImportFormat
     isValid: boolean
     error?: string
-    details?: any
+    details?: unknown
   }> {
     const validation = this.validateFile(file)
     const fileSize = this.formatFileSize(file.size)
@@ -144,14 +145,15 @@ export class LayerImportService {
 
     // Get format-specific details
     try {
-      let details: any = {}
+      let details: unknown = {}
 
       switch (validation.format) {
-        case 'geojson':
+        case 'geojson': {
           const text = await file.text()
           const geoJsonData = JSON.parse(text)
           details = GeoJSONProcessor.getSummaryInfo(geoJsonData)
           break
+        }
 
         case 'shapefile':
           details = await ShapefileProcessor.analyzeShapefileContents(file)

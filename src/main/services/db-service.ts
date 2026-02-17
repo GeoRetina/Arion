@@ -163,7 +163,7 @@ export class DBService {
     const currentChat = this.getChatById(id)
     if (!currentChat) return null
 
-    const params: any = { id }
+    const params: { id: string; title?: string | null; metadata?: string | null } = { id }
     const setClauses: string[] = []
 
     if (title !== undefined) {
@@ -194,7 +194,7 @@ export class DBService {
         return this.getChatById(id)
       }
       return currentChat // Return current if no rows affected (e.g. data was same)
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -204,7 +204,7 @@ export class DBService {
     try {
       const result = stmt.run(id)
       return result.changes > 0
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -222,7 +222,9 @@ export class DBService {
       if (orchestrationColumnExists.count === 0) {
         this.db.prepare('ALTER TABLE messages ADD COLUMN orchestration TEXT').run()
       }
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   // --- Message CRUD Operations ---
@@ -260,7 +262,7 @@ export class DBService {
         return newMessage
       }
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -290,7 +292,7 @@ export class DBService {
     try {
       const result = stmt.run(id)
       return result.changes > 0
-    } catch (error) {
+    } catch {
       return false
     }
   }

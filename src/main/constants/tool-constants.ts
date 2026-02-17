@@ -101,16 +101,20 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
  * @param agentToolAccess Optional array of tool names that the agent has access to
  * @returns Formatted tool descriptions for system prompt
  */
-export function generateToolDescriptions(mcpTools: ToolDescription[] = [], agentToolAccess?: string[]): string {
+export function generateToolDescriptions(
+  mcpTools: ToolDescription[] = [],
+  agentToolAccess?: string[]
+): string {
   let toolDescriptions = ''
 
   // Add built-in tool categories
   for (const category of BUILTIN_TOOL_CATEGORIES) {
     // Filter tools based on agent tool access if provided
-    const categoryTools = agentToolAccess && agentToolAccess.length > 0
-      ? category.tools.filter(tool => agentToolAccess.includes(tool.name))
-      : category.tools;
-    
+    const categoryTools =
+      agentToolAccess && agentToolAccess.length > 0
+        ? category.tools.filter((tool) => agentToolAccess.includes(tool.name))
+        : category.tools
+
     // Only add the category if it has tools after filtering
     if (categoryTools.length > 0) {
       toolDescriptions += `    <tool_category name="${category.name}">\n`
@@ -130,9 +134,10 @@ export function generateToolDescriptions(mcpTools: ToolDescription[] = [], agent
     const ungroupedMcp: ToolDescription[] = []
 
     // Filter MCP tools based on agent tool access if provided
-    const filteredMcpTools = agentToolAccess && agentToolAccess.length > 0
-      ? mcpTools.filter(tool => agentToolAccess.includes(tool.name))
-      : mcpTools;
+    const filteredMcpTools =
+      agentToolAccess && agentToolAccess.length > 0
+        ? mcpTools.filter((tool) => agentToolAccess.includes(tool.name))
+        : mcpTools
 
     for (const tool of filteredMcpTools) {
       if (tool.mcpServer) {

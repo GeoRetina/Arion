@@ -5,7 +5,12 @@ import * as LabelPrimitive from '@radix-ui/react-label'
 
 import { cn } from '@/lib/utils'
 
-function Label({ className, ...props }: React.ComponentProps<typeof LabelPrimitive.Root>) {
+function Label({
+  className,
+  ...props
+}: React.ComponentProps<
+  typeof LabelPrimitive.Root
+>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <LabelPrimitive.Root
       data-slot="label"

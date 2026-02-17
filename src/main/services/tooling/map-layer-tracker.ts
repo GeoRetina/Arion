@@ -7,23 +7,23 @@ export class MapLayerTracker {
   private mainWindow: BrowserWindow | null = null
   private readonly addedLayersInfo: Map<string, AddedLayerInfo> = new Map()
 
-  public setMainWindow(window: BrowserWindow | null) {
+  public setMainWindow(window: BrowserWindow | null): void {
     this.mainWindow = window
   }
 
-  public recordLayer(info: AddedLayerInfo) {
+  public recordLayer(info: AddedLayerInfo): void {
     this.addedLayersInfo.set(info.sourceId, info)
   }
 
-  public hasLayer(sourceId: string) {
+  public hasLayer(sourceId: string): boolean {
     return this.addedLayersInfo.has(sourceId)
   }
 
-  public removeLayer(sourceId: string) {
+  public removeLayer(sourceId: string): void {
     this.addedLayersInfo.delete(sourceId)
   }
 
-  public getLayer(sourceId: string) {
+  public getLayer(sourceId: string): AddedLayerInfo | undefined {
     return this.addedLayersInfo.get(sourceId)
   }
 
@@ -31,11 +31,14 @@ export class MapLayerTracker {
     return Array.from(this.addedLayersInfo.values())
   }
 
-  public clear() {
+  public clear(): void {
     this.addedLayersInfo.clear()
   }
 
-  public sendFeatureToMap(feature: Feature<Geometry>, options?: Partial<AddMapFeaturePayload>) {
+  public sendFeatureToMap(
+    feature: Feature<Geometry>,
+    options?: Partial<AddMapFeaturePayload>
+  ): void {
     if (!this.mainWindow) {
       return
     }
@@ -47,7 +50,7 @@ export class MapLayerTracker {
     this.mainWindow.webContents.send('ctg:map:addFeature', payload)
   }
 
-  public getMainWindow() {
+  public getMainWindow(): BrowserWindow | null {
     return this.mainWindow
   }
 }

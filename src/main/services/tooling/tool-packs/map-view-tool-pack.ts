@@ -10,7 +10,7 @@ export interface MapViewToolDependencies {
   getMainWindow: BrowserWindowProvider
 }
 
-export function registerMapViewTools(registry: ToolRegistry, deps: MapViewToolDependencies) {
+export function registerMapViewTools(registry: ToolRegistry, deps: MapViewToolDependencies): void {
   const { getMainWindow } = deps
 
   registry.register({

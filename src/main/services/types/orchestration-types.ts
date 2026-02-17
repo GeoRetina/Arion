@@ -41,8 +41,8 @@ export interface AgentExecutionContext {
   orchestratorAgentId: string
   originalQuery: string
   subtasks: Subtask[]
-  sharedMemory: Map<string, any>
-  results: Map<string, any>
+  sharedMemory: Map<string, unknown>
+  results: Map<string, unknown>
   status: 'preparing' | 'executing' | 'completed' | 'failed'
   createdAt: string
   completedAt?: string
@@ -55,8 +55,8 @@ export interface AgentExecutionContext {
 export interface AgentToolResult {
   toolCallId: string
   toolName: string
-  args: any
-  result: any
+  args: unknown
+  result: unknown
 }
 
 /**

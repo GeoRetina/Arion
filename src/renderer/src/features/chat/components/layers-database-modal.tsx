@@ -60,7 +60,13 @@ interface LayerCardProps {
 type ViewMode = 'grid' | 'list'
 type FilterType = 'all' | 'vector' | 'raster'
 
-const LayerTypeIcon = ({ type }: { type: LayerType }) => {
+const LayerTypeIcon = ({
+  type
+}: {
+  type: LayerType
+}):
+  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+  | null => {
   if (type === 'raster') {
     return <ImageIcon className="h-4 w-4" />
   }
@@ -69,10 +75,16 @@ const LayerTypeIcon = ({ type }: { type: LayerType }) => {
   return null
 }
 
-const LayerCard = ({ layer, viewMode, isSelected, onImport, onToggleSelect }: LayerCardProps) => {
+const LayerCard = ({
+  layer,
+  viewMode,
+  isSelected,
+  onImport,
+  onToggleSelect
+}: LayerCardProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
   const [isImporting, setIsImporting] = useState(false)
 
-  const handleImport = async () => {
+  const handleImport = async (): Promise<void> => {
     setIsImporting(true)
     try {
       await onImport(layer)
@@ -81,7 +93,12 @@ const LayerCard = ({ layer, viewMode, isSelected, onImport, onToggleSelect }: La
     }
   }
 
-  const getLayerTypeColor = (type: LayerType) => {
+  const getLayerTypeColor = (
+    type: LayerType
+  ):
+    | 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+    | 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+    | 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' => {
     switch (type) {
       case 'raster':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
@@ -228,12 +245,9 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     if (isOpen && !hasLoadedOnOpen) {
       loadFromPersistence(true) // Include imported layers for database modal
         .then(() => {
-          const allLayers = Array.from(layers.values())
-          const persistentLayers = allLayers.filter((l) => l.createdBy !== 'import')
-          const importedLayers = allLayers.filter((l) => l.createdBy === 'import')
           setHasLoadedOnOpen(true)
         })
-        .catch((error) => {
+        .catch(() => {
           // Still mark as loaded to prevent repeated attempts
           setHasLoadedOnOpen(true)
         })
@@ -243,7 +257,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     if (!isOpen && hasLoadedOnOpen) {
       setHasLoadedOnOpen(false)
     }
-  }, [isOpen, hasLoadedOnOpen, loadFromPersistence, layers.size])
+  }, [isOpen, hasLoadedOnOpen, loadFromPersistence])
 
   // Show all layers from the database
   const databaseLayers = Array.from(layers.values())
@@ -256,7 +270,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     return matchesSearch && matchesFilter
   })
 
-  const handleImportLayer = async (layer: LayerDefinition) => {
+  const handleImportLayer = async (layer: LayerDefinition): Promise<void> => {
     try {
       // Only allow import if there's a current chat session
       if (!currentChatId) {
@@ -310,7 +324,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     }
   }
 
-  const handleToggleLayerSelection = (layerId: string) => {
+  const handleToggleLayerSelection = (layerId: string): void => {
     setSelectedLayerIds((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(layerId)) {
@@ -322,21 +336,21 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     })
   }
 
-  const handleSelectAll = () => {
+  const handleSelectAll = (): void => {
     const allLayerIds = new Set(filteredLayers.map((l) => l.id))
     setSelectedLayerIds(allLayerIds)
   }
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = (): void => {
     setSelectedLayerIds(new Set())
   }
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = (): void => {
     if (selectedLayerIds.size === 0) return
     setIsDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (): Promise<void> => {
     if (selectedLayerIds.size === 0) return
 
     setIsDeleting(true)
@@ -361,7 +375,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           description: 'Layers have been permanently removed from the database'
         }
       )
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete selected layers', {
         description: 'Some layers may not have been deleted. Please try again.'
       })
@@ -370,7 +384,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
     }
   }
 
-  const handleImportSelected = async () => {
+  const handleImportSelected = async (): Promise<void> => {
     if (selectedLayerIds.size === 0) return
 
     if (!currentChatId) {
@@ -421,7 +435,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           description: errors.length > 0 ? errors[0] : 'All import operations failed'
         })
       }
-    } catch (error) {
+    } catch {
       toast.error('Bulk import failed', {
         description: 'An unexpected error occurred during import'
       })

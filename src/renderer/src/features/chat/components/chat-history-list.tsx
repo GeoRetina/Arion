@@ -32,11 +32,11 @@ export const ChatHistoryList: React.FC = () => {
   const [selectedChatIds, setSelectedChatIds] = useState<string[]>([])
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
-  const handleSelectChat = (chatId: string) => {
+  const handleSelectChat = (chatId: string): void => {
     navigate(`/chat/${chatId}`)
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleString(undefined, {
       year: 'numeric',
       month: 'short',
@@ -46,7 +46,7 @@ export const ChatHistoryList: React.FC = () => {
     })
   }
 
-  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+  const handleSelectAll = (checked: boolean | 'indeterminate'): void => {
     if (checked === true) {
       setSelectedChatIds(chats.map((chat) => chat.id))
     } else {
@@ -54,13 +54,13 @@ export const ChatHistoryList: React.FC = () => {
     }
   }
 
-  const handleRowSelect = (chatId: string, checked: boolean) => {
+  const handleRowSelect = (chatId: string, checked: boolean): void => {
     setSelectedChatIds((prevSelected) =>
       checked ? [...prevSelected, chatId] : prevSelected.filter((id) => id !== chatId)
     )
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = async (): Promise<void> => {
     if (selectedChatIds.length === 0) return
 
     for (const chatId of selectedChatIds) {
@@ -139,8 +139,12 @@ export const ChatHistoryList: React.FC = () => {
                     >
                       {chat.title || `Chat ${chat.id.substring(0, 8)}...`}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(chat.updated_at)}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(chat.created_at)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(chat.updated_at)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(chat.created_at)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

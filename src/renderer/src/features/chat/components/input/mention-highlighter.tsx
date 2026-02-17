@@ -13,7 +13,7 @@ export const highlightMentions = (text: string | null | undefined): React.ReactN
   if (!text) return []
 
   // Matches a mention and stops before the NBSP (\u00A0) or end-of-string.
-  const mentionRegex = /(@[A-Za-z0-9_\-\.\s]+?)(?=\u00A0|$)/g
+  const mentionRegex = /(@[A-Za-z0-9_.\s-]+?)(?=\u00A0|$)/g
   const parts = text.split(mentionRegex)
 
   return parts.map((part, index) => {

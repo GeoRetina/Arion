@@ -30,7 +30,16 @@ interface PhotonResponse {
 
 const PHOTON_API_URL = 'https://photon.komoot.io/api'
 
-export function useGeocodingSearch() {
+export function useGeocodingSearch(): {
+  query: string
+  setQuery: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').Dispatch<
+    import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').SetStateAction<string>
+  >
+  results: GeocodingResult[]
+  isLoading: boolean
+  error: string | null
+  clearSearch: () => void
+} {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<GeocodingResult[]>([])
   const [isLoading, setIsLoading] = useState(false)

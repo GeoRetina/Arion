@@ -9,7 +9,6 @@ import type {
   LayerDefinition,
   LayerStyle,
   LayerSourceConfig,
-  LayerMetadata,
   BoundingBox,
   GeometryType,
   LayerValidationResult,
@@ -18,6 +17,19 @@ import type {
   NumericStats,
   SpatialStats
 } from '../../../shared/types/layer-types'
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function isCoordinatePair(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    typeof value[0] === 'number' &&
+    typeof value[1] === 'number'
+  )
+}
 
 // Color utilities
 export class ColorUtils {
@@ -91,7 +103,7 @@ export class GeometryUtils {
     let maxLng = -Infinity
     let maxLat = -Infinity
 
-    const processCoordinate = (coord: number[]) => {
+    const processCoordinate = (coord: number[]): void => {
       const [lng, lat] = coord
       minLng = Math.min(minLng, lng)
       minLat = Math.min(minLat, lat)
@@ -99,10 +111,11 @@ export class GeometryUtils {
       maxLat = Math.max(maxLat, lat)
     }
 
-    const processCoordinates = (coords: any) => {
+    const processCoordinates = (coords: unknown): void => {
+      if (!Array.isArray(coords) || coords.length === 0) return
       if (Array.isArray(coords[0])) {
-        coords.forEach(processCoordinates)
-      } else {
+        coords.forEach((coord) => processCoordinates(coord))
+      } else if (isCoordinatePair(coords)) {
         processCoordinate(coords)
       }
     }
@@ -206,7 +219,7 @@ export class LayerValidationUtils {
       warnings.push('Layer name is very long and may be truncated in UI')
     }
 
-    if (layer.name && /[<>:"\/\\|?*]/.test(layer.name)) {
+    if (layer.name && /[<>:"/\\|?*]/.test(layer.name)) {
       warnings.push('Layer name contains special characters that may cause issues')
     }
 
@@ -421,8 +434,6 @@ export class LayerTransformUtils {
       geometryType?: GeometryType
     } = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    const now = new Date()
-
     return {
       name,
       type,
@@ -517,7 +528,11 @@ export class LayerTransformUtils {
     layer: LayerDefinition,
     modifications: Partial<LayerDefinition> = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+    const layerData = Object.fromEntries(
+      Object.entries(layer).filter(
+        ([key]) => key !== 'id' && key !== 'createdAt' && key !== 'updatedAt'
+      )
+    ) as Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
 
     return {
       ...layerData,
@@ -530,7 +545,7 @@ export class LayerTransformUtils {
   /**
    * Convert layer to export format
    */
-  static toExportFormat(layer: LayerDefinition): any {
+  static toExportFormat(layer: LayerDefinition): Record<string, unknown> {
     return {
       version: '1.0',
       layer: {
@@ -546,15 +561,20 @@ export class LayerTransformUtils {
   /**
    * Create layer from import data
    */
-  static fromImportFormat(data: any): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    if (!data.layer) {
+  static fromImportFormat(data: unknown): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
+    const dataRecord = asRecord(data)
+    const layerRecord = asRecord(dataRecord?.layer)
+    if (!layerRecord) {
       throw new Error('Invalid import format: missing layer data')
     }
 
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = data.layer
+    const layerData = { ...layerRecord }
+    delete layerData.id
+    delete layerData.createdAt
+    delete layerData.updatedAt
 
     // Convert date strings back to Date objects if they exist
-    return layerData
+    return layerData as Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
   }
 }
 

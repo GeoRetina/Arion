@@ -45,7 +45,7 @@ const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
       setColorState(newColor)
       onColorChange(newColor.hex)
     },
-    [onColorChange]
+    [onColorChange, setColorState]
   )
 
   return (

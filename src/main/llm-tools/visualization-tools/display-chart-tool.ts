@@ -173,7 +173,7 @@ export const displayChartToolParamsSchema = z
 
     if (!schema) return
 
-    let configToValidate = value.config
+    let configToValidate: unknown = value.config
 
     if (value.chartType === 'scatter') {
       const axis = value.config.axis || {}
@@ -186,10 +186,11 @@ export const displayChartToolParamsSchema = z
       }
       configToValidate = scatterConfig
     } else if (['bar', 'line', 'area'].includes(value.chartType)) {
+      const legacyConfig = value.config as { xAxisKey?: string; yAxisKeys?: string[] }
       configToValidate = {
         ...value.config,
-        xAxisKey: value.config.axis?.xKey ?? value.config.xAxisKey,
-        yAxisKeys: value.config.valueKeys ?? value.config.yAxisKeys
+        xAxisKey: value.config.axis?.xKey ?? legacyConfig.xAxisKey,
+        yAxisKeys: value.config.valueKeys ?? legacyConfig.yAxisKeys
       }
     }
 

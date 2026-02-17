@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 
-export const useErrorDialog = (sdkError: Error | null, stableChatIdForUseChat: string | null) => {
+export const useErrorDialog = (
+  sdkError: Error | null,
+  stableChatIdForUseChat: string | null
+): {
+  isErrorDialogOpen: boolean
+  setIsErrorDialogOpen: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').Dispatch<
+    import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').SetStateAction<boolean>
+  >
+  errorMessage: string | null
+} => {
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -20,10 +29,16 @@ export const useErrorDialog = (sdkError: Error | null, stableChatIdForUseChat: s
   }
 }
 
-export const useDatabaseModal = () => {
+export const useDatabaseModal = (): {
+  isDatabaseModalOpen: boolean
+  setIsDatabaseModalOpen: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').Dispatch<
+    import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').SetStateAction<boolean>
+  >
+  handleOpenDatabase: () => void
+} => {
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false)
 
-  const handleOpenDatabase = () => {
+  const handleOpenDatabase = (): void => {
     setIsDatabaseModalOpen(true)
   }
 

@@ -6,11 +6,12 @@ import {
   detectNestedToolCalls
 } from '../../utils/tool-ui-component-detection'
 import type { ToolInvocation } from '../../utils/tool-ui-component-detection'
+import { determineToolStatus, normalizeToolInvocationPart } from '../../utils/message-part-utils'
 import {
-  determineToolStatus,
-  normalizeToolInvocationPart
-} from '../../utils/message-part-utils'
-import { COMPONENT_TYPES, TOOL_STATES, CALL_AGENT_TOOL_NAME } from '../../constants/message-constants'
+  COMPONENT_TYPES,
+  TOOL_STATES,
+  CALL_AGENT_TOOL_NAME
+} from '../../constants/message-constants'
 import type { MessagePartRendererProps } from '../../types/message-types'
 import { splitReasoningText } from '../../../../../../shared/utils/reasoning-text'
 
@@ -60,7 +61,7 @@ function renderNestedToolCall(
         />
       )
     }
-  } catch (error) {
+  } catch {
     // Fallback to basic display
     return (
       <div key={key} className="p-2 border border-red-200 rounded bg-red-50 dark:bg-red-950/20">
@@ -76,7 +77,7 @@ function renderNestedToolCall(
  * Renders nested tool calls for agent execution results
  */
 function renderNestedToolCalls(
-  toolResult: any,
+  toolResult: unknown,
   parentToolCallId: string,
   parentComponent: React.ReactElement
 ): React.ReactElement | null {
@@ -104,7 +105,7 @@ function renderNestedToolCalls(
         </div>
       </div>
     )
-  } catch (error) {
+  } catch {
     return parentComponent // Fallback to just showing the parent component
   }
 }
@@ -123,7 +124,7 @@ function ThoughtsPart({
   index: number
   collapseReasoning?: boolean
   isStreamingReasoning?: boolean
-}) {
+}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   const [isOpen, setIsOpen] = useState(true)
   useEffect(() => {
     // Collapse when normal text starts; otherwise keep open while reasoning streams
@@ -151,7 +152,9 @@ export const MessagePartRenderer = ({
   messageId,
   index,
   collapseReasoning
-}: InternalRendererProps) => {
+}: InternalRendererProps):
+  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+  | null => {
   // Input validation
   if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
     return null
@@ -162,7 +165,7 @@ export const MessagePartRenderer = ({
     const { toolCallId, toolName, args, state } = toolInvocation
 
     // Check if this tool should render a special UI component
-    const toolUIComponent = detectToolUIComponent(toolInvocation as ToolInvocation)
+    const toolUIComponent = detectToolUIComponent(toolInvocation)
     if (toolUIComponent) {
       const Component = toolUIComponent.component
       const baseComponent = (
@@ -209,8 +212,8 @@ export const MessagePartRenderer = ({
     }
 
     // For all other tool calls, use ToolCallDisplay with proper error handling
-    const status = determineToolStatus(toolInvocation as ToolInvocation)
-    let toolResultData: any = undefined
+    const status = determineToolStatus(toolInvocation)
+    let toolResultData: unknown = undefined
 
     if (state === TOOL_STATES.RESULT) {
       toolResultData = toolInvocation.result
@@ -240,7 +243,7 @@ export const MessagePartRenderer = ({
             const trimmedReasoning = reasoningText.trim()
             const trimmedContent = contentText.trim()
             if (trimmedReasoning.length === 0 && trimmedContent.length === 0) return null
-            const isStreamingReasoning = hasOpenTag || (part as any).state === 'streaming'
+            const isStreamingReasoning = hasOpenTag || part.state === 'streaming'
             return (
               <>
                 {trimmedReasoning.length > 0 && (
@@ -266,10 +269,10 @@ export const MessagePartRenderer = ({
         }
 
       case COMPONENT_TYPES.REASONING:
-        if (typeof (part as any).text === 'string') {
-          const reasoningText = (part as any).text as string
+        if (typeof part.text === 'string') {
+          const reasoningText = part.text
           if (reasoningText.trim().length === 0) return null
-          const isStreamingReasoning = (part as any).state === 'streaming'
+          const isStreamingReasoning = part.state === 'streaming'
           return (
             <ThoughtsPart
               text={reasoningText}
@@ -285,7 +288,7 @@ export const MessagePartRenderer = ({
       default:
         return null
     }
-  } catch (error) {
+  } catch {
     // Fallback UI for rendering errors
     return (
       <div className="p-2 border border-red-200 rounded bg-red-50 dark:bg-red-950/20">

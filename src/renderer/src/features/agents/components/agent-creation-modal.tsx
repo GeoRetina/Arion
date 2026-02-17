@@ -23,6 +23,7 @@ import { useAgentStore } from '@/stores/agent-store'
 import { LLMProviderType } from '@/../../shared/ipc-types'
 import { Loader2 } from 'lucide-react'
 import { useLLMStore } from '@/stores/llm-store'
+import type { AgentDefinition } from '@/../../shared/types/agent-types'
 import {
   SUPPORTED_LLM_PROVIDERS,
   getFormattedProviderName,
@@ -77,18 +78,20 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   const [maxTokens, setMaxTokens] = useState(2048)
 
   // Access agent store for creation function and existing agents
-  const { createAgent, agents, loadAgents, getAgentById } = useAgentStore()
+  const { createAgent, agents, getAgentById } = useAgentStore()
 
   // State to hold full agent details for tool checking
-  const [fullAgents, setFullAgents] = useState<any[]>([])
+  const [fullAgents, setFullAgents] = useState<AgentDefinition[]>([])
 
   // Load full agent details when modal opens
   React.useEffect(() => {
     if (isOpen && agents.length > 0) {
-      const loadFullAgentDetails = async () => {
+      const loadFullAgentDetails = async (): Promise<void> => {
         const fullAgentPromises = agents.map((agent) => getAgentById(agent.id))
         const fullAgentResults = await Promise.all(fullAgentPromises)
-        const validAgents = fullAgentResults.filter((agent) => agent !== null)
+        const validAgents = fullAgentResults.filter(
+          (agent): agent is AgentDefinition => agent !== null
+        )
         setFullAgents(validAgents)
       }
       loadFullAgentDetails()
@@ -96,13 +99,17 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   }, [isOpen, agents, getAgentById])
 
   // Use the agent tools hook to manage available and assigned tools
-  const { availableTools, isLoading: isLoadingTools, error: toolsError } = useAgentTools(fullAgents, isOpen)
+  const {
+    availableTools,
+    isLoading: isLoadingTools,
+    error: toolsError
+  } = useAgentTools(fullAgents, isOpen)
 
   // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
   // Reset form state on close
-  const handleClose = () => {
+  const handleClose = (): void => {
     setName('')
     setDescription('')
     setProvider('')
@@ -126,7 +133,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // but keeping it for potential future use
 
   // Toggle tool selection
-  const toggleToolSelection = (toolId: string) => {
+  const toggleToolSelection = (toolId: string): void => {
     let updatedTools: string[]
 
     if (selectedTools.includes(toolId)) {
@@ -144,12 +151,18 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     })
   }
 
+  const readModelFromConfig = (config: unknown, configKey: string): string | null => {
+    if (!config || typeof config !== 'object') return null
+    const modelValue = (config as Record<string, unknown>)[configKey]
+    return typeof modelValue === 'string' && modelValue.length > 0 ? modelValue : null
+  }
+
   // Get available models based on selected provider
-  const availableModels = React.useMemo(() => {
+  const availableModels = React.useMemo<string[]>(() => {
     if (!provider) return []
 
     // Map of provider IDs to their config objects
-    const configMap: Partial<Record<NonNullable<LLMProviderType>, any>> = {
+    const configMap: Partial<Record<NonNullable<LLMProviderType>, unknown>> = {
       openai: openaiConfig,
       google: googleConfig,
       anthropic: anthropicConfig,
@@ -160,8 +173,8 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
 
     const config = configMap[provider as NonNullable<LLMProviderType>]
     const configKey = PROVIDER_CONFIG_KEYS[provider as NonNullable<LLMProviderType>]
-
-    return config && config[configKey] ? [config[configKey]] : []
+    const modelName = readModelFromConfig(config, configKey)
+    return modelName ? [modelName] : []
   }, [
     provider,
     openaiConfig,
@@ -173,7 +186,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   ])
 
   // Handle form submission
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     // Validate all required fields regardless of active tab
     if (!name.trim()) {
       toast.error('Agent name is required')
@@ -270,7 +283,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
           <DialogHeader>
             <DialogTitle>Create New Agent</DialogTitle>
             <DialogDescription>
-              Configure the agent's capabilities, prompt, and model settings.
+              Configure the agent&apos;s capabilities, prompt, and model settings.
             </DialogDescription>
           </DialogHeader>
 
@@ -313,7 +326,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                       required
                     />
                   </div>
-                  
+
                   {/* All user-created agents are automatically assigned the 'specialist' role */}
                 </div>
               </TabsContent>
@@ -375,7 +388,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                   <CardHeader>
                     <CardTitle>Agent Prompt</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Define the agent's personality, behavior, and special instructions.
+                      Define the agent&apos;s personality, behavior, and special instructions.
                     </p>
                   </CardHeader>
                   <CardContent>

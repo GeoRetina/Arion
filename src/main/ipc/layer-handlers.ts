@@ -20,9 +20,9 @@ import type {
 } from '../../shared/types/layer-types'
 
 // Runtime (in-memory) layer snapshot pushed from the renderer's layer store.
-let runtimeLayerSnapshot: any[] = []
+let runtimeLayerSnapshot: unknown[] = []
 
-export function getRuntimeLayerSnapshot() {
+export function getRuntimeLayerSnapshot(): unknown[] {
   return runtimeLayerSnapshot
 }
 
@@ -35,20 +35,16 @@ export function registerLayerHandlers(): void {
 
   // Layer CRUD handlers
   ipcMain.handle('layers:getAll', async (): Promise<LayerDefinition[]> => {
-    try {
+    {
       return dbService.getAllLayers()
-    } catch (error) {
-      throw error
     }
   })
 
   ipcMain.handle(
     'layers:getById',
     async (_event: IpcMainInvokeEvent, id: string): Promise<LayerDefinition | null> => {
-      try {
+      {
         return dbService.getLayerById(id) || null
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -59,10 +55,8 @@ export function registerLayerHandlers(): void {
       _event: IpcMainInvokeEvent,
       layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
     ): Promise<LayerDefinition> => {
-      try {
+      {
         return dbService.createLayer(layer)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -74,10 +68,8 @@ export function registerLayerHandlers(): void {
       id: string,
       updates: Partial<LayerDefinition>
     ): Promise<LayerDefinition> => {
-      try {
+      {
         return dbService.updateLayer(id, updates)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -85,20 +77,16 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:delete',
     async (_event: IpcMainInvokeEvent, id: string): Promise<boolean> => {
-      try {
+      {
         return dbService.deleteLayer(id)
-      } catch (error) {
-        throw error
       }
     }
   )
 
   // Group handlers
   ipcMain.handle('layers:groups:getAll', async (): Promise<LayerGroup[]> => {
-    try {
+    {
       return dbService.getAllGroups()
-    } catch (error) {
-      throw error
     }
   })
 
@@ -108,10 +96,8 @@ export function registerLayerHandlers(): void {
       _event: IpcMainInvokeEvent,
       group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>
     ): Promise<LayerGroup> => {
-      try {
+      {
         return dbService.createGroup(group)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -123,10 +109,8 @@ export function registerLayerHandlers(): void {
       id: string,
       updates: Partial<LayerGroup>
     ): Promise<LayerGroup> => {
-      try {
+      {
         return dbService.updateGroup(id, updates)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -134,10 +118,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:groups:delete',
     async (_event: IpcMainInvokeEvent, id: string, moveLayersTo?: string): Promise<boolean> => {
-      try {
+      {
         return dbService.deleteGroup(id, moveLayersTo)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -149,10 +131,8 @@ export function registerLayerHandlers(): void {
       _event: IpcMainInvokeEvent,
       criteria: LayerSearchCriteria
     ): Promise<LayerSearchResult> => {
-      try {
+      {
         return dbService.searchLayers(criteria)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -161,10 +141,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:logOperation',
     async (_event: IpcMainInvokeEvent, operation: LayerOperation): Promise<void> => {
-      try {
+      {
         dbService.logOperation(operation)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -172,10 +150,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:getOperations',
     async (_event: IpcMainInvokeEvent, layerId?: string): Promise<LayerOperation[]> => {
-      try {
+      {
         return dbService.getOperations(layerId)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -183,10 +159,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:logError',
     async (_event: IpcMainInvokeEvent, error: LayerError): Promise<void> => {
-      try {
+      {
         dbService.logError(error)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -194,10 +168,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:getErrors',
     async (_event: IpcMainInvokeEvent, layerId?: string): Promise<LayerError[]> => {
-      try {
+      {
         return dbService.getErrors(layerId)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -205,20 +177,16 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:clearErrors',
     async (_event: IpcMainInvokeEvent, layerId?: string): Promise<void> => {
-      try {
+      {
         dbService.clearErrors(layerId)
-      } catch (error) {
-        throw error
       }
     }
   )
 
   // Style presets
   ipcMain.handle('layers:presets:getAll', async (): Promise<StylePreset[]> => {
-    try {
+    {
       return dbService.getAllStylePresets()
-    } catch (error) {
-      throw error
     }
   })
 
@@ -228,10 +196,8 @@ export function registerLayerHandlers(): void {
       _event: IpcMainInvokeEvent,
       preset: Omit<StylePreset, 'id' | 'createdAt'>
     ): Promise<StylePreset> => {
-      try {
+      {
         return dbService.createStylePreset(preset)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -240,10 +206,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:recordMetrics',
     async (_event: IpcMainInvokeEvent, metrics: LayerPerformanceMetrics): Promise<void> => {
-      try {
+      {
         dbService.recordPerformanceMetrics(metrics)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -255,10 +219,8 @@ export function registerLayerHandlers(): void {
       _event: IpcMainInvokeEvent,
       updates: Array<{ id: string; changes: Partial<LayerDefinition> }>
     ): Promise<void> => {
-      try {
+      {
         dbService.bulkUpdateLayers(updates)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -266,10 +228,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:export',
     async (_event: IpcMainInvokeEvent, layerIds: string[]): Promise<string> => {
-      try {
+      {
         return dbService.exportLayers(layerIds)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -277,10 +237,8 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:import',
     async (_event: IpcMainInvokeEvent, data: string, targetGroupId?: string): Promise<string[]> => {
-      try {
+      {
         return dbService.importLayers(data, targetGroupId)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -293,10 +251,8 @@ export function registerLayerHandlers(): void {
       fileBuffer: ArrayBuffer,
       fileName: string
     ): Promise<{ imageUrl: string; bounds?: [number, number, number, number] }> => {
-      try {
+      {
         return await processingService.processGeotiff(fileBuffer, fileName)
-      } catch (error) {
-        throw error
       }
     }
   )
@@ -304,7 +260,7 @@ export function registerLayerHandlers(): void {
   // Renderer pushes its current in-memory layer store snapshot here.
   ipcMain.handle(
     'layers:runtime:updateSnapshot',
-    async (_event: IpcMainInvokeEvent, layers: any[]): Promise<boolean> => {
+    async (_event: IpcMainInvokeEvent, layers: unknown[]): Promise<boolean> => {
       runtimeLayerSnapshot = Array.isArray(layers) ? layers : []
       return true
     }

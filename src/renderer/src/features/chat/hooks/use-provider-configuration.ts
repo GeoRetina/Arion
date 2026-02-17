@@ -6,7 +6,27 @@ import {
   FormattableProviderConfig
 } from '@/constants/llm-providers'
 
-export const useProviderConfiguration = (stableChatIdForUseChat: string | null) => {
+export const useProviderConfiguration = (
+  stableChatIdForUseChat: string | null
+): {
+  availableProvidersForInput: {
+    id: NonNullable<import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').LLMProviderType>
+    name: string
+    isConfigured: boolean
+    isActive: boolean
+  }[]
+  activeProvider:
+    | import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').LLMProviderType
+    | null
+  setActiveProvider: (
+    provider: import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').LLMProviderType | null
+  ) => void
+  isConfigured: (
+    provider: NonNullable<
+      import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').LLMProviderType
+    >
+  ) => boolean
+} => {
   const {
     openaiConfig,
     googleConfig,

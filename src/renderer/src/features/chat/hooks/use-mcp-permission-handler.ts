@@ -1,8 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
 import type { McpServerConfig } from '../../../../../shared/ipc-types'
 
-export const useMcpPermissionHandler = () => {
+interface PermissionRequest {
+  chatId: string
+  toolName: string
+  serverId: string
+  requestId: string
+}
+
+function asPermissionRequest(value: unknown): PermissionRequest | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  if (
+    typeof record.chatId === 'string' &&
+    typeof record.toolName === 'string' &&
+    typeof record.serverId === 'string' &&
+    typeof record.requestId === 'string'
+  ) {
+    return {
+      chatId: record.chatId,
+      toolName: record.toolName,
+      serverId: record.serverId,
+      requestId: record.requestId
+    }
+  }
+  return null
+}
+
+export const useMcpPermissionHandler = (): {
+  pendingPermission: {
+    chatId: string
+    toolName: string
+    serverId: string
+    requestId: string
+    resolve: (granted: boolean) => void
+  } | null
+  resolvePendingPermission: (granted: boolean, rememberChoice: boolean) => void
+  getServerPath: (serverId: string) => string | undefined
+} => {
   const [mcpServerConfigs, setMcpServerConfigs] = useState<McpServerConfig[]>([])
 
   const { pendingPermission, resolvePendingPermission, hasPermission, setPendingPermission } =
@@ -10,11 +46,13 @@ export const useMcpPermissionHandler = () => {
 
   // Fetch MCP server configurations on mount
   useEffect(() => {
-    const fetchMcpConfigs = async () => {
+    const fetchMcpConfigs = async (): Promise<void> => {
       try {
         const configs = await window.ctg.settings.getMcpServerConfigs()
         setMcpServerConfigs(configs)
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
 
     fetchMcpConfigs()
@@ -40,20 +78,28 @@ export const useMcpPermissionHandler = () => {
   }
 
   // Handle MCP permission dialog requests from main process
-  const handleMcpPermissionRequest = async (request: any) => {
-    // Check if we already have permission for this tool in this chat
-    const existingPermission = hasPermission(request.chatId, request.toolName)
-    if (existingPermission !== null) {
-      // Send response back to main process
-      if (window.ctg?.mcp?.permissionResponse) {
-        window.ctg.mcp.permissionResponse(request.requestId, existingPermission)
+  const handleMcpPermissionRequest = useCallback(
+    async (request: unknown) => {
+      const permissionRequest = asPermissionRequest(request)
+      if (!permissionRequest) {
+        return
       }
-      return
-    }
 
-    // Set pending permission to trigger the dialog UI
-    setPendingPermission(request)
-  }
+      // Check if we already have permission for this tool in this chat
+      const existingPermission = hasPermission(permissionRequest.chatId, permissionRequest.toolName)
+      if (existingPermission !== null) {
+        // Send response back to main process
+        if (window.ctg?.mcp?.permissionResponse) {
+          window.ctg.mcp.permissionResponse(permissionRequest.requestId, existingPermission)
+        }
+        return
+      }
+
+      // Set pending permission to trigger the dialog UI
+      setPendingPermission(permissionRequest)
+    },
+    [hasPermission, setPendingPermission]
+  )
 
   // Register the MCP permission dialog handler
   useEffect(() => {
@@ -62,7 +108,7 @@ export const useMcpPermissionHandler = () => {
       return () => unsubscribe()
     }
     return undefined
-  }, [hasPermission, setPendingPermission])
+  }, [handleMcpPermissionRequest])
 
   return {
     pendingPermission,

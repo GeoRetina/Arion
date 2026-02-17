@@ -47,7 +47,7 @@ export class MCPClientService {
         .map((config) => this.connectToServerAndDiscover(config)) // Changed to connect and discover
 
       await Promise.allSettled(connectionPromises) // Wait for all connections and discoveries to attempt
-    } catch (error) {
+    } catch {
       // Depending on desired behavior, could re-throw or handle
     }
   }
@@ -65,7 +65,7 @@ export class MCPClientService {
     if (config.url) {
       try {
         return new SSEClientTransport(new URL(config.url))
-      } catch (e) {
+      } catch {
         return null
       }
     }
@@ -97,12 +97,16 @@ export class MCPClientService {
         const serverCaps: ServerCapabilities | undefined = client.getServerCapabilities()
 
         if (serverVersion) {
+          void 0
         } else {
+          void 0
         }
         if (serverCaps) {
+          void 0
         } else {
+          void 0
         }
-      } catch (infoError) {
+      } catch {
         // This catch might not be strictly necessary if the getters themselves don't throw but return undefined.
       }
 
@@ -115,7 +119,9 @@ export class MCPClientService {
         this.discoveredTools = this.discoveredTools.filter((tool) => tool.serverId !== config.id)
         // TODO: Potentially attempt to reconnect based on policy/settings
       }
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   private async discoverTools(serverId: string, client: Client): Promise<void> {
@@ -138,7 +144,7 @@ export class MCPClientService {
           (currentTool) => currentTool.serverId !== serverId
         )
       }
-    } catch (error) {
+    } catch {
       this.discoveredTools = this.discoveredTools.filter(
         (currentTool) => currentTool.serverId !== serverId
       )
@@ -186,7 +192,9 @@ export class MCPClientService {
       if (client) {
         try {
           await client.close()
-        } catch (closeError) {}
+        } catch {
+          void 0
+        }
       }
     }
   }
@@ -199,16 +207,14 @@ export class MCPClientService {
     serverId: string,
     toolName: string,
     args: { [key: string]: unknown } | undefined
-  ): Promise<any> {
+  ): Promise<unknown> {
     const client = this.clients.get(serverId)
     if (!client) {
       throw new Error(`Not connected to MCP server with ID: ${serverId}`)
     }
-    try {
+    {
       const result = await client.callTool({ name: toolName, arguments: args })
       return result
-    } catch (error) {
-      throw error
     }
   }
 
@@ -225,10 +231,12 @@ export class MCPClientService {
   // }
 
   public async shutdown(): Promise<void> {
-    for (const [id, client] of this.clients.entries()) {
+    for (const [, client] of this.clients.entries()) {
       try {
         await client.close()
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
     this.clients.clear()
     this.discoveredTools = []

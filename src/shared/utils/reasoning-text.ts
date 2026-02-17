@@ -6,10 +6,7 @@ export const REASONING_PREFIX_PATTERNS = [
   /^\*\*Thinking:\*\*([\s\S]*?)(?:\n\n|$)/i
 ]
 
-const REASONING_TAG_REGEX = new RegExp(
-  `<(${REASONING_TAGS.join('|')})>([\\s\\S]*?)<\\/\\1>`,
-  'i'
-)
+const REASONING_TAG_REGEX = new RegExp(`<(${REASONING_TAGS.join('|')})>([\\s\\S]*?)<\\/\\1>`, 'i')
 
 export interface ReasoningTagBounds {
   tag: string
@@ -66,8 +63,7 @@ export function splitReasoningText(text: string): ReasoningSplit {
     return {
       reasoningText: text.slice(tagBounds.openIdx + openTag.length, tagBounds.closeIdx).trim(),
       contentText:
-        text.slice(0, tagBounds.openIdx) +
-        text.slice(tagBounds.closeIdx + closeTag.length),
+        text.slice(0, tagBounds.openIdx) + text.slice(tagBounds.closeIdx + closeTag.length),
       hasOpenTag: false,
       tagName: tagBounds.tag
     }

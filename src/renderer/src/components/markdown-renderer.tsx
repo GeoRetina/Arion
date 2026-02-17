@@ -7,16 +7,20 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
   try {
     await navigator.clipboard.writeText(text)
     return true
-  } catch (error) {
+  } catch {
     return false
   }
 }
 
 // Exportable copy message button component
-export const CopyMessageButton = ({ content }: { content: string }) => {
+export const CopyMessageButton = ({
+  content
+}: {
+  content: string
+}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = async () => {
+  const handleCopy = async (): Promise<void> => {
     const success = await copyToClipboard(content)
     if (success) {
       setCopied(true)
@@ -49,7 +53,7 @@ interface MarkdownRendererProps {
 export const MarkdownRenderer = ({
   content,
   variant = 'default'
-}: MarkdownRendererProps) => {
+}: MarkdownRendererProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
   const textSizeClass =
     variant === 'reasoning'
       ? 'text-xs [&_p]:text-xs [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm'
@@ -63,9 +67,7 @@ export const MarkdownRenderer = ({
         ${textSizeClass}
       `}
     >
-      <Streamdown shikiTheme={['github-light', 'github-dark']}>
-        {content}
-      </Streamdown>
+      <Streamdown shikiTheme={['github-light', 'github-dark']}>{content}</Streamdown>
     </div>
   )
 }

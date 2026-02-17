@@ -18,7 +18,7 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
   // State for layers panel visibility
   const [isLayersPanelExpanded, setIsLayersPanelExpanded] = useState(false)
 
-  const handleToggleLayersPanel = () => {
+  const handleToggleLayersPanel = (): void => {
     setIsLayersPanelExpanded(!isLayersPanelExpanded)
   }
 

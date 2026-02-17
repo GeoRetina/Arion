@@ -128,9 +128,9 @@ export default function ModelsPage(): React.JSX.Element {
     providerName: NonNullable<LLMProvider>,
     title: string,
     description: string,
-    config: any,
+    config: ProviderCardConfig,
     openModalHandler: () => void
-  ) => {
+  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
     const configured = isConfigured(providerName)
 
     return (
@@ -151,9 +151,7 @@ export default function ModelsPage(): React.JSX.Element {
               />
             </div>
             <div>
-              <CardTitle className="text-xl">
-                {title}
-              </CardTitle>
+              <CardTitle className="text-xl">{title}</CardTitle>
               <CardDescription className="text-sm">{description}</CardDescription>
             </div>
           </div>
@@ -307,4 +305,9 @@ export default function ModelsPage(): React.JSX.Element {
       />
     </ScrollArea>
   )
+}
+type ProviderCardConfig = {
+  model?: string | null
+  deploymentName?: string | null
+  endpoint?: string | null
 }

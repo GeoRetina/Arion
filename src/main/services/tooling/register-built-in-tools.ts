@@ -23,7 +23,7 @@ export interface BuiltInRegistrationDeps {
   getOrchestrationService: () => OrchestrationService | null
 }
 
-export function registerBuiltInTools(deps: BuiltInRegistrationDeps) {
+export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
   registerVisualizationTools(deps.registry, {
     mapLayerTracker: deps.mapLayerTracker
   })

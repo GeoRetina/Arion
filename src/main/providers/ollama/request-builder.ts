@@ -1,13 +1,10 @@
-import type {
-  LanguageModelV3CallOptions,
-  SharedV3Warning
-} from '@ai-sdk/provider'
+import type { LanguageModelV3CallOptions, SharedV3Warning } from '@ai-sdk/provider'
 import { parseProviderOptions } from '@ai-sdk/provider-utils'
 import { convertToOllamaResponsesMessages, convertToOllamaChatMessages } from './message-converters'
 import { prepareResponsesTools } from './tool-prep'
 import { ollamaProviderOptionsSchema, type RequestBuilderArgs } from './types'
 
-export type OllamaResponsesPrompt = Array<any>
+export type OllamaResponsesPrompt = Array<Record<string, unknown>>
 
 export class OllamaRequestBuilder {
   async buildRequest({
@@ -25,7 +22,10 @@ export class OllamaRequestBuilder {
     tools,
     toolChoice,
     responseFormat
-  }: LanguageModelV3CallOptions & { modelId: string }) {
+  }: LanguageModelV3CallOptions & { modelId: string }): Promise<{
+    args: RequestBuilderArgs
+    warnings: SharedV3Warning[]
+  }> {
     const warnings = this.collectUnsupportedSettingsWarnings({
       topK,
       seed,
@@ -56,7 +56,11 @@ export class OllamaRequestBuilder {
       })
     }
 
-    const { tools: mappedTools, toolChoice: mappedChoice, toolWarnings } = prepareResponsesTools({
+    const {
+      tools: mappedTools,
+      toolChoice: mappedChoice,
+      toolWarnings
+    } = prepareResponsesTools({
       tools,
       toolChoice
     })
@@ -100,7 +104,13 @@ export class OllamaRequestBuilder {
     return warnings
   }
 
-  private async parseProviderOptions(providerOptions?: LanguageModelV3CallOptions['providerOptions']) {
+  private async parseProviderOptions(
+    providerOptions?: LanguageModelV3CallOptions['providerOptions']
+  ): Promise<{
+    think?: boolean | 'high' | 'medium' | 'low'
+    keep_alive?: string | number
+    options?: Record<string, unknown>
+  } | null> {
     if (!providerOptions) return null
 
     const parsed = await parseProviderOptions({

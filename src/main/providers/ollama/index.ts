@@ -1,7 +1,4 @@
-import type {
-  LanguageModelV3,
-  LanguageModelV3CallOptions
-} from '@ai-sdk/provider'
+import type { LanguageModelV3, LanguageModelV3CallOptions } from '@ai-sdk/provider'
 import {
   combineHeaders,
   createJsonResponseHandler,
@@ -106,7 +103,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
     this.processor = new OllamaResponseProcessor(config)
   }
 
-  get provider() {
+  get provider(): string {
     return this.config.provider
   }
 
@@ -114,18 +111,35 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
     'image/*': [/^https?:\/\/.*$/]
   }
 
-  async doGenerate(options: LanguageModelV3CallOptions) {
+  async doGenerate(options: LanguageModelV3CallOptions): Promise<{
+    warnings: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').SharedV3Warning[]
+    request: { body: string }
+    response: {
+      modelId: string
+      timestamp: Date
+      headers: Record<string, string> | undefined
+      body: unknown
+    }
+    content: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3Content[]
+    finishReason: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3FinishReason
+    usage: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3Usage
+    providerMetadata: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').SharedV3ProviderMetadata
+  }> {
     const { args, warnings } = await this.builder.buildRequest({
       ...options,
       modelId: this.modelId
     })
 
-    const { responseHeaders, value: response, rawValue } = await postJsonToApi({
+    const {
+      responseHeaders,
+      value: response,
+      rawValue
+    } = await postJsonToApi({
       url: this.config.url({ path: '/chat', modelId: this.modelId }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: { ...args, stream: false },
       failedResponseHandler: ollamaFailedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(baseOllamaResponseSchema as any),
+      successfulResponseHandler: createJsonResponseHandler(baseOllamaResponseSchema),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch
     })
@@ -145,7 +159,13 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
     }
   }
 
-  async doStream(options: LanguageModelV3CallOptions) {
+  async doStream(options: LanguageModelV3CallOptions): Promise<{
+    stream: ReadableStream<
+      import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3StreamPart
+    >
+    request: { body: string }
+    response: { headers: Record<string, string> | undefined }
+  }> {
     const { args, warnings } = await this.builder.buildRequest({
       ...options,
       modelId: this.modelId

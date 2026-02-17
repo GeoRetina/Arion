@@ -33,12 +33,12 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
     Object.keys(SUPPORTED_FORMATS).join(',') +
     ',.json,.geojson,.kml,.kmz,.gpx,.csv,.xlsx,.xls,.zip,.tif,.tiff'
 
-  const handleButtonClick = () => {
+  const handleButtonClick = (): void => {
     if (disabled || uploadState === 'uploading') return
     fileInputRef.current?.click()
   }
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const files = event.target.files
     if (!files || files.length === 0) return
 
@@ -103,20 +103,25 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
     }
   }
 
-  const getButtonIcon = () => {
-    switch (uploadState) {
-      case 'uploading':
-        return <Upload className="h-4 w-4 animate-pulse" />
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case 'error':
-        return <AlertCircle className="h-4 w-4 text-red-500" />
-      default:
-        return <Paperclip className="h-4 w-4" />
+  const getButtonIcon =
+    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+      switch (uploadState) {
+        case 'uploading':
+          return <Upload className="h-4 w-4 animate-pulse" />
+        case 'success':
+          return <CheckCircle className="h-4 w-4 text-green-500" />
+        case 'error':
+          return <AlertCircle className="h-4 w-4 text-red-500" />
+        default:
+          return <Paperclip className="h-4 w-4" />
+      }
     }
-  }
 
-  const getButtonTitle = () => {
+  const getButtonTitle = ():
+    | 'Importing layer...'
+    | 'Layer imported successfully'
+    | 'Import failed'
+    | 'Import layer (GeoJSON, Shapefile, KML, CSV, GeoTIFF, etc.)' => {
     switch (uploadState) {
       case 'uploading':
         return 'Importing layer...'
@@ -129,7 +134,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
     }
   }
 
-  const getButtonVariant = () => {
+  const getButtonVariant = (): 'default' | 'ghost' => {
     switch (uploadState) {
       case 'success':
         return 'default' // Keep subtle
