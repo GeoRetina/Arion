@@ -47,6 +47,7 @@ export function useAutoScroll(props: UseAutoScrollProps) {
               }
             }, clearMarginDelay)
           } else {
+            void 0
           }
         }, scrollDelay)
       }

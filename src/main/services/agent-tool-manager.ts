@@ -44,7 +44,7 @@ export class AgentToolManager {
       // Return unique tool IDs
       const uniqueTools = [...new Set(specializedAgentTools)]
       return uniqueTools
-    } catch (error) {
+    } catch {
       return []
     }
   }
@@ -74,6 +74,7 @@ export class AgentToolManager {
       const agent = await this.agentRegistryService.getAgentById(agentId)
 
       if (agent?.capabilities) {
+        void 0
       }
 
       // Determine if this is an orchestrator

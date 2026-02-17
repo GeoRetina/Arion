@@ -351,7 +351,9 @@ export const useLayerStore = create<LayerStore>()(
         for (const layer of visibleLayers) {
           try {
             await integration.syncLayerToMap(layer)
-          } catch (error) {}
+          } catch {
+            void 0
+          }
         }
       }
     },
@@ -363,10 +365,8 @@ export const useLayerStore = create<LayerStore>()(
         return
       }
 
-      try {
+      {
         await state.mapLibreIntegration.syncLayerToMap(layer)
-      } catch (error) {
-        throw error
       }
     },
 
@@ -374,10 +374,8 @@ export const useLayerStore = create<LayerStore>()(
       const state = get()
       if (!state.mapLibreIntegration) return
 
-      try {
+      {
         await state.mapLibreIntegration.removeLayerFromMap(layerId)
-      } catch (error) {
-        throw error
       }
     },
 
@@ -385,10 +383,8 @@ export const useLayerStore = create<LayerStore>()(
       const state = get()
       if (!state.mapLibreIntegration) return
 
-      try {
+      {
         await state.mapLibreIntegration.syncLayerProperties(layer)
-      } catch (error) {
-        throw error
       }
     },
 
@@ -437,11 +433,12 @@ export const useLayerStore = create<LayerStore>()(
       // Only persist to database if not imported for session-only use
       const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
-        try {
-          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+        {
+          const layerData = { ...layer }
+          delete layerData.id
+          delete layerData.createdAt
+          delete layerData.updatedAt
           await window.ctg.layers.create(layerData)
-        } catch (error) {
-          throw error
         }
       }
 
@@ -466,7 +463,7 @@ export const useLayerStore = create<LayerStore>()(
       ) {
         try {
           map.fitBounds(bounds as [number, number, number, number], { padding: 40, maxZoom: 16 })
-        } catch (error) {
+        } catch {
           // Ignore fit errors; rendering is handled separately
         }
       }
@@ -506,10 +503,8 @@ export const useLayerStore = create<LayerStore>()(
       // Only persist to database if not imported for session-only use
       const shouldPersist = isPersistableLayer(updatedLayer)
       if (shouldPersist) {
-        try {
+        {
           await window.ctg.layers.update(id, updates)
-        } catch (error) {
-          throw error
         }
       }
 
@@ -540,10 +535,8 @@ export const useLayerStore = create<LayerStore>()(
       // Only persist to database if not imported for session-only use
       const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
-        try {
+        {
           await window.ctg.layers.delete(id)
-        } catch (error) {
-          throw error
         }
       }
 
@@ -625,6 +618,8 @@ export const useLayerStore = create<LayerStore>()(
 
     applyStylePreset: async (id, presetId) => {
       // This will be implemented when style presets are added
+      void id
+      void presetId
     },
 
     // Layer Organization
@@ -700,17 +695,13 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Persist to database first
-      try {
-        const {
-          id: _id,
-          createdAt: _createdAt,
-          updatedAt: _updatedAt,
-          layerIds: _layerIds,
-          ...groupData
-        } = group
+      {
+        const groupData = { ...group }
+        delete groupData.id
+        delete groupData.createdAt
+        delete groupData.updatedAt
+        delete groupData.layerIds
         await window.ctg.layers.groups.create(groupData)
-      } catch (error) {
-        throw error
       }
 
       // Update local state
@@ -857,10 +848,12 @@ export const useLayerStore = create<LayerStore>()(
     // Performance Monitoring
     recordPerformanceMetrics: (metrics) => {
       // Performance metrics will be stored separately or in a performance store
+      void metrics
     },
 
-    getPerformanceMetrics: (_layerId) => {
+    getPerformanceMetrics: (layerId) => {
       // Placeholder - implement when performance monitoring is added
+      void layerId
       return []
     },
 
@@ -880,13 +873,14 @@ export const useLayerStore = create<LayerStore>()(
         for (const layer of layers) {
           try {
             await window.ctg.layers.update(layer.id, layer)
-          } catch (error) {
+          } catch {
             // If update fails, try to create the layer
-            try {
-              const { id, createdAt, updatedAt, ...layerData } = layer
+            {
+              const layerData = { ...layer }
+              delete layerData.id
+              delete layerData.createdAt
+              delete layerData.updatedAt
               await window.ctg.layers.create(layerData)
-            } catch (createError) {
-              throw createError
             }
           }
         }
@@ -895,20 +889,20 @@ export const useLayerStore = create<LayerStore>()(
         for (const group of groups) {
           try {
             await window.ctg.layers.groups.update(group.id, group)
-          } catch (error) {
+          } catch {
             // If update fails, try to create the group
-            try {
-              const { id, createdAt, updatedAt, layerIds, ...groupData } = group
+            {
+              const groupData = { ...group }
+              delete groupData.id
+              delete groupData.createdAt
+              delete groupData.updatedAt
+              delete groupData.layerIds
               await window.ctg.layers.groups.create(groupData)
-            } catch (createError) {
-              throw createError
             }
           }
         }
 
         set({ isDirty: false, lastSyncTimestamp: Date.now() })
-      } catch (error) {
-        throw error
       } finally {
         set({ isLoading: false })
       }
@@ -946,8 +940,6 @@ export const useLayerStore = create<LayerStore>()(
           isDirty: false,
           lastSyncTimestamp: Date.now()
         })
-      } catch (error) {
-        throw error
       } finally {
         set({ isLoading: false })
       }
@@ -970,14 +962,17 @@ export const useLayerStore = create<LayerStore>()(
 
         if (importData.layers && Array.isArray(importData.layers)) {
           for (const layerData of importData.layers) {
-            const { id: _, createdAt: __, updatedAt: ___, ...layer } = layerData
+            const layer = { ...layerData }
+            delete layer.id
+            delete layer.createdAt
+            delete layer.updatedAt
             const newId = await get().addLayer(layer)
             importedIds.push(newId)
           }
         }
 
         return importedIds
-      } catch (error) {
+      } catch {
         throw new Error('Invalid import data format')
       }
     },
@@ -1040,11 +1035,11 @@ export const useLayerStore = create<LayerStore>()(
     clearSessionData: () => {
       const state = get()
       const sessionLayers = Array.from(state.layers.entries()).filter(
-        ([_, layer]) => layer.createdBy === 'import'
+        ([, layer]) => layer.createdBy === 'import'
       )
 
       // Remove session-imported layers
-      sessionLayers.forEach(([layerId, _]) => {
+      sessionLayers.forEach(([layerId]) => {
         state.layers.delete(layerId)
       })
 
@@ -1055,10 +1050,10 @@ export const useLayerStore = create<LayerStore>()(
             ? state.selectedLayerId
             : null,
         operations: state.operations.filter(
-          (op) => !sessionLayers.some(([layerId, _]) => op.layerId === layerId)
+          (op) => !sessionLayers.some(([layerId]) => op.layerId === layerId)
         ),
         errors: state.errors.filter(
-          (error) => !sessionLayers.some(([layerId, _]) => error.layerId === layerId)
+          (error) => !sessionLayers.some(([layerId]) => error.layerId === layerId)
         )
       })
     },
@@ -1066,11 +1061,11 @@ export const useLayerStore = create<LayerStore>()(
     clearSessionLayersForChat: (chatId: string) => {
       const state = get()
       const chatLayers = Array.from(state.layers.entries()).filter(
-        ([_, layer]) => layer.createdBy === 'import' && layer.metadata.tags?.includes(chatId)
+        ([, layer]) => layer.createdBy === 'import' && layer.metadata.tags?.includes(chatId)
       )
 
       // Remove layers associated with this chat
-      chatLayers.forEach(([layerId, _]) => {
+      chatLayers.forEach(([layerId]) => {
         state.layers.delete(layerId)
       })
 
@@ -1081,10 +1076,10 @@ export const useLayerStore = create<LayerStore>()(
             ? state.selectedLayerId
             : null,
         operations: state.operations.filter(
-          (op) => !chatLayers.some(([layerId, _]) => op.layerId === layerId)
+          (op) => !chatLayers.some(([layerId]) => op.layerId === layerId)
         ),
         errors: state.errors.filter(
-          (error) => !chatLayers.some(([layerId, _]) => error.layerId === layerId)
+          (error) => !chatLayers.some(([layerId]) => error.layerId === layerId)
         )
       })
     },

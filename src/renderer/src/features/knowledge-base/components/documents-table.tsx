@@ -21,7 +21,6 @@ import {
   MoreHorizontal,
   Edit,
   Trash,
-  Download,
   ExternalLink,
   ChevronUp,
   ChevronDown,
@@ -265,7 +264,7 @@ export function DocumentsTable({
                                 if (!result.success) {
                                   // Optionally show a toast or alert to the user here
                                 }
-                              } catch (error) {
+                              } catch {
                                 // Optionally show a toast or alert to the user here
                               }
                             }

@@ -20,7 +20,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Upload } from 'lucide-react'
-import { useKnowledgeBaseStore, Document, Folder } from '../stores/knowledge-base-store'
+import { useKnowledgeBaseStore, Document } from '../stores/knowledge-base-store'
 import { nanoid } from 'nanoid'
 // import { useToast } from '@/components/ui/toast' // Assuming this is the correct path for shadcn/ui toast - COMMENTED OUT
 import { toast } from 'sonner'
@@ -37,12 +37,7 @@ export function DocumentForm({
   onClose,
   documentToEdit
 }: DocumentFormProps): React.JSX.Element {
-  const {
-    folders,
-    addDocument: addDocumentToStore,
-    updateDocument,
-    deleteDocumentAndEmbeddings
-  } = useKnowledgeBaseStore()
+  const { folders, addDocument: addDocumentToStore, updateDocument } = useKnowledgeBaseStore()
   // const { toast } = useToast() // COMMENTED OUT
   const [formData, setFormData] = useState({
     name: '',
@@ -55,7 +50,6 @@ export function DocumentForm({
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [clientSideDocumentId, setClientSideDocumentId] = useState<string | null>(null) // For optimistic UI rollback
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null) // New state for file content
   const isEditMode = !!documentToEdit
 
@@ -79,7 +73,6 @@ export function DocumentForm({
         fileSize: 0
       })
       setSelectedFile(null)
-      setClientSideDocumentId(null) // Reset client-side ID for new forms
       setFileBuffer(null) // Reset file buffer
     }
     setIsProcessing(false)
@@ -113,7 +106,7 @@ export function DocumentForm({
       try {
         const buffer = await file.arrayBuffer()
         setFileBuffer(buffer)
-      } catch (error) {
+      } catch {
         toast.error('Error Reading File', {
           description: 'Could not read the file content. Please try again.'
         })
@@ -123,12 +116,16 @@ export function DocumentForm({
     }
 
     if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+      void 0
     } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      void 0
     } else if (
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       file.name.endsWith('.docx')
     ) {
+      void 0
     } else {
+      void 0
     }
   }
 
@@ -252,7 +249,7 @@ export function DocumentForm({
   return (
     <Dialog
       open={isOpen}
-      onOpenChange={(open) => {
+      onOpenChange={() => {
         if (!isProcessing) onClose()
       }}
     >

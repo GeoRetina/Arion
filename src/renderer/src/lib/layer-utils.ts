@@ -9,7 +9,6 @@ import type {
   LayerDefinition,
   LayerStyle,
   LayerSourceConfig,
-  LayerMetadata,
   BoundingBox,
   GeometryType,
   LayerValidationResult,
@@ -206,7 +205,7 @@ export class LayerValidationUtils {
       warnings.push('Layer name is very long and may be truncated in UI')
     }
 
-    if (layer.name && /[<>:"\/\\|?*]/.test(layer.name)) {
+    if (layer.name && /[<>:"/\\|?*]/.test(layer.name)) {
       warnings.push('Layer name contains special characters that may cause issues')
     }
 
@@ -421,8 +420,6 @@ export class LayerTransformUtils {
       geometryType?: GeometryType
     } = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    const now = new Date()
-
     return {
       name,
       type,
@@ -517,7 +514,10 @@ export class LayerTransformUtils {
     layer: LayerDefinition,
     modifications: Partial<LayerDefinition> = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
+    const layerData = { ...layer }
+    delete layerData.id
+    delete layerData.createdAt
+    delete layerData.updatedAt
 
     return {
       ...layerData,
@@ -551,7 +551,10 @@ export class LayerTransformUtils {
       throw new Error('Invalid import format: missing layer data')
     }
 
-    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = data.layer
+    const layerData = { ...data.layer }
+    delete layerData.id
+    delete layerData.createdAt
+    delete layerData.updatedAt
 
     // Convert date strings back to Date objects if they exist
     return layerData

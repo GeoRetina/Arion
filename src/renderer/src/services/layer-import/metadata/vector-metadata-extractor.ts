@@ -38,7 +38,8 @@ export class VectorMetadataExtractor {
   /**
    * Extract metadata from Shapefile (converted to GeoJSON)
    */
-  static extractShapefileMetadata(geoJson: any, _fileName: string): LayerMetadata {
+  static extractShapefileMetadata(geoJson: any, fileName: string): LayerMetadata {
+    void fileName
     const features = geoJson.features || []
     const featureCount = features.length
 

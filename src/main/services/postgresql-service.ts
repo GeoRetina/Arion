@@ -14,7 +14,9 @@ export class PostgreSQLService {
   private readonly connectionTimeout = 30000
   private readonly idleTimeout = 30000
 
-  constructor() {}
+  constructor() {
+    void 0
+  }
 
   async testConnection(config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> {
     let client: PoolClient | null = null
@@ -44,7 +46,9 @@ export class PostgreSQLService {
       try {
         const postgisResult = await client.query('SELECT PostGIS_Version()')
         postgisVersion = postgisResult.rows[0]?.postgis_version || null
-      } catch (error) {}
+      } catch {
+        void 0
+      }
 
       client.release()
       client = null
@@ -206,7 +210,9 @@ export class PostgreSQLService {
       if (client) {
         try {
           await client.query('ROLLBACK')
-        } catch (rollbackError) {}
+        } catch {
+          void 0
+        }
       }
 
       return {
@@ -236,13 +242,13 @@ export class PostgreSQLService {
         connected: true,
         config: config || undefined
       }
-    } catch (error) {
+    } catch {
       return { connected: false }
     }
   }
 
   private async storeCredentials(id: string, config: PostgreSQLConfig): Promise<void> {
-    try {
+    {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       const credentials = JSON.stringify({
         host: config.host,
@@ -254,8 +260,6 @@ export class PostgreSQLService {
       })
 
       await keytar.setPassword(SERVICE_NAME, credentialsKey, credentials)
-    } catch (error) {
-      throw error
     }
   }
 
@@ -269,7 +273,7 @@ export class PostgreSQLService {
       }
 
       return JSON.parse(credentials) as PostgreSQLConfig
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -278,14 +282,18 @@ export class PostgreSQLService {
     try {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       await keytar.deletePassword(SERVICE_NAME, credentialsKey)
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   async cleanup(): Promise<void> {
-    for (const [id, pool] of this.pools) {
+    for (const [, pool] of this.pools) {
       try {
         await pool.end()
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
 
     this.pools.clear()

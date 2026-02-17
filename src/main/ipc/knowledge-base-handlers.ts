@@ -2,12 +2,10 @@ import { type IpcMain } from 'electron'
 import {
   IpcChannels,
   KBAddDocumentPayload,
-  KBRecordForClient,
   KBAddDocumentResult,
   KnowledgeBaseDocumentForClient
 } from '../../shared/ipc-types' // Assuming this path is correct
 import { KnowledgeBaseService } from '../services/knowledge-base-service'
-import { nanoid } from 'nanoid' // For generating document IDs if not provided by frontend
 
 export function registerKnowledgeBaseIpcHandlers(
   ipcMain: IpcMain,
@@ -69,7 +67,7 @@ export function registerKnowledgeBaseIpcHandlers(
     }
   )
 
-  ipcMain.handle(IpcChannels.kbGetChunkCount, async (_event) => {
+  ipcMain.handle(IpcChannels.kbGetChunkCount, async () => {
     try {
       const count = await kbService.getChunkCount()
       return { success: true, data: count }

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Bot, Brain, Sparkles, Zap, Workflow, Settings } from 'lucide-react'
+import { Bot, Brain, Sparkles, Zap, Workflow } from 'lucide-react'
 // Helper function to conditionally join class names
 const cn = (...classes: (string | boolean | undefined)[]) => {
   return classes.filter(Boolean).join(' ')

@@ -82,7 +82,7 @@ export const McpPermissionDialog: React.FC<McpPermissionDialogProps> = ({
             htmlFor="remember-choice"
             className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            Don't ask again for this tool in this chat session
+            Don&apos;t ask again for this tool in this chat session
           </label>
         </div>
 

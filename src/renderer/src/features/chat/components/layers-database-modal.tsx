@@ -358,7 +358,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           description: 'Layers have been permanently removed from the database'
         }
       )
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete selected layers', {
         description: 'Some layers may not have been deleted. Please try again.'
       })
@@ -418,7 +418,7 @@ export const LayersDatabaseModal: React.FC<LayersDatabaseModalProps> = ({
           description: errors.length > 0 ? errors[0] : 'All import operations failed'
         })
       }
-    } catch (error) {
+    } catch {
       toast.error('Bulk import failed', {
         description: 'An unexpected error occurred during import'
       })

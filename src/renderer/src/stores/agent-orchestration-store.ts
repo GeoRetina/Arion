@@ -102,6 +102,7 @@ export const useAgentOrchestrationStore = create<AgentOrchestrationState>((set, 
         if (capabilitiesResult.success) {
           set({ capabilities: capabilitiesResult.capabilities })
         } else {
+          void 0
         }
       }
 
@@ -214,7 +215,7 @@ export const useAgentOrchestrationStore = create<AgentOrchestrationState>((set, 
         }
       }
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   },

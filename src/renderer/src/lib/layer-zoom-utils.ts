@@ -64,7 +64,9 @@ export class LayerZoomService {
               sourceData.geometry?.type === 'Point' || sourceData.geometry?.type === 'MultiPoint'
           }
         }
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
 
     // Validate bounds
@@ -141,7 +143,7 @@ export class LayerZoomService {
       }
 
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -197,7 +199,7 @@ export class LayerZoomService {
       })
 
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }

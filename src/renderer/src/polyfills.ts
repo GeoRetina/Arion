@@ -36,7 +36,7 @@ if (typeof self !== 'undefined' && !(self as any).__publicField) {
           return originalCreateObjectURL(patched)
         }
       }
-    } catch (_e) {
+    } catch {
       // Fall through to original
     }
     return originalCreateObjectURL(obj)

@@ -177,7 +177,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
 
   const renderChart = () => {
     switch (chartType) {
-      case 'bar':
+      case 'bar': {
         const barConfig = rawConfig as CategoryChartConfig
         return (
           <ResponsiveContainer width="100%" height="100%">
@@ -237,7 +237,8 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </BarChart>
           </ResponsiveContainer>
         )
-      case 'line':
+      }
+      case 'line': {
         const lineConfig = rawConfig as CategoryChartConfig
         return (
           <ResponsiveContainer width="100%" height="100%">
@@ -300,8 +301,9 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </LineChart>
           </ResponsiveContainer>
         )
+      }
       case 'pie':
-      case 'donut':
+      case 'donut': {
         const pieConfig = rawConfig as PieDonutChartConfig
         const outerRadius = chartType === 'donut' ? 100 : 120
         const innerRadius =
@@ -348,7 +350,8 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </PieChart>
           </ResponsiveContainer>
         )
-      case 'area':
+      }
+      case 'area': {
         const areaConfig = rawConfig as CategoryChartConfig
         return (
           <ResponsiveContainer width="100%" height="100%">
@@ -413,6 +416,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </AreaChart>
           </ResponsiveContainer>
         )
+      }
       case 'scatter': {
         const scatterConfig = rawConfig as ScatterChartConfig & {
           xAxisKey?: string
@@ -496,7 +500,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
           </ResponsiveContainer>
         )
       }
-      case 'radar':
+      case 'radar': {
         const radarConfig = rawConfig as RadarChartConfig
         return (
           <ResponsiveContainer width="100%" height="100%">
@@ -548,7 +552,8 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </RadarChart>
           </ResponsiveContainer>
         )
-      case 'radialBar':
+      }
+      case 'radialBar': {
         const radialBarConfig = rawConfig as RadialBarChartConfig
         const radialData = data.map((item, index) => ({
           name: item[radialBarConfig.nameKey],
@@ -600,7 +605,8 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             </RadialBarChart>
           </ResponsiveContainer>
         )
-      case 'treemap':
+      }
+      case 'treemap': {
         const treemapConfig = rawConfig as TreemapChartConfig
         return (
           <ResponsiveContainer width="100%" height="100%">
@@ -616,6 +622,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
             />
           </ResponsiveContainer>
         )
+      }
       default:
         return (
           <div>

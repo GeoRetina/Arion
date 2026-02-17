@@ -61,7 +61,7 @@ export class TaskAnalyzer implements ITaskAnalyzer {
       }
 
       return analysis
-    } catch (error) {
+    } catch {
       // Return default analysis if parsing fails
       return {
         taskType: 'unknown',
@@ -149,7 +149,7 @@ export class TaskAnalyzer implements ITaskAnalyzer {
       }))
 
       return subtasks
-    } catch (error) {
+    } catch {
       // Fallback to a single task if parsing fails
       return [
         {

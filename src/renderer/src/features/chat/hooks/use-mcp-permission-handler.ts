@@ -14,7 +14,9 @@ export const useMcpPermissionHandler = () => {
       try {
         const configs = await window.ctg.settings.getMcpServerConfigs()
         setMcpServerConfigs(configs)
-      } catch (error) {}
+      } catch {
+        void 0
+      }
     }
 
     fetchMcpConfigs()

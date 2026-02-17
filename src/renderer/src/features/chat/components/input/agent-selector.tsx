@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
-import { Check, ChevronDown, ChevronUp, Brain, Bot, Workflow, Filter } from 'lucide-react'
+import { Check, ChevronDown, Brain, Bot, Workflow, Filter } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import {
   Command,

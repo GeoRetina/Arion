@@ -52,10 +52,12 @@ export const buildNormalizedConfig = ({
     try {
       const parsedJson = JSON.parse(jsonString)
       if (isEditingExistingServer && editingConfig && 'id' in editingConfig) {
-        const { id: _ignoredId, ...rest } = parsedJson
+        const rest = { ...parsedJson }
+        delete rest.id
         return { config: sanitizeConfig(rest, connectionType) }
       }
-      const { id, ...rest } = parsedJson
+      const rest = { ...parsedJson }
+      delete rest.id
       return { config: sanitizeConfig(rest, connectionType) }
     } catch {
       return { config: null, error: 'Invalid JSON configuration.' }
@@ -63,7 +65,8 @@ export const buildNormalizedConfig = ({
   }
 
   if ('id' in editingConfig) {
-    const { id, ...rest } = editingConfig
+    const rest = { ...editingConfig }
+    delete rest.id
     return { config: sanitizeConfig(rest, connectionType) }
   }
 

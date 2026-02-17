@@ -77,7 +77,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   const [maxTokens, setMaxTokens] = useState(2048)
 
   // Access agent store for creation function and existing agents
-  const { createAgent, agents, loadAgents, getAgentById } = useAgentStore()
+  const { createAgent, agents, getAgentById } = useAgentStore()
 
   // State to hold full agent details for tool checking
   const [fullAgents, setFullAgents] = useState<any[]>([])
@@ -274,7 +274,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
           <DialogHeader>
             <DialogTitle>Create New Agent</DialogTitle>
             <DialogDescription>
-              Configure the agent's capabilities, prompt, and model settings.
+              Configure the agent&apos;s capabilities, prompt, and model settings.
             </DialogDescription>
           </DialogHeader>
 
@@ -379,7 +379,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                   <CardHeader>
                     <CardTitle>Agent Prompt</CardTitle>
                     <p className="text-sm text-muted-foreground">
-                      Define the agent's personality, behavior, and special instructions.
+                      Define the agent&apos;s personality, behavior, and special instructions.
                     </p>
                   </CardHeader>
                   <CardContent>

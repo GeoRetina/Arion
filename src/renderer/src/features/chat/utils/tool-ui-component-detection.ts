@@ -163,7 +163,9 @@ export function detectNestedToolCalls(toolResult: any, parentToolCallId: string)
       }
 
       nestedToolCalls.push(mockInvocation)
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   })
 
   return nestedToolCalls

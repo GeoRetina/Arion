@@ -201,7 +201,7 @@ export class MapLibreIntegration {
       return
     }
 
-    try {
+    {
       // Add source if it doesn't exist
       if (!this.mapInstance!.getSource(layer.sourceId)) {
         const sourceSpec = this.createSourceSpecification(layer)
@@ -221,8 +221,6 @@ export class MapLibreIntegration {
 
       // Apply initial styling and properties
       await this.syncLayerProperties(layer)
-    } catch (error) {
-      throw error
     }
   }
 
@@ -232,7 +230,7 @@ export class MapLibreIntegration {
   async removeLayerFromMap(layerId: string): Promise<void> {
     if (!this.mapInstance) return
 
-    try {
+    {
       // Find all MapLibre layers associated with this layer definition
       const style = this.mapInstance.getStyle()
       const layersToRemove = style.layers.filter(
@@ -265,8 +263,6 @@ export class MapLibreIntegration {
           this.managedSources.delete(sourceId)
         }
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -276,7 +272,7 @@ export class MapLibreIntegration {
   async syncLayerProperties(layer: LayerDefinition): Promise<void> {
     if (!this.mapInstance) return
 
-    try {
+    {
       const style = this.mapInstance.getStyle()
       const layersToUpdate = style.layers.filter((mapLayer) => mapLayer.id.startsWith(layer.id))
 
@@ -288,8 +284,6 @@ export class MapLibreIntegration {
         // Apply layer-specific styling based on layer type
         await this.applyLayerStyle(mapLayer.id, mapLayer.type, layer.style, layer.opacity)
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -304,7 +298,7 @@ export class MapLibreIntegration {
   ): Promise<void> {
     if (!this.mapInstance) return
 
-    try {
+    {
       switch (mapLayerType) {
         case 'circle':
           if (style.pointColor) {
@@ -437,8 +431,6 @@ export class MapLibreIntegration {
           }
           break
       }
-    } catch (error) {
-      throw error
     }
   }
 

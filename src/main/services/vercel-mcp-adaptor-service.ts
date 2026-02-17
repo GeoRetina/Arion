@@ -48,11 +48,14 @@ export async function setupVercelMcpIntegration(
         activeClients.push(mcpClient)
         const toolsFromServer = await mcpClient.tools() // Returns tools in the format expected by Vercel AI SDK
         aggregatedTools = { ...aggregatedTools, ...toolsFromServer }
-      } catch (mcpClientError) {}
+      } catch {
+        void 0
+      }
     }
   }
 
   if (Object.keys(aggregatedTools).length > 0) {
+    void 0
   }
 
   return { tools: aggregatedTools, activeClients }
@@ -72,6 +75,8 @@ export async function cleanupVercelMcpClients(
   for (const client of clients) {
     try {
       await client.close()
-    } catch (closeError) {}
+    } catch {
+      void 0
+    }
   }
 }

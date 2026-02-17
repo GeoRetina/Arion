@@ -40,7 +40,7 @@ const SettingsPage: React.FC = () => {
         const config = await window.ctg.settings.getSystemPromptConfig()
         setSystemPromptConfig(config)
         setIsLoading(false)
-      } catch (error) {
+      } catch {
         setIsLoading(false)
       }
     }
@@ -80,7 +80,7 @@ const SettingsPage: React.FC = () => {
       try {
         const version = await window.ctg.getAppVersion()
         setAppVersion(version ? `v${version}` : 'N/A')
-      } catch (error) {
+      } catch {
         setAppVersion('Error')
       }
     }
@@ -226,7 +226,7 @@ const SettingsPage: React.FC = () => {
                           />
                           <p className="text-xs text-muted-foreground">
                             Use this to customize how Arion interacts with you. These instructions
-                            will be combined with Arion's internal system prompt.
+                            will be combined with Arion&apos;s internal system prompt.
                           </p>
                         </div>
 

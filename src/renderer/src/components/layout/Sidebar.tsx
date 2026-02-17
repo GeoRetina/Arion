@@ -31,7 +31,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       try {
         const version = await window.ctg.getAppVersion()
         setAppVersion(version ? `v${version}` : 'N/A')
-      } catch (error) {
+      } catch {
         setAppVersion('Error')
       }
     }

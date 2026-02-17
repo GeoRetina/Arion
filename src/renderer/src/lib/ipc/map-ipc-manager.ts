@@ -57,12 +57,14 @@ export function initializeMapIpcListeners(): void {
   if (window.ctg?.map?.onAddFeature && !addFeatureCleanupListener) {
     addFeatureCleanupListener = window.ctg.map.onAddFeature(handleAddFeatureToMapCallback)
   } else if (!window.ctg?.map?.onAddFeature && !addFeatureCleanupListener) {
+    void 0
   }
 
   // + Initialize listener for setPaintProperties
   if (window.ctg?.map?.onSetPaintProperties && !setPaintCleanupListener) {
     setPaintCleanupListener = window.ctg.map.onSetPaintProperties(handleSetPaintPropertiesCallback)
   } else if (!window.ctg?.map?.onSetPaintProperties && !setPaintCleanupListener) {
+    void 0
   }
 
   // + Initialize listener for removeSourceAndLayers
@@ -71,12 +73,14 @@ export function initializeMapIpcListeners(): void {
       handleRemoveSourceAndLayersCallback
     )
   } else if (!window.ctg?.map?.onRemoveSourceAndLayers && !removeSourceCleanupListener) {
+    void 0
   }
 
   // + Initialize listener for setView
   if (window.ctg?.map?.onSetView && !setViewCleanupListener) {
     setViewCleanupListener = window.ctg.map.onSetView(handleSetViewCallback)
   } else if (!window.ctg?.map?.onSetView && !setViewCleanupListener) {
+    void 0
   }
 
   // Initialize listener for addGeoreferencedImageLayer
@@ -88,6 +92,7 @@ export function initializeMapIpcListeners(): void {
     !window.ctg?.map?.onAddGeoreferencedImageLayer &&
     !addGeoreferencedImageLayerCleanupListener
   ) {
+    void 0
   }
 }
 

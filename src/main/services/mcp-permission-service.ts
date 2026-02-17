@@ -40,12 +40,13 @@ export class McpPermissionService {
       this.pendingRequests.delete(requestId)
       pending.resolve(granted)
     } else {
+      void 0
     }
   }
 
   // Clean up all pending requests (e.g., on app shutdown or window close)
   cleanup() {
-    for (const [requestId, pending] of this.pendingRequests) {
+    for (const [, pending] of this.pendingRequests) {
       pending.reject(new Error('Application is shutting down'))
     }
     this.pendingRequests.clear()

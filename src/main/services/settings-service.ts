@@ -77,18 +77,21 @@ export class SettingsService {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN project TEXT;')
     } catch (e: any) {
       if (!e.message.includes('duplicate column name')) {
+        void 0
       } // Ignore if column already exists
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN location TEXT;')
     } catch (e: any) {
       if (!e.message.includes('duplicate column name')) {
+        void 0
       }
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
     } catch (e: any) {
       if (!e.message.includes('duplicate column name')) {
+        void 0
       }
     }
     // --- End simple migration ---
@@ -308,7 +311,7 @@ export class SettingsService {
         args: row.args ? JSON.parse(row.args) : undefined,
         enabled: row.enabled === 1
       }))
-    } catch (error) {
+    } catch {
       return []
     }
   }
@@ -316,7 +319,7 @@ export class SettingsService {
   async addMcpServerConfiguration(config: Omit<McpServerConfig, 'id'>): Promise<McpServerConfig> {
     const newId = uuidv4()
     const newConfig: McpServerConfig = { ...config, id: newId }
-    try {
+    {
       this.db
         .prepare(
           'INSERT INTO mcp_server_configs (id, name, url, command, args, enabled) VALUES (?, ?, ?, ?, ?, ?)'
@@ -330,8 +333,6 @@ export class SettingsService {
           newConfig.enabled ? 1 : 0
         )
       return newConfig
-    } catch (error) {
-      throw error // Re-throw to allow caller to handle
     }
   }
 
@@ -339,7 +340,7 @@ export class SettingsService {
     configId: string,
     updates: Partial<Omit<McpServerConfig, 'id'>>
   ): Promise<McpServerConfig | null> {
-    try {
+    {
       const current = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
         .get(configId) as McpServerConfig | undefined
@@ -376,8 +377,6 @@ export class SettingsService {
         args: updatedConfigRow.args ? JSON.parse(updatedConfigRow.args) : undefined,
         enabled: updatedConfigRow.enabled === 1
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -386,9 +385,10 @@ export class SettingsService {
       const result = this.db.prepare('DELETE FROM mcp_server_configs WHERE id = ?').run(configId)
       const success = result.changes > 0
       if (success) {
+        void 0
       }
       return success
-    } catch (error) {
+    } catch {
       return false
     }
   }
@@ -426,12 +426,10 @@ export class SettingsService {
 
   // --- System Prompt Configuration ---
   async setSystemPromptConfig(config: SystemPromptConfig): Promise<void> {
-    try {
+    {
       this.db
         .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
         .run('systemPromptConfig', JSON.stringify(config))
-    } catch (error) {
-      throw error
     }
   }
 
@@ -450,7 +448,7 @@ export class SettingsService {
       }
 
       return JSON.parse(row.value) as SystemPromptConfig
-    } catch (error) {
+    } catch {
       // Return default values if there's an error
       return {
         userSystemPrompt: ''

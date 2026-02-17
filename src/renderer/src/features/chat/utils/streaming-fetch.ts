@@ -9,7 +9,9 @@ export const createStreamingFetch = () => {
     if (url.endsWith('/api/chat')) {
       try {
         console.log('[Renderer] streamingFetch -> /api/chat')
-      } catch {}
+      } catch {
+        void 0
+      }
       if (!window.ctg?.chat?.startMessageStream || !window.ctg?.chat?.subscribeToStream) {
         return new Response(JSON.stringify({ error: 'Streaming chat API not available' }), {
           status: 500,
@@ -24,7 +26,9 @@ export const createStreamingFetch = () => {
         const streamId = await window.ctg.chat.startMessageStream(body)
         try {
           console.log('[Renderer] startMessageStream -> streamId:', streamId)
-        } catch {}
+        } catch {
+          void 0
+        }
         currentStreamId = streamId
 
         // Create a ReadableStream that will receive chunks from the IPC channel
@@ -36,7 +40,7 @@ export const createStreamingFetch = () => {
                 try {
                   console.log('[Renderer] onChunk received bytes:', chunk?.byteLength)
                   controller.enqueue(chunk)
-                } catch (e) {
+                } catch {
                   // Silently handle enqueue errors
                 }
               },
@@ -44,7 +48,9 @@ export const createStreamingFetch = () => {
               onError: (error: Error) => {
                 try {
                   console.error('[Renderer] stream error:', error?.message)
-                } catch {}
+                } catch {
+                  void 0
+                }
                 // Propagate the error to the stream controller
                 controller.error(error)
                 currentStreamId = null
@@ -52,7 +58,9 @@ export const createStreamingFetch = () => {
               onEnd: () => {
                 try {
                   console.log('[Renderer] stream end')
-                } catch {}
+                } catch {
+                  void 0
+                }
                 controller.close()
                 unsubscribe()
                 currentStreamId = null
@@ -68,7 +76,7 @@ export const createStreamingFetch = () => {
                     controller.close()
                     unsubscribe()
                     currentStreamId = null
-                  } catch (error) {
+                  } catch {
                     // Silently handle cancellation errors
                   }
                 }

@@ -60,6 +60,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         set({ pendingImageLayers: [] }) // Clear the queue
       }
     } else {
+      void 0
     }
   },
   addFeature: async (payload) => {
@@ -78,14 +79,14 @@ export const useMapStore = create<MapState>((set, get) => ({
 
       // Add to LayerStore (which handles persistence and sync automatically)
       const layerStore = useLayerStore.getState()
-      const layerId = await layerStore.addLayer(layerDefinition)
+      await layerStore.addLayer(layerDefinition)
 
       // Handle fit bounds if requested
       if (payload.fitBounds && payload.feature.geometry) {
         let bounds
         try {
           bounds = turf.bbox(payload.feature)
-        } catch (e) {
+        } catch {
           bounds = null
         }
 
@@ -103,9 +104,10 @@ export const useMapStore = create<MapState>((set, get) => ({
             { padding: 50, maxZoom: 16, duration: 1000 }
           )
         } else {
+          void 0
         }
       }
-    } catch (error) {
+    } catch {
       // Fallback to old method if LayerStore integration fails
       // Note: We could implement the old logic here as fallback, but for now we'll just log the error
     }
@@ -153,7 +155,9 @@ export const useMapStore = create<MapState>((set, get) => ({
           }
         }
       })
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   },
   removeSourceAndAssociatedLayers: (sourceIdToRemove) => {
     const map = get().mapInstance
@@ -181,16 +185,21 @@ export const useMapStore = create<MapState>((set, get) => ({
             // Check if layer still exists before removing
             map.removeLayer(layer.id)
           } else {
+            void 0
           }
         })
       } else {
+        void 0
       }
 
       if (map.getSource(sourceIdToRemove)) {
         map.removeSource(sourceIdToRemove)
       } else {
+        void 0
       }
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   },
   setMapView: (payload) => {
     const map = get().mapInstance
@@ -233,7 +242,9 @@ export const useMapStore = create<MapState>((set, get) => ({
           get().setMapView(payload)
         })
       }
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   },
   addGeoreferencedImageLayer: async (payload) => {
     const map = get().mapInstance
@@ -251,7 +262,7 @@ export const useMapStore = create<MapState>((set, get) => ({
 
       // Add to LayerStore (which handles persistence and sync automatically)
       const layerStore = useLayerStore.getState()
-      const layerId = await layerStore.addLayer(layerDefinition)
+      await layerStore.addLayer(layerDefinition)
 
       // Handle fit bounds if requested
       if (payload.fitBounds) {
@@ -277,9 +288,10 @@ export const useMapStore = create<MapState>((set, get) => ({
             { padding: 20, maxZoom: 18, duration: 1000 }
           )
         } else {
+          void 0
         }
       }
-    } catch (error) {
+    } catch {
       // Fallback could be implemented here if needed
     }
   },

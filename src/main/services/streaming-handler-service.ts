@@ -32,7 +32,9 @@ export interface StructuredExecutionResult {
 }
 
 export class StreamingHandlerService {
-  constructor() {}
+  constructor() {
+    void 0
+  }
 
   /**
    * Execute agent and collect structured result including both text and tool results
@@ -92,7 +94,9 @@ export class StreamingHandlerService {
             }
           }
         }
-      } catch (error) {}
+      } catch {
+        void 0
+      }
 
       // Extract reasoning content if present
       const { content } = extractReasoningFromText(textResponse)
@@ -248,7 +252,7 @@ export class StreamingHandlerService {
         !reasoningInfo.shouldDisableTools && { tools: options.tools }),
       stopWhen: stepCountIs(options.maxSteps || MAX_LLM_STEPS),
       experimental_transform: smoothStream({}),
-      onFinish: async (_event) => {},
+      onFinish: async () => {},
       // Add abort signal support
       ...(options.abortSignal && { abortSignal: options.abortSignal })
     }

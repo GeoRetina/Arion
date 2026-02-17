@@ -360,9 +360,11 @@ export class LayerSyncService {
         await this.syncLayerOpacity(layerId, data)
         break
       case 'reorder':
-        const store = useLayerStore.getState()
-        const layers = Array.from(store.layers.values())
-        await this.syncLayerOrder(layers)
+        {
+          const store = useLayerStore.getState()
+          const layers = Array.from(store.layers.values())
+          await this.syncLayerOrder(layers)
+        }
         break
       default:
         this.log(`Unknown sync operation type: ${type}`)
@@ -836,7 +838,8 @@ export class LayerSyncService {
   /**
    * Sync specific layer opacity
    */
-  private async syncLayerOpacity(layerId: string, _opacity: number): Promise<void> {
+  private async syncLayerOpacity(layerId: string, opacity: number): Promise<void> {
+    void opacity
     const layer = useLayerStore.getState().getLayer(layerId)
     if (!layer || !this.mapInstance) return
 
@@ -846,7 +849,8 @@ export class LayerSyncService {
   /**
    * Sync specific layer style
    */
-  private async syncLayerStyle(layerId: string, _style: LayerStyle): Promise<void> {
+  private async syncLayerStyle(layerId: string, style: LayerStyle): Promise<void> {
+    void style
     const layer = useLayerStore.getState().getLayer(layerId)
     if (!layer || !this.mapInstance) return
 
@@ -953,6 +957,7 @@ export class LayerSyncService {
    */
   private log(message: string, ...args: any[]): void {
     if (this.options.enableLogging) {
+      console.log('[LayerSyncService]', message, ...args)
     }
   }
 }

@@ -29,8 +29,9 @@ export class OrchestrationService {
   constructor(
     private agentRegistryService: AgentRegistryService,
     private chatService: ChatService,
-    _llmToolService: LlmToolService // Unused parameter, prefixed with underscore
+    llmToolService: LlmToolService
   ) {
+    void llmToolService
     // Initialize component services
     this.promptManager = new PromptManager()
     this.agentSelector = new AgentSelector(this.agentRegistryService)

@@ -112,7 +112,7 @@ export function registerChatIpcHandlers(
     }
     try {
       parsedBody = JSON.parse(jsonBodyString)
-    } catch (_e) {
+    } catch {
       return [
         encodeUiMessageChunk({ type: 'error', errorText: 'Invalid request format from renderer.' })
       ]
@@ -195,7 +195,7 @@ export function registerChatIpcHandlers(
             if (result.success) {
               return buildUiTextChunks(result.finalResponse)
             }
-          } catch (_orchestrationError) {
+          } catch {
             // Fall back to regular processing if orchestration fails
           }
         }
@@ -220,7 +220,7 @@ export function registerChatIpcHandlers(
     }
     try {
       parsedBody = JSON.parse(jsonBodyString)
-    } catch (_e) {
+    } catch {
       event.sender.send(
         `ctg:chat:stream:error:${streamId}`,
         'Invalid request format from renderer.'
@@ -304,11 +304,11 @@ export function registerChatIpcHandlers(
                   event.sender.send(`ctg:chat:stream:end:${streamId}`)
                   return true
                 }
-              } catch (_orchestrationError) {
+              } catch {
                 // Fall through to regular processing
               }
             }
-          } catch (_error) {
+          } catch {
             // Fall through to regular processing
           }
         }

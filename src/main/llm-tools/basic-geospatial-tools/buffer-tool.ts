@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Feature, Point, Polygon } from 'geojson'
+import type { Feature, Polygon } from 'geojson'
 import * as turf from '@turf/turf'
 
 export const createMapBufferToolName = 'create_map_buffer'

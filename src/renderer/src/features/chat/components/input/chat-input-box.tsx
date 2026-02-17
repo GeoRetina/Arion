@@ -1,8 +1,7 @@
-// @ts-nocheck
 // TODO: Resolve TypeScript errors after full refactor, especially around contentEditable syncing
 
 import React, { useRef, useState, useEffect, useCallback } from 'react'
-import { X, AlertTriangle, Map as MapIcon } from 'lucide-react'
+import { X, Map as MapIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LLMProvider } from '@/stores/llm-store'
@@ -51,24 +50,21 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   isStreaming,
   activeBanner,
   onStopStreaming,
-  setStoppingRequested, // This function updates the ref in useChatLogic
   isStoppingRequestedRef, // This is the ref itself
-  chatId,
   availableProviders,
   activeProvider,
   onSelectProvider,
   // New props for map sidebar control
   isMapSidebarExpanded = false,
   onToggleMapSidebar,
-  onOpenDatabase,
-  enableOrchestration = true
+  onOpenDatabase
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
   const [internalText, setInternalText] = useState(inputValue ?? '') // Local state for editor content
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
   // Agent orchestration store
-  const { initialize: initializeOrchestration, startOrchestration } = useAgentOrchestrationStore()
+  const { initialize: initializeOrchestration } = useAgentOrchestrationStore()
 
   // Initialize the orchestration store
   useEffect(() => {
@@ -78,7 +74,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // Mention system integration
   const mentionTrigger = useMentionTrigger({
     editorRef,
-    onTriggerChange: (isActive, searchQuery) => {
+    onTriggerChange: () => {
       // Optional: additional logic when mention state changes
     }
   })
@@ -151,7 +147,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
       handleSubmit()
 
       // After successful submit, inputValue will change via useChat, triggering useEffect to clear editor
-    } catch (error) {
+    } catch {
       // Show error to user?
     } finally {
       setIsSubmitting(false)

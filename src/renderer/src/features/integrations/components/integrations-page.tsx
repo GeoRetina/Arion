@@ -65,7 +65,7 @@ const IntegrationsPage: React.FC = () => {
       setIntegrationConfigs((prev) =>
         prev.map((c) => (c.integration.id === config.integration.id ? config : c))
       )
-    } catch (error) {
+    } catch {
       // Handle error - could show a toast notification
     }
   }
@@ -77,7 +77,7 @@ const IntegrationsPage: React.FC = () => {
       setIntegrationConfigs((prev) =>
         prev.map((c) => (c.integration.id === config.integration.id ? config : c))
       )
-    } catch (error) {
+    } catch {
       // Handle error - could show a toast notification
     }
   }

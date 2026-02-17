@@ -113,22 +113,18 @@ const ctgApi = {
   },
   settings: {
     getSetting: async (key: string): Promise<unknown> => {
-      try {
+      {
         const result = await ipcRenderer.invoke('ctg:settings:get', key)
         return result
-      } catch (error) {
-        throw error
       }
     },
     setSetting: async (
       key: string,
       value: unknown
     ): Promise<{ success: boolean; error?: string }> => {
-      try {
+      {
         const result = await ipcRenderer.invoke('ctg:settings:set', key, value)
         return result
-      } catch (error) {
-        throw error
       }
     },
     setOpenAIConfig: (config: OpenAIConfig): Promise<void> =>
@@ -259,7 +255,7 @@ const ctgApi = {
     cancelStream: async (streamId: string): Promise<boolean> => {
       try {
         return await ipcRenderer.invoke('ctg:chat:cancelStream', streamId)
-      } catch (error) {
+      } catch {
         return false
       }
     },

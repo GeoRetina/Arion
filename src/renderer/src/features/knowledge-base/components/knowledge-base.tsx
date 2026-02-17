@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, FileText, Trash2 } from 'lucide-react'
+import { Plus, FileText } from 'lucide-react'
 import { useKnowledgeBaseStore, Document, Folder } from '../stores/knowledge-base-store'
 import { DocumentsTable } from './documents-table'
 import { FolderManager } from './folder-manager'
@@ -9,16 +9,8 @@ import { FolderForm } from './folder-form'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 function KnowledgeBase(): React.JSX.Element {
-  const {
-    documents,
-    folders,
-    updateDocument,
-    deleteDocumentAndEmbeddings,
-    fetchDocuments,
-    addFolder,
-    updateFolder,
-    deleteFolder
-  } = useKnowledgeBaseStore()
+  const { documents, folders, deleteDocumentAndEmbeddings, fetchDocuments, deleteFolder } =
+    useKnowledgeBaseStore()
 
   // State for managing UI interactions
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
@@ -92,12 +84,6 @@ function KnowledgeBase(): React.JSX.Element {
       }
       setFolderToDelete(undefined)
     }
-  }
-
-  // Handler for bulk document deletion
-  const handleDeleteSelectedDocuments = () => {
-    // No need to set documentToDelete, directly proceed to confirm bulk delete
-    // This will trigger the ConfirmationDialog with appropriate messaging
   }
 
   const confirmBulkDeleteDocuments = () => {

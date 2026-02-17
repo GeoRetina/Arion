@@ -67,7 +67,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
 
       // Extract metadata from the layer using existing utilities
       return await this.extractLayerMetadata(matchingLayer, mentionId)
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -120,7 +120,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
           folderId: document.folder_id
         }
       }
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -153,7 +153,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
 
     try {
       return this.layerDbManager.getAllLayers()
-    } catch (error) {
+    } catch {
       return []
     }
   }
@@ -191,7 +191,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       }
 
       return baseMetadata
-    } catch (error) {
+    } catch {
       // Return basic metadata if extraction fails
       return {
         id: mentionId,
@@ -294,7 +294,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
               description: `Band ${i + 1}`
             })
           }
-        } catch (error) {
+        } catch {
           metadata.extractionError = 'Failed to read GeoTIFF metadata'
         }
       }

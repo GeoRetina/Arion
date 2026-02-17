@@ -37,7 +37,7 @@ export class PromptManager implements IPromptManager {
       })
 
       return promptTemplate
-    } catch (error) {
+    } catch {
       return `Unable to load prompt ${promptName}. Please provide a response.`
     }
   }

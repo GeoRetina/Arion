@@ -57,15 +57,11 @@ export const useMentionTrigger = ({ editorRef, onTriggerChange }: UseMentionTrig
         ? positionedParent.getBoundingClientRect()
         : editorRef.current.getBoundingClientRect()
 
-      // Get line height for proper positioning
-      const computedStyle = window.getComputedStyle(editorRef.current)
-      const lineHeight = parseInt(computedStyle.lineHeight) || 20
-
       return {
         x: rect.left - containerRect.left,
         y: rect.top - containerRect.top
       }
-    } catch (error) {
+    } catch {
       // Fallback if range insertion fails
       return { x: 0, y: 0 }
     }

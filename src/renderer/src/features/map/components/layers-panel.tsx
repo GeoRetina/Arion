@@ -65,7 +65,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
               tags
             }
           })
-        } catch (error) {
+        } catch {
           // Silent fail to avoid interrupting UI; errors are already handled elsewhere
         }
       }
@@ -88,7 +88,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
   const handleToggleLayerVisibility = async (layerId: string, visible: boolean) => {
     try {
       await setLayerVisibility(layerId, visible)
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   const handleSelectLayer = (layerId: string) => {

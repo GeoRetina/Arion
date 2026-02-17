@@ -103,7 +103,7 @@ export class LlmToolService {
       )
 
       return result
-    } catch (error) {
+    } catch {
       return false
     }
   }

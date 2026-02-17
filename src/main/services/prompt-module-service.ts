@@ -28,7 +28,9 @@ export class PromptModuleService {
   // In-memory cache of prompt modules
   private moduleCache: Map<string, PromptModule> = new Map()
 
-  constructor() {}
+  constructor() {
+    void 0
+  }
 
   /**
    * Initialize the service and database schema
@@ -101,11 +103,9 @@ export class PromptModuleService {
       CREATE INDEX IF NOT EXISTS idx_prompt_modules_type ON prompt_modules(type);
     `
 
-    try {
+    {
       const db = this.getDb()
       db.exec(createTablesSQL)
-    } catch (error) {
-      throw error
     }
   }
 
@@ -113,7 +113,7 @@ export class PromptModuleService {
    * Refresh the in-memory cache from database
    */
   private async refreshCache(): Promise<void> {
-    try {
+    {
       const db = this.getDb()
       const modules = db.prepare('SELECT * FROM prompt_modules').all() as any[]
 
@@ -140,8 +140,6 @@ export class PromptModuleService {
 
         this.moduleCache.set(module.id, module)
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -202,7 +200,7 @@ export class PromptModuleService {
       author: params.author
     }
 
-    try {
+    {
       // Check if module with this ID already exists in the database
       const db = this.getDb()
       const existingModule = db.prepare('SELECT id FROM prompt_modules WHERE id = ?').get(id)
@@ -242,8 +240,6 @@ export class PromptModuleService {
       this.moduleCache.set(newModule.id, newModule)
 
       return newModule
-    } catch (error) {
-      throw error
     }
   }
 
@@ -274,7 +270,7 @@ export class PromptModuleService {
       updatedAt: now
     }
 
-    try {
+    {
       // Build update SQL dynamically based on provided fields
       const db = this.getDb()
       const fields: string[] = []
@@ -337,8 +333,6 @@ export class PromptModuleService {
       this.moduleCache.set(id, updatedModule)
 
       return updatedModule
-    } catch (error) {
-      throw error
     }
   }
 
@@ -348,7 +342,7 @@ export class PromptModuleService {
   public async deleteModule(id: string): Promise<boolean> {
     await this.ensureInitialized()
 
-    try {
+    {
       const db = this.getDb()
       const result = db.prepare('DELETE FROM prompt_modules WHERE id = ?').run(id)
 
@@ -358,11 +352,10 @@ export class PromptModuleService {
         // Remove from cache
         this.moduleCache.delete(id)
       } else {
+        void 0
       }
 
       return success
-    } catch (error) {
-      throw error
     }
   }
 
@@ -372,7 +365,7 @@ export class PromptModuleService {
   public async assemblePrompt(request: PromptAssemblyRequest): Promise<PromptAssemblyResult> {
     await this.ensureInitialized()
 
-    try {
+    {
       // Collect and validate all modules
       const modulesToInclude: PromptModule[] = []
       const warnings: string[] = []
@@ -510,8 +503,6 @@ export class PromptModuleService {
       }
 
       return result
-    } catch (error) {
-      throw error
     }
   }
 

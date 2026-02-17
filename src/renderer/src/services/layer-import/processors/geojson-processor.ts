@@ -24,7 +24,7 @@ export class GeoJSONProcessor {
 
     try {
       geoJsonData = JSON.parse(text)
-    } catch (error) {
+    } catch {
       throw new Error('Invalid JSON format')
     }
 

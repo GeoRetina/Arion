@@ -1,4 +1,3 @@
-import { Database } from 'lucide-react'
 import type { Integration, IntegrationConfig } from '../../types/integration'
 import { PostgreSQLConfig } from '../../../../shared/ipc-types'
 
@@ -52,18 +51,16 @@ export const postgresqlPostgisConfig: IntegrationConfig = {
     }
   },
   onDisconnect: async () => {
-    try {
+    {
       await window.ctg.postgresql.closeConnection(postgresqlPostgisIntegration.id)
       postgresqlPostgisIntegration.status = 'disconnected'
-    } catch (error) {
-      throw error
     }
   },
   onConfigure: () => {
     // This will be handled by the parent component to open the configuration dialog
   },
   onTest: async () => {
-    try {
+    {
       const config = postgresqlPostgisIntegration.connectionSettings as PostgreSQLConfig
 
       // Validate configuration
@@ -79,8 +76,6 @@ export const postgresqlPostgisConfig: IntegrationConfig = {
       }
 
       return result
-    } catch (error) {
-      throw error
     }
   }
 }

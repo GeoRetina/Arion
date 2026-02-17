@@ -38,7 +38,9 @@ export function convertFeatureToLayer(payload: AddMapFeaturePayload): LayerDefin
   try {
     const bbox = turf.bbox(feature)
     bounds = [bbox[0], bbox[1], bbox[2], bbox[3]]
-  } catch (error) {}
+  } catch {
+    void 0
+  }
 
   // Create source configuration
   const sourceConfig: LayerSourceConfig = {

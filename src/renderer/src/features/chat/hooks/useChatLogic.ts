@@ -1,4 +1,3 @@
-// @ts-nocheck
 // TODO: Resolve TypeScript errors after full refactor & once all placeholders are replaced
 
 import { useState, useEffect, useCallback, useRef, startTransition, useMemo } from 'react'
@@ -10,30 +9,21 @@ import { electronChatFetch } from '../utils/chat-fetch'
 // FIXME: Placeholder for imports - these will need to be created or paths adjusted
 // For now, these are minimal mocks or do-nothing functions if their state isn't critical path for chat
 // REMOVED: useROIStore and useUserGeospatialStore mocks
-const generateUUID = () => `id-${Math.random().toString(36).substr(2, 9)}` // Basic UUID for now
-const useAutoScroll = (props) => ({
-  scrollContainerRef: useRef(null),
-  messagesEndRef: useRef(null),
-  isAutoScrollEnabled: true,
-  resetScrollBehavior: () => {}
-})
-// End Placeholder imports
-
-// Types from the original component
-interface MessageCompletionState {
-  isComplete: boolean
-  // hasAnalysis: boolean; // Simplified: not tracking specific analysis types for now
+const useAutoScroll = (props) => {
+  void props
+  return {
+    scrollContainerRef: useRef(null),
+    messagesEndRef: useRef(null),
+    isAutoScrollEnabled: true,
+    resetScrollBehavior: () => {}
+  }
 }
+// End Placeholder imports
 
 // Define message part types (from Vercel AI SDK or 'ai' package, ensure consistency)
 interface MessagePart {
   type: string
   [key: string]: any
-}
-
-interface TextPart extends MessagePart {
-  type: 'text'
-  text: string
 }
 
 interface ToolInvocationPart extends MessagePart {
@@ -127,11 +117,11 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
     [messageId: string]: ToolCallingMessageResults
   }>({})
 
-  const [pendingToolCallIds, setPendingToolCallIds] = useState<Set<string>>(new Set())
-  const [toolResultsProcessed, setToolResultsProcessed] = useState<Set<string>>(new Set())
+  const [, setPendingToolCallIds] = useState<Set<string>>(new Set())
+  const [toolResultsProcessed] = useState<Set<string>>(new Set())
   const [pendingToolResultsData, setPendingToolResultsData] = useState<any[]>([])
 
-  const [toolCallTitlesMap, setToolCallTitlesMap] = useState<{
+  const [toolCallTitlesMap] = useState<{
     [key: string]: { toolCallId: string; toolTitle: string }[]
   }>({})
   const [progressSteps, setProgressSteps] = useState<{
@@ -179,8 +169,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
     sendMessage,
     status,
     error,
-    stop: originalStop,
-    setMessages
+    stop: originalStop
   } = useChat({
     transport,
     experimental_throttle: 50,
@@ -422,6 +411,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
         isLoading &&
         (toolSequences[latestUserMessageIdRef.current || '']?.steps.length || 0) > 0
       ) {
+        void 0
       }
     },
     [isLoading, toolSequences, latestUserMessageIdRef]

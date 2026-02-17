@@ -76,7 +76,7 @@ export class LLMProviderFactory {
           provider = (await this.settingsService.getActiveLLMProvider()) || ''
           model = await this.getGlobalModelForProvider(provider)
         }
-      } catch (error) {
+      } catch {
         // Fall back to global settings
         provider = (await this.settingsService.getActiveLLMProvider()) || ''
         model = await this.getGlobalModelForProvider(provider)
@@ -130,24 +130,30 @@ export class LLMProviderFactory {
    */
   private async getGlobalModelForProvider(provider: string): Promise<string> {
     switch (provider) {
-      case 'openai':
+      case 'openai': {
         const openaiConfig = await this.settingsService.getOpenAIConfig()
         return openaiConfig?.model || ''
-      case 'google':
+      }
+      case 'google': {
         const googleConfig = await this.settingsService.getGoogleConfig()
         return googleConfig?.model || ''
-      case 'azure':
+      }
+      case 'azure': {
         const azureConfig = await this.settingsService.getAzureConfig()
         return azureConfig?.deploymentName || ''
-      case 'anthropic':
+      }
+      case 'anthropic': {
         const anthropicConfig = await this.settingsService.getAnthropicConfig()
         return anthropicConfig?.model || ''
-      case 'vertex':
+      }
+      case 'vertex': {
         const vertexConfig = await this.settingsService.getVertexConfig()
         return vertexConfig?.model || ''
-      case 'ollama':
+      }
+      case 'ollama': {
         const ollamaConfig = await this.settingsService.getOllamaConfig()
         return ollamaConfig?.model || ''
+      }
       default:
         return ''
     }
@@ -220,7 +226,9 @@ export class LLMProviderFactory {
       if (vertexConfig.apiKey.trim().startsWith('{')) {
         credentialsJson = JSON.parse(vertexConfig.apiKey)
       }
-    } catch (e) {}
+    } catch {
+      void 0
+    }
     const vertexProvider = createVertex({
       ...(credentialsJson ? { googleAuthOptions: { credentials: credentialsJson } } : {}),
       project: vertexConfig.project,

@@ -59,7 +59,7 @@ export class MessagePreparationService {
           )) as unknown as ModelMessage[])
         : (normalizedRendererMessages as unknown as ModelMessage[])
       coreMessages = sanitizeModelMessages(coreMessages)
-    } catch (e) {
+    } catch {
       coreMessages = (normalizedRendererMessages as unknown as ModelMessage[]) || []
     }
     let finalSystemPrompt: string | null = null
@@ -148,7 +148,7 @@ export class MessagePreparationService {
       }
 
       return finalSystemPrompt
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -181,7 +181,7 @@ export class MessagePreparationService {
       }
 
       return toolDescriptions
-    } catch (error) {
+    } catch {
       return []
     }
   }
@@ -224,7 +224,7 @@ export class MessagePreparationService {
       }
 
       return availableAgentsInfo
-    } catch (error) {
+    } catch {
       return ''
     }
   }
@@ -263,7 +263,7 @@ export class MessagePreparationService {
         } else {
           return baseSystemPrompt || ''
         }
-      } catch (error) {
+      } catch {
         return baseSystemPrompt || ''
       }
     } else {

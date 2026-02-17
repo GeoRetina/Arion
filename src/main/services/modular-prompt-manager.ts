@@ -87,6 +87,7 @@ export class ModularPromptManager {
         const result = await this.promptModuleService.assemblePrompt(assemblyRequest)
 
         if (result.warnings && result.warnings.length > 0) {
+          void 0
         }
 
         return result.assembledPrompt
@@ -95,7 +96,7 @@ export class ModularPromptManager {
       // For now, if no agent ID is provided, return the default prompt
       // In the future, this could be extended to use default modules
       return defaultSystemPrompt
-    } catch (error) {
+    } catch {
       return defaultSystemPrompt
     }
   }

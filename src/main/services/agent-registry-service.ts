@@ -1,4 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
+import fs from 'fs'
+import path from 'path'
+import { app } from 'electron'
 import { dbService } from './db-service'
 import { PromptModuleService } from './prompt-module-service'
 import * as better_sqlite3 from 'better-sqlite3'
@@ -57,12 +60,8 @@ export class AgentRegistryService {
    * Run migrations to set up agent tables
    */
   private async runMigrations(): Promise<void> {
-    try {
+    {
       // Load migration SQL
-      const fs = require('fs')
-      const path = require('path')
-      const app = require('electron').app
-
       // Get the app path (works in development and production)
       const appPath = app.getAppPath()
 
@@ -96,8 +95,6 @@ export class AgentRegistryService {
         // Make sure the supporting index exists even if the column was added elsewhere
         db.exec('CREATE INDEX IF NOT EXISTS idx_agents_role ON agents(role)')
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -105,7 +102,7 @@ export class AgentRegistryService {
    * Refresh the in-memory cache from database
    */
   private async refreshCache(): Promise<void> {
-    try {
+    {
       const db = this.getDb()
 
       // Get all agents
@@ -181,8 +178,6 @@ export class AgentRegistryService {
         // Add to cache
         this.agentCache.set(agentId, agent)
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -238,7 +233,7 @@ export class AgentRegistryService {
       updatedAt: now
     }
 
-    try {
+    {
       const db = this.getDb()
 
       // Start a transaction
@@ -323,8 +318,6 @@ export class AgentRegistryService {
         db.exec('ROLLBACK')
         throw innerError
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -361,7 +354,7 @@ export class AgentRegistryService {
       await this.validatePromptModules(modulesToCheck)
     }
 
-    try {
+    {
       const db = this.getDb()
 
       // Start a transaction
@@ -495,8 +488,6 @@ export class AgentRegistryService {
         db.exec('ROLLBACK')
         throw innerError
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -506,7 +497,7 @@ export class AgentRegistryService {
   public async deleteAgent(id: string): Promise<boolean> {
     await this.ensureInitialized()
 
-    try {
+    {
       const db = this.getDb()
 
       // Start a transaction
@@ -525,6 +516,7 @@ export class AgentRegistryService {
           // Remove from cache
           this.agentCache.delete(id)
         } else {
+          void 0
         }
 
         return success
@@ -533,8 +525,6 @@ export class AgentRegistryService {
         db.exec('ROLLBACK')
         throw innerError
       }
-    } catch (error) {
-      throw error
     }
   }
 
@@ -549,7 +539,7 @@ export class AgentRegistryService {
       throw new Error(`Agent with ID ${agentId} not found`)
     }
 
-    try {
+    {
       const executionId = uuidv4()
       const sessionId = uuidv4() // Generate a unique session ID for this execution
       const now = new Date().toISOString()
@@ -572,8 +562,6 @@ export class AgentRegistryService {
       )
 
       return executionId
-    } catch (error) {
-      throw error
     }
   }
 
@@ -583,7 +571,7 @@ export class AgentRegistryService {
   public async completeAgentExecution(executionId: string, error?: string): Promise<void> {
     await this.ensureInitialized()
 
-    try {
+    {
       const now = new Date().toISOString()
       const state = error ? 'error' : 'completed'
 
@@ -596,8 +584,6 @@ export class AgentRegistryService {
         WHERE id = ?
       `
       ).run(state, now, error || null, executionId)
-    } catch (error) {
-      throw error
     }
   }
 

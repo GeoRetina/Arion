@@ -53,14 +53,14 @@ export class AgentRunnerService {
         this.handleAgentStdioMessage(config.agentId, data, 'stdout')
       })
 
-      agentProcess.stderr?.on('data', (data) => {})
+      agentProcess.stderr?.on('data', () => {})
 
-      agentProcess.on('error', (err) => {
+      agentProcess.on('error', () => {
         this.runningAgents.delete(config.agentId)
         // TODO: Notify renderer or manage state about this failure
       })
 
-      agentProcess.on('close', (code) => {
+      agentProcess.on('close', () => {
         this.runningAgents.delete(config.agentId)
         // TODO: Notify renderer or manage state
       })
@@ -69,7 +69,7 @@ export class AgentRunnerService {
       await this.sendMcpToolsToAgent(config.agentId)
 
       return config.agentId
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -90,7 +90,9 @@ export class AgentRunnerService {
 
     try {
       agentProcess.stdin.write(JSON.stringify(message) + '\n')
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   private handleAgentStdioMessage(
@@ -114,9 +116,10 @@ export class AgentRunnerService {
           // Handle other message types like 'agent_response', 'error' from agent, etc.
           default:
         }
-      } catch (error) {
+      } catch {
         // If not JSON, treat as plain log from stdout
         if (streamType === 'stdout') {
+          void 0
         } else {
           // stderr is already logged raw
           //
@@ -160,7 +163,9 @@ export class AgentRunnerService {
 
     try {
       agentProcess.stdin.write(JSON.stringify(responseMsg) + '\n')
-    } catch (error) {}
+    } catch {
+      void 0
+    }
   }
 
   public terminateAgent(agentId: string): boolean {

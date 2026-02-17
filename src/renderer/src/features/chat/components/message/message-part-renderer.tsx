@@ -61,7 +61,7 @@ function renderNestedToolCall(
         />
       )
     }
-  } catch (error) {
+  } catch {
     // Fallback to basic display
     return (
       <div key={key} className="p-2 border border-red-200 rounded bg-red-50 dark:bg-red-950/20">
@@ -105,7 +105,7 @@ function renderNestedToolCalls(
         </div>
       </div>
     )
-  } catch (error) {
+  } catch {
     return parentComponent // Fallback to just showing the parent component
   }
 }
@@ -286,7 +286,7 @@ export const MessagePartRenderer = ({
       default:
         return null
     }
-  } catch (error) {
+  } catch {
     // Fallback UI for rendering errors
     return (
       <div className="p-2 border border-red-200 rounded bg-red-50 dark:bg-red-950/20">

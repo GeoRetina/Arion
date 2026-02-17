@@ -6,6 +6,7 @@
  */
 
 import Database from 'better-sqlite3'
+import fs from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 import type {
@@ -93,7 +94,6 @@ export class LayerDatabaseService implements LayerDatabase {
   }
 
   private runMigration(migrationFile: string): void {
-    const fs = require('fs')
     const migrationPath = this.getMigrationPath(migrationFile)
 
     try {
@@ -115,7 +115,6 @@ export class LayerDatabaseService implements LayerDatabase {
       join(__dirname, '../database/migrations', migrationFile)
     ]
 
-    const fs = require('fs')
     for (const path of possiblePaths) {
       if (fs.existsSync(path)) {
         return path
@@ -586,13 +585,11 @@ export class LayerDatabaseService implements LayerDatabase {
       // Import groups first
       if (importData.groups) {
         for (const groupData of importData.groups) {
-          const {
-            id: _id,
-            createdAt: _createdAt,
-            updatedAt: _updatedAt,
-            layerIds: _layerIds,
-            ...group
-          } = groupData
+          const group = { ...groupData }
+          delete group.id
+          delete group.createdAt
+          delete group.updatedAt
+          delete group.layerIds
           this.createGroup(group)
         }
       }
@@ -600,7 +597,10 @@ export class LayerDatabaseService implements LayerDatabase {
       // Import layers
       if (importData.layers) {
         for (const layerData of importData.layers) {
-          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layer } = layerData
+          const layer = { ...layerData }
+          delete layer.id
+          delete layer.createdAt
+          delete layer.updatedAt
           const newLayer = this.createLayer({
             ...layer,
             groupId: targetGroupId || layer.groupId

@@ -37,7 +37,7 @@ export class RasterProcessor {
           const result = await window.ctg.layers.processGeotiff(fileBuffer, fileName)
           imageUrl = result.imageUrl
           bounds = result.bounds
-        } catch (error) {
+        } catch {
           // Fallback to blob URL if processing fails
           imageUrl = URL.createObjectURL(file)
         }

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { AgentDefinition, AgentCapability } from '@/../../shared/types/agent-types'
+import { AgentDefinition } from '@/../../shared/types/agent-types'
 import { useAgentStore } from '@/stores/agent-store'
 import { LLMProviderType } from '@/../../shared/ipc-types'
 import { Loader2 } from 'lucide-react'
@@ -185,31 +185,6 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     })
   }
 
-  // Handle capability update
-  const updateCapabilityField = (field: keyof AgentCapability, value: any) => {
-    if (!agent) return
-
-    // Since we only have a single capability now, update just the first one
-    if (agent.capabilities.length === 0) {
-      // If no capabilities exist, create one
-      const newCapability: AgentCapability = {
-        id: crypto.randomUUID(),
-        name: 'Default Capability',
-        description: value,
-        tools: []
-      }
-      updateAgentField('capabilities', [newCapability])
-    } else {
-      // Update the existing capability
-      const updatedCapabilities = [...agent.capabilities]
-      updatedCapabilities[0] = {
-        ...updatedCapabilities[0],
-        [field]: value
-      }
-      updateAgentField('capabilities', updatedCapabilities)
-    }
-  }
-
   // Toggle tool selection for the capability
   const toggleToolSelection = (toolId: string) => {
     if (!agent || agent.capabilities.length === 0) return
@@ -302,7 +277,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
         <DialogHeader>
           <DialogTitle>Edit Agent: {agent.name}</DialogTitle>
           <DialogDescription>
-            Configure the agent's capabilities, prompt, and model settings.
+            Configure the agent&apos;s capabilities, prompt, and model settings.
           </DialogDescription>
         </DialogHeader>
 
@@ -411,7 +386,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
                 <CardHeader>
                   <CardTitle>Prompt Modules</CardTitle>
                   <CardDescription>
-                    Configure the prompt modules that define this agent's behavior.
+                    Configure the prompt modules that define this agent&apos;s behavior.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

@@ -34,7 +34,7 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
   const formattedArgs = useMemo(() => {
     try {
       return JSON.stringify(args, null, 2)
-    } catch (e) {
+    } catch {
       return 'Invalid arguments'
     }
   }, [args])
@@ -43,7 +43,7 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
     if (!result) return ''
     try {
       return JSON.stringify(result, null, 2)
-    } catch (e) {
+    } catch {
       return typeof result === 'string' ? result : 'Invalid result format'
     }
   }, [result])

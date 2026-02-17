@@ -87,7 +87,6 @@ export class RasterMetadataExtractor {
   static extractEnhancedMetadata(file: File, fileName: string): LayerMetadata {
     const fileInfo = this.getFileTypeInfo(file)
     const formattedSize = this.formatFileSize(file.size)
-    const _lastModified = new Date(file.lastModified).toISOString()
 
     const baseMetadata = this.extractRasterMetadata(file, fileName)
 

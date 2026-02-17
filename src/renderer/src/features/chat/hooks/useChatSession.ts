@@ -24,8 +24,7 @@ export function useChatSession(): UseChatSessionReturn {
     currentMessages: currentMessagesFromStore,
     isLoadingMessages: isLoadingMessagesFromStore,
     loadChat,
-    clearCurrentChat,
-    createChatAndSelect
+    clearCurrentChat
   } = useChatHistoryStore()
 
   const processingNewChatUrlRef = useRef(false)

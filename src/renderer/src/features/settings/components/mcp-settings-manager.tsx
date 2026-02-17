@@ -39,7 +39,7 @@ export function McpSettingsManager(): React.JSX.Element {
     try {
       const fetchedConfigs = await window.ctg.settings.getMcpServerConfigs()
       setConfigs(fetchedConfigs || [])
-    } catch (err) {
+    } catch {
       setError('Failed to load configurations.')
       setConfigs([]) // Ensure configs is an array on error
     }
@@ -84,15 +84,17 @@ export function McpSettingsManager(): React.JSX.Element {
       const parsedJson = JSON.parse(newJsonString)
       if (isEditingExistingServer && editingConfig && 'id' in editingConfig) {
         // Preserve original ID if editing existing
-        const { id: idFromJson, ...restOfParsedJson } = parsedJson
+        const restOfParsedJson = { ...parsedJson }
+        delete restOfParsedJson.id
         setEditingConfig({ ...restOfParsedJson, id: editingConfig.id })
       } else {
         // Adding new: strip ID from parsedJson before setting editingConfig
-        const { id, ...restOfParsedJson } = parsedJson
+        const restOfParsedJson = { ...parsedJson }
+        delete restOfParsedJson.id
         setEditingConfig(restOfParsedJson)
       }
       setError(null) // Clear previous JSON errors
-    } catch (jsonError) {
+    } catch {
       setError(
         'Invalid JSON format. Form data may not be in sync until valid JSON is entered or mode is switched.'
       )
@@ -300,17 +302,19 @@ export function McpSettingsManager(): React.JSX.Element {
         if (isEditingExistingServer && editingConfig && 'id' in editingConfig) {
           // Editing existing: preserve original ID from editingConfig, take other fields from JSON.
           // User might have changed other fields in JSON, or even tried to change the ID. We ignore ID changes from JSON for an existing item.
-          const { id: idFromUserJson, ...dataFromUserJson } = parsedJson
+          const dataFromUserJson = { ...parsedJson }
+          delete dataFromUserJson.id
           setEditingConfig({ ...dataFromUserJson, id: editingConfig.id })
         } else {
           // Adding new: strip any ID from JSON before setting editingConfig.
-          const { id, ...newConfigData } = parsedJson
+          const newConfigData = { ...parsedJson }
+          delete newConfigData.id
           setEditingConfig(newConfigData)
           // isEditingExistingServer should already be false if we are in "add new" flow.
         }
         setError(null) // Clear JSON parse errors
         setInputMode('form')
-      } catch (parseError) {
+      } catch {
         setError('Cannot switch to form mode: Invalid JSON content. Form fields may not update.')
         // Optionally, do not switch mode if JSON is invalid: return;
       }

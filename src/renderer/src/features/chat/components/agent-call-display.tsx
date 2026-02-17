@@ -37,7 +37,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
     if (!result) return ''
     try {
       return JSON.stringify(result, null, 2)
-    } catch (e) {
+    } catch {
       return typeof result === 'string' ? result : 'Invalid result format'
     }
   }, [result])

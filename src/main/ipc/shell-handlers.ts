@@ -1,4 +1,4 @@
-import { ipcMain, shell, type IpcMain } from 'electron'
+import { shell, type IpcMain } from 'electron'
 import { IpcChannels } from '../../shared/ipc-types'
 
 export function registerShellHandlers(ipcMainInstance: IpcMain): void {

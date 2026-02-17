@@ -121,7 +121,7 @@ export class MentionService {
             )
           ])
           return result
-        } catch (error) {
+        } catch {
           return null
         }
       })
@@ -160,7 +160,7 @@ export class MentionService {
       }
 
       return enhancedMessage
-    } catch (error) {
+    } catch {
       return message // Return original message on error
     }
   }
@@ -320,7 +320,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Resolve layer data by searching layer name/id
    */
-  private async resolveLayerByName(_mentionId: string): Promise<MentionMetadata | null> {
+  private async resolveLayerByName(mentionId: string): Promise<MentionMetadata | null> {
+    void mentionId
     try {
       // This would need to be implemented to access the layer database
       // For now, return null as the integration point
@@ -333,7 +334,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       // )
 
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   }
@@ -341,7 +342,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Resolve knowledge base document by name/id
    */
-  private async resolveDocumentByName(_mentionId: string): Promise<MentionMetadata | null> {
+  private async resolveDocumentByName(mentionId: string): Promise<MentionMetadata | null> {
+    void mentionId
     try {
       // This would need to be implemented to access the knowledge base
       // For now, return null as the integration point
@@ -354,7 +356,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
       // )
 
       return null
-    } catch (error) {
+    } catch {
       return null
     }
   }

@@ -71,7 +71,7 @@ export class KnowledgeBaseService {
       throw new Error('Database not initialized. Call initialize() first.')
     }
 
-    try {
+    {
       // Enable pgvector extension
       await this.db.query('CREATE EXTENSION IF NOT EXISTS vector;')
 
@@ -135,8 +135,6 @@ export class KnowledgeBaseService {
       // Note: PGlite might have specific syntax or support levels for HNSW index parameters.
       // For now, using a basic HNSW index creation. Advanced parameters might require checking PGlite docs.
       await this.db.query(createIndexQuery)
-    } catch (error) {
-      throw error
     }
   }
 
@@ -150,7 +148,7 @@ export class KnowledgeBaseService {
       // const embeddingModelId = 'text-embedding-ada-002' // MOVED to llm.constants.ts
       const openai = createOpenAI({ apiKey: openaiConfig.apiKey })
       this.embeddingModel = openai.embedding(DEFAULT_EMBEDDING_MODEL_ID)
-    } catch (error) {
+    } catch {
       this.embeddingModel = undefined
     }
   }
@@ -310,7 +308,7 @@ export class KnowledgeBaseService {
       try {
         fs.writeFileSync(cachedFilePath, Buffer.from(fileBuffer)) // Convert ArrayBuffer to Node.js Buffer
         filePathToStore = cachedFilePath
-      } catch (writeError) {
+      } catch {
         filePathToStore = null // Fallback if saving fails, though this means 'View' won't work.
       }
     }
@@ -402,7 +400,9 @@ export class KnowledgeBaseService {
       // Note: Some errors (like db connection issues) might prevent rollback query from executing.
       try {
         await this.db.query('ROLLBACK;')
-      } catch (rollbackError) {}
+      } catch {
+        void 0
+      }
       throw error // Re-throw the original error
     }
   }
@@ -415,14 +415,12 @@ export class KnowledgeBaseService {
         throw new Error('Embedding model is not available. Check OpenAI configuration.')
       }
     }
-    try {
+    {
       const { embedding }: EmbedResult = await embed({
         model: this.embeddingModel,
         value: text
       })
       return embedding
-    } catch (error) {
-      throw error
     }
   }
 
@@ -439,7 +437,7 @@ export class KnowledgeBaseService {
       LIMIT $2;
     `
 
-    try {
+    {
       const result = await this.db.query<{
         id: string
         document_id: string
@@ -458,8 +456,6 @@ export class KnowledgeBaseService {
         }))
       }
       return []
-    } catch (error) {
-      throw error
     }
   }
 
@@ -475,7 +471,7 @@ export class KnowledgeBaseService {
         return parseInt(result.rows[0].count, 10) || 0
       }
       return 0
-    } catch (error) {
+    } catch {
       return 0
     }
   }
@@ -511,7 +507,7 @@ export class KnowledgeBaseService {
           updated_at: row.updated_at
         })) || []
       )
-    } catch (error) {
+    } catch {
       return []
     }
   }
@@ -520,7 +516,7 @@ export class KnowledgeBaseService {
     if (!this.db) {
       return false
     }
-    try {
+    {
       // First, retrieve the document to get its file_path
       const docResult = await this.db.query<{ file_path: string | null }>( // Specify type for file_path
         'SELECT file_path FROM kb_documents WHERE id = $1',
@@ -544,18 +540,18 @@ export class KnowledgeBaseService {
             if (fs.existsSync(filePathToDelete)) {
               fs.unlinkSync(filePathToDelete)
             } else {
+              void 0
             }
-          } catch (fileDeleteError) {
+          } catch {
             // Do not re-throw or return false for this; DB deletion was the primary goal.
             // Log the error and continue.
           }
         } else {
+          void 0
         }
       }
 
       return affectedRows > 0
-    } catch (error) {
-      throw error
     }
   }
 }

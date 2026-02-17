@@ -50,7 +50,9 @@ export class ExecutionContextManager implements IExecutionContextManager {
   public deleteExecutionContext(sessionId: string): boolean {
     const deleted = this.executionContexts.delete(sessionId)
     if (deleted) {
+      void 0
     } else {
+      void 0
     }
     return deleted
   }

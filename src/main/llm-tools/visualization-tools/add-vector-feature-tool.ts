@@ -85,7 +85,7 @@ export function createGeoJSONFeature(
   }
 
   switch (featureType) {
-    case 'Point':
+    case 'Point': {
       const pointValidation = CoordinateSchemaInternal.safeParse(parsedCoordinates)
       if (!pointValidation.success) {
         throw new Error(
@@ -100,8 +100,9 @@ export function createGeoJSONFeature(
         },
         properties: featureProperties
       } as Feature<Point>
+    }
 
-    case 'LineString':
+    case 'LineString': {
       const lineValidation = LineStringCoordinatesSchemaInternal.safeParse(parsedCoordinates)
       if (!lineValidation.success) {
         throw new Error(
@@ -116,8 +117,9 @@ export function createGeoJSONFeature(
         },
         properties: featureProperties
       } as Feature<LineString>
+    }
 
-    case 'Polygon':
+    case 'Polygon': {
       const polygonValidation = PolygonCoordinatesSchemaInternal.safeParse(parsedCoordinates)
       if (!polygonValidation.success) {
         throw new Error(
@@ -132,6 +134,7 @@ export function createGeoJSONFeature(
         },
         properties: featureProperties
       } as Feature<Polygon>
+    }
 
     default:
       // This should ideally be caught by Zod enum validation earlier in AddMapFeatureToolSchema
