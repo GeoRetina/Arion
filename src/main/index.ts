@@ -181,7 +181,8 @@ app.whenReady().then(async () => {
     settingsServiceInstance,
     llmToolServiceInstance,
     modularPromptManagerInstance,
-    agentRegistryServiceInstance // Pass the agent registry to ChatService
+    agentRegistryServiceInstance, // Pass the agent registry to ChatService
+    knowledgeBaseServiceInstance
   )
 
   // Instantiate AgentRoutingService after ChatService and other required services

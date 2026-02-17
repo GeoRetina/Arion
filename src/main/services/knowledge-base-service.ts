@@ -11,6 +11,10 @@ import { EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_MODEL_ID } from '../constants/l
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import type { KBAddDocumentPayload, KnowledgeBaseDocumentForClient } from '../../shared/ipc-types'
+import {
+  scoreWorkspaceMemory,
+  type WorkspaceMemoryScoreConfig
+} from './utils/workspace-memory-scorer'
 
 const KB_DB_SUBFOLDER = 'knowledgebase_db'
 const KB_DB_FILENAME = 'arion-kb.db'
@@ -22,6 +26,24 @@ export interface KBRecord {
   embedding: number[] // The vector embedding
   created_at: string
   // Potentially other metadata like source_filename, page_number, etc.
+}
+
+export type WorkspaceMemoryType = 'session_outcome' | 'tool_outcome'
+
+export interface WorkspaceMemoryEntry {
+  id: string
+  chatId: string
+  sourceKey: string
+  sourceMessageId?: string
+  memoryType: WorkspaceMemoryType
+  agentId?: string
+  toolName?: string
+  summary: string
+  details?: unknown
+  createdAt: string
+  similarityScore?: number
+  recencyScore?: number
+  finalScore?: number
 }
 
 export class KnowledgeBaseService {
@@ -135,6 +157,36 @@ export class KnowledgeBaseService {
       // Note: PGlite might have specific syntax or support levels for HNSW index parameters.
       // For now, using a basic HNSW index creation. Advanced parameters might require checking PGlite docs.
       await this.db.query(createIndexQuery)
+
+      const createWorkspaceMemoriesTableQuery = `
+        CREATE TABLE IF NOT EXISTS workspace_memories (
+          id TEXT PRIMARY KEY,
+          chat_id TEXT NOT NULL,
+          source_key TEXT NOT NULL UNIQUE,
+          source_message_id TEXT,
+          memory_type TEXT NOT NULL CHECK (memory_type IN ('session_outcome', 'tool_outcome')),
+          agent_id TEXT,
+          tool_name TEXT,
+          summary TEXT NOT NULL,
+          details_json TEXT,
+          embedding vector(${EMBEDDING_DIMENSIONS}) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `
+      await this.db.query(createWorkspaceMemoriesTableQuery)
+
+      const createWorkspaceMemoriesByChatIndex = `
+        CREATE INDEX IF NOT EXISTS idx_workspace_memories_chat_created
+        ON workspace_memories (chat_id, created_at DESC);
+      `
+      await this.db.query(createWorkspaceMemoriesByChatIndex)
+
+      const createWorkspaceMemoriesEmbeddingIndex = `
+        CREATE INDEX IF NOT EXISTS idx_workspace_memories_embedding_cosine
+        ON workspace_memories
+        USING hnsw (embedding vector_cosine_ops);
+      `
+      await this.db.query(createWorkspaceMemoriesEmbeddingIndex)
     }
   }
 
@@ -456,6 +508,244 @@ export class KnowledgeBaseService {
         }))
       }
       return []
+    }
+  }
+
+  public async upsertWorkspaceMemoryEntry(payload: {
+    chatId: string
+    sourceKey: string
+    sourceMessageId?: string
+    memoryType: WorkspaceMemoryType
+    agentId?: string
+    toolName?: string
+    summary: string
+    details?: unknown
+    createdAt?: string
+  }): Promise<WorkspaceMemoryEntry | null> {
+    if (!this.db) {
+      throw new Error('Database not initialized.')
+    }
+
+    const normalizedSummary = payload.summary?.trim()
+    if (!normalizedSummary) {
+      return null
+    }
+
+    if (!this.embeddingModel) {
+      await this.initializeEmbeddingModel()
+      if (!this.embeddingModel) {
+        return null
+      }
+    }
+
+    const createdAt = payload.createdAt || new Date().toISOString()
+    const embedding = await this.embedText(normalizedSummary)
+    const embeddingString = JSON.stringify(embedding)
+
+    let detailsJson: string | null = null
+    if (payload.details !== undefined) {
+      try {
+        detailsJson = JSON.stringify(payload.details)
+      } catch {
+        detailsJson = null
+      }
+    }
+
+    const query = `
+      INSERT INTO workspace_memories (
+        id,
+        chat_id,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        embedding,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11)
+      ON CONFLICT (source_key) DO UPDATE
+      SET
+        source_message_id = EXCLUDED.source_message_id,
+        memory_type = EXCLUDED.memory_type,
+        agent_id = EXCLUDED.agent_id,
+        tool_name = EXCLUDED.tool_name,
+        summary = EXCLUDED.summary,
+        details_json = EXCLUDED.details_json,
+        embedding = EXCLUDED.embedding,
+        created_at = EXCLUDED.created_at
+      RETURNING
+        id,
+        chat_id,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at;
+    `
+
+    const result = await this.db.query<{
+      id: string
+      chat_id: string
+      source_key: string
+      source_message_id: string | null
+      memory_type: WorkspaceMemoryType
+      agent_id: string | null
+      tool_name: string | null
+      summary: string
+      details_json: string | null
+      created_at: string
+    }>(query, [
+      nanoid(),
+      payload.chatId,
+      payload.sourceKey,
+      payload.sourceMessageId || null,
+      payload.memoryType,
+      payload.agentId || null,
+      payload.toolName || null,
+      normalizedSummary,
+      detailsJson,
+      embeddingString,
+      createdAt
+    ])
+
+    const row = result.rows?.[0]
+    if (!row) {
+      return null
+    }
+
+    return this.mapWorkspaceMemoryRow(row)
+  }
+
+  public async findRelevantWorkspaceMemories(params: {
+    chatId: string
+    query: string
+    limit?: number
+    candidateLimit?: number
+    scoreConfig?: WorkspaceMemoryScoreConfig
+  }): Promise<WorkspaceMemoryEntry[]> {
+    if (!this.db) {
+      throw new Error('Database not initialized.')
+    }
+
+    const normalizedQuery = params.query?.trim()
+    if (!normalizedQuery) {
+      return []
+    }
+
+    if (!this.embeddingModel) {
+      await this.initializeEmbeddingModel()
+      if (!this.embeddingModel) {
+        return []
+      }
+    }
+
+    const limit = Math.max(1, Math.min(params.limit ?? 5, 20))
+    const candidateLimit = Math.max(limit, Math.min(params.candidateLimit ?? limit * 4, 100))
+    const queryEmbedding = await this.embedText(normalizedQuery)
+    const queryEmbeddingString = JSON.stringify(queryEmbedding)
+
+    const query = `
+      SELECT
+        id,
+        chat_id,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at,
+        embedding <=> $2::vector AS distance
+      FROM workspace_memories
+      WHERE chat_id = $1
+      ORDER BY embedding <=> $2::vector
+      LIMIT $3;
+    `
+
+    const result = await this.db.query<{
+      id: string
+      chat_id: string
+      source_key: string
+      source_message_id: string | null
+      memory_type: WorkspaceMemoryType
+      agent_id: string | null
+      tool_name: string | null
+      summary: string
+      details_json: string | null
+      created_at: string
+      distance: number
+    }>(query, [params.chatId, queryEmbeddingString, candidateLimit])
+
+    const scoredEntries = (result.rows || []).map((row) => {
+      const score = scoreWorkspaceMemory(Number(row.distance), row.created_at, params.scoreConfig)
+      return {
+        ...this.mapWorkspaceMemoryRow(row),
+        similarityScore: score.similarityScore,
+        recencyScore: score.recencyScore,
+        finalScore: score.finalScore
+      }
+    })
+
+    scoredEntries.sort((a, b) => {
+      const scoreDelta = (b.finalScore || 0) - (a.finalScore || 0)
+      if (scoreDelta !== 0) {
+        return scoreDelta
+      }
+
+      const dateA = Date.parse(a.createdAt)
+      const dateB = Date.parse(b.createdAt)
+      if (Number.isFinite(dateA) && Number.isFinite(dateB)) {
+        return dateB - dateA
+      }
+
+      return 0
+    })
+
+    return scoredEntries.slice(0, limit)
+  }
+
+  private mapWorkspaceMemoryRow(row: {
+    id: string
+    chat_id: string
+    source_key: string
+    source_message_id: string | null
+    memory_type: WorkspaceMemoryType
+    agent_id: string | null
+    tool_name: string | null
+    summary: string
+    details_json: string | null
+    created_at: string
+  }): WorkspaceMemoryEntry {
+    return {
+      id: row.id,
+      chatId: row.chat_id,
+      sourceKey: row.source_key,
+      sourceMessageId: row.source_message_id || undefined,
+      memoryType: row.memory_type,
+      agentId: row.agent_id || undefined,
+      toolName: row.tool_name || undefined,
+      summary: row.summary,
+      details: this.safeParseJson(row.details_json),
+      createdAt: row.created_at
+    }
+  }
+
+  private safeParseJson(value: string | null): unknown {
+    if (!value) {
+      return undefined
+    }
+
+    try {
+      return JSON.parse(value)
+    } catch {
+      return undefined
     }
   }
 
