@@ -34,6 +34,13 @@ export type {
 } from './types/prompt-types'
 
 export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
+export type EmbeddingProviderType =
+  | 'openai'
+  | 'google'
+  | 'anthropic'
+  | 'vertex'
+  | 'azure'
+  | 'ollama'
 
 export interface OpenAIConfig {
   apiKey: string
@@ -66,6 +73,11 @@ export interface VertexConfig {
 export interface OllamaConfig {
   baseURL?: string | null
   model?: string | null
+}
+
+export interface EmbeddingConfig {
+  provider: EmbeddingProviderType
+  model: string
 }
 
 // Added McpServerConfig interface here
@@ -111,6 +123,7 @@ export interface AllLLMConfigurations {
   anthropic?: AnthropicConfig
   vertex?: VertexConfig
   ollama?: OllamaConfig
+  embedding?: EmbeddingConfig
   activeProvider?: LLMProviderType | null
 }
 
@@ -166,6 +179,7 @@ export const IpcChannels = {
   setAnthropicConfig: 'settings:set-anthropic-config',
   setVertexConfig: 'settings:set-vertex-config',
   setOllamaConfig: 'settings:set-ollama-config',
+  setEmbeddingConfig: 'settings:set-embedding-config',
   setActiveLLMProvider: 'settings:set-active-llm-provider',
 
   // Getters
@@ -175,6 +189,7 @@ export const IpcChannels = {
   getAnthropicConfig: 'settings:get-anthropic-config',
   getVertexConfig: 'settings:get-vertex-config',
   getOllamaConfig: 'settings:get-ollama-config',
+  getEmbeddingConfig: 'settings:get-embedding-config',
   getActiveLLMProvider: 'settings:get-active-llm-provider',
   getAllLLMConfigs: 'settings:get-all-llm-configs', // To load initial state
 
@@ -300,6 +315,8 @@ export interface SettingsApi {
   getVertexConfig: () => Promise<VertexConfig | null>
   setOllamaConfig: (config: OllamaConfig) => Promise<void>
   getOllamaConfig: () => Promise<OllamaConfig | null>
+  setEmbeddingConfig: (config: EmbeddingConfig) => Promise<void>
+  getEmbeddingConfig: () => Promise<EmbeddingConfig>
   setActiveLLMProvider: (provider: LLMProviderType | null) => Promise<void>
   getActiveLLMProvider: () => Promise<LLMProviderType | null>
   getAllLLMConfigs: () => Promise<AllLLMConfigurations>

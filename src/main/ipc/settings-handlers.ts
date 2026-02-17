@@ -9,6 +9,7 @@ import {
   McpServerConfig,
   VertexConfig,
   OllamaConfig,
+  EmbeddingConfig,
   SystemPromptConfig,
   SkillPackConfig,
   SkillPackInfo
@@ -16,10 +17,34 @@ import {
 import { type SettingsService } from '../services/settings-service'
 import { type MCPClientService } from '../services/mcp-client-service'
 import { type SkillPackService } from '../services/skill-pack-service'
+import {
+  DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
+  DEFAULT_EMBEDDING_PROVIDER,
+  SUPPORTED_EMBEDDING_PROVIDERS
+} from '../../shared/embedding-constants'
 
 type SettingsServiceWithGenericOps = SettingsService & {
   getSetting?: (key: string) => unknown | Promise<unknown>
   setSetting?: (key: string, value: unknown) => void | Promise<void>
+}
+const SUPPORTED_EMBEDDING_PROVIDER_SET = new Set(SUPPORTED_EMBEDDING_PROVIDERS)
+
+const sanitizeEmbeddingConfig = (config: EmbeddingConfig): EmbeddingConfig => {
+  if (!SUPPORTED_EMBEDDING_PROVIDER_SET.has(config.provider)) {
+    throw new Error(
+      `Unsupported embedding provider: ${config.provider}. Supported providers: ${SUPPORTED_EMBEDDING_PROVIDERS.join(', ')}`
+    )
+  }
+
+  const model = config.model?.trim()
+  if (!model) {
+    throw new Error('Embedding model is required')
+  }
+
+  return {
+    provider: config.provider,
+    model
+  }
 }
 
 export function registerSettingsIpcHandlers(
@@ -183,6 +208,27 @@ export function registerSettingsIpcHandlers(
     }
   })
 
+  ipcMain.handle(IpcChannels.setEmbeddingConfig, async (_event, config: EmbeddingConfig) => {
+    try {
+      const safeConfig = sanitizeEmbeddingConfig(config)
+      await settingsService.setEmbeddingConfig(safeConfig)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle(IpcChannels.getEmbeddingConfig, async () => {
+    try {
+      return await settingsService.getEmbeddingConfig()
+    } catch {
+      return {
+        provider: DEFAULT_EMBEDDING_PROVIDER,
+        model: DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[DEFAULT_EMBEDDING_PROVIDER]
+      } satisfies EmbeddingConfig
+    }
+  })
+
   ipcMain.handle(
     IpcChannels.setActiveLLMProvider,
     async (_event, provider: LLMProviderType | null) => {
@@ -208,7 +254,19 @@ export function registerSettingsIpcHandlers(
       const configsToReturn = await settingsService.getAllLLMConfigs()
       return configsToReturn
     } catch {
-      return { openai: null, google: null, azure: null, anthropic: null, activeProvider: null }
+      return {
+        openai: null,
+        google: null,
+        azure: null,
+        anthropic: null,
+        vertex: null,
+        ollama: null,
+        embedding: {
+          provider: DEFAULT_EMBEDDING_PROVIDER,
+          model: DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[DEFAULT_EMBEDDING_PROVIDER]
+        },
+        activeProvider: null
+      }
     }
   })
 

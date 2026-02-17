@@ -2,8 +2,13 @@ import { create } from 'zustand'
 import type {
   LLMProviderType as LLMProvider,
   VertexConfig,
-  OllamaConfig
+  OllamaConfig,
+  EmbeddingConfig
 } from '../../../shared/ipc-types'
+import {
+  DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
+  DEFAULT_EMBEDDING_PROVIDER
+} from '../../../shared/embedding-constants'
 
 export type { LLMProvider }
 
@@ -24,6 +29,7 @@ interface LLMStoreState {
   anthropicConfig: LLMConfig
   vertexConfig: LLMConfig
   ollamaConfig: LLMConfig
+  embeddingConfig: EmbeddingConfig
   activeProvider: LLMProvider | null
   isInitialized: boolean
   isConfigured: (provider: NonNullable<LLMProvider>) => boolean
@@ -36,6 +42,7 @@ interface LLMStoreState {
   setAnthropicConfig: (config: { apiKey: string; model: string }) => void
   setVertexConfig: (config: VertexConfig) => void
   setOllamaConfig: (config: OllamaConfig) => void
+  setEmbeddingConfig: (config: EmbeddingConfig) => void
   clearProviderConfig: (provider: NonNullable<LLMProvider>) => void
 }
 
@@ -49,6 +56,11 @@ const initialConfig: LLMConfig = {
   baseURL: null
 }
 
+const defaultEmbeddingConfig: EmbeddingConfig = {
+  provider: DEFAULT_EMBEDDING_PROVIDER,
+  model: DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[DEFAULT_EMBEDDING_PROVIDER]
+}
+
 export const useLLMStore = create<LLMStoreState>((set, get) => ({
   openaiConfig: { ...initialConfig },
   googleConfig: { ...initialConfig },
@@ -56,6 +68,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
   anthropicConfig: { ...initialConfig },
   vertexConfig: { ...initialConfig },
   ollamaConfig: { ...initialConfig },
+  embeddingConfig: { ...defaultEmbeddingConfig },
   activeProvider: null,
   isInitialized: false,
 
@@ -97,6 +110,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
           anthropicConfig: allConfigs.anthropic || { ...initialConfig },
           vertexConfig: allConfigs.vertex || { ...initialConfig },
           ollamaConfig: allConfigs.ollama || { ...initialConfig },
+          embeddingConfig: allConfigs.embedding || { ...defaultEmbeddingConfig },
           activeProvider: allConfigs.activeProvider || null,
           isInitialized: true
         })
@@ -319,6 +333,23 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       }
     } catch (err) {
       set({ ollamaConfig: oldConfig, activeProvider: oldActiveProvider })
+      throw err
+    }
+  },
+
+  setEmbeddingConfig: async (config: EmbeddingConfig) => {
+    const oldConfig = get().embeddingConfig
+    set({ embeddingConfig: config })
+
+    try {
+      const settings = window.ctg?.settings
+      if (settings?.setEmbeddingConfig) {
+        await settings.setEmbeddingConfig(config)
+      } else {
+        void 0
+      }
+    } catch (err) {
+      set({ embeddingConfig: oldConfig })
       throw err
     }
   },

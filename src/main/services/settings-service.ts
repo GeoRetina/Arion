@@ -11,15 +11,51 @@ import {
   AnthropicConfig,
   VertexConfig,
   OllamaConfig,
+  EmbeddingConfig,
+  EmbeddingProviderType,
   LLMProviderType,
   AllLLMConfigurations,
   McpServerConfig,
   SystemPromptConfig,
   SkillPackConfig
 } from '../../shared/ipc-types'
+import {
+  DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
+  DEFAULT_EMBEDDING_PROVIDER,
+  SUPPORTED_EMBEDDING_PROVIDERS
+} from '../../shared/embedding-constants'
 
 const SERVICE_NAME = 'ArionLLMCredentials'
 const DB_FILENAME = 'arion-settings.db'
+const EMBEDDING_CONFIG_KEY = 'embeddingConfig'
+
+const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
+  provider: DEFAULT_EMBEDDING_PROVIDER,
+  model: DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[DEFAULT_EMBEDDING_PROVIDER]
+}
+const SUPPORTED_EMBEDDING_PROVIDER_SET = new Set<EmbeddingProviderType>(
+  SUPPORTED_EMBEDDING_PROVIDERS
+)
+
+const normalizeEmbeddingConfig = (
+  config: Partial<EmbeddingConfig> | null | undefined
+): EmbeddingConfig => {
+  const requestedProvider = config?.provider
+  const provider = SUPPORTED_EMBEDDING_PROVIDER_SET.has(requestedProvider as EmbeddingProviderType)
+    ? (requestedProvider as EmbeddingProviderType)
+    : DEFAULT_EMBEDDING_CONFIG.provider
+
+  const requestedModel =
+    typeof config?.model === 'string' && config.model.trim().length > 0
+      ? config.model.trim()
+      : DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[provider]
+  const model = requestedModel
+
+  return {
+    provider,
+    model
+  }
+}
 
 // Define a more specific type for what we store in the DB (without API keys)
 interface StoredLLMConfig {
@@ -123,6 +159,30 @@ export class SettingsService {
       this.db
         .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
         .run('activeLLMProvider', JSON.stringify(null))
+    }
+
+    // Initialize embedding config if not set, and normalize legacy/invalid values.
+    const embeddingConfigRow = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get(EMBEDDING_CONFIG_KEY) as { value: string } | undefined
+    if (!embeddingConfigRow) {
+      this.db
+        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
+        .run(EMBEDDING_CONFIG_KEY, JSON.stringify(DEFAULT_EMBEDDING_CONFIG))
+    } else {
+      try {
+        const parsed = JSON.parse(embeddingConfigRow.value) as Partial<EmbeddingConfig>
+        const normalized = normalizeEmbeddingConfig(parsed)
+        if (JSON.stringify(normalized) !== embeddingConfigRow.value) {
+          this.db
+            .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+            .run(EMBEDDING_CONFIG_KEY, JSON.stringify(normalized))
+        }
+      } catch {
+        this.db
+          .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+          .run(EMBEDDING_CONFIG_KEY, JSON.stringify(DEFAULT_EMBEDDING_CONFIG))
+      }
     }
 
     // Initialize system prompt config if not set
@@ -295,6 +355,30 @@ export class SettingsService {
     return null
   }
 
+  async setEmbeddingConfig(config: EmbeddingConfig): Promise<void> {
+    const safeConfig = normalizeEmbeddingConfig(config)
+    this.db
+      .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+      .run(EMBEDDING_CONFIG_KEY, JSON.stringify(safeConfig))
+  }
+
+  async getEmbeddingConfig(): Promise<EmbeddingConfig> {
+    const row = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get(EMBEDDING_CONFIG_KEY) as { value: string } | undefined
+
+    if (!row) {
+      return DEFAULT_EMBEDDING_CONFIG
+    }
+
+    try {
+      const parsed = JSON.parse(row.value) as Partial<EmbeddingConfig>
+      return normalizeEmbeddingConfig(parsed)
+    } catch {
+      return DEFAULT_EMBEDDING_CONFIG
+    }
+  }
+
   // --- Active Provider Management ---
   async setActiveLLMProvider(provider: LLMProviderType | null): Promise<void> {
     this.db
@@ -311,15 +395,17 @@ export class SettingsService {
 
   // --- Get All Configs (for initial load) ---
   async getAllLLMConfigs(): Promise<AllLLMConfigurations> {
-    const [openai, google, azure, anthropic, vertex, ollama, activeProvider] = await Promise.all([
-      this.getOpenAIConfig(),
-      this.getGoogleConfig(),
-      this.getAzureConfig(),
-      this.getAnthropicConfig(),
-      this.getVertexConfig(),
-      this.getOllamaConfig(),
-      this.getActiveLLMProvider()
-    ])
+    const [openai, google, azure, anthropic, vertex, ollama, embedding, activeProvider] =
+      await Promise.all([
+        this.getOpenAIConfig(),
+        this.getGoogleConfig(),
+        this.getAzureConfig(),
+        this.getAnthropicConfig(),
+        this.getVertexConfig(),
+        this.getOllamaConfig(),
+        this.getEmbeddingConfig(),
+        this.getActiveLLMProvider()
+      ])
     const allConfigs: AllLLMConfigurations = {
       openai: openai || undefined,
       google: google || undefined,
@@ -327,6 +413,7 @@ export class SettingsService {
       anthropic: anthropic || undefined,
       vertex: vertex || undefined,
       ollama: ollama || undefined,
+      embedding,
       activeProvider: activeProvider || null
     }
     //
