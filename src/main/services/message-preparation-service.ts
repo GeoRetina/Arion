@@ -86,7 +86,11 @@ export class MessagePreparationService {
     }
 
     // Construct the system prompt
-    finalSystemPrompt = await this.constructSystemPrompt(chatId, agentId)
+    finalSystemPrompt = await this.constructSystemPrompt(
+      normalizedRendererMessages as RendererMessageLike[],
+      chatId,
+      agentId
+    )
 
     // Remove any existing system message from coreMessages as it will be passed separately
     const { messages, systemPrompt } = this.removeExistingSystemMessage(
@@ -101,11 +105,16 @@ export class MessagePreparationService {
 
   /**
    * Construct the system prompt for the LLM
+   * @param rendererMessages Normalized renderer messages
    * @param chatId Optional chat ID for context
    * @param agentId Optional agent ID for agent-specific prompts
    * @returns Constructed system prompt or null if construction fails
    */
-  private async constructSystemPrompt(chatId?: string, agentId?: string): Promise<string | null> {
+  private async constructSystemPrompt(
+    rendererMessages: RendererMessageLike[],
+    chatId?: string,
+    agentId?: string
+  ): Promise<string | null> {
     try {
       // Get MCP tools if available
       const mcpTools = await this.getMCPTools()
@@ -152,11 +161,25 @@ export class MessagePreparationService {
         baseSystemPrompt = `${baseSystemPrompt}\n\n${systemPromptConfig.userSystemPrompt}`
       }
 
+      const skillPackConfig = await this.settingsService.getSkillPackConfig()
+      const workspaceRoot =
+        typeof skillPackConfig.workspaceRoot === 'string' &&
+        skillPackConfig.workspaceRoot.trim().length > 0
+          ? skillPackConfig.workspaceRoot.trim()
+          : undefined
+
       // Get available agents information if the registry is available
       const availableAgentsInfo = await this.getAvailableAgentsInfo()
+      const recentUserMessages = this.extractRecentUserMessages(rendererMessages)
 
       // Use the modular prompt manager to get a system prompt if available
-      let finalSystemPrompt = await this.getModularSystemPrompt(chatId, baseSystemPrompt, agentId)
+      let finalSystemPrompt = await this.getModularSystemPrompt(
+        chatId,
+        baseSystemPrompt,
+        agentId,
+        recentUserMessages,
+        workspaceRoot
+      )
 
       // Add available agents info to the system prompt if we have any
       if (availableAgentsInfo) {
@@ -255,14 +278,18 @@ export class MessagePreparationService {
   private async getModularSystemPrompt(
     chatId?: string,
     baseSystemPrompt?: string,
-    agentId?: string
+    agentId?: string,
+    recentUserMessages: string[] = [],
+    workspaceRoot?: string
   ): Promise<string> {
     // Use the modular prompt manager to get a system prompt if available
     if (this.modularPromptManager) {
       try {
         const context = {
           chatId: chatId || 'default',
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          recentUserMessages,
+          workspaceRoot
           // Add any other context that would be useful for prompt assembly
         }
 
@@ -477,5 +504,73 @@ export class MessagePreparationService {
       return 'object'
     }
     return typeof content
+  }
+
+  private extractRecentUserMessages(
+    rendererMessages: RendererMessageLike[],
+    maxMessages = 6
+  ): string[] {
+    if (!Array.isArray(rendererMessages) || rendererMessages.length === 0) {
+      return []
+    }
+
+    const collected: string[] = []
+    for (let index = rendererMessages.length - 1; index >= 0; index--) {
+      const messageRecord = asRecord(rendererMessages[index])
+      if (!messageRecord || messageRecord.role !== 'user') {
+        continue
+      }
+
+      const extractedText = this.extractUserMessageText(messageRecord)
+      if (!extractedText) {
+        continue
+      }
+
+      collected.push(extractedText)
+      if (collected.length >= maxMessages) {
+        break
+      }
+    }
+
+    return collected.reverse()
+  }
+
+  private extractUserMessageText(messageRecord: Record<string, unknown>): string {
+    const directContent = messageRecord.content
+    if (typeof directContent === 'string' && directContent.trim()) {
+      return directContent.trim()
+    }
+
+    const extractedParts: string[] = []
+    const partsValue = messageRecord.parts
+    if (Array.isArray(partsValue)) {
+      for (const part of partsValue) {
+        const partRecord = asRecord(part)
+        if (!partRecord) {
+          continue
+        }
+        if (partRecord.type === 'text' && typeof partRecord.text === 'string') {
+          extractedParts.push(partRecord.text.trim())
+        }
+      }
+    }
+
+    if (extractedParts.length > 0) {
+      return extractedParts.join('\n').trim()
+    }
+
+    if (Array.isArray(directContent)) {
+      for (const part of directContent) {
+        const partRecord = asRecord(part)
+        if (!partRecord) {
+          continue
+        }
+        if (partRecord.type === 'text' && typeof partRecord.text === 'string') {
+          extractedParts.push(partRecord.text.trim())
+        }
+      }
+    }
+
+    return extractedParts.join('\n').trim()
   }
 }

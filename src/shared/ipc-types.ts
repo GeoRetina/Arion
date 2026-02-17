@@ -118,6 +118,26 @@ export interface SystemPromptConfig {
   userSystemPrompt: string
 }
 
+export type SkillPackSkillSource = 'workspace' | 'global' | 'managed' | 'bundled'
+
+export interface SkillPackConfig {
+  workspaceRoot?: string | null
+}
+
+export interface SkillPackInfo {
+  id: string
+  name: string
+  description: string
+  source: SkillPackSkillSource
+  sourcePath: string
+}
+
+export interface SkillPackTemplateBootstrapResult {
+  workspaceRoot: string
+  created: string[]
+  existing: string[]
+}
+
 export const IpcChannels = {
   // Agent System IPC Channels
   getAgents: 'agents:getAll',
@@ -161,6 +181,10 @@ export const IpcChannels = {
   // System Prompt IPC Channels
   getSystemPromptConfig: 'settings:get-system-prompt-config',
   setSystemPromptConfig: 'settings:set-system-prompt-config',
+  getSkillPackConfig: 'settings:get-skill-pack-config',
+  setSkillPackConfig: 'settings:set-skill-pack-config',
+  listAvailableSkills: 'settings:list-available-skills',
+  bootstrapWorkspaceTemplates: 'settings:bootstrap-workspace-templates',
 
   // Database IPC Channels
   dbCreateChat: 'ctg:db:createChat',
@@ -292,6 +316,12 @@ export interface SettingsApi {
   // System Prompt methods
   getSystemPromptConfig: () => Promise<SystemPromptConfig>
   setSystemPromptConfig: (config: SystemPromptConfig) => Promise<void>
+
+  // Skill Pack methods
+  getSkillPackConfig: () => Promise<SkillPackConfig>
+  setSkillPackConfig: (config: SkillPackConfig) => Promise<void>
+  listAvailableSkills: (workspaceRoot?: string) => Promise<SkillPackInfo[]>
+  bootstrapWorkspaceTemplates: (workspaceRoot: string) => Promise<SkillPackTemplateBootstrapResult>
 }
 
 // Type for the Chat API arguments and return type

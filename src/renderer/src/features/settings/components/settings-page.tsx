@@ -7,7 +7,9 @@ import {
   RefreshCw,
   RotateCw,
   SlidersHorizontal,
-  MessageSquareText
+  MessageSquareText,
+  Sparkles,
+  FolderTree
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -15,8 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Toggle } from '@/components/ui/toggle'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { useThemeStore, applyTheme } from '@/stores/theme-store'
-import { SystemPromptConfig } from '@/../../shared/ipc-types'
+import { SkillPackConfig, SkillPackInfo, SystemPromptConfig } from '@/../../shared/ipc-types'
 import { toast } from 'sonner'
 
 const SettingsPage: React.FC = () => {
@@ -25,6 +29,13 @@ const SettingsPage: React.FC = () => {
   const [systemPromptConfig, setSystemPromptConfig] = useState<SystemPromptConfig>({
     userSystemPrompt: ''
   })
+  const [skillPackConfig, setSkillPackConfig] = useState<SkillPackConfig>({
+    workspaceRoot: ''
+  })
+  const [availableSkills, setAvailableSkills] = useState<SkillPackInfo[]>([])
+  const [isSkillsLoading, setIsSkillsLoading] = useState(true)
+  const [isSavingSkillConfig, setIsSavingSkillConfig] = useState(false)
+  const [isBootstrappingTemplates, setIsBootstrappingTemplates] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   // Handle theme change
@@ -45,6 +56,28 @@ const SettingsPage: React.FC = () => {
       }
     }
     fetchSystemPromptConfig()
+  }, [])
+
+  useEffect(() => {
+    const fetchSkillPackState = async (): Promise<void> => {
+      setIsSkillsLoading(true)
+      try {
+        const config = await window.ctg.settings.getSkillPackConfig()
+        setSkillPackConfig(config)
+        const resolvedWorkspaceRoot =
+          typeof config.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
+            ? config.workspaceRoot.trim()
+            : undefined
+        const skills = await window.ctg.settings.listAvailableSkills(resolvedWorkspaceRoot)
+        setAvailableSkills(skills)
+      } catch {
+        setAvailableSkills([])
+      } finally {
+        setIsSkillsLoading(false)
+      }
+    }
+
+    fetchSkillPackState()
   }, [])
 
   // Handle user system prompt change
@@ -75,6 +108,88 @@ const SettingsPage: React.FC = () => {
     }))
   }
 
+  const handleWorkspaceRootChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const nextValue = e.target.value
+    setSkillPackConfig((prev) => ({
+      ...prev,
+      workspaceRoot: nextValue
+    }))
+  }
+
+  const handleSaveSkillPackConfig = async (): Promise<void> => {
+    setIsSavingSkillConfig(true)
+    try {
+      const normalizedWorkspaceRoot =
+        typeof skillPackConfig.workspaceRoot === 'string' &&
+        skillPackConfig.workspaceRoot.trim().length > 0
+          ? skillPackConfig.workspaceRoot.trim()
+          : null
+
+      await window.ctg.settings.setSkillPackConfig({
+        workspaceRoot: normalizedWorkspaceRoot
+      })
+      const refreshedSkills = await window.ctg.settings.listAvailableSkills(
+        normalizedWorkspaceRoot || undefined
+      )
+      setAvailableSkills(refreshedSkills)
+      toast.success('Skill pack settings saved')
+    } catch (error) {
+      toast.error('Failed to save skill pack settings', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
+    } finally {
+      setIsSavingSkillConfig(false)
+    }
+  }
+
+  const handleRefreshSkills = async (): Promise<void> => {
+    setIsSkillsLoading(true)
+    try {
+      const normalizedWorkspaceRoot =
+        typeof skillPackConfig.workspaceRoot === 'string' &&
+        skillPackConfig.workspaceRoot.trim().length > 0
+          ? skillPackConfig.workspaceRoot.trim()
+          : undefined
+      const skills = await window.ctg.settings.listAvailableSkills(normalizedWorkspaceRoot)
+      setAvailableSkills(skills)
+      toast.success('Skills refreshed')
+    } catch (error) {
+      toast.error('Failed to refresh skills', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
+    } finally {
+      setIsSkillsLoading(false)
+    }
+  }
+
+  const handleBootstrapTemplates = async (): Promise<void> => {
+    const normalizedWorkspaceRoot =
+      typeof skillPackConfig.workspaceRoot === 'string' &&
+      skillPackConfig.workspaceRoot.trim().length > 0
+        ? skillPackConfig.workspaceRoot.trim()
+        : ''
+
+    if (!normalizedWorkspaceRoot) {
+      toast.error('Workspace root is required to bootstrap templates')
+      return
+    }
+
+    setIsBootstrappingTemplates(true)
+    try {
+      const result = await window.ctg.settings.bootstrapWorkspaceTemplates(normalizedWorkspaceRoot)
+      await handleRefreshSkills()
+      toast.success('Workspace templates processed', {
+        description: `Created ${result.created.length}, existing ${result.existing.length}`
+      })
+    } catch (error) {
+      toast.error('Failed to bootstrap workspace templates', {
+        description: error instanceof Error ? error.message : 'An unknown error occurred'
+      })
+    } finally {
+      setIsBootstrappingTemplates(false)
+    }
+  }
+
   useEffect(() => {
     const fetchVersion = async (): Promise<void> => {
       try {
@@ -100,7 +215,7 @@ const SettingsPage: React.FC = () => {
 
           <div className="w-xl">
             <Tabs defaultValue="appearance" className="w-full">
-              <TabsList className="grid grid-cols-4 mb-6">
+              <TabsList className="grid grid-cols-5 mb-6">
                 <TabsTrigger value="appearance" className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4" />
                   <span>Appearance</span>
@@ -108,6 +223,10 @@ const SettingsPage: React.FC = () => {
                 <TabsTrigger value="prompts" className="flex items-center gap-2">
                   <MessageSquareText className="h-4 w-4" />
                   <span>System Prompts</span>
+                </TabsTrigger>
+                <TabsTrigger value="skills" className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Skills</span>
                 </TabsTrigger>
                 <TabsTrigger value="updates" className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
@@ -196,6 +315,85 @@ const SettingsPage: React.FC = () => {
                       </div>
                     </div>
                     */}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Skills Tab */}
+              <TabsContent value="skills">
+                <h2 className="text-xl font-medium mb-5">Skills and Templates</h2>
+                <Card>
+                  <CardHeader className="pb-2 pt-4 px-5">
+                    <CardTitle>Skill Pack Configuration</CardTitle>
+                    <CardDescription>
+                      Configure workspace skill precedence and bootstrap workspace templates.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-5 py-3 space-y-6">
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium">Workspace Root</h3>
+                      <Input
+                        value={skillPackConfig.workspaceRoot || ''}
+                        onChange={handleWorkspaceRootChange}
+                        placeholder="/path/to/workspace"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Precedence order: workspace &gt; global/managed &gt; bundled
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={handleSaveSkillPackConfig} disabled={isSavingSkillConfig}>
+                        {isSavingSkillConfig ? 'Saving...' : 'Save Skill Settings'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleRefreshSkills}
+                        disabled={isSkillsLoading}
+                      >
+                        {isSkillsLoading ? 'Refreshing...' : 'Refresh Skills'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleBootstrapTemplates}
+                        disabled={isBootstrappingTemplates}
+                      >
+                        <FolderTree className="h-4 w-4 mr-2" />
+                        {isBootstrappingTemplates ? 'Bootstrapping...' : 'Bootstrap Templates'}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium">
+                        Resolved Skills ({availableSkills.length})
+                      </h3>
+                      {isSkillsLoading ? (
+                        <div className="text-sm text-muted-foreground">Loading skills...</div>
+                      ) : availableSkills.length === 0 ? (
+                        <div className="text-sm text-muted-foreground">
+                          No skills found for current resolution paths.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
+                          {availableSkills.map((skill) => (
+                            <div
+                              key={`${skill.id}:${skill.source}`}
+                              className="rounded-md border border-border/60 px-3 py-2"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="font-medium text-sm">{skill.name}</div>
+                                <Badge variant="outline">{skill.source}</Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-1">{`$${skill.id}`}</div>
+                              <div className="text-xs mt-1">{skill.description}</div>
+                              <div className="text-[11px] text-muted-foreground mt-1 break-all">
+                                {skill.sourcePath}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
