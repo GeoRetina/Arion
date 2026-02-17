@@ -10,7 +10,12 @@ import { mapOllamaFinishReason, normalizeToolArguments, serializeToolArguments }
 export class OllamaResponseProcessor {
   constructor(private readonly config: OllamaConfig) {}
 
-  processGenerateResponse(response: OllamaResponse) {
+  processGenerateResponse(response: OllamaResponse): {
+    content: LanguageModelV3Content[]
+    finishReason: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3FinishReason
+    usage: LanguageModelV3Usage
+    providerMetadata: SharedV3ProviderMetadata
+  } {
     const content = this.extractContent(response)
     const finishReason = mapOllamaFinishReason(response.done_reason)
     const usage = this.extractUsage(response)
@@ -45,7 +50,7 @@ export class OllamaResponseProcessor {
         toolName: toolCall.function.name,
         input: serialized,
         args
-      } as any)
+      } as UnsafeAny)
     }
 
     return content

@@ -13,7 +13,7 @@ import type { LayerDefinition, LayerStyle } from '../../../shared/types/layer-ty
 interface SyncOperation {
   type: 'add' | 'update' | 'remove' | 'style' | 'visibility' | 'opacity' | 'reorder'
   layerId: string
-  data?: any
+  data?: UnsafeAny
   timestamp: number
 }
 
@@ -98,7 +98,13 @@ export class LayerSyncService {
   /**
    * Get synchronization statistics
    */
-  getStats() {
+  getStats(): {
+    totalSyncs: number
+    totalTime: number
+    lastSyncTime: number
+    averageTime: number
+    errors: number
+  } {
     return { ...this.syncStats }
   }
 
@@ -152,7 +158,7 @@ export class LayerSyncService {
         this.handleStoreChange(current, previous)
       },
       {
-        equalityFn: (a: any, b: any) => {
+        equalityFn: (a: UnsafeAny, b: UnsafeAny) => {
           // Custom equality check for performance
           return a.layers === b.layers && a.selectedLayerId === b.selectedLayerId
         }
@@ -420,7 +426,7 @@ export class LayerSyncService {
       if (JSON.stringify(current.sourceConfig) !== JSON.stringify(previous.sourceConfig)) {
         const source = this.mapInstance.getSource(current.sourceId)
         if (source && source.type === 'geojson') {
-          ;(source as any).setData(current.sourceConfig.data)
+          ;(source as UnsafeAny).setData(current.sourceConfig.data)
           this.log(`Updated source data: ${current.sourceId}`)
         }
       }
@@ -666,7 +672,7 @@ export class LayerSyncService {
       case 'geojson':
         return {
           type: 'geojson',
-          data: sourceConfig.data as any,
+          data: sourceConfig.data as UnsafeAny,
           ...(sourceConfig.options?.buffer && { buffer: sourceConfig.options.buffer }),
           ...(sourceConfig.options?.tolerance && { tolerance: sourceConfig.options.tolerance }),
           ...(sourceConfig.options?.cluster && {
@@ -913,7 +919,7 @@ export class LayerSyncService {
   /**
    * Handle source loading events
    */
-  private handleSourceLoading(event: any): void {
+  private handleSourceLoading(event: UnsafeAny): void {
     if (this.managedSources.has(event.sourceId)) {
       this.log(`Source loading: ${event.sourceId}`)
     }
@@ -922,7 +928,7 @@ export class LayerSyncService {
   /**
    * Handle source data changed events
    */
-  private handleSourceChanged(event: any): void {
+  private handleSourceChanged(event: UnsafeAny): void {
     if (this.managedSources.has(event.sourceId)) {
       this.log(`Source data changed: ${event.sourceId}`)
     }
@@ -931,7 +937,7 @@ export class LayerSyncService {
   /**
    * Handle map errors
    */
-  private handleMapError(event: any): void {
+  private handleMapError(event: UnsafeAny): void {
     this.log('Map error:', event.error)
     this.updateSyncStats(0, true)
   }
@@ -955,7 +961,7 @@ export class LayerSyncService {
   /**
    * Logging helper
    */
-  private log(message: string, ...args: any[]): void {
+  private log(message: string, ...args: UnsafeAny[]): void {
     if (this.options.enableLogging) {
       console.log('[LayerSyncService]', message, ...args)
     }

@@ -133,7 +133,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     [mentionTrigger, setInternalText, onValueChange]
   )
 
-  const onInternalSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+  const onInternalSubmit = async (e?: React.FormEvent<HTMLFormElement>): Promise<void> => {
     if (e) e.preventDefault()
     // Submit based on internalText to ensure it matches what user sees,
     // though inputValue should ideally be in sync.
@@ -155,7 +155,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
     }
   }
 
-  const handleCombinedKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleCombinedKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     // Handle mention menu navigation when active
     if (mentionTrigger.isActive && mentionData.items.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -211,7 +211,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   // Simplified banner closing, just clears the visual banner part
   // Actual logic for clearing selected ROI would be in useChatLogic or parent
-  const handleCloseBanner = (e: React.MouseEvent) => {
+  const handleCloseBanner = (e: React.MouseEvent): void => {
     e.preventDefault()
     e.stopPropagation()
     // TODO: Implement a way to signal to parent to clear the activeBanner if needed

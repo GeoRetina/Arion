@@ -38,21 +38,21 @@ function KnowledgeBase(): React.JSX.Element {
   }, [folders])
 
   // Handlers for document operations
-  const handleAddDocument = () => {
+  const handleAddDocument = (): void => {
     setDocumentToEdit(undefined)
     setIsAddDocumentOpen(true)
   }
 
-  const handleEditDocument = (document: Document) => {
+  const handleEditDocument = (document: Document): void => {
     setDocumentToEdit(document)
     setIsAddDocumentOpen(true)
   }
 
-  const handleDeleteDocument = (document: Document) => {
+  const handleDeleteDocument = (document: Document): void => {
     setDocumentToDelete(document)
   }
 
-  const confirmDeleteDocument = () => {
+  const confirmDeleteDocument = (): void => {
     if (documentToDelete) {
       deleteDocumentAndEmbeddings(documentToDelete.id)
       setDocumentToDelete(undefined)
@@ -61,21 +61,21 @@ function KnowledgeBase(): React.JSX.Element {
   }
 
   // Handlers for folder operations
-  const handleAddFolder = () => {
+  const handleAddFolder = (): void => {
     setFolderToEdit(undefined)
     setIsAddFolderOpen(true)
   }
 
-  const handleEditFolder = (folder: Folder) => {
+  const handleEditFolder = (folder: Folder): void => {
     setFolderToEdit(folder)
     setIsAddFolderOpen(true)
   }
 
-  const handleDeleteFolder = (folder: Folder) => {
+  const handleDeleteFolder = (folder: Folder): void => {
     setFolderToDelete(folder)
   }
 
-  const confirmDeleteFolder = () => {
+  const confirmDeleteFolder = (): void => {
     if (folderToDelete) {
       deleteFolder(folderToDelete.id)
       // If we're currently viewing the folder being deleted, go back to All Documents
@@ -86,7 +86,7 @@ function KnowledgeBase(): React.JSX.Element {
     }
   }
 
-  const confirmBulkDeleteDocuments = () => {
+  const confirmBulkDeleteDocuments = (): void => {
     selectedDocumentIds.forEach((id) => {
       deleteDocumentAndEmbeddings(id)
     })
@@ -168,7 +168,7 @@ function KnowledgeBase(): React.JSX.Element {
                 showAddDocumentButton={showAddButtonInTable}
                 onSelectionChange={setSelectedDocumentIds}
                 selectedDocumentIds={selectedDocumentIds}
-                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' } as any)}
+                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' } as UnsafeAny)}
               />
             </div>
           )}

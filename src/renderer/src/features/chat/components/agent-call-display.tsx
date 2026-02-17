@@ -19,7 +19,7 @@ interface AgentCallDisplayProps {
   agentId: string
   message: string
   status: 'loading' | 'completed' | 'error'
-  result?: any
+  result?: UnsafeAny
   className?: string
 }
 

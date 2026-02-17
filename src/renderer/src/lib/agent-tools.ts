@@ -21,7 +21,7 @@ export async function fetchAvailableTools(): Promise<string[]> {
  * @param agents Array of agent definitions
  * @returns Set<string> Set of assigned tool names
  */
-export function getAssignedToolsFromAgents(agents: any[]): Set<string> {
+export function getAssignedToolsFromAgents(agents: UnsafeAny[]): Set<string> {
   const assignedTools = new Set<string>()
 
   agents.forEach((agent) => {
@@ -34,7 +34,7 @@ export function getAssignedToolsFromAgents(agents: any[]): Set<string> {
 
     // Check for tools in capabilities
     if (agent?.capabilities && Array.isArray(agent.capabilities)) {
-      agent.capabilities.forEach((capability: any) => {
+      agent.capabilities.forEach((capability: UnsafeAny) => {
         if (capability?.tools && Array.isArray(capability.tools)) {
           capability.tools.forEach((tool: string) => {
             assignedTools.add(tool)
@@ -62,7 +62,7 @@ export function filterUnassignedTools(allTools: string[], assignedTools: Set<str
  * @param agents Array of agents to check for assigned tools
  * @returns Promise<string[]> Array of available unassigned tools
  */
-export async function getAvailableUnassignedTools(agents: any[]): Promise<string[]> {
+export async function getAvailableUnassignedTools(agents: UnsafeAny[]): Promise<string[]> {
   const allTools = await fetchAvailableTools()
   const assignedTools = getAssignedToolsFromAgents(agents)
   return filterUnassignedTools(allTools, assignedTools)

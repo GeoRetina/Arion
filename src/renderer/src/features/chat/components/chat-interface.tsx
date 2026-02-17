@@ -67,7 +67,7 @@ export default function ChatInterface(): React.JSX.Element {
   // Notify reasoning container to collapse when assistant starts streaming text
   useReasoningNotification({
     isStreamingUi,
-    chatMessages: chat.messages as any[]
+    chatMessages: chat.messages as UnsafeAny[]
   })
 
   // Use error dialog hook
@@ -95,7 +95,7 @@ export default function ChatInterface(): React.JSX.Element {
 
   const displayIsLoading = isStreamingUi
   const lastDisplayMessage =
-    displayMessages.length > 0 ? (displayMessages as any[])[displayMessages.length - 1] : null
+    displayMessages.length > 0 ? (displayMessages as UnsafeAny[])[displayMessages.length - 1] : null
   const shouldShowLoadingIndicator =
     displayIsLoading &&
     (lastDisplayMessage?.role === 'user' ||
@@ -103,7 +103,7 @@ export default function ChatInterface(): React.JSX.Element {
         !hasRenderableAssistantContent(lastDisplayMessage)))
 
   // Custom handleSubmit to send message via v5 API
-  const handleSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e?: React.FormEvent<HTMLFormElement>): void => {
     if (e) e.preventDefault() // Prevent default form submission if event is passed
 
     const isActiveProviderConfigured = activeProvider && isConfigured(activeProvider)
@@ -130,8 +130,8 @@ export default function ChatInterface(): React.JSX.Element {
     // If an active provider is configured, send the message using v5 sendMessage
     if (input && input.trim()) {
       setIsStreamingUi(true)
-      const fnSend = (chat as any)?.sendMessage
-      const fnAppend = (chat as any)?.append
+      const fnSend = (chat as UnsafeAny)?.sendMessage
+      const fnAppend = (chat as UnsafeAny)?.append
       if (typeof fnSend === 'function') {
         fnSend({ text: input })
       } else if (typeof fnAppend === 'function') {
@@ -156,7 +156,7 @@ export default function ChatInterface(): React.JSX.Element {
             <div className="mx-auto w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl px-4 pt-15 pb-6">
               {displayMessages.length === 0 && !displayIsLoading && <EmptyState />}
 
-              {(displayMessages as any[]).map((m: any, index: number) => {
+              {(displayMessages as UnsafeAny[]).map((m: UnsafeAny, index: number) => {
                 // Only show streaming state for the latest assistant message
                 const isLatestAssistantMessage =
                   m.role === 'assistant' && index === displayMessages.length - 1 && displayIsLoading

@@ -11,13 +11,14 @@ import { splitReasoningText } from '../../../../../../shared/utils/reasoning-tex
 import { hasRenderableAssistantContent } from '../../utils/message-part-utils'
 
 // Streaming indicator - shown at bottom of message while generating
-const StreamingIndicator = () => (
-  <div className="streaming-indicator">
-    <span className="dot">.</span>
-    <span className="dot">.</span>
-    <span className="dot">.</span>
-  </div>
-)
+const StreamingIndicator =
+  (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
+    <div className="streaming-indicator">
+      <span className="dot">.</span>
+      <span className="dot">.</span>
+      <span className="dot">.</span>
+    </div>
+  )
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
@@ -25,8 +26,8 @@ interface ExtendedMessage {
   role: 'system' | 'user' | 'assistant' | 'data' | 'tool'
   content?: string
   createdAt?: Date
-  parts?: any[]
-  toolInvocations?: any[]
+  parts?: UnsafeAny[]
+  toolInvocations?: UnsafeAny[]
   orchestration?: {
     subtasks?: Subtask[]
     agentsInvolved?: string[]
@@ -46,13 +47,13 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const isUser = message.role === 'user'
     const textFromParts = Array.isArray(message.parts)
       ? message.parts
-          .filter((p) => p && p.type === 'text' && typeof (p as any).text === 'string')
-          .map((p) => (p as any).text as string)
+          .filter((p) => p && p.type === 'text' && typeof (p as UnsafeAny).text === 'string')
+          .map((p) => (p as UnsafeAny).text as string)
           .join('')
       : ''
     const primaryText = message.content ?? textFromParts
 
-    const isHydratedSnapshot = Boolean((message as any).hydrated)
+    const isHydratedSnapshot = Boolean((message as UnsafeAny).hydrated)
     const [collapseReasoning, setCollapseReasoning] = useState(
       isHydratedSnapshot && !isUser ? true : false
     )
@@ -61,12 +62,13 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       !isUser &&
       Array.isArray(message.parts) &&
       message.parts.some((part) => {
-        if (!part || part.type !== 'text' || typeof (part as any).text !== 'string') return false
-        const { reasoningText, contentText } = splitReasoningText((part as any).text as string)
+        const typedPart = part as { type?: unknown; text?: unknown; state?: unknown }
+        if (!part || typedPart.type !== 'text' || typeof typedPart.text !== 'string') return false
+        const { reasoningText, contentText } = splitReasoningText(typedPart.text)
         if (reasoningText && contentText.length === 0) {
           return false
         }
-        return (part as any).state === 'streaming' || contentText.length > 0
+        return typedPart.state === 'streaming' || contentText.length > 0
       })
 
     useEffect(() => {
@@ -87,7 +89,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     useEffect(() => {
       if (!hasAssistantParts || initializedRef.current) return
       initializedRef.current = true
-      const handler = () => setCollapseReasoning(true)
+      const handler = (): void => setCollapseReasoning(true)
       window.addEventListener('ai-assistant-text-start', handler)
       return () => window.removeEventListener('ai-assistant-text-start', handler)
     }, [hasAssistantParts])

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Bot, Brain, Sparkles, Zap, Workflow } from 'lucide-react'
 // Helper function to conditionally join class names
-const cn = (...classes: (string | boolean | undefined)[]) => {
+const cn = (...classes: (string | boolean | undefined)[]): string => {
   return classes.filter(Boolean).join(' ')
 }
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -52,20 +52,25 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
   }
 
   // Get appropriate icon based on agent type
-  const getAgentIcon = () => {
-    switch (agent.type) {
-      case 'orchestrator':
-        return <Workflow className={iconSizes[size]} />
-      case 'specialized':
-        return <Brain className={iconSizes[size]} />
-      case 'general':
-      default:
-        return <Bot className={iconSizes[size]} />
+  const getAgentIcon =
+    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+      switch (agent.type) {
+        case 'orchestrator':
+          return <Workflow className={iconSizes[size]} />
+        case 'specialized':
+          return <Brain className={iconSizes[size]} />
+        case 'general':
+        default:
+          return <Bot className={iconSizes[size]} />
+      }
     }
-  }
 
   // Get color scheme based on agent type
-  const getColorScheme = () => {
+  const getColorScheme = ():
+    | 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+    | 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+    | 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+    | 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800' => {
     if (!agent.isActive) {
       return 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
     }
@@ -82,36 +87,37 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
   }
 
   // Content for the tooltip
-  const getTooltipContent = () => {
-    return (
-      <div className="text-sm">
-        <p className="font-medium">{agent.name}</p>
-        <p className="text-xs capitalize mt-1">Type: {agent.type}</p>
+  const getTooltipContent =
+    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+      return (
+        <div className="text-sm">
+          <p className="font-medium">{agent.name}</p>
+          <p className="text-xs capitalize mt-1">Type: {agent.type}</p>
 
-        {agent.capabilities && agent.capabilities.length > 0 && (
-          <div className="mt-2">
-            <p className="text-xs font-medium mb-1">Capabilities:</p>
-            <div className="flex flex-wrap gap-1">
-              {agent.capabilities.map((capability) => (
-                <span
-                  key={capability}
-                  className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 rounded"
-                >
-                  {capability}
-                </span>
-              ))}
+          {agent.capabilities && agent.capabilities.length > 0 && (
+            <div className="mt-2">
+              <p className="text-xs font-medium mb-1">Capabilities:</p>
+              <div className="flex flex-wrap gap-1">
+                {agent.capabilities.map((capability) => (
+                  <span
+                    key={capability}
+                    className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 rounded"
+                  >
+                    {capability}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {agent.isActive && (
-          <p className="text-xs mt-2 flex items-center gap-1">
-            <Zap className="h-3 w-3" /> Active
-          </p>
-        )}
-      </div>
-    )
-  }
+          {agent.isActive && (
+            <p className="text-xs mt-2 flex items-center gap-1">
+              <Zap className="h-3 w-3" /> Active
+            </p>
+          )}
+        </div>
+      )
+    }
 
   return (
     <Tooltip delayDuration={300}>

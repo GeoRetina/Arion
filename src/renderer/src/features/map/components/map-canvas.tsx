@@ -67,7 +67,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible, onSearch
       const searchControl: IControl = (() => {
         let container: HTMLDivElement | null = null
         let button: HTMLButtonElement | null = null
-        const handleClick = () => {
+        const handleClick = (): void => {
           searchClickRef.current?.()
         }
 

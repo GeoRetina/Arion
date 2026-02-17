@@ -5,7 +5,7 @@ import type { RegisteredTool } from './tool-types'
 export class ToolRegistry {
   private readonly registeredTools: Map<string, RegisteredTool> = new Map()
 
-  public register(tool: RegisteredTool) {
+  public register(tool: RegisteredTool): void {
     if (this.registeredTools.has(tool.name)) {
       return
     }
@@ -21,11 +21,11 @@ export class ToolRegistry {
     this.registeredTools.set(tool.name, tool)
   }
 
-  public get(toolName: string) {
+  public get(toolName: string): RegisteredTool | undefined {
     return this.registeredTools.get(toolName)
   }
 
-  public has(toolName: string) {
+  public has(toolName: string): boolean {
     return this.registeredTools.has(toolName)
   }
 
@@ -33,15 +33,15 @@ export class ToolRegistry {
     return Array.from(this.registeredTools.keys())
   }
 
-  public forEach(callback: (tool: RegisteredTool, name: string) => void) {
+  public forEach(callback: (tool: RegisteredTool, name: string) => void): void {
     this.registeredTools.forEach((value, key) => callback(value, key))
   }
 
   public createToolDefinitions(
-    executeTool: (toolName: string, args: any) => Promise<any>,
+    executeTool: (toolName: string, args: UnsafeAny) => Promise<UnsafeAny>,
     allowedToolIds?: string[]
-  ): Record<string, any> {
-    const llmTools: Record<string, any> = {}
+  ): Record<string, UnsafeAny> {
+    const llmTools: Record<string, UnsafeAny> = {}
 
     this.registeredTools.forEach((registeredToolEntry) => {
       if (allowedToolIds && !allowedToolIds.includes(registeredToolEntry.name)) {
@@ -52,7 +52,7 @@ export class ToolRegistry {
       llmTools[registeredToolEntry.name] = toolFactory({
         description: registeredToolEntry.definition.description,
         inputSchema: registeredToolEntry.definition.inputSchema,
-        execute: async (args: any) => executeTool(registeredToolEntry.name, args)
+        execute: async (args: UnsafeAny) => executeTool(registeredToolEntry.name, args)
       })
     })
 

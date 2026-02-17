@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
 import { useLayerStore } from '../stores/layer-store'
 import { useMapStore } from '../stores/map-store'
 
-export function useLayerSync() {
+export function useLayerSync(): { isInitialized: boolean } {
   const mapInstance = useMapStore((state) => state.mapInstance)
   const isMapReady = useMapStore((state) => state.isMapReadyForOperations)
   const setMapInstance = useLayerStore((state) => state.setMapInstance)
@@ -100,7 +100,7 @@ export function useLayerSync() {
 /**
  * Hook for accessing layer management utilities
  */
-export function useLayerSyncStats() {
+export function useLayerSyncStats(): { isInitialized: boolean } {
   const { isInitialized } = useLayerSync()
 
   return {

@@ -40,13 +40,16 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
   const [testResult, setTestResult] = useState<PostgreSQLConnectionResult | null>(null)
   const [isTestingConnection, setIsTestingConnection] = useState(false)
 
-  const handleInputChange = (field: keyof PostgreSQLConfig, value: string | number | boolean) => {
+  const handleInputChange = (
+    field: keyof PostgreSQLConfig,
+    value: string | number | boolean
+  ): void => {
     setConfig((prev) => ({ ...prev, [field]: value }))
     // Clear test result when config changes
     setTestResult(null)
   }
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = async (): Promise<void> => {
     setIsTestingConnection(true)
     setTestResult(null)
 
@@ -65,7 +68,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
 
   const [isSaving, setIsSaving] = useState(false)
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (testResult?.success) {
       setIsSaving(true)
       try {

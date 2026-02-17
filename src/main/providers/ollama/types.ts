@@ -25,7 +25,7 @@ export const ollamaProviderOptionsSchema = z.object({
 
 export type RequestBuilderArgs = {
   model: string
-  messages: any
+  messages: UnsafeAny
   temperature?: number
   top_p?: number
   max_output_tokens?: number
@@ -33,7 +33,7 @@ export type RequestBuilderArgs = {
   think?: boolean | 'high' | 'medium' | 'low'
   options?: Record<string, unknown>
   keep_alive?: string | number
-  tools?: Array<any>
+  tools?: Array<UnsafeAny>
   tool_choice?:
     | 'auto'
     | 'none'

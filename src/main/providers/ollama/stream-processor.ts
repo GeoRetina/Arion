@@ -23,7 +23,12 @@ export class OllamaStreamProcessor {
 
   constructor(private readonly config: OllamaConfig) {}
 
-  createTransformStream(warnings: SharedV3Warning[]) {
+  createTransformStream(
+    warnings: SharedV3Warning[]
+  ): TransformStream<
+    ParseResult<z.infer<typeof baseOllamaResponseSchema>>,
+    LanguageModelV3StreamPart
+  > {
     return new TransformStream<
       ParseResult<z.infer<typeof baseOllamaResponseSchema>>,
       LanguageModelV3StreamPart
@@ -40,7 +45,15 @@ export class OllamaStreamProcessor {
     })
   }
 
-  private createInitialState() {
+  private createInitialState(): {
+    finishReason: LanguageModelV3FinishReason
+    usage: LanguageModelV3Usage
+    hasSentMetadata: boolean
+    hasTextStarted: boolean
+    hasReasoningStarted: boolean
+    textId: string
+    reasoningId: string
+  } {
     return {
       finishReason: { unified: 'other', raw: undefined } as LanguageModelV3FinishReason,
       usage: {
@@ -67,7 +80,7 @@ export class OllamaStreamProcessor {
   private processChunk(
     chunk: ParseResult<z.infer<typeof baseOllamaResponseSchema>>,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
-  ) {
+  ): void {
     const values = extractOllamaResponseObjectsFromChunk(chunk)
     if (values.length === 0) {
       if (!chunk.success) {
@@ -82,9 +95,9 @@ export class OllamaStreamProcessor {
   }
 
   private processResponseValue(
-    value: any,
+    value: UnsafeAny,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
-  ) {
+  ): void {
     if (!this.state.hasSentMetadata) {
       this.state.hasSentMetadata = true
       controller.enqueue({
@@ -118,9 +131,9 @@ export class OllamaStreamProcessor {
   }
 
   private emitText(
-    value: any,
+    value: UnsafeAny,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
-  ) {
+  ): void {
     const delta = value.message.content
     if (delta == null) return
 
@@ -137,9 +150,9 @@ export class OllamaStreamProcessor {
   }
 
   private emitThinking(
-    value: any,
+    value: UnsafeAny,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
-  ) {
+  ): void {
     const thoughts = value.message.thinking
     if (thoughts == null) return
 
@@ -156,9 +169,9 @@ export class OllamaStreamProcessor {
   }
 
   private emitToolCalls(
-    value: any,
+    value: UnsafeAny,
     controller: TransformStreamDefaultController<LanguageModelV3StreamPart>
-  ) {
+  ): void {
     for (const toolCall of value.message.tool_calls ?? []) {
       if (!toolCall.function?.name) {
         throw new InvalidResponseDataError({
@@ -177,11 +190,11 @@ export class OllamaStreamProcessor {
         toolName: toolCall.function.name,
         input: serialized,
         args
-      } as any)
+      } as UnsafeAny)
     }
   }
 
-  private finalize(controller: TransformStreamDefaultController<LanguageModelV3StreamPart>) {
+  private finalize(controller: TransformStreamDefaultController<LanguageModelV3StreamPart>): void {
     if (this.state.hasTextStarted) {
       controller.enqueue({ type: 'text-end', id: this.state.textId })
     }

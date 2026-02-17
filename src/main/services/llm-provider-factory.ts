@@ -170,7 +170,7 @@ export class LLMProviderFactory {
     const customOpenAI = createOpenAI({ apiKey: openaiConfig.apiKey })
     // IMPORTANT: use auto API selection so reasoning models (o3/o4-mini) use Responses API
     // which supports reasoning summaries and streaming reasoning events.
-    return customOpenAI(model as any)
+    return customOpenAI(model as UnsafeAny)
   }
 
   /**
@@ -182,7 +182,7 @@ export class LLMProviderFactory {
       throw new Error('Google provider is not configured correctly.')
     }
     const customGoogleProvider = createGoogleGenerativeAI({ apiKey: googleConfig.apiKey })
-    return customGoogleProvider(model as any)
+    return customGoogleProvider(model as UnsafeAny)
   }
 
   /**
@@ -210,7 +210,7 @@ export class LLMProviderFactory {
       throw new Error('Anthropic provider is not configured correctly.')
     }
     const customAnthropic = createAnthropic({ apiKey: anthropicConfig.apiKey })
-    return customAnthropic.messages(model as any)
+    return customAnthropic.messages(model as UnsafeAny)
   }
 
   /**
@@ -221,7 +221,7 @@ export class LLMProviderFactory {
     if (!vertexConfig?.apiKey || !vertexConfig.project || !vertexConfig.location) {
       throw new Error('Vertex AI provider is not configured correctly.')
     }
-    let credentialsJson: any = undefined
+    let credentialsJson: UnsafeAny = undefined
     try {
       if (vertexConfig.apiKey.trim().startsWith('{')) {
         credentialsJson = JSON.parse(vertexConfig.apiKey)
@@ -234,7 +234,7 @@ export class LLMProviderFactory {
       project: vertexConfig.project,
       location: vertexConfig.location
     })
-    return vertexProvider(model as any) as unknown as LanguageModel
+    return vertexProvider(model as UnsafeAny) as unknown as LanguageModel
   }
 
   /**
@@ -258,11 +258,11 @@ export class LLMProviderFactory {
     const isReasoningModel = detectReasoningModel(model)
     if (!isReasoningModel) {
       return wrapLanguageModel({
-        model: ollamaProvider(model as any),
+        model: ollamaProvider(model as UnsafeAny),
         middleware: simulateStreamingMiddleware()
       })
     }
 
-    return ollamaProvider(model as any)
+    return ollamaProvider(model as UnsafeAny)
   }
 }

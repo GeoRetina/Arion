@@ -22,6 +22,7 @@ import {
   type Chat,
   type Message as DbMessage,
   type DbApi,
+  type LayerApi,
   type AddMapFeaturePayload,
   type SetPaintPropertiesPayload,
   type RemoveSourceAndLayersPayload,
@@ -46,11 +47,26 @@ import {
   type AgentRegistryEntry,
   type CreateAgentParams,
   type UpdateAgentParams,
+  type PromptModule,
+  type CreatePromptModuleParams,
+  type UpdatePromptModuleParams,
   type PromptModuleInfo,
+  type PromptAssemblyRequest,
+  type PromptAssemblyResult,
   type OrchestrationResult,
   type OrchestrationStatus,
   type AgentCapabilitiesResult
 } from '../shared/ipc-types' // Corrected relative path
+import type {
+  LayerDefinition,
+  LayerGroup,
+  LayerSearchCriteria,
+  LayerSearchResult,
+  LayerOperation,
+  LayerError,
+  StylePreset,
+  LayerPerformanceMetrics
+} from '../shared/types/layer-types'
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react UIMessage
 import type { UIMessage } from '@ai-sdk/react'
@@ -385,7 +401,7 @@ const ctgApi = {
     permissionResponse: (requestId: string, granted: boolean): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.mcpPermissionResponse, requestId, granted),
     onShowPermissionDialog: (callback: (payload: McpPermissionRequest) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: McpPermissionRequest) =>
+      const handler = (_event: Electron.IpcRendererEvent, payload: McpPermissionRequest): void =>
         callback(payload)
       ipcRenderer.on('ctg:mcp:showPermissionDialog', handler)
       return () => {
@@ -395,7 +411,7 @@ const ctgApi = {
   } as McpPermissionApi,
   map: {
     onAddFeature: (callback: (payload: AddMapFeaturePayload) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: AddMapFeaturePayload) =>
+      const handler = (_event: Electron.IpcRendererEvent, payload: AddMapFeaturePayload): void =>
         callback(payload)
       ipcRenderer.on('ctg:map:addFeature', handler)
       // Return a cleanup function to remove the listener
@@ -404,23 +420,27 @@ const ctgApi = {
       }
     },
     onSetPaintProperties: (callback: (payload: SetPaintPropertiesPayload) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: SetPaintPropertiesPayload) =>
-        callback(payload)
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: SetPaintPropertiesPayload
+      ): void => callback(payload)
       ipcRenderer.on('ctg:map:setPaintProperties', handler)
       return () => {
         ipcRenderer.removeListener('ctg:map:setPaintProperties', handler)
       }
     },
     onRemoveSourceAndLayers: (callback: (payload: RemoveSourceAndLayersPayload) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: RemoveSourceAndLayersPayload) =>
-        callback(payload)
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: RemoveSourceAndLayersPayload
+      ): void => callback(payload)
       ipcRenderer.on('ctg:map:removeSourceAndLayers', handler)
       return () => {
         ipcRenderer.removeListener('ctg:map:removeSourceAndLayers', handler)
       }
     },
     onSetView: (callback: (payload: SetMapViewPayload) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: SetMapViewPayload) =>
+      const handler = (_event: Electron.IpcRendererEvent, payload: SetMapViewPayload): void =>
         callback(payload)
       ipcRenderer.on('ctg:map:setView', handler)
       return () => {
@@ -434,7 +454,7 @@ const ctgApi = {
       const handler = (
         _event: Electron.IpcRendererEvent,
         payload: AddGeoreferencedImageLayerPayload
-      ) => callback(payload)
+      ): void => callback(payload)
       ipcRenderer.on('ctg:map:addGeoreferencedImageLayer', handler)
       return () => ipcRenderer.removeListener('ctg:map:addGeoreferencedImageLayer', handler)
     }
@@ -444,7 +464,7 @@ const ctgApi = {
       const handler = (
         _event: Electron.IpcRendererEvent,
         payload: SetMapSidebarVisibilityPayload
-      ) => callback(payload)
+      ): void => callback(payload)
       ipcRenderer.on('ctg:ui:setMapSidebarVisibility', handler)
       return () => {
         ipcRenderer.removeListener('ctg:ui:setMapSidebarVisibility', handler)
@@ -458,7 +478,7 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.postgresqlCreateConnection, id, config),
     closeConnection: (id: string): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.postgresqlCloseConnection, id),
-    executeQuery: (id: string, query: string, params?: any[]): Promise<PostgreSQLQueryResult> =>
+    executeQuery: (id: string, query: string, params?: unknown[]): Promise<PostgreSQLQueryResult> =>
       ipcRenderer.invoke(IpcChannels.postgresqlExecuteQuery, id, query, params),
     executeTransaction: (id: string, queries: string[]): Promise<PostgreSQLQueryResult> =>
       ipcRenderer.invoke(IpcChannels.postgresqlExecuteTransaction, id, queries),
@@ -469,45 +489,54 @@ const ctgApi = {
   } as PostgreSQLApi,
   layers: {
     // Layer CRUD operations
-    getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:getAll'),
-    getById: (id: string): Promise<any | null> => ipcRenderer.invoke('layers:getById', id),
-    create: (layer: any): Promise<any> => ipcRenderer.invoke('layers:create', layer),
-    update: (id: string, updates: any): Promise<any> =>
+    getAll: (): Promise<LayerDefinition[]> => ipcRenderer.invoke('layers:getAll'),
+    getById: (id: string): Promise<LayerDefinition | null> =>
+      ipcRenderer.invoke('layers:getById', id),
+    create: (
+      layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
+    ): Promise<LayerDefinition> => ipcRenderer.invoke('layers:create', layer),
+    update: (id: string, updates: Partial<LayerDefinition>): Promise<LayerDefinition> =>
       ipcRenderer.invoke('layers:update', id, updates),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('layers:delete', id),
 
     // Group operations
     groups: {
-      getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:groups:getAll'),
-      create: (group: any): Promise<any> => ipcRenderer.invoke('layers:groups:create', group),
-      update: (id: string, updates: any): Promise<any> =>
+      getAll: (): Promise<LayerGroup[]> => ipcRenderer.invoke('layers:groups:getAll'),
+      create: (
+        group: Omit<LayerGroup, 'id' | 'createdAt' | 'updatedAt' | 'layerIds'>
+      ): Promise<LayerGroup> => ipcRenderer.invoke('layers:groups:create', group),
+      update: (id: string, updates: Partial<LayerGroup>): Promise<LayerGroup> =>
         ipcRenderer.invoke('layers:groups:update', id, updates),
       delete: (id: string, moveLayersTo?: string): Promise<boolean> =>
         ipcRenderer.invoke('layers:groups:delete', id, moveLayersTo)
     },
 
     // Search and operations
-    search: (criteria: any): Promise<any> => ipcRenderer.invoke('layers:search', criteria),
-    logOperation: (operation: any): Promise<void> =>
+    search: (criteria: LayerSearchCriteria): Promise<LayerSearchResult> =>
+      ipcRenderer.invoke('layers:search', criteria),
+    logOperation: (operation: LayerOperation): Promise<void> =>
       ipcRenderer.invoke('layers:logOperation', operation),
-    getOperations: (layerId?: string): Promise<any[]> =>
+    getOperations: (layerId?: string): Promise<LayerOperation[]> =>
       ipcRenderer.invoke('layers:getOperations', layerId),
-    logError: (error: any): Promise<void> => ipcRenderer.invoke('layers:logError', error),
-    getErrors: (layerId?: string): Promise<any[]> =>
+    logError: (error: LayerError): Promise<void> => ipcRenderer.invoke('layers:logError', error),
+    getErrors: (layerId?: string): Promise<LayerError[]> =>
       ipcRenderer.invoke('layers:getErrors', layerId),
     clearErrors: (layerId?: string): Promise<void> =>
       ipcRenderer.invoke('layers:clearErrors', layerId),
 
     // Style presets
     presets: {
-      getAll: (): Promise<any[]> => ipcRenderer.invoke('layers:presets:getAll'),
-      create: (preset: any): Promise<any> => ipcRenderer.invoke('layers:presets:create', preset)
+      getAll: (): Promise<StylePreset[]> => ipcRenderer.invoke('layers:presets:getAll'),
+      create: (preset: Omit<StylePreset, 'id' | 'createdAt'>): Promise<StylePreset> =>
+        ipcRenderer.invoke('layers:presets:create', preset)
     },
 
     // Performance and bulk operations
-    recordMetrics: (metrics: any): Promise<void> =>
+    recordMetrics: (metrics: LayerPerformanceMetrics): Promise<void> =>
       ipcRenderer.invoke('layers:recordMetrics', metrics),
-    bulkUpdate: (updates: any[]): Promise<void> => ipcRenderer.invoke('layers:bulkUpdate', updates),
+    bulkUpdate: (
+      updates: Array<{ id: string; changes: Partial<LayerDefinition> }>
+    ): Promise<void> => ipcRenderer.invoke('layers:bulkUpdate', updates),
     export: (layerIds: string[]): Promise<string> => ipcRenderer.invoke('layers:export', layerIds),
     import: (data: string, targetGroupId?: string): Promise<string[]> =>
       ipcRenderer.invoke('layers:import', data, targetGroupId),
@@ -520,8 +549,9 @@ const ctgApi = {
       ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName),
 
     // Generic invoke method for additional operations
-    invoke: (channel: string, ...args: any[]): Promise<any> => ipcRenderer.invoke(channel, ...args)
-  },
+    invoke: (channel: string, ...args: unknown[]): Promise<unknown> =>
+      ipcRenderer.invoke(channel, ...args)
+  } as LayerApi,
   // Agent API for managing agents
   agents: {
     getAll: (): Promise<AgentRegistryEntry[]> =>
@@ -608,16 +638,16 @@ const ctgApi = {
   promptModules: {
     getAll: (): Promise<PromptModuleInfo[]> =>
       ipcRenderer.invoke(IpcChannels.getPromptModules).then((res) => (res.success ? res.data : [])),
-    getById: (id: string): Promise<any | null> =>
+    getById: (id: string): Promise<PromptModule | null> =>
       ipcRenderer
         .invoke(IpcChannels.getPromptModuleById, id)
         .then((res) => (res.success ? res.data : null)),
-    create: (promptModule: any): Promise<any> =>
+    create: (promptModule: CreatePromptModuleParams): Promise<PromptModule> =>
       ipcRenderer.invoke(IpcChannels.createPromptModule, promptModule).then((res) => {
         if (!res.success) throw new Error(res.error || 'Failed to create prompt module')
         return res.data
       }),
-    update: (id: string, updates: any): Promise<any> =>
+    update: (id: string, updates: UpdatePromptModuleParams): Promise<PromptModule> =>
       ipcRenderer.invoke(IpcChannels.updatePromptModule, id, updates).then((res) => {
         if (!res.success) throw new Error(res.error || 'Failed to update prompt module')
         return res.data
@@ -627,7 +657,7 @@ const ctgApi = {
         if (!res.success) throw new Error(res.error || 'Failed to delete prompt module')
         return res.data
       }),
-    assemble: (request: any): Promise<any> =>
+    assemble: (request: PromptAssemblyRequest): Promise<PromptAssemblyResult> =>
       ipcRenderer.invoke(IpcChannels.assemblePrompt, request).then((res) => {
         if (!res.success) throw new Error(res.error || 'Failed to assemble prompt')
         return res.data

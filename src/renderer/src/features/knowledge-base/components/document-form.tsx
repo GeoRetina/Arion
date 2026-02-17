@@ -78,19 +78,21 @@ export function DocumentForm({
     setIsProcessing(false)
   }, [documentToEdit, isOpen])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ): void => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleFolderChange = (value: string) => {
+  const handleFolderChange = (value: string): void => {
     setFormData((prev) => ({
       ...prev,
       folderId: value === 'none' ? '' : value
     }))
   }
 
-  const processFile = async (file: File) => {
+  const processFile = async (file: File): Promise<void> => {
     setSelectedFile(file)
     setFileBuffer(null) // Reset previous buffer
 
@@ -129,7 +131,7 @@ export function DocumentForm({
     }
   }
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0]
     if (file) {
       processFile(file)
@@ -158,7 +160,7 @@ export function DocumentForm({
     }
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     setIsProcessing(true)
 

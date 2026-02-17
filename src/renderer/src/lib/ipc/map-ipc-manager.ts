@@ -7,28 +7,30 @@ import type {
 } from 'src/shared/ipc-types'
 import { useMapStore } from '../../stores/map-store'
 
-function handleAddFeatureToMapCallback(payload: AddMapFeaturePayload) {
+function handleAddFeatureToMapCallback(payload: AddMapFeaturePayload): void {
   // Call the action on the Zustand store
   useMapStore.getState().addFeature(payload)
 }
 
 // + Callback for setting paint properties
-function handleSetPaintPropertiesCallback(payload: SetPaintPropertiesPayload) {
+function handleSetPaintPropertiesCallback(payload: SetPaintPropertiesPayload): void {
   useMapStore.getState().setLayerPaintProperties(payload) // + Call new store action
 }
 
 // + Callback for removing source and layers
-function handleRemoveSourceAndLayersCallback(payload: RemoveSourceAndLayersPayload) {
+function handleRemoveSourceAndLayersCallback(payload: RemoveSourceAndLayersPayload): void {
   useMapStore.getState().removeSourceAndAssociatedLayers(payload.sourceId) // + Call new store action
 }
 
 // + Callback for setting map view
-function handleSetViewCallback(payload: SetMapViewPayload) {
+function handleSetViewCallback(payload: SetMapViewPayload): void {
   useMapStore.getState().setMapView(payload) // + Call new store action
 }
 
 // Callback for adding georeferenced image layer
-function handleAddGeoreferencedImageLayerCallback(payload: AddGeoreferencedImageLayerPayload) {
+function handleAddGeoreferencedImageLayerCallback(
+  payload: AddGeoreferencedImageLayerPayload
+): void {
   useMapStore.getState().addGeoreferencedImageLayer(payload)
 }
 

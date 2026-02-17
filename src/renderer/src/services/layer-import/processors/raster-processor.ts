@@ -93,7 +93,12 @@ export class RasterProcessor {
   /**
    * Get file type information
    */
-  static getFileInfo(file: File) {
+  static getFileInfo(file: File): {
+    mimeType: string
+    extension: string
+    isGeoTIFF: boolean
+    isPotentiallyGeoreferenced: boolean
+  } {
     return RasterMetadataExtractor.getFileTypeInfo(file)
   }
 

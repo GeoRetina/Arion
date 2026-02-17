@@ -4,6 +4,7 @@ import { dbService } from '../services/db-service' // Import dbService for chat 
 import { AgentRoutingService } from '../services/agent-routing-service'
 import { MentionService, type MessageContent } from '../services/mention-service'
 import { ProductionDataSourceResolver } from '../services/data-source-resolver'
+import type { KnowledgeBaseService } from '../services/knowledge-base-service'
 
 // Initialize mention processing services
 const mentionService = MentionService.getInstance()
@@ -14,6 +15,15 @@ let dataSourceResolver: ProductionDataSourceResolver
 const activeStreams = new Map<string, AbortController>()
 
 const streamTextEncoder = new TextEncoder()
+
+type RendererTextPart = { type: 'text'; text: string }
+type RendererMessageLike = { role: string; content: unknown; parts?: unknown[] }
+
+function isTextPart(part: unknown): part is RendererTextPart {
+  if (!part || typeof part !== 'object') return false
+  const candidate = part as { type?: unknown; text?: unknown }
+  return candidate.type === 'text' && typeof candidate.text === 'string'
+}
 
 function encodeUiMessageChunk(chunk: Record<string, unknown>): Uint8Array {
   return streamTextEncoder.encode(`data: ${JSON.stringify(chunk)}\n\n`)
@@ -31,19 +41,19 @@ function buildUiTextChunks(text: string): Uint8Array[] {
   return chunks
 }
 
-function extractMessageText(message: { content: any; parts?: any[] } | undefined): string {
+function extractMessageText(message: RendererMessageLike | undefined): string {
   if (!message) return ''
   if (typeof message.content === 'string') return message.content
   if (Array.isArray(message.content)) {
     return message.content
-      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
-      .map((part) => part.text as string)
+      .filter(isTextPart)
+      .map((part) => part.text)
       .join('')
   }
   if (Array.isArray(message.parts)) {
     return message.parts
-      .filter((part) => part && part.type === 'text' && typeof part.text === 'string')
-      .map((part) => part.text as string)
+      .filter(isTextPart)
+      .map((part) => part.text)
       .join('')
   }
   return ''
@@ -52,15 +62,16 @@ function extractMessageText(message: { content: any; parts?: any[] } | undefined
 /**
  * Process mentions in message content if they exist
  */
-async function processMentions(
-  messages: Array<{ role: string; content: any; parts?: any[] }>
-): Promise<void> {
+async function processMentions(messages: RendererMessageLike[]): Promise<void> {
   if (!messages || messages.length === 0) {
     return
   }
 
   // Find the last user message
   const lastUserMessage = messages.filter((m) => m.role === 'user').pop()
+  if (!lastUserMessage) {
+    return
+  }
 
   const lastUserMessageText = extractMessageText(lastUserMessage)
   if (!lastUserMessageText) {
@@ -98,15 +109,15 @@ export function registerChatIpcHandlers(
   ipcMain: IpcMain,
   chatService: ChatService,
   agentRoutingService?: AgentRoutingService,
-  knowledgeBaseService?: any,
-  layerDbManager?: any
+  knowledgeBaseService?: KnowledgeBaseService,
+  layerDbManager?: unknown
 ): void {
   // Initialize production resolver with real services
   dataSourceResolver = new ProductionDataSourceResolver(knowledgeBaseService, layerDbManager)
   ipcMain.handle('ctg:chat:sendMessageStreamHandler', async (_event, jsonBodyString) => {
     let parsedBody: {
       id?: string
-      messages?: Array<{ role: string; content: string | any }>
+      messages?: RendererMessageLike[]
       model?: string
       agentId?: string
     }
@@ -158,10 +169,9 @@ export function registerChatIpcHandlers(
       // Check if we should use agent orchestration
       if (agentRoutingService && parsedBody?.messages && parsedBody.messages.length > 0) {
         // Get the last user message
-        const lastUserMessage = parsedBody.messages
-          ?.filter((m: { role: string; content: any }) => m.role === 'user')
-          .pop()
-        if (extractMessageText(lastUserMessage)) {
+        const lastUserMessage = parsedBody.messages?.filter((m) => m.role === 'user').pop()
+        const lastUserMessageText = extractMessageText(lastUserMessage)
+        if (lastUserMessage && lastUserMessageText) {
           try {
             // Extract the chat ID from the parsedBody
             const chatId = parsedBody.id as string
@@ -171,14 +181,15 @@ export function registerChatIpcHandlers(
 
             // If no agent/model specified, we can't orchestrate
             if (!activeModel) {
-              return await chatService.handleSendMessageStream(parsedBody as any)
+              return await chatService.handleSendMessageStream(
+                parsedBody as Parameters<ChatService['handleSendMessageStream']>[0]
+              )
             }
 
             // The selected model/LLM itself should be the orchestrator
             const orchestratorAgentId = activeModel
 
             // Call the agent routing service's orchestration method
-            const lastUserMessageText = extractMessageText(lastUserMessage)
             const orchestrationPrompt =
               lastUserMessageText ||
               (typeof lastUserMessage.content === 'string'
@@ -202,7 +213,9 @@ export function registerChatIpcHandlers(
       }
 
       // Regular processing if orchestration is not used or fails
-      return await chatService.handleSendMessageStream(parsedBody as any)
+      return await chatService.handleSendMessageStream(
+        parsedBody as Parameters<ChatService['handleSendMessageStream']>[0]
+      )
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error in chat stream handler'
@@ -214,7 +227,7 @@ export function registerChatIpcHandlers(
   ipcMain.handle('ctg:chat:startMessageStream', async (event, streamId, jsonBodyString) => {
     let parsedBody: {
       id?: string
-      messages?: Array<{ role: string; content: string | any }>
+      messages?: RendererMessageLike[]
       model?: string
       agentId?: string
     }
@@ -269,10 +282,9 @@ export function registerChatIpcHandlers(
 
       // Check if we can use orchestration for this message too
       if (agentRoutingService && parsedBody?.messages && parsedBody.messages.length > 0) {
-        const lastUserMessage = parsedBody.messages
-          ?.filter((m: { role: string; content: any }) => m.role === 'user')
-          .pop()
-        if (extractMessageText(lastUserMessage)) {
+        const lastUserMessage = parsedBody.messages?.filter((m) => m.role === 'user').pop()
+        const lastUserMessageText = extractMessageText(lastUserMessage)
+        if (lastUserMessage && lastUserMessageText) {
           try {
             const chatId = parsedBody.id as string
             const activeModel = parsedBody.model || parsedBody.agentId
@@ -283,7 +295,6 @@ export function registerChatIpcHandlers(
 
               try {
                 // Call the orchestration method
-                const lastUserMessageText = extractMessageText(lastUserMessage)
                 const orchestrationPrompt =
                   lastUserMessageText ||
                   (typeof lastUserMessage.content === 'string'
@@ -316,7 +327,7 @@ export function registerChatIpcHandlers(
 
       // Process stream in real-time, sending chunks to the renderer if orchestration wasn't used
       await chatService.handleStreamingMessage(
-        parsedBody as any,
+        parsedBody as Parameters<ChatService['handleStreamingMessage']>[0],
         {
           onChunk: (chunk: Uint8Array) => {
             event.sender.send(`ctg:chat:stream:chunk:${streamId}`, chunk)

@@ -16,9 +16,9 @@ import { useState } from 'react'
 
 interface ToolCallDisplayProps {
   toolName: string
-  args: Record<string, any>
+  args: Record<string, UnsafeAny>
   status: 'loading' | 'completed' | 'error'
-  result?: any
+  result?: UnsafeAny
   className?: string
 }
 

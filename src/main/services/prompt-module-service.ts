@@ -22,7 +22,7 @@ export class PromptModuleService {
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
     // This is necessary because the db property is private in DBService
-    return (dbService as any).db
+    return (dbService as UnsafeAny).db
   }
 
   // In-memory cache of prompt modules
@@ -68,7 +68,7 @@ export class PromptModuleService {
           description: 'Custom prompt content provided by the user for agent definition',
           type: 'agent',
           content: '{{content}}',
-          inputSchema: ['content'],
+          parameters: ['content'],
           priority: 100,
           author: 'system'
         },
@@ -115,7 +115,7 @@ export class PromptModuleService {
   private async refreshCache(): Promise<void> {
     {
       const db = this.getDb()
-      const modules = db.prepare('SELECT * FROM prompt_modules').all() as any[]
+      const modules = db.prepare('SELECT * FROM prompt_modules').all() as UnsafeAny[]
 
       // Clear existing cache
       this.moduleCache.clear()
@@ -128,7 +128,7 @@ export class PromptModuleService {
           description: moduleRow.description || '',
           type: moduleRow.type as PromptModuleType,
           content: moduleRow.content,
-          inputSchema: moduleRow.parameters ? JSON.parse(moduleRow.parameters) : undefined,
+          parameters: moduleRow.parameters ? JSON.parse(moduleRow.parameters) : undefined,
           dependencies: moduleRow.dependencies ? JSON.parse(moduleRow.dependencies) : undefined,
           conditions: moduleRow.conditions ? JSON.parse(moduleRow.conditions) : undefined,
           priority: moduleRow.priority || 0,
@@ -155,7 +155,7 @@ export class PromptModuleService {
       description: module.description,
       type: module.type,
       version: module.version,
-      inputSchema: module.parameters
+      parameters: module.parameters
     }))
   }
 
@@ -190,7 +190,7 @@ export class PromptModuleService {
       description: params.description,
       type: params.type,
       content: params.content,
-      inputSchema: params.parameters,
+      parameters: params.parameters,
       dependencies: params.dependencies,
       conditions: params.conditions,
       priority: params.priority || 0,
@@ -274,7 +274,7 @@ export class PromptModuleService {
       // Build update SQL dynamically based on provided fields
       const db = this.getDb()
       const fields: string[] = []
-      const values: any[] = []
+      const values: UnsafeAny[] = []
 
       if (updates.name !== undefined) {
         fields.push('name = ?')
@@ -374,7 +374,7 @@ export class PromptModuleService {
       // Helper to collect modules with validation
       const collectModules = async (
         moduleParams: { moduleId: string; parameters: Record<string, string> }[]
-      ) => {
+      ): Promise<void> => {
         for (const { moduleId, parameters } of moduleParams) {
           const module = this.moduleCache.get(moduleId)
 
@@ -452,7 +452,7 @@ export class PromptModuleService {
 
       const addParams = (
         moduleRefs: { moduleId: string; parameters: Record<string, string> }[]
-      ) => {
+      ): void => {
         for (const { moduleId, parameters } of moduleRefs) {
           allParams[moduleId] = parameters
         }
@@ -509,7 +509,10 @@ export class PromptModuleService {
   /**
    * Evaluate conditions against context
    */
-  private evaluateConditions(conditions: PromptCondition[], context: Record<string, any>): boolean {
+  private evaluateConditions(
+    conditions: PromptCondition[],
+    context: Record<string, unknown>
+  ): boolean {
     // If no conditions, include by default
     if (!conditions || conditions.length === 0) {
       return true

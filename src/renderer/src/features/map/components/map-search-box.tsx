@@ -31,13 +31,13 @@ export const MapSearchBox: React.FC<MapSearchBoxProps> = ({
     setSelectedIndex(0)
   }, [results])
 
-  const handleSelectResult = (result: GeocodingResult) => {
+  const handleSelectResult = (result: GeocodingResult): void => {
     onSelectResult(result)
     clearSearch()
     onClose()
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       onClose()
       return

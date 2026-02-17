@@ -15,7 +15,7 @@ export class VectorMetadataExtractor {
   /**
    * Extract metadata from GeoJSON data
    */
-  static extractGeoJSONMetadata(geoJson: any): LayerMetadata {
+  static extractGeoJSONMetadata(geoJson: UnsafeAny): LayerMetadata {
     const features = geoJson.features || []
     const featureCount = features.length
 
@@ -38,7 +38,7 @@ export class VectorMetadataExtractor {
   /**
    * Extract metadata from Shapefile (converted to GeoJSON)
    */
-  static extractShapefileMetadata(geoJson: any, fileName: string): LayerMetadata {
+  static extractShapefileMetadata(geoJson: UnsafeAny, fileName: string): LayerMetadata {
     void fileName
     const features = geoJson.features || []
     const featureCount = features.length
@@ -62,7 +62,7 @@ export class VectorMetadataExtractor {
   /**
    * Determine primary geometry type from features
    */
-  private static determineGeometryType(features: any[]): GeometryType {
+  private static determineGeometryType(features: UnsafeAny[]): GeometryType {
     if (features.length === 0) return 'Point'
 
     // Count geometry types
@@ -91,7 +91,7 @@ export class VectorMetadataExtractor {
   /**
    * Calculate bounding box from features
    */
-  private static calculateBounds(features: any[]): BoundingBox {
+  private static calculateBounds(features: UnsafeAny[]): BoundingBox {
     let minLng = Infinity
     let minLat = Infinity
     let maxLng = -Infinity
@@ -114,7 +114,10 @@ export class VectorMetadataExtractor {
   /**
    * Recursively traverse coordinate arrays
    */
-  private static traverseCoordinates(coords: any, callback: (lng: number, lat: number) => void) {
+  private static traverseCoordinates(
+    coords: UnsafeAny,
+    callback: (lng: number, lat: number) => void
+  ): void {
     if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
       // Single coordinate pair
       callback(coords[0], coords[1])
@@ -127,10 +130,10 @@ export class VectorMetadataExtractor {
   /**
    * Extract attribute schema from features
    */
-  private static extractAttributeSchema(features: any[]): Record<string, any> {
+  private static extractAttributeSchema(features: UnsafeAny[]): Record<string, UnsafeAny> {
     if (features.length === 0) return {}
 
-    const attributes: Record<string, any> = {}
+    const attributes: Record<string, UnsafeAny> = {}
 
     // Use first feature as schema sample
     const sampleProperties = features[0].properties || {}
@@ -148,7 +151,7 @@ export class VectorMetadataExtractor {
   /**
    * Infer data type from value
    */
-  private static inferDataType(value: any): 'string' | 'number' | 'boolean' {
+  private static inferDataType(value: UnsafeAny): 'string' | 'number' | 'boolean' {
     if (typeof value === 'number') return 'number'
     if (typeof value === 'boolean') return 'boolean'
     return 'string'
@@ -157,7 +160,7 @@ export class VectorMetadataExtractor {
   /**
    * Analyze geometry distribution across features
    */
-  static analyzeGeometryDistribution(features: any[]): Record<GeometryType, number> {
+  static analyzeGeometryDistribution(features: UnsafeAny[]): Record<GeometryType, number> {
     const distribution: Record<string, number> = {}
 
     features.forEach((feature) => {
@@ -173,7 +176,17 @@ export class VectorMetadataExtractor {
   /**
    * Calculate detailed statistics for numeric attributes
    */
-  static calculateAttributeStatistics(features: any[], attributeName: string) {
+  static calculateAttributeStatistics(
+    features: UnsafeAny[],
+    attributeName: string
+  ): {
+    min: number
+    max: number
+    mean: number
+    median: number
+    count: number
+    unique: number
+  } | null {
     const values = features
       .map((f) => f.properties?.[attributeName])
       .filter((v) => typeof v === 'number' && !isNaN(v))

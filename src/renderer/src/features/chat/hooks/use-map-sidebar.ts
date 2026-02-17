@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import type { SetMapSidebarVisibilityPayload } from '../../../../../shared/ipc-types'
 
-export const useMapSidebar = () => {
+export const useMapSidebar = (): {
+  isMapSidebarExpanded: boolean
+  toggleMapSidebar: () => void
+} => {
   const [isMapSidebarExpanded, setIsMapSidebarExpanded] = useState(false)
 
-  const toggleMapSidebar = () => {
+  const toggleMapSidebar = (): void => {
     setIsMapSidebarExpanded(!isMapSidebarExpanded)
   }
 

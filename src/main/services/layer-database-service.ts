@@ -418,7 +418,7 @@ export class LayerDatabaseService implements LayerDatabase {
       LEFT JOIN layer_groups lg ON l.group_id = lg.id 
       WHERE 1=1
     `
-    const params: any[] = []
+    const params: UnsafeAny[] = []
 
     if (criteria.query) {
       query += ` AND (l.name LIKE ? OR JSON_EXTRACT(l.metadata, '$.description') LIKE ?)`
@@ -619,7 +619,7 @@ export class LayerDatabaseService implements LayerDatabase {
     return `layer-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
   }
 
-  private rowToLayer(row: any): LayerDefinition {
+  private rowToLayer(row: UnsafeAny): LayerDefinition {
     return {
       id: row.id,
       name: row.name,
@@ -639,7 +639,7 @@ export class LayerDatabaseService implements LayerDatabase {
     }
   }
 
-  private rowToGroup(row: any): LayerGroup {
+  private rowToGroup(row: UnsafeAny): LayerGroup {
     // Get layer IDs for this group
     const layerIds = this.getLayersByGroup(row.id).map((l) => l.id)
 
@@ -657,7 +657,7 @@ export class LayerDatabaseService implements LayerDatabase {
     }
   }
 
-  private rowToOperation(row: any): LayerOperation {
+  private rowToOperation(row: UnsafeAny): LayerOperation {
     return {
       type: row.operation_type,
       layerId: row.layer_id,
@@ -667,7 +667,7 @@ export class LayerDatabaseService implements LayerDatabase {
     }
   }
 
-  private rowToError(row: any): LayerError {
+  private rowToError(row: UnsafeAny): LayerError {
     return {
       code: row.error_code,
       message: row.error_message,
@@ -677,7 +677,7 @@ export class LayerDatabaseService implements LayerDatabase {
     }
   }
 
-  private rowToStylePreset(row: any): StylePreset {
+  private rowToStylePreset(row: UnsafeAny): StylePreset {
     return {
       id: row.id,
       name: row.name,
@@ -692,7 +692,7 @@ export class LayerDatabaseService implements LayerDatabase {
     }
   }
 
-  private rowToMetrics(row: any): LayerPerformanceMetrics {
+  private rowToMetrics(row: UnsafeAny): LayerPerformanceMetrics {
     return {
       layerId: row.layer_id,
       loadTime: row.load_time,

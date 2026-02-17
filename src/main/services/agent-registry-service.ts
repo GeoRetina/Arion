@@ -26,7 +26,7 @@ export class AgentRegistryService {
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
     // This is necessary because the db property is private in DBService
-    return (dbService as any).db
+    return (dbService as UnsafeAny).db
   }
 
   // In-memory cache of agent definitions
@@ -106,7 +106,7 @@ export class AgentRegistryService {
       const db = this.getDb()
 
       // Get all agents
-      const agents = db.prepare('SELECT * FROM agents').all() as any[]
+      const agents = db.prepare('SELECT * FROM agents').all() as UnsafeAny[]
 
       // Clear existing cache
       this.agentCache.clear()
@@ -118,12 +118,12 @@ export class AgentRegistryService {
         // Get agent capabilities
         const capabilities = db
           .prepare('SELECT * FROM agent_capabilities WHERE agent_id = ?')
-          .all(agentId) as any[]
+          .all(agentId) as UnsafeAny[]
 
         // Get agent prompt config
         const promptConfigRow = db
           .prepare('SELECT * FROM agent_prompt_configs WHERE agent_id = ?')
-          .get(agentId) as any
+          .get(agentId) as UnsafeAny
 
         if (!promptConfigRow) {
           continue
@@ -137,7 +137,7 @@ export class AgentRegistryService {
           ? JSON.parse(agentRow.relationships)
           : undefined
 
-        const parsedCapabilities: AgentCapability[] = capabilities.map((cap: any) => ({
+        const parsedCapabilities: AgentCapability[] = capabilities.map((cap: UnsafeAny) => ({
           id: cap.id,
           name: cap.name,
           description: cap.description || '',
@@ -362,7 +362,7 @@ export class AgentRegistryService {
 
       try {
         // Update agent record
-        const agentUpdates: any[] = []
+        const agentUpdates: UnsafeAny[] = []
         const agentUpdateFields: string[] = []
 
         if (updates.name !== undefined) {

@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils'
 function TooltipProvider({
   delayDuration = 0,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+}: React.ComponentProps<
+  typeof TooltipPrimitive.Provider
+>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <TooltipPrimitive.Provider
       data-slot="tooltip-provider"
@@ -16,7 +18,11 @@ function TooltipProvider({
   )
 }
 
-function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+function Tooltip({
+  ...props
+}: React.ComponentProps<
+  typeof TooltipPrimitive.Root
+>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <TooltipProvider>
       <TooltipPrimitive.Root data-slot="tooltip" {...props} />
@@ -27,7 +33,9 @@ function Tooltip({ ...props }: React.ComponentProps<typeof TooltipPrimitive.Root
 function TooltipTrigger({
   onFocus,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+}: React.ComponentProps<
+  typeof TooltipPrimitive.Trigger
+>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <TooltipPrimitive.Trigger
       data-slot="tooltip-trigger"
@@ -46,7 +54,9 @@ function TooltipContent({
   sideOffset = 0,
   children,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+}: React.ComponentProps<
+  typeof TooltipPrimitive.Content
+>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content

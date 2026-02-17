@@ -9,7 +9,14 @@ import { electronChatFetch } from '../utils/chat-fetch'
 // FIXME: Placeholder for imports - these will need to be created or paths adjusted
 // For now, these are minimal mocks or do-nothing functions if their state isn't critical path for chat
 // REMOVED: useROIStore and useUserGeospatialStore mocks
-const useAutoScroll = (props) => {
+const useAutoScroll = (
+  props
+): {
+  scrollContainerRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
+  messagesEndRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
+  isAutoScrollEnabled: boolean
+  resetScrollBehavior: () => void
+} => {
   void props
   return {
     scrollContainerRef: useRef(null),
@@ -23,7 +30,7 @@ const useAutoScroll = (props) => {
 // Define message part types (from Vercel AI SDK or 'ai' package, ensure consistency)
 interface MessagePart {
   type: string
-  [key: string]: any
+  [key: string]: UnsafeAny
 }
 
 interface ToolInvocationPart extends MessagePart {
@@ -31,14 +38,14 @@ interface ToolInvocationPart extends MessagePart {
   toolInvocation: {
     toolName: string
     toolCallId: string
-    args: any
-    result?: any
+    args: UnsafeAny
+    result?: UnsafeAny
   }
 }
 
 const toolPartPrefix = 'tool-'
 
-const getMessageText = (message: { content?: string; parts?: any[] }): string => {
+const getMessageText = (message: { content?: string; parts?: UnsafeAny[] }): string => {
   if (typeof message.content === 'string') return message.content
   if (!Array.isArray(message.parts)) return ''
   return message.parts
@@ -47,7 +54,7 @@ const getMessageText = (message: { content?: string; parts?: any[] }): string =>
     .join('')
 }
 
-const normalizeToolInvocationPart = (part: any): ToolInvocationPart | null => {
+const normalizeToolInvocationPart = (part: UnsafeAny): ToolInvocationPart | null => {
   if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
     return null
   }
@@ -90,14 +97,14 @@ const normalizeToolInvocationPart = (part: any): ToolInvocationPart | null => {
 
 // Helper to get tool invocation parts from a message
 const getToolInvocationParts = (message: UIMessage): ToolInvocationPart[] => {
-  const parts = (message as any).parts
+  const parts = (message as UnsafeAny).parts
   if (!Array.isArray(parts)) return []
   return parts.map(normalizeToolInvocationPart).filter(Boolean) as ToolInvocationPart[]
 }
 
 interface ToolCallingMessageResults {
   // Keeping this structure for potential tool result display
-  [key: string]: any // Simplified for now, specific tool results can be added back later
+  [key: string]: UnsafeAny // Simplified for now, specific tool results can be added back later
 }
 
 interface UseChatLogicProps {
@@ -106,7 +113,42 @@ interface UseChatLogicProps {
   isAnalystActive: boolean // This might determine if certain system prompts or tools are available
 }
 
-export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
+export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps): {
+  messages: UIMessage<
+    unknown,
+    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UIDataTypes,
+    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UITools
+  >[]
+  isLoading: boolean
+  error: Error | undefined
+  isChatStarted: boolean
+  isWaitingForFirstResponse: boolean
+  messageResults: { [messageId: string]: ToolCallingMessageResults }
+  toolSequences: {
+    [messageId: string]: {
+      steps: Array<{ id: string; titles: Array<{ toolCallId: string; toolTitle: string }> }>
+      isComplete: boolean
+    }
+  }
+  progressSteps: {
+    [messageId: string]: { id: string; titles: Array<{ toolCallId: string; toolTitle: string }> }[]
+  }
+  handleSendMessage: (content: string, selectedRoi?: string | null) => void
+  selectedRoiForBanner: string | null
+  scrollContainerRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
+  messagesEndRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
+  toolCallTitlesMap: { [key: string]: { toolCallId: string; toolTitle: string }[] }
+  latestUserMessageIdRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<
+    string | null
+  >
+  stop: () => void
+  completedMessageIds: Set<string>
+  stoppedSequenceId: string | null
+  isManuallyStoppedByUser: boolean
+  setStoppingRequested: (isRequested: boolean) => void
+  shouldShowToolResults: (messageId: string) => boolean
+  isStoppingRequestedRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<boolean>
+} {
   // REMOVED: selectedRoiGeometryInChat and selectedUserGeospatialSource state/hooks
 
   const [isChatStarted, setIsChatStarted] = useState(initialMessages && initialMessages.length > 0)
@@ -119,7 +161,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
 
   const [, setPendingToolCallIds] = useState<Set<string>>(new Set())
   const [toolResultsProcessed] = useState<Set<string>>(new Set())
-  const [pendingToolResultsData, setPendingToolResultsData] = useState<any[]>([])
+  const [pendingToolResultsData, setPendingToolResultsData] = useState<UnsafeAny[]>([])
 
   const [toolCallTitlesMap] = useState<{
     [key: string]: { toolCallId: string; toolTitle: string }[]
@@ -254,7 +296,7 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps) {
   }, []) // Kept empty if other logic dependent on selectedRoiForBanner is added later
 
   useEffect(() => {
-    const newToolData: any[] = []
+    const newToolData: UnsafeAny[] = []
     messages.forEach((m) => {
       if (m.role === 'assistant') {
         const toolInvocationParts = getToolInvocationParts(m)

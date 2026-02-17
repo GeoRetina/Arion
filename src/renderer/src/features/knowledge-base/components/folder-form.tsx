@@ -36,7 +36,7 @@ export function FolderForm({ isOpen, onClose, folderToEdit }: FolderFormProps): 
     }
   }, [folderToEdit, isOpen])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault()
 
     if (isEditMode && folderToEdit) {

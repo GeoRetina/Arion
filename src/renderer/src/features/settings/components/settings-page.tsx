@@ -28,14 +28,14 @@ const SettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
 
   // Handle theme change
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system'): void => {
     setTheme(newTheme)
     applyTheme(newTheme)
   }
 
   // Load system prompt settings
   useEffect(() => {
-    const fetchSystemPromptConfig = async () => {
+    const fetchSystemPromptConfig = async (): Promise<void> => {
       try {
         const config = await window.ctg.settings.getSystemPromptConfig()
         setSystemPromptConfig(config)
@@ -48,7 +48,7 @@ const SettingsPage: React.FC = () => {
   }, [])
 
   // Handle user system prompt change
-  const handleUserSystemPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleUserSystemPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     setSystemPromptConfig((prev) => ({
       ...prev,
       userSystemPrompt: e.target.value
@@ -56,7 +56,7 @@ const SettingsPage: React.FC = () => {
   }
 
   // Save system prompt settings
-  const handleSaveSystemPrompt = async () => {
+  const handleSaveSystemPrompt = async (): Promise<void> => {
     try {
       await window.ctg.settings.setSystemPromptConfig(systemPromptConfig)
       toast.success('System prompt settings saved successfully!')
@@ -68,7 +68,7 @@ const SettingsPage: React.FC = () => {
   }
 
   // Reset user system prompt
-  const handleResetUserSystemPrompt = () => {
+  const handleResetUserSystemPrompt = (): void => {
     setSystemPromptConfig((prev) => ({
       ...prev,
       userSystemPrompt: ''
@@ -76,7 +76,7 @@ const SettingsPage: React.FC = () => {
   }
 
   useEffect(() => {
-    const fetchVersion = async () => {
+    const fetchVersion = async (): Promise<void> => {
       try {
         const version = await window.ctg.getAppVersion()
         setAppVersion(version ? `v${version}` : 'N/A')

@@ -24,14 +24,14 @@ const DEFAULT_OPENAI_REASONING = {
  * Applies provider-specific reasoning options into streamText options.
  * Mutates and returns the provided options object to simplify call sites.
  */
-export function applyReasoningProviderOptions<T extends Record<string, any>>(
+export function applyReasoningProviderOptions<T extends Record<string, UnsafeAny>>(
   providerId: string | undefined,
   streamTextOptions: T
 ): T {
   if (providerId === 'google') {
-    const current = (streamTextOptions as any).providerOptions || {}
+    const current = (streamTextOptions as UnsafeAny).providerOptions || {}
     const currentGoogle = current.google || {}
-    ;(streamTextOptions as any).providerOptions = {
+    ;(streamTextOptions as UnsafeAny).providerOptions = {
       ...current,
       google: {
         ...currentGoogle,
@@ -44,9 +44,9 @@ export function applyReasoningProviderOptions<T extends Record<string, any>>(
   }
 
   if (providerId === 'openai') {
-    const current = (streamTextOptions as any).providerOptions || {}
+    const current = (streamTextOptions as UnsafeAny).providerOptions || {}
     const currentOpenAI = current.openai || {}
-    ;(streamTextOptions as any).providerOptions = {
+    ;(streamTextOptions as UnsafeAny).providerOptions = {
       ...current,
       openai: {
         ...currentOpenAI,

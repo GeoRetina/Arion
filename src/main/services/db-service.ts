@@ -163,7 +163,7 @@ export class DBService {
     const currentChat = this.getChatById(id)
     if (!currentChat) return null
 
-    const params: any = { id }
+    const params: UnsafeAny = { id }
     const setClauses: string[] = []
 
     if (title !== undefined) {

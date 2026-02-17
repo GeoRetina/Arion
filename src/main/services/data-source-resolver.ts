@@ -16,9 +16,9 @@ import fs from 'fs'
  */
 export class ProductionDataSourceResolver extends DataSourceResolver {
   private knowledgeBaseService: KnowledgeBaseService | null = null
-  private layerDbManager: any = null
+  private layerDbManager: UnsafeAny = null
 
-  constructor(knowledgeBaseService?: KnowledgeBaseService, layerDbManager?: any) {
+  constructor(knowledgeBaseService?: KnowledgeBaseService, layerDbManager?: UnsafeAny) {
     super()
     this.knowledgeBaseService = knowledgeBaseService || null
     this.layerDbManager = layerDbManager || null
@@ -128,7 +128,7 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Check if document matches mention criteria
    */
-  private matchesDocumentMention(document: any, mentionId: string): boolean {
+  private matchesDocumentMention(document: UnsafeAny, mentionId: string): boolean {
     const lowerMentionId = mentionId.toLowerCase()
     const lowerName = document.name.toLowerCase()
     const lowerFileName = document.original_file_name?.toLowerCase() || ''
@@ -210,8 +210,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Extract metadata from vector layer using existing utilities
    */
-  private async extractVectorMetadata(layer: LayerDefinition): Promise<Record<string, any>> {
-    const metadata: Record<string, any> = {
+  private async extractVectorMetadata(layer: LayerDefinition): Promise<Record<string, UnsafeAny>> {
+    const metadata: Record<string, UnsafeAny> = {
       geometryType: layer.metadata.geometryType,
       featureCount: layer.metadata.featureCount,
       bounds: layer.metadata.bounds,
@@ -220,13 +220,13 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
 
     // If we have GeoJSON data directly in the source config
     if (layer.sourceConfig.type === 'geojson' && typeof layer.sourceConfig.data === 'object') {
-      const geoJsonData = layer.sourceConfig.data as any
+      const geoJsonData = layer.sourceConfig.data as UnsafeAny
       if (geoJsonData.features && Array.isArray(geoJsonData.features)) {
         metadata.actualFeatureCount = geoJsonData.features.length
 
         // Extract geometry types from features
         const geometryTypes = new Set()
-        geoJsonData.features.forEach((feature: any) => {
+        geoJsonData.features.forEach((feature: UnsafeAny) => {
           if (feature.geometry && feature.geometry.type) {
             geometryTypes.add(feature.geometry.type)
           }
@@ -250,8 +250,8 @@ export class ProductionDataSourceResolver extends DataSourceResolver {
   /**
    * Extract metadata from raster layer using existing geotiff utilities
    */
-  private async extractRasterMetadata(layer: LayerDefinition): Promise<Record<string, any>> {
-    const metadata: Record<string, any> = {
+  private async extractRasterMetadata(layer: LayerDefinition): Promise<Record<string, UnsafeAny>> {
+    const metadata: Record<string, UnsafeAny> = {
       bounds: layer.metadata.bounds,
       crs: layer.metadata.crs,
       layerType: 'raster',

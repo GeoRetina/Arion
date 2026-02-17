@@ -131,7 +131,7 @@ export class TaskAnalyzer implements ITaskAnalyzer {
       const parsedSubtasks = JSON.parse(jsonMatch[0])
 
       // Convert to our Subtask interface
-      const subtasks: Subtask[] = parsedSubtasks.map((st: any) => ({
+      const subtasks: Subtask[] = parsedSubtasks.map((st: UnsafeAny) => ({
         id: uuidv4(),
         description: st.description,
         requiredCapabilities: st.requiredCapabilities || [],

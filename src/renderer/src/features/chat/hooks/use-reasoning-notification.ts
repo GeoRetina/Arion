@@ -3,7 +3,7 @@ import { splitReasoningText } from '../../../../../shared/utils/reasoning-text'
 
 interface UseReasoningNotificationProps {
   isStreamingUi: boolean
-  chatMessages: any[]
+  chatMessages: UnsafeAny[]
 }
 
 /**
@@ -13,7 +13,7 @@ interface UseReasoningNotificationProps {
 export function useReasoningNotification({
   isStreamingUi,
   chatMessages
-}: UseReasoningNotificationProps) {
+}: UseReasoningNotificationProps): void {
   const lastTextStartRef = useRef<{ id?: string; hasText?: boolean }>({})
 
   useEffect(() => {

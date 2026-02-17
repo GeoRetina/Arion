@@ -6,8 +6,8 @@ import { useChatHistoryStore } from '@/stores/chat-history-store'
  * Helper to read text from UIMessage parts
  * Exported for use in other components that need to extract text from messages
  */
-export function getTextFromParts(message: UIMessage<any, any, any>): string {
-  const parts = (message as any).parts as Array<any> | undefined
+export function getTextFromParts(message: UIMessage<UnsafeAny, UnsafeAny, UnsafeAny>): string {
+  const parts = (message as UnsafeAny).parts as Array<UnsafeAny> | undefined
   if (!Array.isArray(parts)) return ''
   return parts
     .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
@@ -19,10 +19,10 @@ type HydratedMessage = UIMessage & { content?: string; createdAt?: Date; hydrate
 
 interface UseMessagePersistenceProps {
   sdkMessages: UIMessage[]
-  currentMessagesFromStore: any[]
+  currentMessagesFromStore: UnsafeAny[]
   stableChatIdForUseChat: string | null
   currentChatIdFromStore: string | null
-  chat: any
+  chat: UnsafeAny
 }
 
 /**
@@ -35,7 +35,7 @@ export function useMessagePersistence({
   stableChatIdForUseChat,
   currentChatIdFromStore,
   chat
-}: UseMessagePersistenceProps) {
+}: UseMessagePersistenceProps): { persistPendingUserMessages: (chatId: string) => Promise<void> } {
   const { addMessageToCurrentChat } = useChatHistoryStore()
   const lastHydrationRef = useRef<{ chatId: string | null; messageCount: number }>({
     chatId: null,
@@ -47,7 +47,7 @@ export function useMessagePersistence({
       const storeMessages = useChatHistoryStore.getState().currentMessages
       const baselineMessages =
         storeMessages && storeMessages.length > 0 ? storeMessages : currentMessagesFromStore
-      const persistedIds = new Set((baselineMessages || []).map((m: any) => m.id))
+      const persistedIds = new Set((baselineMessages || []).map((m: UnsafeAny) => m.id))
 
       for (const message of sdkMessages) {
         if (message.role !== 'user' || !message.id || persistedIds.has(message.id)) {
@@ -62,7 +62,7 @@ export function useMessagePersistence({
         await addMessageToCurrentChat({
           id: message.id,
           chat_id: chatId,
-          role: message.role as any,
+          role: message.role as UnsafeAny,
           content: text
         })
         persistedIds.add(message.id)
@@ -93,11 +93,11 @@ export function useMessagePersistence({
       lastHydrationRef.current.messageCount === storeCount
     if (alreadyHydrated) return
 
-    const setMessages = (chat as any)?.setMessages
+    const setMessages = (chat as UnsafeAny)?.setMessages
     if (typeof setMessages !== 'function') return
 
     // Map DB messages to UIMessage shape (parts-based)
-    const normalizeRole = (role: string): any => {
+    const normalizeRole = (role: string): UnsafeAny => {
       if (role === 'data' || role === 'function' || role === 'tool') return 'assistant'
       return role
     }

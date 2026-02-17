@@ -36,12 +36,12 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   // Only allow JSON/GeoJSON, ZIP, and TIF files
   const acceptedTypes = '.json,.geojson,.zip,.tif,.tiff'
 
-  const handleFileImport = () => {
+  const handleFileImport = (): void => {
     if (disabled || uploadState === 'uploading') return
     fileInputRef.current?.click()
   }
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
     const files = event.target.files
     if (!files || files.length === 0) return
 
@@ -106,20 +106,25 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
     }
   }
 
-  const getButtonIcon = () => {
-    switch (uploadState) {
-      case 'uploading':
-        return <Upload className="h-5 w-5 animate-pulse" />
-      case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-500" />
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />
-      default:
-        return <Plus className="h-5 w-5" />
+  const getButtonIcon =
+    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+      switch (uploadState) {
+        case 'uploading':
+          return <Upload className="h-5 w-5 animate-pulse" />
+        case 'success':
+          return <CheckCircle className="h-5 w-5 text-green-500" />
+        case 'error':
+          return <AlertCircle className="h-5 w-5 text-red-500" />
+        default:
+          return <Plus className="h-5 w-5" />
+      }
     }
-  }
 
-  const getButtonTitle = () => {
+  const getButtonTitle = ():
+    | 'Importing layer...'
+    | 'Layer imported successfully'
+    | 'Import failed'
+    | 'Import layer file' => {
     switch (uploadState) {
       case 'uploading':
         return 'Importing layer...'

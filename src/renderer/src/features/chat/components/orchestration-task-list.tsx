@@ -8,7 +8,7 @@ import {
   ExternalLink
 } from 'lucide-react'
 // Helper function to conditionally join class names
-const cn = (...classes: (string | boolean | undefined)[]) => {
+const cn = (...classes: (string | boolean | undefined)[]): string => {
   return classes.filter(Boolean).join(' ')
 }
 
@@ -46,7 +46,7 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
   const [expandedTasks, setExpandedTasks] = React.useState<Record<string, boolean>>({})
 
   // Toggle task expanded state
-  const toggleTaskExpanded = (taskId: string) => {
+  const toggleTaskExpanded = (taskId: string): void => {
     setExpandedTasks((prev) => ({
       ...prev,
       [taskId]: !prev[taskId]
@@ -54,7 +54,9 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
   }
 
   // Render status indicator for each task
-  const renderStatusIcon = (status: OrchestrationSubtask['status']) => {
+  const renderStatusIcon = (
+    status: OrchestrationSubtask['status']
+  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
     switch (status) {
       case 'pending':
         return <div className="h-4 w-4 rounded-full border border-gray-300 dark:border-gray-600" />

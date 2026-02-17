@@ -20,7 +20,7 @@ export class GeoJSONProcessor {
    */
   static async processFile(file: File, fileName: string): Promise<LayerDefinition> {
     const text = await file.text()
-    let geoJsonData: any
+    let geoJsonData: UnsafeAny
 
     try {
       geoJsonData = JSON.parse(text)
@@ -59,7 +59,7 @@ export class GeoJSONProcessor {
   /**
    * Normalize GeoJSON to FeatureCollection format
    */
-  private static normalizeToFeatureCollection(geoJsonData: any): any {
+  private static normalizeToFeatureCollection(geoJsonData: UnsafeAny): UnsafeAny {
     if (geoJsonData.type === 'FeatureCollection') {
       return geoJsonData
     }
@@ -91,7 +91,7 @@ export class GeoJSONProcessor {
   /**
    * Validate GeoJSON structure
    */
-  static validateGeoJSON(data: any): { valid: boolean; error?: string } {
+  static validateGeoJSON(data: UnsafeAny): { valid: boolean; error?: string } {
     if (!data || typeof data !== 'object') {
       return { valid: false, error: 'Invalid GeoJSON: not an object' }
     }
@@ -146,7 +146,7 @@ export class GeoJSONProcessor {
   /**
    * Extract summary information from GeoJSON
    */
-  static getSummaryInfo(geoJsonData: any): {
+  static getSummaryInfo(geoJsonData: UnsafeAny): {
     featureCount: number
     geometryTypes: string[]
     hasProperties: boolean
@@ -159,7 +159,7 @@ export class GeoJSONProcessor {
     const propertyKeys = new Set<string>()
     let hasProperties = false
 
-    features.forEach((feature: any) => {
+    features.forEach((feature: UnsafeAny) => {
       if (feature.geometry?.type) {
         geometryTypes.add(feature.geometry.type)
       }

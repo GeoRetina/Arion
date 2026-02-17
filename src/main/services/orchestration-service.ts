@@ -194,7 +194,15 @@ export class OrchestrationService {
   /**
    * Get the status of orchestration sessions
    */
-  public async getOrchestrationStatus(sessionId?: string) {
+  public async getOrchestrationStatus(sessionId?: string): Promise<{
+    success: boolean
+    activeSessions?: string[]
+    subtasks?: Record<
+      string,
+      import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').Subtask[]
+    >
+    error?: string
+  }> {
     await this.ensureInitialized()
     return this.contextManager.getOrchestrationStatus(sessionId)
   }
@@ -202,7 +210,11 @@ export class OrchestrationService {
   /**
    * Get execution context for a session
    */
-  public getExecutionContext(sessionId: string) {
+  public getExecutionContext(
+    sessionId: string
+  ):
+    | import('/mnt/e/Coding/open-source/Arion/src/main/services/types/orchestration-types').AgentExecutionContext
+    | undefined {
     return this.contextManager.getExecutionContext(sessionId)
   }
 

@@ -77,7 +77,7 @@ function renderNestedToolCall(
  * Renders nested tool calls for agent execution results
  */
 function renderNestedToolCalls(
-  toolResult: any,
+  toolResult: UnsafeAny,
   parentToolCallId: string,
   parentComponent: React.ReactElement
 ): React.ReactElement | null {
@@ -124,7 +124,7 @@ function ThoughtsPart({
   index: number
   collapseReasoning?: boolean
   isStreamingReasoning?: boolean
-}) {
+}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   const [isOpen, setIsOpen] = useState(true)
   useEffect(() => {
     // Collapse when normal text starts; otherwise keep open while reasoning streams
@@ -152,7 +152,9 @@ export const MessagePartRenderer = ({
   messageId,
   index,
   collapseReasoning
-}: InternalRendererProps) => {
+}: InternalRendererProps):
+  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+  | null => {
   // Input validation
   if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
     return null
@@ -211,7 +213,7 @@ export const MessagePartRenderer = ({
 
     // For all other tool calls, use ToolCallDisplay with proper error handling
     const status = determineToolStatus(toolInvocation as ToolInvocation)
-    let toolResultData: any = undefined
+    let toolResultData: UnsafeAny = undefined
 
     if (state === TOOL_STATES.RESULT) {
       toolResultData = toolInvocation.result
@@ -241,7 +243,7 @@ export const MessagePartRenderer = ({
             const trimmedReasoning = reasoningText.trim()
             const trimmedContent = contentText.trim()
             if (trimmedReasoning.length === 0 && trimmedContent.length === 0) return null
-            const isStreamingReasoning = hasOpenTag || (part as any).state === 'streaming'
+            const isStreamingReasoning = hasOpenTag || (part as UnsafeAny).state === 'streaming'
             return (
               <>
                 {trimmedReasoning.length > 0 && (
@@ -267,10 +269,10 @@ export const MessagePartRenderer = ({
         }
 
       case COMPONENT_TYPES.REASONING:
-        if (typeof (part as any).text === 'string') {
-          const reasoningText = (part as any).text as string
+        if (typeof (part as UnsafeAny).text === 'string') {
+          const reasoningText = (part as UnsafeAny).text as string
           if (reasoningText.trim().length === 0) return null
-          const isStreamingReasoning = (part as any).state === 'streaming'
+          const isStreamingReasoning = (part as UnsafeAny).state === 'streaming'
           return (
             <ThoughtsPart
               text={reasoningText}

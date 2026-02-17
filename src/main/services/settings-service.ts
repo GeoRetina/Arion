@@ -75,21 +75,21 @@ export class SettingsService {
     // --- Add missing columns to llm_configs if they don't exist (simple migration) ---
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN project TEXT;')
-    } catch (e: any) {
+    } catch (e: UnsafeAny) {
       if (!e.message.includes('duplicate column name')) {
         void 0
       } // Ignore if column already exists
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN location TEXT;')
-    } catch (e: any) {
+    } catch (e: UnsafeAny) {
       if (!e.message.includes('duplicate column name')) {
         void 0
       }
     }
     try {
       this.db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
-    } catch (e: any) {
+    } catch (e: UnsafeAny) {
       if (!e.message.includes('duplicate column name')) {
         void 0
       }
@@ -305,7 +305,7 @@ export class SettingsService {
     try {
       const rows = this.db
         .prepare('SELECT id, name, url, command, args, enabled FROM mcp_server_configs')
-        .all() as any[]
+        .all() as UnsafeAny[]
       return rows.map((row) => ({
         ...row,
         args: row.args ? JSON.parse(row.args) : undefined,
@@ -352,14 +352,14 @@ export class SettingsService {
       if (fieldsToUpdate.length === 0) {
         return {
           ...current,
-          args: current.args ? JSON.parse(current.args as any) : undefined,
-          enabled: current.enabled === (1 as any)
+          args: current.args ? JSON.parse(current.args as UnsafeAny) : undefined,
+          enabled: current.enabled === (1 as UnsafeAny)
         } // Return current if no actual updates
       }
 
       const setClauses = fieldsToUpdate.map((key) => `${key} = ?`).join(', ')
       const values = fieldsToUpdate.map((key) => {
-        const value = (updates as any)[key]
+        const value = (updates as UnsafeAny)[key]
         if (key === 'args' && value !== undefined) return JSON.stringify(value)
         if (key === 'enabled' && typeof value === 'boolean') return value ? 1 : 0
         return value
@@ -371,7 +371,7 @@ export class SettingsService {
 
       const updatedConfigRow = this.db
         .prepare('SELECT * FROM mcp_server_configs WHERE id = ?')
-        .get(configId) as any
+        .get(configId) as UnsafeAny
       return {
         ...updatedConfigRow,
         args: updatedConfigRow.args ? JSON.parse(updatedConfigRow.args) : undefined,

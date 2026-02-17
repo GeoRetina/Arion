@@ -8,7 +8,9 @@ function Separator({
   orientation = 'horizontal',
   decorative = true,
   ...props
-}: React.ComponentProps<typeof SeparatorPrimitive.Root>) {
+}: React.ComponentProps<
+  typeof SeparatorPrimitive.Root
+>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
   return (
     <SeparatorPrimitive.Root
       data-slot="separator"

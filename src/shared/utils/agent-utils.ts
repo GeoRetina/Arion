@@ -8,7 +8,7 @@
  * @param agent The agent object to check
  * @returns boolean indicating if the agent is an orchestrator
  */
-export function isOrchestratorAgent(agent: any): boolean {
+export function isOrchestratorAgent(agent: UnsafeAny): boolean {
   if (!agent) return false
 
   // Primary check: look for the explicit role field
@@ -19,7 +19,7 @@ export function isOrchestratorAgent(agent: any): boolean {
   // Fallback for backward compatibility: check capabilities if role is undefined
   if (Array.isArray(agent.capabilities)) {
     return agent.capabilities.some(
-      (cap: any) =>
+      (cap: UnsafeAny) =>
         cap.name?.toLowerCase?.()?.includes('orchestrat') ||
         cap.description?.toLowerCase?.()?.includes('orchestrat')
     )

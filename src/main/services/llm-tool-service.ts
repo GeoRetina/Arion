@@ -66,7 +66,7 @@ export class LlmToolService {
     this.isInitialized = true
   }
 
-  public setMainWindow(window: BrowserWindow) {
+  public setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
     this.mapLayerTracker.setMainWindow(window)
     if (this.mcpPermissionService) {
@@ -74,14 +74,14 @@ export class LlmToolService {
     }
   }
 
-  public setCurrentChatId(chatId: string | null) {
+  public setCurrentChatId(chatId: string | null): void {
     this.currentChatId = chatId
   }
 
   public setAgentServices(
     agentRegistryService: AgentRegistryService,
     orchestrationService: OrchestrationService
-  ) {
+  ): void {
     this.agentRegistryService = agentRegistryService
     this.orchestrationService = orchestrationService
   }
@@ -108,7 +108,7 @@ export class LlmToolService {
     }
   }
 
-  private assimilateAndRegisterMcpTools() {
+  private assimilateAndRegisterMcpTools(): void {
     if (!this.mcpClientService) {
       return
     }
@@ -155,14 +155,14 @@ export class LlmToolService {
     })
   }
 
-  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, any> {
+  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, UnsafeAny> {
     return this.toolRegistry.createToolDefinitions(
       (toolName, args) => this.executeTool(toolName, args),
       allowedToolIds
     )
   }
 
-  public async executeTool(toolName: string, args: any): Promise<any> {
+  public async executeTool(toolName: string, args: UnsafeAny): Promise<UnsafeAny> {
     const toolEntry = this.toolRegistry.get(toolName)
     if (!toolEntry) {
       throw new Error(`Tool "${toolName}" not found.`)
@@ -182,7 +182,7 @@ export class LlmToolService {
     }
   }
 
-  public getMcpTools() {
+  public getMcpTools(): DiscoveredMcpTool[] {
     if (!this.mcpClientService) {
       return []
     }

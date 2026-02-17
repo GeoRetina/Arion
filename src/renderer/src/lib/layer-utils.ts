@@ -90,7 +90,7 @@ export class GeometryUtils {
     let maxLng = -Infinity
     let maxLat = -Infinity
 
-    const processCoordinate = (coord: number[]) => {
+    const processCoordinate = (coord: number[]): void => {
       const [lng, lat] = coord
       minLng = Math.min(minLng, lng)
       minLat = Math.min(minLat, lat)
@@ -98,7 +98,7 @@ export class GeometryUtils {
       maxLat = Math.max(maxLat, lat)
     }
 
-    const processCoordinates = (coords: any) => {
+    const processCoordinates = (coords: UnsafeAny): void => {
       if (Array.isArray(coords[0])) {
         coords.forEach(processCoordinates)
       } else {
@@ -514,10 +514,7 @@ export class LayerTransformUtils {
     layer: LayerDefinition,
     modifications: Partial<LayerDefinition> = {}
   ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
-    const layerData = { ...layer }
-    delete layerData.id
-    delete layerData.createdAt
-    delete layerData.updatedAt
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
 
     return {
       ...layerData,
@@ -530,7 +527,7 @@ export class LayerTransformUtils {
   /**
    * Convert layer to export format
    */
-  static toExportFormat(layer: LayerDefinition): any {
+  static toExportFormat(layer: LayerDefinition): UnsafeAny {
     return {
       version: '1.0',
       layer: {
@@ -546,7 +543,9 @@ export class LayerTransformUtils {
   /**
    * Create layer from import data
    */
-  static fromImportFormat(data: any): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
+  static fromImportFormat(
+    data: UnsafeAny
+  ): Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> {
     if (!data.layer) {
       throw new Error('Invalid import format: missing layer data')
     }

@@ -4,18 +4,18 @@ import AgentCallDisplay from '../components/agent-call-display'
 import { useAgentStore } from '@/stores/agent-store'
 
 export interface ToolUIComponent {
-  component: React.ComponentType<any>
-  props: any
+  component: React.ComponentType<UnsafeAny>
+  props: UnsafeAny
   key: string
 }
 
 export interface ToolInvocation {
   toolCallId: string
   toolName: string
-  args: any
+  args: UnsafeAny
   state: string
-  result?: any
-  error?: any
+  result?: UnsafeAny
+  error?: UnsafeAny
   isError?: boolean
 }
 
@@ -97,14 +97,14 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
 /**
  * Finds nested tool results that should render special UI components
  */
-export function detectNestedToolUIComponents(toolResult: any): ToolUIComponent[] {
+export function detectNestedToolUIComponents(toolResult: UnsafeAny): ToolUIComponent[] {
   if (!toolResult?.toolResults || !Array.isArray(toolResult.toolResults)) {
     return []
   }
 
   const uiComponents: ToolUIComponent[] = []
 
-  toolResult.toolResults.forEach((nestedTool: any, index: number) => {
+  toolResult.toolResults.forEach((nestedTool: UnsafeAny, index: number) => {
     if (nestedTool.toolName && nestedTool.result) {
       const mockInvocation: ToolInvocation = {
         toolCallId: `nested-${index}`,
@@ -133,33 +133,56 @@ export function detectNestedToolUIComponents(toolResult: any): ToolUIComponent[]
  * @param toolResult - The result object from a tool execution that may contain nested tool results
  * @returns Array of ToolInvocation objects representing nested tool calls
  */
-export function detectNestedToolCalls(toolResult: any, parentToolCallId: string): ToolInvocation[] {
+export function detectNestedToolCalls(
+  toolResult: unknown,
+  parentToolCallId: string
+): ToolInvocation[] {
   // Guard clause: ensure we have valid nested tool results
   if (!toolResult || typeof toolResult !== 'object') {
     return []
   }
 
-  const toolResults = toolResult.toolResults
+  const toolResultRecord = toolResult as { toolResults?: unknown[] }
+  const toolResults = toolResultRecord.toolResults
   if (!Array.isArray(toolResults) || toolResults.length === 0) {
     return []
   }
 
   const nestedToolCalls: ToolInvocation[] = []
 
-  toolResults.forEach((nestedTool: any, index: number) => {
+  toolResults.forEach((nestedTool: unknown, index: number) => {
+    const nestedToolRecord = nestedTool as {
+      toolName?: unknown
+      args?: unknown
+      result?: unknown
+      isError?: unknown
+      error?: unknown
+    }
+
     // Skip invalid nested tools
-    if (!nestedTool || typeof nestedTool !== 'object' || typeof nestedTool.toolName !== 'string') {
+    if (
+      !nestedTool ||
+      typeof nestedTool !== 'object' ||
+      typeof nestedToolRecord.toolName !== 'string'
+    ) {
       return
     }
 
     try {
       const mockInvocation: ToolInvocation = {
-        toolCallId: `${parentToolCallId}-nested-${nestedTool.toolName}-${index}`, // Stable ID
-        toolName: nestedTool.toolName,
-        args: nestedTool.args && typeof nestedTool.args === 'object' ? nestedTool.args : {},
+        toolCallId: `${parentToolCallId}-nested-${nestedToolRecord.toolName}-${index}`, // Stable ID
+        toolName: nestedToolRecord.toolName,
+        args:
+          nestedToolRecord.args && typeof nestedToolRecord.args === 'object'
+            ? nestedToolRecord.args
+            : {},
         state: 'result',
-        result: nestedTool.result,
-        isError: Boolean(nestedTool.isError || nestedTool.error || nestedTool.result?.isError)
+        result: nestedToolRecord.result,
+        isError: Boolean(
+          nestedToolRecord.isError ||
+            nestedToolRecord.error ||
+            (nestedToolRecord.result as { isError?: unknown } | undefined)?.isError
+        )
       }
 
       nestedToolCalls.push(mockInvocation)

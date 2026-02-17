@@ -1,6 +1,7 @@
 import type { LlmToolService } from './llm-tool-service'
 import { AgentRegistryService } from './agent-registry-service'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
+import type { AgentDefinition } from '../../shared/types/agent-types'
 
 export class AgentToolManager {
   private llmToolService: LlmToolService
@@ -54,7 +55,7 @@ export class AgentToolManager {
    * @param agent Agent definition to check
    * @returns boolean indicating if the agent is an orchestrator
    */
-  public isOrchestratorAgent(agent: any): boolean {
+  public isOrchestratorAgent(agent: UnsafeAny): boolean {
     return isOrchestratorAgent(agent)
   }
 
@@ -63,8 +64,8 @@ export class AgentToolManager {
    * @param agentId Optional agent ID to get tools for. If not provided, treats as main orchestrator.
    * @returns Object containing tool definitions suitable for the agent
    */
-  async getToolsForAgent(agentId?: string): Promise<Record<string, any>> {
-    let combinedTools: Record<string, any> = {}
+  async getToolsForAgent(agentId?: string): Promise<Record<string, UnsafeAny>> {
+    let combinedTools: Record<string, UnsafeAny> = {}
 
     // Get ALL tools first
     const allTools = this.llmToolService.getToolDefinitionsForLLM()
@@ -103,7 +104,9 @@ export class AgentToolManager {
    * @param allTools All available tool definitions
    * @returns Filtered tools for orchestrator
    */
-  private async getOrchestratorTools(allTools: Record<string, any>): Promise<Record<string, any>> {
+  private async getOrchestratorTools(
+    allTools: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // For orchestrator: Filter out tools assigned to specialized agents
     const specializedAgentTools = await this.getToolsAssignedToSpecializedAgents()
 
@@ -120,10 +123,12 @@ export class AgentToolManager {
    * @param agent The specialized agent definition
    * @returns Tools assigned to the specialized agent
    */
-  private async getSpecializedAgentTools(agent: any): Promise<Record<string, any>> {
+  private async getSpecializedAgentTools(
+    agent: Pick<AgentDefinition, 'toolAccess'>
+  ): Promise<Record<string, unknown>> {
     // For specialized agents: Use only their assigned tools
 
-    if (agent.toolAccess && agent.toolAccess.length > 0) {
+    if (Array.isArray(agent.toolAccess) && agent.toolAccess.length > 0) {
       // Get tools with the agent's specific tool access list
       const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess)
 
@@ -143,7 +148,7 @@ export class AgentToolManager {
    * Get all available tools from LlmToolService
    * @returns All tool definitions
    */
-  getAllTools(): Record<string, any> {
+  getAllTools(): Record<string, unknown> {
     return this.llmToolService.getToolDefinitionsForLLM()
   }
 
@@ -152,7 +157,7 @@ export class AgentToolManager {
    * @param toolAccessList List of tool names to retrieve
    * @returns Tool definitions for the specified tools
    */
-  getToolsForAccessList(toolAccessList: string[]): Record<string, any> {
+  getToolsForAccessList(toolAccessList: string[]): Record<string, unknown> {
     return this.llmToolService.getToolDefinitionsForLLM(toolAccessList)
   }
 }

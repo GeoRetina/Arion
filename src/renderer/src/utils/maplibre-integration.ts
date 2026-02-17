@@ -61,7 +61,7 @@ export class MapLibreIntegration {
       case 'geojson':
         return {
           type: 'geojson',
-          data: sourceConfig.data as any,
+          data: sourceConfig.data as UnsafeAny,
           ...(sourceConfig.options?.buffer && { buffer: sourceConfig.options.buffer }),
           ...(sourceConfig.options?.tolerance && { tolerance: sourceConfig.options.tolerance }),
           ...(sourceConfig.options?.cluster && {
@@ -188,7 +188,7 @@ export class MapLibreIntegration {
     if (!this.isMapReady()) {
       // Defer sync until the map style is ready
       if (this.mapInstance) {
-        const retryOnce = () => {
+        const retryOnce = (): void => {
           this.mapInstance?.off('load', retryOnce)
           this.mapInstance?.off('styledata', retryOnce)
           // Retry without awaiting to avoid blocking listener thread
@@ -476,7 +476,7 @@ export class MapLibreIntegration {
 /**
  * Utility functions for MapLibre integration
  */
-export const createMapLibreIntegration = (mapInstance?: MapLibreMap) => {
+export const createMapLibreIntegration = (mapInstance?: MapLibreMap): MapLibreIntegration => {
   return new MapLibreIntegration(mapInstance)
 }
 

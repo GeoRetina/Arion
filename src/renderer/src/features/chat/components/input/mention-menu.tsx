@@ -20,7 +20,9 @@ interface MentionMenuProps {
   searchQuery: string
 }
 
-const getIconForType = (type: MentionItem['type']) => {
+const getIconForType = (
+  type: MentionItem['type']
+): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
   switch (type) {
     case 'layer-vector':
       return <Map className="h-4 w-4 text-slate-500" />
@@ -42,7 +44,9 @@ const getTypeLabel = (type: MentionItem['type']): string => {
   }
 }
 
-const getTypeBadge = (type: MentionItem['type']) => {
+const getTypeBadge = (
+  type: MentionItem['type']
+): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
   const label = getTypeLabel(type)
 
   return (
@@ -71,7 +75,7 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent): void => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         onClose()
       }
@@ -89,7 +93,7 @@ export const MentionMenu: React.FC<MentionMenuProps> = ({
     return null
   }
 
-  const handleItemClick = (item: MentionItem) => {
+  const handleItemClick = (item: MentionItem): void => {
     onSelect(item)
   }
 

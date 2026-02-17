@@ -14,7 +14,7 @@ export class ResultSynthesizer implements IResultSynthesizer {
   ) {}
 
   public async synthesizeResults(
-    sessionId: string,
+    _sessionId: string,
     context: AgentExecutionContext,
     orchestratorAgentId: string
   ): Promise<string> {

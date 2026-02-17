@@ -52,21 +52,18 @@ export const buildNormalizedConfig = ({
     try {
       const parsedJson = JSON.parse(jsonString)
       if (isEditingExistingServer && editingConfig && 'id' in editingConfig) {
-        const rest = { ...parsedJson }
-        delete rest.id
-        return { config: sanitizeConfig(rest, connectionType) }
+        const { id: _id, ...rest } = parsedJson as { id?: string } & Record<string, unknown>
+        return { config: sanitizeConfig(rest as Omit<McpServerConfig, 'id'>, connectionType) }
       }
-      const rest = { ...parsedJson }
-      delete rest.id
-      return { config: sanitizeConfig(rest, connectionType) }
+      const { id: _id, ...rest } = parsedJson as { id?: string } & Record<string, unknown>
+      return { config: sanitizeConfig(rest as Omit<McpServerConfig, 'id'>, connectionType) }
     } catch {
       return { config: null, error: 'Invalid JSON configuration.' }
     }
   }
 
   if ('id' in editingConfig) {
-    const rest = { ...editingConfig }
-    delete rest.id
+    const { id: _id, ...rest } = editingConfig
     return { config: sanitizeConfig(rest, connectionType) }
   }
 

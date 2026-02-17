@@ -1,9 +1,9 @@
 interface ChunkPayload {
   prefix: string
-  payload: any
+  payload: UnsafeAny
 }
 
-export function buildToolStreamChunk(part: any): ChunkPayload | null {
+export function buildToolStreamChunk(part: UnsafeAny): ChunkPayload | null {
   switch (part.type) {
     case 'tool-call': {
       const toolCallCompat = {

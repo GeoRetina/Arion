@@ -1,5 +1,5 @@
 import type { Integration, IntegrationConfig } from '../../types/integration'
-import { PostgreSQLConfig } from '../../../../shared/ipc-types'
+import { PostgreSQLConfig } from '../../../../../../shared/ipc-types'
 
 export const postgresqlPostgisIntegration: Integration = {
   id: 'postgresql-postgis',

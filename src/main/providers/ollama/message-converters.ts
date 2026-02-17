@@ -66,14 +66,14 @@ export function convertToOllamaResponsesMessages({
               }
               default:
                 throw new UnsupportedFunctionalityError({
-                  functionality: `user content type ${(part as any)?.type ?? 'unknown'}`
+                  functionality: `user content type ${(part as UnsafeAny)?.type ?? 'unknown'}`
                 })
             }
           })
         })
         break
       case 'assistant': {
-        const assistantContent: any[] = []
+        const assistantContent: UnsafeAny[] = []
         for (const part of content) {
           switch (part.type) {
             case 'text':
@@ -147,8 +147,8 @@ export function convertToOllamaChatMessages({
 }: {
   prompt: LanguageModelV3Prompt
   systemMessageMode?: 'system' | 'developer' | 'remove'
-}): any {
-  const messages: any[] = []
+}): UnsafeAny {
+  const messages: UnsafeAny[] = []
 
   for (const { role, content } of prompt) {
     switch (role) {
@@ -170,7 +170,7 @@ export function convertToOllamaChatMessages({
           .join('')
         const images = content
           .filter((part) => part.type === 'file' && part.mediaType.startsWith('image/'))
-          .map((part) => (part as any).data)
+          .map((part) => (part as UnsafeAny).data)
         messages.push({
           role: 'user',
           content: userText.length > 0 ? userText : [],

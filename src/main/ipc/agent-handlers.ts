@@ -1,7 +1,20 @@
 import { IpcMain } from 'electron'
 import { AgentRegistryService } from '../services/agent-registry-service'
 import { PromptModuleService } from '../services/prompt-module-service'
-import { IpcChannels, IPCResponse } from '../../shared/ipc-types'
+import {
+  IpcChannels,
+  IPCResponse,
+  type AgentDefinition,
+  type AgentRegistryEntry,
+  type CreateAgentParams,
+  type UpdateAgentParams,
+  type PromptModule,
+  type PromptModuleInfo,
+  type CreatePromptModuleParams,
+  type UpdatePromptModuleParams,
+  type PromptAssemblyRequest,
+  type PromptAssemblyResult
+} from '../../shared/ipc-types'
 
 /**
  * Register IPC handlers for agent-related functionality
@@ -12,7 +25,7 @@ export function registerAgentIpcHandlers(
   promptModuleService: PromptModuleService
 ): void {
   // Agent CRUD operations
-  ipcMain.handle(IpcChannels.getAgents, async (): Promise<IPCResponse<any[]>> => {
+  ipcMain.handle(IpcChannels.getAgents, async (): Promise<IPCResponse<AgentRegistryEntry[]>> => {
     try {
       const agents = await agentRegistryService.getAllAgents()
       return { success: true, data: agents }
@@ -22,32 +35,38 @@ export function registerAgentIpcHandlers(
     }
   })
 
-  ipcMain.handle(IpcChannels.getAgentById, async (_, id: string): Promise<IPCResponse<any>> => {
-    try {
-      const agent = await agentRegistryService.getAgentById(id)
-      if (!agent) {
-        return { success: false, error: `Agent with ID ${id} not found` }
+  ipcMain.handle(
+    IpcChannels.getAgentById,
+    async (_, id: string): Promise<IPCResponse<AgentDefinition>> => {
+      try {
+        const agent = await agentRegistryService.getAgentById(id)
+        if (!agent) {
+          return { success: false, error: `Agent with ID ${id} not found` }
+        }
+        return { success: true, data: agent }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return { success: false, error: errorMessage }
       }
-      return { success: true, data: agent }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return { success: false, error: errorMessage }
     }
-  })
+  )
 
-  ipcMain.handle(IpcChannels.createAgent, async (_, params: any): Promise<IPCResponse<any>> => {
-    try {
-      const newAgent = await agentRegistryService.createAgent(params)
-      return { success: true, data: newAgent }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return { success: false, error: errorMessage }
+  ipcMain.handle(
+    IpcChannels.createAgent,
+    async (_, params: CreateAgentParams): Promise<IPCResponse<AgentDefinition>> => {
+      try {
+        const newAgent = await agentRegistryService.createAgent(params)
+        return { success: true, data: newAgent }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return { success: false, error: errorMessage }
+      }
     }
-  })
+  )
 
   ipcMain.handle(
     IpcChannels.updateAgent,
-    async (_, id: string, updates: any): Promise<IPCResponse<any>> => {
+    async (_, id: string, updates: UpdateAgentParams): Promise<IPCResponse<AgentDefinition>> => {
       try {
         const updatedAgent = await agentRegistryService.updateAgent(id, updates)
         return { success: true, data: updatedAgent }
@@ -69,19 +88,22 @@ export function registerAgentIpcHandlers(
   })
 
   // Prompt Module CRUD operations
-  ipcMain.handle(IpcChannels.getPromptModules, async (): Promise<IPCResponse<any[]>> => {
-    try {
-      const modules = await promptModuleService.getAllModules()
-      return { success: true, data: modules }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return { success: false, error: errorMessage }
+  ipcMain.handle(
+    IpcChannels.getPromptModules,
+    async (): Promise<IPCResponse<PromptModuleInfo[]>> => {
+      try {
+        const modules = await promptModuleService.getAllModules()
+        return { success: true, data: modules }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return { success: false, error: errorMessage }
+      }
     }
-  })
+  )
 
   ipcMain.handle(
     IpcChannels.getPromptModuleById,
-    async (_, id: string): Promise<IPCResponse<any>> => {
+    async (_, id: string): Promise<IPCResponse<PromptModule>> => {
       try {
         const module = await promptModuleService.getModuleById(id)
         if (!module) {
@@ -97,7 +119,7 @@ export function registerAgentIpcHandlers(
 
   ipcMain.handle(
     IpcChannels.createPromptModule,
-    async (_, params: any): Promise<IPCResponse<any>> => {
+    async (_, params: CreatePromptModuleParams): Promise<IPCResponse<PromptModule>> => {
       try {
         const newModule = await promptModuleService.createModule(params)
         return { success: true, data: newModule }
@@ -110,7 +132,11 @@ export function registerAgentIpcHandlers(
 
   ipcMain.handle(
     IpcChannels.updatePromptModule,
-    async (_, id: string, updates: any): Promise<IPCResponse<any>> => {
+    async (
+      _,
+      id: string,
+      updates: UpdatePromptModuleParams
+    ): Promise<IPCResponse<PromptModule>> => {
       try {
         const updatedModule = await promptModuleService.updateModule(id, updates)
         return { success: true, data: updatedModule }
@@ -135,13 +161,16 @@ export function registerAgentIpcHandlers(
   )
 
   // Prompt Assembly
-  ipcMain.handle(IpcChannels.assemblePrompt, async (_, request: any): Promise<IPCResponse<any>> => {
-    try {
-      const result = await promptModuleService.assemblePrompt(request)
-      return { success: true, data: result }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return { success: false, error: errorMessage }
+  ipcMain.handle(
+    IpcChannels.assemblePrompt,
+    async (_, request: PromptAssemblyRequest): Promise<IPCResponse<PromptAssemblyResult>> => {
+      try {
+        const result = await promptModuleService.assemblePrompt(request)
+        return { success: true, data: result }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return { success: false, error: errorMessage }
+      }
     }
-  })
+  )
 }

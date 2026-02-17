@@ -8,7 +8,7 @@ import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat
 import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 import { useMessagePersistence, getTextFromParts } from './use-message-persistence'
 
-type ExtendedMessage = UIMessage<any, any, any> & {
+type ExtendedMessage = UIMessage<UnsafeAny, UnsafeAny, UnsafeAny> & {
   orchestration?: {
     subtasks?: Subtask[]
     agentsInvolved?: string[]
@@ -28,7 +28,22 @@ export function useChatController({
   currentMessagesFromStore,
   currentChatIdFromStore,
   setIsStreamingUi
-}: UseChatControllerOptions) {
+}: UseChatControllerOptions): {
+  chat: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/react/dist/index').UseChatHelpers<
+    UIMessage<
+      unknown,
+      import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UIDataTypes,
+      import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UITools
+    >
+  >
+  sdkMessages: UIMessage<
+    unknown,
+    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UIDataTypes,
+    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UITools
+  >[]
+  sdkError: Error | undefined
+  stop: (() => void) | undefined
+} {
   const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
   const persistRef = useRef<(chatId: string) => Promise<void>>(async () => {})
 
@@ -48,7 +63,7 @@ export function useChatController({
     onError: () => {
       setIsStreamingUi(false)
     },
-    onFinish: async (args: any) => {
+    onFinish: async (args: UnsafeAny) => {
       const assistantMessage = (args?.message || args) as ExtendedMessage
       setIsStreamingUi(false)
       let currentChatId = useChatHistoryStore.getState().currentChatId
@@ -74,14 +89,14 @@ export function useChatController({
         await persistRef.current(currentChatId)
 
         const existingMsg = currentMessagesFromStore.find(
-          (m) => m.id === (assistantMessage as any).id
+          (m) => m.id === (assistantMessage as UnsafeAny).id
         )
         const text = getTextFromParts(assistantMessage)
         if (!existingMsg && text && text.trim().length > 0) {
           await addMessageToCurrentChat({
-            id: (assistantMessage as any).id,
+            id: (assistantMessage as UnsafeAny).id,
             chat_id: currentChatId,
-            role: assistantMessage.role as any,
+            role: assistantMessage.role as UnsafeAny,
             content: text,
             orchestration: assistantMessage.orchestration
               ? JSON.stringify(assistantMessage.orchestration)

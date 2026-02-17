@@ -11,7 +11,10 @@ export interface DatabaseToolDependencies {
   getPostgresqlService: () => PostgreSQLService | null
 }
 
-export function registerDatabaseTools(registry: ToolRegistry, deps: DatabaseToolDependencies) {
+export function registerDatabaseTools(
+  registry: ToolRegistry,
+  deps: DatabaseToolDependencies
+): void {
   registry.register({
     name: listDatabaseConnectionsToolName,
     definition: listDatabaseConnectionsToolDefinition,

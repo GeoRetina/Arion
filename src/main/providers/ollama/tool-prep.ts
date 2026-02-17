@@ -19,7 +19,7 @@ export function prepareResponsesTools({
   tools: LanguageModelV3CallOptions['tools']
   toolChoice?: LanguageModelV3CallOptions['toolChoice']
 }): {
-  tools?: Array<any>
+  tools?: Array<UnsafeAny>
   toolChoice?: ToolChoice
   toolWarnings: SharedV3Warning[]
 } {
@@ -30,7 +30,7 @@ export function prepareResponsesTools({
     return { tools: undefined, toolChoice: undefined, toolWarnings }
   }
 
-  const mappedTools: Array<any> = []
+  const mappedTools: Array<UnsafeAny> = []
   for (const tool of normalizedTools) {
     if (tool.type === 'function') {
       const parameters =
@@ -73,7 +73,7 @@ export function prepareResponsesTools({
       }
     default:
       throw new UnsupportedFunctionalityError({
-        functionality: `tool choice type: ${(toolChoice as any)?.type ?? 'unknown'}`
+        functionality: `tool choice type: ${(toolChoice as UnsafeAny)?.type ?? 'unknown'}`
       })
   }
 }

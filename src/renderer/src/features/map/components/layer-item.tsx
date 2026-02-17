@@ -38,17 +38,22 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   onShowStyleEditor,
   onZoomToLayer
 }) => {
-  const handleVisibilityToggle = (e: React.MouseEvent) => {
+  const handleVisibilityToggle = (e: React.MouseEvent): void => {
     e.stopPropagation()
     onToggleVisibility(layer.id, !layer.visibility)
   }
 
-  const handleContextMenu = (e: React.MouseEvent) => {
+  const handleContextMenu = (e: React.MouseEvent): void => {
     e.stopPropagation()
     // Context menu is handled by the DropdownMenu
   }
 
-  const getLayerTypeColor = (type: 'raster' | 'vector') => {
+  const getLayerTypeColor = (
+    type: 'raster' | 'vector'
+  ):
+    | 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+    | 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+    | 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' => {
     switch (type) {
       case 'raster':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
@@ -59,7 +64,7 @@ export const LayerItem: React.FC<LayerItemProps> = ({
     }
   }
 
-  const getGeometryTypeIcon = (geometryType?: string) => {
+  const getGeometryTypeIcon = (geometryType?: string): '●' | '—' | '▢' | null => {
     switch (geometryType) {
       case 'Point':
       case 'MultiPoint':

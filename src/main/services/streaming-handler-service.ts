@@ -17,7 +17,7 @@ export interface StreamingOptions {
   model: LanguageModel
   messages: ModelMessage[]
   system?: string
-  tools?: Record<string, any>
+  tools?: Record<string, UnsafeAny>
   maxSteps?: number
   providerId?: string // Add provider ID for reasoning detection
   modelId?: string // V5: LanguageModel no longer guarantees a modelId property
@@ -26,7 +26,7 @@ export interface StreamingOptions {
 
 export interface StructuredExecutionResult {
   textResponse: string
-  toolResults: any[]
+  toolResults: UnsafeAny[]
   success: boolean
   error?: string
 }
@@ -47,13 +47,13 @@ export class StreamingHandlerService {
       const result = streamText(streamTextOptions)
 
       let textResponse = ''
-      const toolResults: any[] = []
+      const toolResults: UnsafeAny[] = []
 
       // Process the full stream to collect both text and tool results
       for await (const part of result.fullStream) {
         switch (part.type) {
           case 'text-delta': {
-            const delta = (part as any).text
+            const delta = (part as UnsafeAny).text
             textResponse += delta || ''
             break
           }
@@ -80,7 +80,7 @@ export class StreamingHandlerService {
         if (steps && steps.length > 0) {
           for (const step of steps) {
             // Use type assertion since the AI SDK types are complex
-            const stepAny = step as any
+            const stepAny = step as UnsafeAny
             if (stepAny.toolResults && stepAny.toolResults.length > 0) {
               for (const toolResult of stepAny.toolResults) {
                 toolResults.push({

@@ -123,7 +123,7 @@ export class ChatService {
       if (!rendererMessages || rendererMessages.length === 0) {
         return []
       }
-      const last = rendererMessages[rendererMessages.length - 1] as any
+      const last = rendererMessages[rendererMessages.length - 1] as UnsafeAny
       if (last.role !== 'user') {
         return []
       }
@@ -198,7 +198,7 @@ export class ChatService {
         callbacks.onComplete()
         return
       }
-      const last = rendererMessages[rendererMessages.length - 1] as any
+      const last = rendererMessages[rendererMessages.length - 1] as UnsafeAny
       if (last.role !== 'user') {
         callbacks.onComplete()
         return
@@ -254,7 +254,11 @@ export class ChatService {
    * @param agentId Optional agent ID
    * @returns LLM provider configuration
    */
-  async getLLMConfig(agentId?: string) {
+  async getLLMConfig(
+    agentId?: string
+  ): Promise<
+    import('/mnt/e/Coding/open-source/Arion/src/main/services/llm-provider-factory').LLMProviderConfig
+  > {
     return await this.llmProviderFactory.getLLMConfig(agentId)
   }
 
@@ -263,7 +267,7 @@ export class ChatService {
    * @param agentId Optional agent ID
    * @returns Tools available for the agent
    */
-  async getAvailableTools(agentId?: string) {
+  async getAvailableTools(agentId?: string): Promise<Record<string, unknown>> {
     return await this.agentToolManager.getToolsForAgent(agentId)
   }
 

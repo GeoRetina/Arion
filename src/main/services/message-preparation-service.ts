@@ -17,14 +17,14 @@ export class MessagePreparationService {
   private settingsService: SettingsService
   private modularPromptManager: ModularPromptManager
   private agentRegistryService?: AgentRegistryService
-  private llmToolService?: any // Will be injected to get MCP tools
+  private llmToolService?: UnsafeAny // Will be injected to get MCP tools
   private agentToolManager?: AgentToolManager // Added for agent tool access
 
   constructor(
     settingsService: SettingsService,
     modularPromptManager: ModularPromptManager,
     agentRegistryService?: AgentRegistryService,
-    llmToolService?: any,
+    llmToolService?: UnsafeAny,
     agentToolManager?: AgentToolManager
   ) {
     this.settingsService = settingsService
@@ -42,7 +42,7 @@ export class MessagePreparationService {
    * @returns Prepared messages and system prompt
    */
   async prepareMessagesAndSystemPrompt(
-    rendererMessages: Array<any>,
+    rendererMessages: Array<UnsafeAny>,
     chatId?: string,
     agentId?: string
   ): Promise<PreparedMessagesResult> {
@@ -55,7 +55,7 @@ export class MessagePreparationService {
     try {
       coreMessages = messageAnalysis.shouldConvert
         ? ((await convertToModelMessages(
-            normalizedRendererMessages as any
+            normalizedRendererMessages as UnsafeAny
           )) as unknown as ModelMessage[])
         : (normalizedRendererMessages as unknown as ModelMessage[])
       coreMessages = sanitizeModelMessages(coreMessages)
@@ -326,11 +326,21 @@ export class MessagePreparationService {
    * Get basic system prompt configuration
    * @returns System prompt configuration
    */
-  async getSystemPromptConfig() {
+  async getSystemPromptConfig(): Promise<
+    import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').SystemPromptConfig
+  > {
     return await this.settingsService.getSystemPromptConfig()
   }
 
-  private analyzeRendererMessages(rendererMessages: Array<any>) {
+  private analyzeRendererMessages(rendererMessages: Array<UnsafeAny>): {
+    shouldConvert: boolean
+    convertReasons: string[]
+    logDetails: {
+      totalMessages: number
+      indicatorCounts: { parts: number; toolInvocations: number }
+      recentMessages: Array<ReturnType<MessagePreparationService['createMessageSummaryForLog']>>
+    }
+  } {
     if (!Array.isArray(rendererMessages) || rendererMessages.length === 0) {
       return {
         shouldConvert: false,
@@ -375,7 +385,27 @@ export class MessagePreparationService {
     }
   }
 
-  private createMessageSummaryForLog(message: any, index: number) {
+  private createMessageSummaryForLog(
+    message: UnsafeAny,
+    index: number
+  ): {
+    index: number
+    role: unknown
+    hasPartsProp: boolean
+    partsCount: number | undefined
+    hasToolInvocationsProp: boolean
+    toolInvocationCount: number | undefined
+    contentDescriptor: string
+    partsPreview:
+      | Array<{
+          type: unknown
+          state: unknown
+          providerExecuted: unknown
+          hasResult: boolean
+          hasArgs: boolean
+        }>
+      | undefined
+  } {
     const hasPartsProp = Boolean(message && typeof message === 'object' && 'parts' in message)
     const partsCount = Array.isArray(message?.parts) ? message.parts.length : undefined
     const hasToolInvocationsProp = Boolean(
@@ -394,7 +424,7 @@ export class MessagePreparationService {
       toolInvocationCount,
       contentDescriptor: this.describeContentForLog(message?.content),
       partsPreview: Array.isArray(message?.parts)
-        ? message.parts.slice(0, 3).map((part: any) => ({
+        ? message.parts.slice(0, 3).map((part: UnsafeAny) => ({
             type: part?.type,
             state: part?.state,
             providerExecuted: part?.providerExecuted,
@@ -405,7 +435,7 @@ export class MessagePreparationService {
     }
   }
 
-  private describeContentForLog(content: any): string {
+  private describeContentForLog(content: UnsafeAny): string {
     if (content === null || content === undefined) {
       return 'nullish'
     }

@@ -16,7 +16,7 @@ export const useMapNavigation = ({
   defaultZoom = 14,
   fitBoundsPadding = 50,
   animationDuration = 1000
-}: UseMapNavigationOptions = {}) => {
+}: UseMapNavigationOptions = {}): { navigateToResult: (result: GeocodingResult) => void } => {
   const map = useMapStore((state) => state.mapInstance)
   const isMapReady = useMapStore((state) => state.isMapReadyForOperations)
 

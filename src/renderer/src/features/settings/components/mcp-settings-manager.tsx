@@ -33,7 +33,7 @@ export function McpSettingsManager(): React.JSX.Element {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [serverToDelete, setServerToDelete] = useState<{ id: string; name: string } | null>(null)
 
-  const loadConfigs = async () => {
+  const loadConfigs = async (): Promise<void> => {
     setIsLoading(true)
     setError(null)
     try {
@@ -50,7 +50,9 @@ export function McpSettingsManager(): React.JSX.Element {
     loadConfigs()
   }, [])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ): void => {
     if (!editingConfig) return
     setTestResult(null)
     const { name, value, type } = e.target
@@ -68,13 +70,13 @@ export function McpSettingsManager(): React.JSX.Element {
           .filter((s) => s)
       } else if (name in currentConfig) {
         // Type assertion to satisfy TypeScript for dynamic key assignment
-        ;(currentConfig as any)[name] = val
+        ;(currentConfig as UnsafeAny)[name] = val
       }
       return currentConfig
     })
   }
 
-  const handleJsonInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleJsonInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
     const newJsonString = e.target.value
     setJsonString(newJsonString)
     setTestResult(null)
@@ -101,13 +103,13 @@ export function McpSettingsManager(): React.JSX.Element {
     }
   }
 
-  const handleEnabledChange = (checked: boolean) => {
+  const handleEnabledChange = (checked: boolean): void => {
     if (!editingConfig) return
     setTestResult(null)
     setEditingConfig({ ...editingConfig, enabled: checked })
   }
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!editingConfig) return
     setIsLoading(true)
     setError(null)
@@ -153,12 +155,12 @@ export function McpSettingsManager(): React.JSX.Element {
     setIsLoading(false)
   }
 
-  const handleDeleteClick = (id: string, name: string) => {
+  const handleDeleteClick = (id: string, name: string): void => {
     setServerToDelete({ id, name })
     setDeleteDialogOpen(true)
   }
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = async (): Promise<void> => {
     if (!serverToDelete) return
 
     const { id } = serverToDelete
@@ -186,11 +188,11 @@ export function McpSettingsManager(): React.JSX.Element {
     setServerToDelete(null)
   }
 
-  const handleDeleteCancel = () => {
+  const handleDeleteCancel = (): void => {
     setServerToDelete(null)
   }
 
-  const handleEdit = (config: McpServerConfig) => {
+  const handleEdit = (config: McpServerConfig): void => {
     setEditingConfig({ ...config })
     setIsEditingExistingServer(true)
     setEditedServerId(config.id)
@@ -202,7 +204,7 @@ export function McpSettingsManager(): React.JSX.Element {
     setIsTesting(false)
   }
 
-  const handleAddNew = () => {
+  const handleAddNew = (): void => {
     setEditingConfig({ ...initialFormState })
     setIsEditingExistingServer(false)
     setEditedServerId(null)
@@ -213,7 +215,7 @@ export function McpSettingsManager(): React.JSX.Element {
     setTestResult(null)
   }
 
-  const handleConnectionTypeChange = (value: 'stdio' | 'http') => {
+  const handleConnectionTypeChange = (value: 'stdio' | 'http'): void => {
     setConnectionType(value)
     setTestResult(null)
     setEditingConfig((prev) => {
@@ -225,7 +227,7 @@ export function McpSettingsManager(): React.JSX.Element {
     })
   }
 
-  const handleTestConnection = async () => {
+  const handleTestConnection = async (): Promise<void> => {
     const { config, error: buildError } = buildNormalizedConfig({
       editingConfig,
       inputMode,
@@ -284,7 +286,7 @@ export function McpSettingsManager(): React.JSX.Element {
     }
   }
 
-  const toggleInputMode = () => {
+  const toggleInputMode = (): void => {
     if (inputMode === 'form') {
       // Switching FROM Form TO JSON
       // jsonString should be updated based on the current editingConfig state
@@ -321,7 +323,7 @@ export function McpSettingsManager(): React.JSX.Element {
     }
   }
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     setEditingConfig(null)
     setIsEditingExistingServer(false)
     setEditedServerId(null)

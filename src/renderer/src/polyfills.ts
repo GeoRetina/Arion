@@ -1,8 +1,8 @@
 // Lightweight, CSP-safe polyfill for __publicField used by some bundled chunks and workers
-const globalAny: any = typeof globalThis !== 'undefined' ? globalThis : (window as any)
+const globalAny: UnsafeAny = typeof globalThis !== 'undefined' ? globalThis : (window as UnsafeAny)
 
 if (!globalAny.__publicField) {
-  globalAny.__publicField = (obj: any, key: string, value: any) => {
+  globalAny.__publicField = (obj: UnsafeAny, key: string, value: UnsafeAny) => {
     Object.defineProperty(obj, key, {
       value,
       enumerable: true,
@@ -14,8 +14,8 @@ if (!globalAny.__publicField) {
 }
 
 // Make it available in worker global scope too
-if (typeof self !== 'undefined' && !(self as any).__publicField) {
-  ;(self as any).__publicField = globalAny.__publicField
+if (typeof self !== 'undefined' && !(self as UnsafeAny).__publicField) {
+  ;(self as UnsafeAny).__publicField = globalAny.__publicField
 }
 
 // Patch URL.createObjectURL so worker blobs get the polyfill prepended
@@ -26,7 +26,7 @@ if (typeof self !== 'undefined' && !(self as any).__publicField) {
   const prefix =
     'var __publicField=__publicField||function(obj,key,value){Object.defineProperty(obj,key,{value:value,enumerable:true,configurable:true,writable:true});return value;};'
 
-  URL.createObjectURL = function (obj: any) {
+  URL.createObjectURL = function (obj: UnsafeAny) {
     try {
       if (obj instanceof Blob) {
         const type = obj.type || ''

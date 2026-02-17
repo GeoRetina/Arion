@@ -63,7 +63,7 @@ export interface AddedLayerInfo {
   sourceId: string
   toolName: string // e.g., add_map_point, create_map_buffer
   addedAt: string // ISO timestamp
-  originalParams: Record<string, any> // The original parameters passed to the tool that added the layer
+  originalParams: Record<string, UnsafeAny> // The original parameters passed to the tool that added the layer
   geometryType: MapLayerGeometryType // The general type of geometry added
   layerId?: string // Optional: If a specific layer ID was used or generated
 }

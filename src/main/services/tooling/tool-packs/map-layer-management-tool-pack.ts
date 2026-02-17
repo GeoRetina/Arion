@@ -20,7 +20,7 @@ export interface MapLayerManagementDependencies {
 export function registerMapLayerManagementTools(
   registry: ToolRegistry,
   deps: MapLayerManagementDependencies
-) {
+): void {
   const layerDbService = getLayerDbService()
   const { mapLayerTracker } = deps
 
@@ -37,14 +37,14 @@ export function registerMapLayerManagementTools(
         ? getRuntimeLayerSnapshot()
         : []
 
-      const sessionLayers = runtimeLayers.filter((layer: any) => {
+      const sessionLayers = runtimeLayers.filter((layer: UnsafeAny) => {
         const idMatch = layer.id && persistedIds.has(layer.id)
         const sourceMatch = layer.sourceId && persistedSourceIds.has(layer.sourceId)
         const explicitSession = layer.createdBy === 'import'
         return explicitSession || (!idMatch && !sourceMatch)
       })
 
-      const layers = sessionLayers.map((layer: any) => ({
+      const layers = sessionLayers.map((layer: UnsafeAny) => ({
         id: layer.id,
         name: layer.name,
         sourceId: layer.sourceId,

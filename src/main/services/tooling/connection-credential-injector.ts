@@ -4,11 +4,11 @@ import { CONNECTION_PLACEHOLDER_LOOKUP } from './database-placeholders'
 export class ConnectionCredentialInjector {
   private postgresqlService: PostgreSQLService | null = null
 
-  public setPostgresqlService(service: PostgreSQLService | null) {
+  public setPostgresqlService(service: PostgreSQLService | null): void {
     this.postgresqlService = service
   }
 
-  public async inject(args: any): Promise<any> {
+  public async inject(args: UnsafeAny): Promise<UnsafeAny> {
     if (!args || typeof args !== 'object' || args === null) {
       return args
     }

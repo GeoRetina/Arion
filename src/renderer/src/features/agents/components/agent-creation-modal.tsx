@@ -80,12 +80,12 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   const { createAgent, agents, getAgentById } = useAgentStore()
 
   // State to hold full agent details for tool checking
-  const [fullAgents, setFullAgents] = useState<any[]>([])
+  const [fullAgents, setFullAgents] = useState<UnsafeAny[]>([])
 
   // Load full agent details when modal opens
   React.useEffect(() => {
     if (isOpen && agents.length > 0) {
-      const loadFullAgentDetails = async () => {
+      const loadFullAgentDetails = async (): Promise<void> => {
         const fullAgentPromises = agents.map((agent) => getAgentById(agent.id))
         const fullAgentResults = await Promise.all(fullAgentPromises)
         const validAgents = fullAgentResults.filter((agent) => agent !== null)
@@ -106,7 +106,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
   // Reset form state on close
-  const handleClose = () => {
+  const handleClose = (): void => {
     setName('')
     setDescription('')
     setProvider('')
@@ -130,7 +130,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   // but keeping it for potential future use
 
   // Toggle tool selection
-  const toggleToolSelection = (toolId: string) => {
+  const toggleToolSelection = (toolId: string): void => {
     let updatedTools: string[]
 
     if (selectedTools.includes(toolId)) {
@@ -153,7 +153,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     if (!provider) return []
 
     // Map of provider IDs to their config objects
-    const configMap: Partial<Record<NonNullable<LLMProviderType>, any>> = {
+    const configMap: Partial<Record<NonNullable<LLMProviderType>, UnsafeAny>> = {
       openai: openaiConfig,
       google: googleConfig,
       anthropic: anthropicConfig,
@@ -177,7 +177,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
   ])
 
   // Handle form submission
-  const handleSubmit = async () => {
+  const handleSubmit = async (): Promise<void> => {
     // Validate all required fields regardless of active tab
     if (!name.trim()) {
       toast.error('Agent name is required')

@@ -9,7 +9,7 @@ export interface AppUiToolDependencies {
   getMainWindow: BrowserWindowProvider
 }
 
-export function registerAppUiTools(registry: ToolRegistry, deps: AppUiToolDependencies) {
+export function registerAppUiTools(registry: ToolRegistry, deps: AppUiToolDependencies): void {
   const { getMainWindow } = deps
 
   registry.register({

@@ -12,7 +12,7 @@ export interface AgentToolDependencies {
   getOrchestrationService: () => OrchestrationService | null
 }
 
-export function registerAgentTools(registry: ToolRegistry, deps: AgentToolDependencies) {
+export function registerAgentTools(registry: ToolRegistry, deps: AgentToolDependencies): void {
   registry.register({
     name: callAgentToolName,
     definition: callAgentToolDefinition,

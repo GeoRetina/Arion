@@ -28,8 +28,8 @@ describe('normalizeRendererMessages', () => {
       }
     ]
 
-    const normalized = normalizeRendererMessages(rendererMessages)
-    const toolPart = normalized[0].parts[1]
+    const normalized = normalizeRendererMessages(rendererMessages) as Array<{ parts: unknown[] }>
+    const toolPart = normalized[0]?.parts[1]
 
     expect(toolPart).toEqual({
       type: 'tool-buffer_polygons',

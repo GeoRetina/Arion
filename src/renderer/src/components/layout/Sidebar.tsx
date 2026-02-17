@@ -27,7 +27,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
   const [appVersion, setAppVersion] = useState<string>('loading...')
 
   useEffect(() => {
-    const fetchVersion = async () => {
+    const fetchVersion = async (): Promise<void> => {
       try {
         const version = await window.ctg.getAppVersion()
         setAppVersion(version ? `v${version}` : 'N/A')
@@ -59,7 +59,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
     path: string
     title: string
     icon: React.ElementType
-  }) => (
+  }): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
     <Button
       variant="ghost"
       className={getButtonClasses(path)}
@@ -71,7 +71,13 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
     </Button>
   )
 
-  const NavGroup = ({ title, children }: { title?: string; children: React.ReactNode }) => (
+  const NavGroup = ({
+    title,
+    children
+  }: {
+    title?: string
+    children: React.ReactNode
+  }): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
     <div className="px-3 py-2">
       {title && isExpanded && (
         <div className="mb-2 px-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground/80">

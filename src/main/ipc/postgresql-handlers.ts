@@ -58,7 +58,12 @@ export function registerPostgreSQLIpcHandlers(
   // Execute PostgreSQL query
   ipcMain.handle(
     IpcChannels.postgresqlExecuteQuery,
-    async (_event, id: string, query: string, params?: any[]): Promise<PostgreSQLQueryResult> => {
+    async (
+      _event,
+      id: string,
+      query: string,
+      params?: unknown[]
+    ): Promise<PostgreSQLQueryResult> => {
       try {
         return await postgresqlService.executeQuery(id, query, params)
       } catch (error) {

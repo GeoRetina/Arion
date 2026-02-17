@@ -68,7 +68,7 @@ export function DocumentsTable({
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentSelectedDocumentIds, setCurrentSelectedDocumentIds] = useState<string[]>([])
 
-  const handleSort = (field: SortField) => {
+  const handleSort = (field: SortField): void => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
@@ -123,7 +123,7 @@ export function DocumentsTable({
     }
   })
 
-  const handleSelectAll = (checked: boolean) => {
+  const handleSelectAll = (checked: boolean): void => {
     if (checked) {
       setCurrentSelectedDocumentIds(sortedDocuments.map((doc) => doc.id))
     } else {
@@ -131,7 +131,7 @@ export function DocumentsTable({
     }
   }
 
-  const handleSelectRow = (documentId: string, checked: boolean) => {
+  const handleSelectRow = (documentId: string, checked: boolean): void => {
     if (checked) {
       setCurrentSelectedDocumentIds((prev) => [...prev, documentId])
     } else {
@@ -142,7 +142,11 @@ export function DocumentsTable({
   const isAllSelected =
     sortedDocuments.length > 0 && currentSelectedDocumentIds.length === sortedDocuments.length
 
-  const renderSortIndicator = (field: SortField) => {
+  const renderSortIndicator = (
+    field: SortField
+  ):
+    | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
+    | null => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? (
       <ChevronUp className="ml-2 h-4 w-4" />

@@ -4,18 +4,23 @@ import { type ModelMessage } from 'ai'
  * Convert renderer message parts (especially tool invocations) into the format
  * expected by convertToModelMessages.
  */
-export function normalizeRendererMessages(rendererMessages: Array<any>): Array<any> {
+export function normalizeRendererMessages(rendererMessages: unknown[]): unknown[] {
   if (!Array.isArray(rendererMessages)) {
     return []
   }
 
   return rendererMessages.map((message, messageIndex) => {
-    if (!message || typeof message !== 'object' || !Array.isArray((message as any).parts)) {
+    if (!message || typeof message !== 'object') {
+      return message
+    }
+
+    const messageRecord = message as { parts?: unknown[] }
+    if (!Array.isArray(messageRecord.parts)) {
       return message
     }
 
     let mutated = false
-    const normalizedParts = (message as any).parts.map((part: any, partIndex: number) => {
+    const normalizedParts = messageRecord.parts.map((part, partIndex: number) => {
       const normalizedPart = normalizeToolInvocationPart(part, messageIndex, partIndex)
       if (normalizedPart !== part) {
         mutated = true
@@ -46,12 +51,17 @@ export function sanitizeModelMessages(messages: ModelMessage[]): ModelMessage[] 
       }
 
       const invalidPart = contentArray.find((part) => {
+        const candidate = part as {
+          toolCallId?: unknown
+          toolName?: unknown
+          output?: unknown
+        }
         return (
           !part ||
           typeof part !== 'object' ||
-          typeof (part as any).toolCallId !== 'string' ||
-          typeof (part as any).toolName !== 'string' ||
-          (part as any).output === undefined
+          typeof candidate.toolCallId !== 'string' ||
+          typeof candidate.toolName !== 'string' ||
+          candidate.output === undefined
         )
       })
 
@@ -72,29 +82,38 @@ export function sanitizeModelMessages(messages: ModelMessage[]): ModelMessage[] 
   return sanitized
 }
 
-function normalizeToolInvocationPart(part: any, messageIndex: number, partIndex: number) {
+function normalizeToolInvocationPart(
+  part: unknown,
+  messageIndex: number,
+  partIndex: number
+): unknown {
   if (!part || typeof part !== 'object') {
     return part
   }
 
-  if (part.type !== 'tool-invocation') {
+  const partRecord = part as Record<string, unknown>
+  if (partRecord.type !== 'tool-invocation') {
     return part
   }
 
-  const invocationPayload = part.toolInvocation || part
+  const invocationPayload =
+    (partRecord.toolInvocation as Record<string, unknown> | undefined) ?? partRecord
   if (!invocationPayload || typeof invocationPayload !== 'object') {
     return part
   }
 
-  const toolName = normalizeToolName(invocationPayload.toolName || invocationPayload.tool)
-  const normalizedState = mapToolInvocationState(invocationPayload.state)
+  const toolName = normalizeToolName(
+    (invocationPayload.toolName as string | undefined) ??
+      (invocationPayload.tool as string | undefined)
+  )
+  const normalizedState = mapToolInvocationState(invocationPayload.state as string | undefined)
 
   const providerExecutedFlag =
     typeof invocationPayload.providerExecuted === 'boolean'
       ? invocationPayload.providerExecuted
       : false
 
-  const normalizedPart: any = {
+  const normalizedPart: Record<string, unknown> = {
     type: `tool-${toolName}`,
     toolCallId:
       invocationPayload.toolCallId ||
@@ -114,10 +133,13 @@ function normalizeToolInvocationPart(part: any, messageIndex: number, partIndex:
   }
 
   if (normalizedState === 'output-error') {
+    const invocationError = invocationPayload.error
     normalizedPart.errorText =
-      typeof invocationPayload.error === 'string'
-        ? invocationPayload.error
-        : invocationPayload.error?.message || 'Tool execution failed.'
+      typeof invocationError === 'string'
+        ? invocationError
+        : invocationError && typeof invocationError === 'object' && 'message' in invocationError
+          ? (invocationError.message as string)
+          : 'Tool execution failed.'
     normalizedPart.rawInput =
       invocationPayload.rawInput ?? invocationPayload.args ?? invocationPayload.input ?? null
   }
@@ -132,7 +154,9 @@ function normalizeToolInvocationPart(part: any, messageIndex: number, partIndex:
   return normalizedPart
 }
 
-function mapToolInvocationState(state?: string) {
+function mapToolInvocationState(
+  state?: string
+): 'output-available' | 'output-error' | 'input-available' {
   switch (state) {
     case 'result':
       return 'output-available'
@@ -148,7 +172,7 @@ function mapToolInvocationState(state?: string) {
   }
 }
 
-function normalizeToolName(toolName?: string) {
+function normalizeToolName(toolName?: string): string {
   if (!toolName || typeof toolName !== 'string') {
     return 'unknown-tool'
   }

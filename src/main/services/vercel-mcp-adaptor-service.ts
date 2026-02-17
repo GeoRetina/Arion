@@ -7,7 +7,7 @@ import { McpServerConfig } from '../../shared/ipc-types'
  */
 export interface VercelMcpSetupResult {
   /** The aggregated tools object compatible with Vercel AI SDK functions like streamText. */
-  tools: Record<string, any> // Using Record<string, any> for simplicity, as the structure is dynamic based on server tools
+  tools: Record<string, UnsafeAny> // Using Record<string, any> for simplicity, as the structure is dynamic based on server tools
   /** An array of active Vercel MCP client instances that need to be closed after use. */
   activeClients: Array<{ close: () => Promise<void> }>
 }
@@ -23,7 +23,7 @@ export async function setupVercelMcpIntegration(
   activeMcpConfigs: McpServerConfig[]
 ): Promise<VercelMcpSetupResult> {
   const activeClients: Array<{ close: () => Promise<void> }> = []
-  let aggregatedTools: Record<string, any> = {}
+  let aggregatedTools: Record<string, UnsafeAny> = {}
 
   for (const config of activeMcpConfigs) {
     let transport

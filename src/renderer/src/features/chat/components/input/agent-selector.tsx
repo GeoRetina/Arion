@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Checkbox } from '@/components/ui/checkbox'
 // Helper function to conditionally join class names
-const cn = (...classes: (string | boolean | undefined)[]) => {
+const cn = (...classes: (string | boolean | undefined)[]): string => {
   return classes.filter(Boolean).join(' ')
 }
 
@@ -87,7 +87,9 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
   const generalAgents = filteredAgents.filter((agent) => agent.type === 'general')
 
   // Get the icon for agent type
-  const getAgentTypeIcon = (type: AgentSelectorAgent['type']) => {
+  const getAgentTypeIcon = (
+    type: AgentSelectorAgent['type']
+  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
     switch (type) {
       case 'orchestrator':
         return <Workflow className="h-4 w-4 text-purple-500" />
@@ -100,7 +102,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
   }
 
   // Handle capability selection
-  const toggleCapability = (capabilityId: string) => {
+  const toggleCapability = (capabilityId: string): void => {
     setSelectedCapabilities((prev) =>
       prev.includes(capabilityId)
         ? prev.filter((id) => id !== capabilityId)
@@ -109,7 +111,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
   }
 
   // Clear all selected capabilities
-  const clearCapabilityFilter = () => {
+  const clearCapabilityFilter = (): void => {
     setSelectedCapabilities([])
   }
 

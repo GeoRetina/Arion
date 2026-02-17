@@ -29,8 +29,8 @@ export function ConfirmDialog({
   cancelText = 'Cancel',
   onConfirm,
   variant = 'default'
-}: ConfirmDialogProps) {
-  const handleConfirm = async () => {
+}: ConfirmDialogProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+  const handleConfirm = async (): Promise<void> => {
     await onConfirm()
     onOpenChange(false)
   }

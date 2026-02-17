@@ -25,7 +25,7 @@ const IntegrationsPage: React.FC = () => {
   const handleIntegrationAction = (
     integrationId: string,
     action: 'connect' | 'disconnect' | 'configure' | 'test'
-  ) => {
+  ): void => {
     const config = integrationConfigs.find((c) => c.integration.id === integrationId)
     if (!config) return
 
@@ -58,7 +58,7 @@ const IntegrationsPage: React.FC = () => {
     }
   }
 
-  const handlePostgreSQLConnect = async (config: IntegrationConfig) => {
+  const handlePostgreSQLConnect = async (config: IntegrationConfig): Promise<void> => {
     try {
       await config.onConnect?.()
       // Refresh the integration configs to update the UI
@@ -70,7 +70,7 @@ const IntegrationsPage: React.FC = () => {
     }
   }
 
-  const handlePostgreSQLDisconnect = async (config: IntegrationConfig) => {
+  const handlePostgreSQLDisconnect = async (config: IntegrationConfig): Promise<void> => {
     try {
       await config.onDisconnect?.()
       // Refresh the integration configs to update the UI
@@ -82,7 +82,7 @@ const IntegrationsPage: React.FC = () => {
     }
   }
 
-  const handlePostgreSQLSave = async (newConfig: PostgreSQLConfig) => {
+  const handlePostgreSQLSave = async (newConfig: PostgreSQLConfig): Promise<void> => {
     if (selectedIntegration) {
       // Update the integration's connection settings
       selectedIntegration.integration.connectionSettings = newConfig
@@ -110,11 +110,17 @@ const IntegrationsPage: React.FC = () => {
     }
   }
 
-  const handlePostgreSQLTest = async (config: PostgreSQLConfig) => {
+  const handlePostgreSQLTest = async (
+    config: PostgreSQLConfig
+  ): Promise<
+    import('/mnt/e/Coding/open-source/Arion/src/shared/ipc-types').PostgreSQLConnectionResult
+  > => {
     return await window.ctg.postgresql.testConnection(config)
   }
 
-  const getIntegrationIcon = (type: string) => {
+  const getIntegrationIcon = (
+    type: string
+  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
     switch (type) {
       case 'api':
         return <Link2 className="h-5 w-5 text-blue-500" />
@@ -129,7 +135,13 @@ const IntegrationsPage: React.FC = () => {
     }
   }
 
-  const getStatusStyles = (status: string) => {
+  const getStatusStyles = (
+    status: string
+  ):
+    | 'bg-[var(--chart-5)] text-[var(--chart-5)]'
+    | 'bg-gray-400 text-gray-400'
+    | 'bg-blue-400 text-blue-400'
+    | 'bg-red-500 text-red-500' => {
     switch (status) {
       case 'connected':
         return 'bg-[var(--chart-5)] text-[var(--chart-5)]'

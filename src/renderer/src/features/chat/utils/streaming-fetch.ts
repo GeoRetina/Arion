@@ -2,10 +2,16 @@
  * Creates a streaming fetch function for chat API that uses real-time streaming
  * via IPC communication with the main process
  */
-export const createStreamingFetch = () => {
+export const createStreamingFetch = (): ((
+  url: string,
+  options: { body?: unknown; signal?: AbortSignal }
+) => Promise<Response>) => {
   let currentStreamId: string | null = null
 
-  const streamingFetch = async (url: string, options: { body?: any; signal?: AbortSignal }) => {
+  const streamingFetch = async (
+    url: string,
+    options: { body?: UnsafeAny; signal?: AbortSignal }
+  ): Promise<Response> => {
     if (url.endsWith('/api/chat')) {
       try {
         console.log('[Renderer] streamingFetch -> /api/chat')

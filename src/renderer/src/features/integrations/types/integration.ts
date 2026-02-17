@@ -18,7 +18,7 @@ export interface Integration {
   category?: string
   documentation?: string
   configurable?: boolean
-  connectionSettings?: Record<string, any>
+  connectionSettings?: Record<string, UnsafeAny>
 }
 
 export interface IntegrationConfig {

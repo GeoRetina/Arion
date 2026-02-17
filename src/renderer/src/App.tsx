@@ -95,10 +95,11 @@ function App(): React.JSX.Element {
 }
 
 // Wrapper component to provide ChatInterface
-const ChatInterfaceWrapper = () => {
-  // Removed chatId extraction and key prop to prevent component remounting during navigation
-  // This ensures the map instance persists across chat sessions
-  return <ChatInterface />
-}
+const ChatInterfaceWrapper =
+  (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+    // Removed chatId extraction and key prop to prevent component remounting during navigation
+    // This ensures the map instance persists across chat sessions
+    return <ChatInterface />
+  }
 
 export default App

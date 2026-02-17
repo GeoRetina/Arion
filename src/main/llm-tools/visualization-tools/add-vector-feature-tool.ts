@@ -66,7 +66,7 @@ export function createGeoJSONFeature(
 ): Feature<Point | LineString | Polygon> {
   const { featureType, coordinates: coordinatesString, properties, label } = params
 
-  const baseProperties: Record<string, any> = {
+  const baseProperties: Record<string, UnsafeAny> = {
     ...(properties || {}),
     generated_by_tool: addMapFeatureToolName
   }
@@ -77,7 +77,7 @@ export function createGeoJSONFeature(
 
   const featureProperties = baseProperties
 
-  let parsedCoordinates: any
+  let parsedCoordinates: UnsafeAny
   try {
     parsedCoordinates = JSON.parse(coordinatesString)
   } catch (e) {

@@ -22,8 +22,8 @@ export function registerSettingsIpcHandlers(
   // --- Generic SettingsService IPC Handlers (if still needed) ---
   ipcMain.handle('ctg:settings:get', async (_event, key: string) => {
     try {
-      if (typeof (settingsService as any).getSetting === 'function') {
-        return (settingsService as any).getSetting(key)
+      if (typeof (settingsService as UnsafeAny).getSetting === 'function') {
+        return (settingsService as UnsafeAny).getSetting(key)
       }
       return undefined
     } catch {
@@ -33,8 +33,8 @@ export function registerSettingsIpcHandlers(
 
   ipcMain.handle('ctg:settings:set', async (_event, key: string, value: unknown) => {
     try {
-      if (typeof (settingsService as any).setSetting === 'function') {
-        ;(settingsService as any).setSetting(key, value)
+      if (typeof (settingsService as UnsafeAny).setSetting === 'function') {
+        ;(settingsService as UnsafeAny).setSetting(key, value)
         return { success: true }
       }
       return { success: false, error: 'setSetting not available' }

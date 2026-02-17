@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   layerDbService: {
-    getAllLayers: vi.fn(() => [])
+    getAllLayers: vi.fn<() => Array<{ id: string; sourceId: string }>>(() => [])
   },
   runtimeLayers: [] as Array<Record<string, unknown>>
 }))

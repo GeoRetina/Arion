@@ -11,7 +11,7 @@ import type { ToolInvocation } from './tool-ui-component-detection'
 /**
  * Checks if a message part represents a tool invocation
  */
-export function isToolPart(part: any): boolean {
+export function isToolPart(part: UnsafeAny): boolean {
   return (
     part &&
     typeof part.type === 'string' &&
@@ -25,7 +25,7 @@ export function isToolPart(part: any): boolean {
  * Determines if an assistant message has any renderable content
  * (text, reasoning, or tool invocations)
  */
-export function hasRenderableAssistantContent(message: any): boolean {
+export function hasRenderableAssistantContent(message: UnsafeAny): boolean {
   if (!message || message.role !== 'assistant') return false
 
   const parts = Array.isArray(message.parts) ? message.parts : []
@@ -46,8 +46,8 @@ export function hasRenderableAssistantContent(message: any): boolean {
     if (part.type === COMPONENT_TYPES.REASONING && typeof part.text === 'string') {
       return part.text.trim().length > 0
     }
-    if (typeof (part as any).text === 'string') {
-      return (part as any).text.trim().length > 0
+    if (typeof (part as UnsafeAny).text === 'string') {
+      return (part as UnsafeAny).text.trim().length > 0
     }
     return false
   })
@@ -76,7 +76,7 @@ export function determineToolStatus(toolInvocation: ToolInvocation): ToolStatus 
 /**
  * Checks if a part is a tool UI part (dynamic-tool or prefixed tool type)
  */
-export function isToolUIPart(part: any): boolean {
+export function isToolUIPart(part: UnsafeAny): boolean {
   return (
     part &&
     typeof part.type === 'string' &&
@@ -109,7 +109,7 @@ export function mapToolInvocationState(state?: string): string {
 /**
  * Normalizes a message part into a ToolInvocation object if it represents a tool call
  */
-export function normalizeToolInvocationPart(part: any): ToolInvocation | null {
+export function normalizeToolInvocationPart(part: UnsafeAny): ToolInvocation | null {
   if (!part || typeof part !== 'object') {
     return null
   }

@@ -319,7 +319,8 @@ const searchLayersImpl = (
 }
 
 // Persist only layers that have a string-based data reference (e.g., URL/file path).
-const isPersistableLayer = (layer: LayerDefinition) => typeof layer.sourceConfig?.data === 'string'
+const isPersistableLayer = (layer: LayerDefinition): boolean =>
+  typeof layer.sourceConfig?.data === 'string'
 
 // Create the store
 export const useLayerStore = create<LayerStore>()(
@@ -434,10 +435,7 @@ export const useLayerStore = create<LayerStore>()(
       const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
         {
-          const layerData = { ...layer }
-          delete layerData.id
-          delete layerData.createdAt
-          delete layerData.updatedAt
+          const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
           await window.ctg.layers.create(layerData)
         }
       }
@@ -696,11 +694,13 @@ export const useLayerStore = create<LayerStore>()(
 
       // Persist to database first
       {
-        const groupData = { ...group }
-        delete groupData.id
-        delete groupData.createdAt
-        delete groupData.updatedAt
-        delete groupData.layerIds
+        const {
+          id: _id,
+          createdAt: _createdAt,
+          updatedAt: _updatedAt,
+          layerIds: _layerIds,
+          ...groupData
+        } = group
         await window.ctg.layers.groups.create(groupData)
       }
 
@@ -876,10 +876,7 @@ export const useLayerStore = create<LayerStore>()(
           } catch {
             // If update fails, try to create the layer
             {
-              const layerData = { ...layer }
-              delete layerData.id
-              delete layerData.createdAt
-              delete layerData.updatedAt
+              const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...layerData } = layer
               await window.ctg.layers.create(layerData)
             }
           }
@@ -892,11 +889,13 @@ export const useLayerStore = create<LayerStore>()(
           } catch {
             // If update fails, try to create the group
             {
-              const groupData = { ...group }
-              delete groupData.id
-              delete groupData.createdAt
-              delete groupData.updatedAt
-              delete groupData.layerIds
+              const {
+                id: _id,
+                createdAt: _createdAt,
+                updatedAt: _updatedAt,
+                layerIds: _layerIds,
+                ...groupData
+              } = group
               await window.ctg.layers.groups.create(groupData)
             }
           }
@@ -1115,22 +1114,42 @@ export const useLayerStore = create<LayerStore>()(
 )
 
 // Push the in-memory layer store snapshot to the main process (for LLM tools).
-if (typeof window !== 'undefined' && (window as any).ctg?.layers?.invoke) {
-  const serializeLayerForRuntime = (layer: LayerDefinition) => ({
+if (typeof window !== 'undefined' && (window as UnsafeAny).ctg?.layers?.invoke) {
+  const serializeLayerForRuntime = (
+    layer: LayerDefinition
+  ): {
+    createdAt: string
+    updatedAt: string
+    id: string
+    name: string
+    type: LayerType
+    sourceId: string
+    sourceConfig: import('/mnt/e/Coding/open-source/Arion/src/shared/types/layer-types').LayerSourceConfig
+    style: LayerStyle
+    visibility: boolean
+    opacity: number
+    zIndex: number
+    metadata: import('/mnt/e/Coding/open-source/Arion/src/shared/types/layer-types').LayerMetadata
+    groupId?: string
+    isLocked: boolean
+    createdBy: import('/mnt/e/Coding/open-source/Arion/src/shared/types/layer-types').LayerOrigin
+  } => ({
     ...layer,
     createdAt: layer.createdAt instanceof Date ? layer.createdAt.toISOString() : layer.createdAt,
     updatedAt: layer.updatedAt instanceof Date ? layer.updatedAt.toISOString() : layer.updatedAt
   })
 
   let debounceHandle: ReturnType<typeof setTimeout> | null = null
-  const pushRuntimeSnapshot = () => {
+  const pushRuntimeSnapshot = (): void => {
     const layers = Array.from(useLayerStore.getState().layers.values()).map((l) =>
       serializeLayerForRuntime(l)
     )
-    ;(window as any).ctg.layers.invoke('layers:runtime:updateSnapshot', layers).catch(() => {})
+    ;(window as UnsafeAny).ctg.layers
+      .invoke('layers:runtime:updateSnapshot', layers)
+      .catch(() => {})
   }
 
-  const schedulePush = () => {
+  const schedulePush = (): void => {
     if (debounceHandle) {
       clearTimeout(debounceHandle)
     }
@@ -1149,12 +1168,14 @@ if (typeof window !== 'undefined' && (window as any).ctg?.layers?.invoke) {
 }
 
 // Export helper hooks for common operations
-export const useSelectedLayer = () => useLayerStore((state) => state.getSelectedLayer())
-export const useLayerById = (id: string) => useLayerStore((state) => state.getLayer(id))
-export const useVisibleLayers = () =>
+export const useSelectedLayer = (): LayerDefinition | null =>
+  useLayerStore((state) => state.getSelectedLayer())
+export const useLayerById = (id: string): LayerDefinition | undefined =>
+  useLayerStore((state) => state.getLayer(id))
+export const useVisibleLayers = (): LayerDefinition[] =>
   useLayerStore((state) => Array.from(state.layers.values()).filter((l) => l.visibility))
-export const useLayerCount = () => useLayerStore((state) => state.layers.size)
-export const useLayerErrors = (layerId?: string) =>
+export const useLayerCount = (): number => useLayerStore((state) => state.layers.size)
+export const useLayerErrors = (layerId?: string): LayerError[] =>
   useLayerStore((state) => state.getErrors(layerId))
-export const useLayersByGroup = (groupId?: string) =>
+export const useLayersByGroup = (groupId?: string): LayerDefinition[] =>
   useLayerStore((state) => state.getLayers(groupId))

@@ -107,7 +107,7 @@ export function convertImageToLayer(payload: AddGeoreferencedImageLayerPayload):
     type: 'image',
     data: imageUrl,
     options: {
-      bounds: coordinates
+      bounds
     }
   }
 
@@ -188,8 +188,8 @@ function createStyleFromFeature(feature: Feature): LayerStyle {
 /**
  * Extract attribute information from feature properties
  */
-function extractAttributeInfo(properties: Record<string, any>): Record<string, any> {
-  const attributes: Record<string, any> = {}
+function extractAttributeInfo(properties: Record<string, UnsafeAny>): Record<string, UnsafeAny> {
+  const attributes: Record<string, UnsafeAny> = {}
 
   for (const [key, value] of Object.entries(properties)) {
     // Skip style-related properties

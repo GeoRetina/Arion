@@ -19,7 +19,7 @@ export interface MentionMetadata {
   name: string
   type: DataSourceType
   description?: string
-  metadata: Record<string, any>
+  metadata: Record<string, UnsafeAny>
 }
 
 // Message content with mention information
@@ -237,7 +237,7 @@ export class MentionService {
   /**
    * Add layer-specific metadata to formatted output
    */
-  private addLayerMetadata(lines: string[], metadata: Record<string, any>): void {
+  private addLayerMetadata(lines: string[], metadata: Record<string, UnsafeAny>): void {
     if (metadata.geometryType) {
       lines.push(`  Geometry Type: ${metadata.geometryType}`)
     }
@@ -258,7 +258,7 @@ export class MentionService {
   /**
    * Add document-specific metadata to formatted output
    */
-  private addDocumentMetadata(lines: string[], metadata: Record<string, any>): void {
+  private addDocumentMetadata(lines: string[], metadata: Record<string, UnsafeAny>): void {
     if (metadata.fileType) {
       lines.push(`  File Type: ${metadata.fileType}`)
     }

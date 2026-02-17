@@ -55,13 +55,13 @@ const AgentsPage: React.FC = () => {
   })
 
   // Handle agent edit
-  const handleEditAgent = (agentId: string) => {
+  const handleEditAgent = (agentId: string): void => {
     setSelectedAgentId(agentId)
     setIsEditorModalOpen(true)
   }
 
   // Handle agent delete
-  const handleDeleteAgent = async (agentId: string) => {
+  const handleDeleteAgent = async (agentId: string): Promise<void> => {
     const result = await deleteAgent(agentId)
     if (result) {
       toast.success('Agent deleted successfully')
@@ -71,7 +71,7 @@ const AgentsPage: React.FC = () => {
   }
 
   // Handle create new agent
-  const handleCreateAgent = () => {
+  const handleCreateAgent = (): void => {
     setIsCreateModalOpen(true)
   }
 

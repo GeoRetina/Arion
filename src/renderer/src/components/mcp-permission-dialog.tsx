@@ -28,12 +28,12 @@ export const McpPermissionDialog: React.FC<McpPermissionDialogProps> = ({
 }) => {
   const [rememberChoice, setRememberChoice] = useState(false)
 
-  const handleAllow = () => {
+  const handleAllow = (): void => {
     onPermissionResponse(true, rememberChoice)
     setRememberChoice(false) // Reset for next use
   }
 
-  const handleDeny = () => {
+  const handleDeny = (): void => {
     onPermissionResponse(false, rememberChoice)
     setRememberChoice(false) // Reset for next use
   }

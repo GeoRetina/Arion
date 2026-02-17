@@ -11,7 +11,17 @@ import {
  * @param shouldFetch Whether to fetch tools (typically when modal is open)
  * @returns Object containing tool-related state and functions
  */
-export function useAgentTools(agents: any[] = [], shouldFetch: boolean = true) {
+export function useAgentTools(
+  agents: UnsafeAny[] = [],
+  shouldFetch: boolean = true
+): {
+  allTools: string[]
+  availableTools: string[]
+  assignedTools: Set<string>
+  isLoading: boolean
+  error: string | null
+  refreshTools: () => Promise<void>
+} {
   const [allTools, setAllTools] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +58,7 @@ export function useAgentTools(agents: any[] = [], shouldFetch: boolean = true) {
   }, [allTools, assignedTools])
 
   // Refresh tools manually
-  const refreshTools = async () => {
+  const refreshTools = async (): Promise<void> => {
     setIsLoading(true)
     setError(null)
 

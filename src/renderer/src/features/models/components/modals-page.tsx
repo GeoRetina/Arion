@@ -128,9 +128,9 @@ export default function ModelsPage(): React.JSX.Element {
     providerName: NonNullable<LLMProvider>,
     title: string,
     description: string,
-    config: any,
+    config: UnsafeAny,
     openModalHandler: () => void
-  ) => {
+  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
     const configured = isConfigured(providerName)
 
     return (

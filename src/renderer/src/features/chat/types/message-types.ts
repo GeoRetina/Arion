@@ -25,10 +25,10 @@ export interface MessagePart {
 export interface ToolInvocationPart {
   toolCallId: string
   toolName: string
-  args?: Record<string, any>
+  args?: Record<string, UnsafeAny>
   state: string
-  result?: any
-  error?: any
+  result?: UnsafeAny
+  error?: UnsafeAny
   isError?: boolean
 }
 

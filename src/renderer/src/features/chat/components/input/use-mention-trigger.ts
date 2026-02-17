@@ -8,11 +8,23 @@ interface MentionTriggerState {
 }
 
 interface UseMentionTriggerOptions {
-  editorRef: React.RefObject<HTMLDivElement>
+  editorRef: React.RefObject<HTMLDivElement | null>
   onTriggerChange?: (isActive: boolean, searchQuery: string) => void
 }
 
-export const useMentionTrigger = ({ editorRef, onTriggerChange }: UseMentionTriggerOptions) => {
+export const useMentionTrigger = ({
+  editorRef,
+  onTriggerChange
+}: UseMentionTriggerOptions): {
+  isActive: boolean
+  searchQuery: string
+  position: { x: number; y: number }
+  selectedIndex: number
+  insertMention: (mentionText: string) => void
+  closeMention: () => void
+  setSelectedIndex: (index: number) => void
+  detectMentionTrigger: () => void
+} => {
   const [state, setState] = useState<MentionTriggerState>({
     isActive: false,
     searchQuery: '',
@@ -116,7 +128,7 @@ export const useMentionTrigger = ({ editorRef, onTriggerChange }: UseMentionTrig
     let parentNode = textNode.parentNode
     while (parentNode && parentNode !== editorRef.current) {
       if (parentNode.nodeType === Node.ELEMENT_NODE) {
-        const element = parentNode as Element
+        const element = parentNode as HTMLElement
         if (element.contentEditable === 'false' || element.hasAttribute('data-mention')) {
           // We're inside a mention span, don't trigger menu
           if (state.isActive) {
@@ -283,7 +295,7 @@ export const useMentionTrigger = ({ editorRef, onTriggerChange }: UseMentionTrig
   // Listen for selection changes to detect mention triggers
   // Note: We don't listen to input events here to avoid conflicts
   useEffect(() => {
-    const handleSelectionChange = () => {
+    const handleSelectionChange = (): void => {
       // Add a small delay to prevent rapid firing
       setTimeout(() => detectMentionTrigger(), 10)
     }

@@ -11,7 +11,7 @@ interface AgentStdioMessage {
     | 'error'
     | 'agent_response'
     | 'mcp_tools_list'
-  payload: any
+  payload: UnsafeAny
   requestId?: string // For correlating requests and responses
 }
 

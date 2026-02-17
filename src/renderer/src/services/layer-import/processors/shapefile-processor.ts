@@ -65,7 +65,7 @@ export class ShapefileProcessor {
   /**
    * Normalize shpjs output to consistent FeatureCollection format
    */
-  private static normalizeShapefileOutput(shpjsOutput: any): any {
+  private static normalizeShapefileOutput(shpjsOutput: UnsafeAny): UnsafeAny {
     // shpjs can return a single FeatureCollection or an array of FeatureCollections
     if (Array.isArray(shpjsOutput)) {
       if (shpjsOutput.length === 0) {
@@ -74,7 +74,7 @@ export class ShapefileProcessor {
 
       // If multiple shapefiles, merge them into a single FeatureCollection
       if (shpjsOutput.length > 1) {
-        const mergedFeatures: any[] = []
+        const mergedFeatures: UnsafeAny[] = []
         shpjsOutput.forEach((fc) => {
           if (fc.features && Array.isArray(fc.features)) {
             mergedFeatures.push(...fc.features)
@@ -96,7 +96,7 @@ export class ShapefileProcessor {
   /**
    * Validate shapefile data structure
    */
-  private static validateShapefileData(geoJsonData: any): void {
+  private static validateShapefileData(geoJsonData: UnsafeAny): void {
     if (!geoJsonData || !geoJsonData.features || !Array.isArray(geoJsonData.features)) {
       throw new Error('Invalid shapefile structure - no features found')
     }
@@ -165,7 +165,7 @@ export class ShapefileProcessor {
       if (shapefile.features && Array.isArray(shapefile.features)) {
         totalFeatures += shapefile.features.length
 
-        shapefile.features.forEach((feature: any) => {
+        shapefile.features.forEach((feature: UnsafeAny) => {
           if (feature.geometry?.type) {
             geometryTypes.add(feature.geometry.type)
           }

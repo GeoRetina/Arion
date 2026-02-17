@@ -58,12 +58,12 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     useLLMStore()
 
   // State to hold full agent details for tool checking (excluding current agent)
-  const [otherAgents, setOtherAgents] = useState<any[]>([])
+  const [otherAgents, setOtherAgents] = useState<UnsafeAny[]>([])
 
   // Load full agent details (excluding current agent) when modal opens
   useEffect(() => {
     if (isOpen && agents.length > 0 && agentId) {
-      const loadOtherAgentDetails = async () => {
+      const loadOtherAgentDetails = async (): Promise<void> => {
         // Filter out the current agent being edited
         const otherAgentsList = agents.filter((a) => a.id !== agentId)
         const fullAgentPromises = otherAgentsList.map((a) => getAgentById(a.id))
@@ -85,7 +85,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
 
   // Load agent data when modal opens or agentId changes
   useEffect(() => {
-    const loadAgent = async () => {
+    const loadAgent = async (): Promise<void> => {
       if (isOpen && agentId) {
         setIsLoading(true)
         try {
@@ -106,12 +106,12 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }, [isOpen, agentId, getAgentById])
 
   // Reset state when modal closes
-  const handleClose = () => {
+  const handleClose = (): void => {
     onClose()
   }
 
   // Handle saving agent changes
-  const handleSave = async () => {
+  const handleSave = async (): Promise<void> => {
     if (!agent || !agentId) return
 
     // Validate all required fields regardless of active tab
@@ -176,7 +176,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }
 
   // Handle agent field updates
-  const updateAgentField = (field: keyof AgentDefinition, value: any) => {
+  const updateAgentField = (field: keyof AgentDefinition, value: UnsafeAny): void => {
     if (!agent) return
 
     setAgent({
@@ -186,7 +186,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }
 
   // Toggle tool selection for the capability
-  const toggleToolSelection = (toolId: string) => {
+  const toggleToolSelection = (toolId: string): void => {
     if (!agent || agent.capabilities.length === 0) return
 
     const capability = agent.capabilities[0]
@@ -207,7 +207,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }
 
   // Update model config parameter
-  const updateModelParameter = (parameter: string, value: any) => {
+  const updateModelParameter = (parameter: string, value: UnsafeAny): void => {
     if (!agent) return
 
     const updatedModelConfig = {
@@ -222,7 +222,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   }
 
   // Helper to get parameter value with fallback default
-  const getParameterValue = (parameter: string, defaultValue: number) => {
+  const getParameterValue = (parameter: string, defaultValue: number): number => {
     return agent?.modelConfig.parameters?.[parameter] ?? defaultValue
   }
 
@@ -231,7 +231,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     if (!agent?.modelConfig.provider) return []
 
     // Map of provider IDs to their config objects
-    const configMap: Record<NonNullable<LLMProviderType>, any> = {
+    const configMap: Record<NonNullable<LLMProviderType>, UnsafeAny> = {
       openai: openaiConfig,
       google: googleConfig,
       anthropic: anthropicConfig,
