@@ -3,6 +3,10 @@ import { generateId, type ParseResult } from '@ai-sdk/provider-utils'
 import { z } from 'zod'
 import { baseOllamaResponseSchema, type OllamaResponse } from './types'
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
 export function mapOllamaFinishReason(
   finishReason: string | null | undefined
 ): LanguageModelV3FinishReason {
@@ -30,7 +34,7 @@ export function extractOllamaResponseObjectsFromChunk(
   }
 
   const results: OllamaResponse[] = []
-  const raw = (chunk.error as UnsafeAny)?.text
+  const raw = asRecord(chunk.error)?.text
   if (typeof raw !== 'string' || raw.length === 0) {
     return results
   }

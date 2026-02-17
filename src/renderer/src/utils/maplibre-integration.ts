@@ -6,6 +6,7 @@
  */
 
 import type { Map as MapLibreMap, LayerSpecification, SourceSpecification } from 'maplibre-gl'
+import type { Feature, FeatureCollection, Geometry } from 'geojson'
 import type { LayerDefinition, LayerStyle } from '../../../shared/types/layer-types'
 
 /**
@@ -61,7 +62,7 @@ export class MapLibreIntegration {
       case 'geojson':
         return {
           type: 'geojson',
-          data: sourceConfig.data as UnsafeAny,
+          data: sourceConfig.data as Feature<Geometry> | FeatureCollection<Geometry>,
           ...(sourceConfig.options?.buffer && { buffer: sourceConfig.options.buffer }),
           ...(sourceConfig.options?.tolerance && { tolerance: sourceConfig.options.tolerance }),
           ...(sourceConfig.options?.cluster && {

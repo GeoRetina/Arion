@@ -128,7 +128,7 @@ export default function ModelsPage(): React.JSX.Element {
     providerName: NonNullable<LLMProvider>,
     title: string,
     description: string,
-    config: UnsafeAny,
+    config: ProviderCardConfig,
     openModalHandler: () => void
   ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
     const configured = isConfigured(providerName)
@@ -305,4 +305,9 @@ export default function ModelsPage(): React.JSX.Element {
       />
     </ScrollArea>
   )
+}
+type ProviderCardConfig = {
+  model?: string | null
+  deploymentName?: string | null
+  endpoint?: string | null
 }

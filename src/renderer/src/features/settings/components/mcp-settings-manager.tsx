@@ -70,7 +70,7 @@ export function McpSettingsManager(): React.JSX.Element {
           .filter((s) => s)
       } else if (name in currentConfig) {
         // Type assertion to satisfy TypeScript for dynamic key assignment
-        ;(currentConfig as UnsafeAny)[name] = val
+        ;(currentConfig as Record<string, unknown>)[name] = val
       }
       return currentConfig
     })

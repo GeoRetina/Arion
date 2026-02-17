@@ -20,7 +20,7 @@ import type {
 } from '../../shared/types/layer-types'
 
 // Runtime (in-memory) layer snapshot pushed from the renderer's layer store.
-let runtimeLayerSnapshot: UnsafeAny[] = []
+let runtimeLayerSnapshot: unknown[] = []
 
 export function getRuntimeLayerSnapshot(): unknown[] {
   return runtimeLayerSnapshot
@@ -260,7 +260,7 @@ export function registerLayerHandlers(): void {
   // Renderer pushes its current in-memory layer store snapshot here.
   ipcMain.handle(
     'layers:runtime:updateSnapshot',
-    async (_event: IpcMainInvokeEvent, layers: UnsafeAny[]): Promise<boolean> => {
+    async (_event: IpcMainInvokeEvent, layers: unknown[]): Promise<boolean> => {
       runtimeLayerSnapshot = Array.isArray(layers) ? layers : []
       return true
     }

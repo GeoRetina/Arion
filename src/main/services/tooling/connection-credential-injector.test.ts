@@ -90,7 +90,9 @@ describe('ConnectionCredentialInjector', () => {
       port: 6000
     })
 
-    expect(result.host).toBe('remote-host')
-    expect(result.port).toBe(6000)
+    expect(result).toMatchObject({
+      host: 'remote-host',
+      port: 6000
+    })
   })
 })

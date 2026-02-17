@@ -8,6 +8,8 @@ import { DocumentForm } from './document-form'
 import { FolderForm } from './folder-form'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
+type DocumentDeleteTarget = Document | { id: 'bulk-delete-trigger'; name?: string }
+
 function KnowledgeBase(): React.JSX.Element {
   const { documents, folders, deleteDocumentAndEmbeddings, fetchDocuments, deleteFolder } =
     useKnowledgeBaseStore()
@@ -17,7 +19,9 @@ function KnowledgeBase(): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('')
   const [documentToEdit, setDocumentToEdit] = useState<Document | undefined>(undefined)
   const [folderToEdit, setFolderToEdit] = useState<Folder | undefined>(undefined)
-  const [documentToDelete, setDocumentToDelete] = useState<Document | undefined>(undefined)
+  const [documentToDelete, setDocumentToDelete] = useState<DocumentDeleteTarget | undefined>(
+    undefined
+  )
   const [folderToDelete, setFolderToDelete] = useState<Folder | undefined>(undefined)
   const [isAddDocumentOpen, setIsAddDocumentOpen] = useState(false)
   const [isAddFolderOpen, setIsAddFolderOpen] = useState(false)
@@ -168,7 +172,7 @@ function KnowledgeBase(): React.JSX.Element {
                 showAddDocumentButton={showAddButtonInTable}
                 onSelectionChange={setSelectedDocumentIds}
                 selectedDocumentIds={selectedDocumentIds}
-                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' } as UnsafeAny)}
+                onBulkDelete={() => setDocumentToDelete({ id: 'bulk-delete-trigger' })}
               />
             </div>
           )}

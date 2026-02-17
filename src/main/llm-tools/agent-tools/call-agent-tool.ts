@@ -30,7 +30,7 @@ export async function callAgent(
   chatId: string,
   agentRegistryService: AgentRegistryService,
   orchestrationService: OrchestrationService
-): Promise<UnsafeAny> {
+): Promise<unknown> {
   const { message, agent_id } = params
 
   try {
@@ -85,7 +85,7 @@ export async function callAgent(
     }
 
     // Return the response from the agent, including tool results if any
-    const response: UnsafeAny = {
+    const response: Record<string, unknown> = {
       status: 'success',
       message: `Agent "${agent.name}" processed the request successfully.`,
       agent_id,

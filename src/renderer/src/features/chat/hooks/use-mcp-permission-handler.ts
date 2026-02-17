@@ -2,6 +2,32 @@ import { useCallback, useEffect, useState } from 'react'
 import { useMcpPermissionStore } from '@/stores/mcp-permission-store'
 import type { McpServerConfig } from '../../../../../shared/ipc-types'
 
+interface PermissionRequest {
+  chatId: string
+  toolName: string
+  serverId: string
+  requestId: string
+}
+
+function asPermissionRequest(value: unknown): PermissionRequest | null {
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  if (
+    typeof record.chatId === 'string' &&
+    typeof record.toolName === 'string' &&
+    typeof record.serverId === 'string' &&
+    typeof record.requestId === 'string'
+  ) {
+    return {
+      chatId: record.chatId,
+      toolName: record.toolName,
+      serverId: record.serverId,
+      requestId: record.requestId
+    }
+  }
+  return null
+}
+
 export const useMcpPermissionHandler = (): {
   pendingPermission: {
     chatId: string
@@ -53,19 +79,24 @@ export const useMcpPermissionHandler = (): {
 
   // Handle MCP permission dialog requests from main process
   const handleMcpPermissionRequest = useCallback(
-    async (request: UnsafeAny) => {
+    async (request: unknown) => {
+      const permissionRequest = asPermissionRequest(request)
+      if (!permissionRequest) {
+        return
+      }
+
       // Check if we already have permission for this tool in this chat
-      const existingPermission = hasPermission(request.chatId, request.toolName)
+      const existingPermission = hasPermission(permissionRequest.chatId, permissionRequest.toolName)
       if (existingPermission !== null) {
         // Send response back to main process
         if (window.ctg?.mcp?.permissionResponse) {
-          window.ctg.mcp.permissionResponse(request.requestId, existingPermission)
+          window.ctg.mcp.permissionResponse(permissionRequest.requestId, existingPermission)
         }
         return
       }
 
       // Set pending permission to trigger the dialog UI
-      setPendingPermission(request)
+      setPendingPermission(permissionRequest)
     },
     [hasPermission, setPendingPermission]
   )

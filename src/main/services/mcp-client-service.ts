@@ -207,7 +207,7 @@ export class MCPClientService {
     serverId: string,
     toolName: string,
     args: { [key: string]: unknown } | undefined
-  ): Promise<UnsafeAny> {
+  ): Promise<unknown> {
     const client = this.clients.get(serverId)
     if (!client) {
       throw new Error(`Not connected to MCP server with ID: ${serverId}`)

@@ -123,7 +123,7 @@ export class ChatService {
       if (!rendererMessages || rendererMessages.length === 0) {
         return []
       }
-      const last = rendererMessages[rendererMessages.length - 1] as UnsafeAny
+      const last = rendererMessages[rendererMessages.length - 1]
       if (last.role !== 'user') {
         return []
       }
@@ -198,7 +198,7 @@ export class ChatService {
         callbacks.onComplete()
         return
       }
-      const last = rendererMessages[rendererMessages.length - 1] as UnsafeAny
+      const last = rendererMessages[rendererMessages.length - 1]
       if (last.role !== 'user') {
         callbacks.onComplete()
         return

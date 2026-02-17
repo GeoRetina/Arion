@@ -4,7 +4,7 @@ import { convertToOllamaResponsesMessages, convertToOllamaChatMessages } from '.
 import { prepareResponsesTools } from './tool-prep'
 import { ollamaProviderOptionsSchema, type RequestBuilderArgs } from './types'
 
-export type OllamaResponsesPrompt = Array<UnsafeAny>
+export type OllamaResponsesPrompt = Array<Record<string, unknown>>
 
 export class OllamaRequestBuilder {
   async buildRequest({

@@ -128,25 +128,33 @@ export class TaskAnalyzer implements ITaskAnalyzer {
         throw new Error('Could not extract JSON subtasks from LLM response')
       }
 
-      const parsedSubtasks = JSON.parse(jsonMatch[0])
+      const parsedSubtasks = JSON.parse(jsonMatch[0]) as Array<{
+        id?: string
+        description?: string
+        requiredCapabilities?: string[]
+        dependencies?: Array<string | number>
+      }>
 
       // Convert to our Subtask interface
-      const subtasks: Subtask[] = parsedSubtasks.map((st: UnsafeAny) => ({
-        id: uuidv4(),
-        description: st.description,
-        requiredCapabilities: st.requiredCapabilities || [],
-        dependencies:
-          st.dependencies
-            ?.map((depId: string | number) => {
-              // Handle case where dependencies might be numeric indices
-              if (typeof depId === 'number') {
-                return parsedSubtasks[depId - 1]?.id || ''
-              }
-              return depId
-            })
-            .filter((id: string) => id !== '') || [],
-        status: 'pending'
-      }))
+      const subtasks: Subtask[] = parsedSubtasks.map((st) => {
+        return {
+          id: uuidv4(),
+          description: typeof st.description === 'string' ? st.description : query,
+          requiredCapabilities: st.requiredCapabilities || [],
+          dependencies:
+            st.dependencies
+              ?.map((depId: string | number) => {
+                // Handle case where dependencies might be numeric indices
+                if (typeof depId === 'number') {
+                  const candidate = parsedSubtasks[depId - 1]?.id
+                  return typeof candidate === 'string' ? candidate : ''
+                }
+                return depId
+              })
+              .filter((id: string) => id !== '') || [],
+          status: 'pending'
+        }
+      })
 
       return subtasks
     } catch {

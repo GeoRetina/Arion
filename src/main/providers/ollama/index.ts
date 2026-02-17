@@ -139,7 +139,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
       headers: combineHeaders(this.config.headers(), options.headers),
       body: { ...args, stream: false },
       failedResponseHandler: ollamaFailedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(baseOllamaResponseSchema as UnsafeAny),
+      successfulResponseHandler: createJsonResponseHandler(baseOllamaResponseSchema),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch
     })

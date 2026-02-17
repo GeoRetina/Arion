@@ -1,3 +1,1 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-type UnsafeAny = any
+// Intentionally left for future global type declarations.

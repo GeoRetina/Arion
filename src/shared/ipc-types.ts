@@ -707,6 +707,9 @@ export interface LayerApi {
     fileBuffer: ArrayBuffer,
     fileName: string
   ) => Promise<{ imageUrl: string; bounds?: [number, number, number, number] }>
+
+  // Generic invoke method for additional operations
+  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
 }
 
 // PostgreSQL API for preload script

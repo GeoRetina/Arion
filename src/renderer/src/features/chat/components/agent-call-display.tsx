@@ -19,7 +19,7 @@ interface AgentCallDisplayProps {
   agentId: string
   message: string
   status: 'loading' | 'completed' | 'error'
-  result?: UnsafeAny
+  result?: unknown
   className?: string
 }
 
@@ -43,17 +43,19 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
   }, [result])
 
   // Determine if this is an error result
-  const errorMessage = useMemo(() => {
+  const errorMessage = useMemo<string | null>(() => {
     if (status !== 'error') return null
 
     // Try to extract error message from result
     if (result) {
       if (typeof result === 'string') return result
       if (typeof result === 'object') {
-        // Check common error message fields
-        return (
-          result.error_message || result.message || result.error || JSON.stringify(result, null, 2)
-        )
+        const resultRecord = result as Record<string, unknown>
+        const errorText =
+          (typeof resultRecord.error_message === 'string' && resultRecord.error_message) ||
+          (typeof resultRecord.message === 'string' && resultRecord.message) ||
+          (typeof resultRecord.error === 'string' && resultRecord.error)
+        return errorText || JSON.stringify(result, null, 2)
       }
     }
     return 'Agent call failed'
@@ -164,7 +166,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
           )}
 
           {/* Results - only shown when completed with results */}
-          {status === 'completed' && result && (
+          {status === 'completed' && result != null && (
             <div>
               <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle className="h-3 w-3" />

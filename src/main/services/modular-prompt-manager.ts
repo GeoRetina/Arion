@@ -42,7 +42,7 @@ export class ModularPromptManager {
     chatId: string,
     defaultSystemPrompt: string,
     agentId?: string,
-    context?: Record<string, UnsafeAny>
+    context?: Record<string, unknown>
   ): Promise<string> {
     await this.ensureInitialized()
 

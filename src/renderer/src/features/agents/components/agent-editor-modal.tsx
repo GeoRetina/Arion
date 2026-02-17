@@ -223,7 +223,8 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
 
   // Helper to get parameter value with fallback default
   const getParameterValue = (parameter: string, defaultValue: number): number => {
-    return agent?.modelConfig.parameters?.[parameter] ?? defaultValue
+    const value = agent?.modelConfig.parameters?.[parameter]
+    return typeof value === 'number' ? value : defaultValue
   }
 
   const readModelFromConfig = (config: unknown, configKey: string): string | null => {

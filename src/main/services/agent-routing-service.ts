@@ -61,7 +61,7 @@ export class AgentRoutingService {
    */
   public async getAgentCapabilities(): Promise<{
     success: boolean
-    capabilities: UnsafeAny[]
+    capabilities: Array<{ id: string; name: string; description: string; agents: string[] }>
     error?: string
   }> {
     await this.ensureInitialized()

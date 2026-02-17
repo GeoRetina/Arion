@@ -1,4 +1,4 @@
-﻿import { BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 import { z } from 'zod'
 import type { KnowledgeBaseService } from './knowledge-base-service'
 import type { MCPClientService, DiscoveredMcpTool } from './mcp-client-service'
@@ -148,21 +148,25 @@ export class LlmToolService {
           }
 
           const injectedArgs = await this.credentialInjector.inject(args)
+          const normalizedArgs =
+            injectedArgs && typeof injectedArgs === 'object'
+              ? (injectedArgs as { [key: string]: unknown })
+              : undefined
 
-          return this.mcpClientService.callTool(mcpTool.serverId, mcpTool.name, injectedArgs)
+          return this.mcpClientService.callTool(mcpTool.serverId, mcpTool.name, normalizedArgs)
         }
       })
     })
   }
 
-  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, UnsafeAny> {
+  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, unknown> {
     return this.toolRegistry.createToolDefinitions(
       (toolName, args) => this.executeTool(toolName, args),
       allowedToolIds
     )
   }
 
-  public async executeTool(toolName: string, args: UnsafeAny): Promise<UnsafeAny> {
+  public async executeTool(toolName: string, args: unknown): Promise<unknown> {
     const toolEntry = this.toolRegistry.get(toolName)
     if (!toolEntry) {
       throw new Error(`Tool "${toolName}" not found.`)

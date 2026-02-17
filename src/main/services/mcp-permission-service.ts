@@ -4,7 +4,7 @@ export class McpPermissionService {
   private mainWindow: BrowserWindow | null = null
   private pendingRequests = new Map<
     string,
-    { resolve: (value: boolean) => void; reject: (reason?: UnsafeAny) => void }
+    { resolve: (value: boolean) => void; reject: (reason?: unknown) => void }
   >()
 
   setMainWindow(window: BrowserWindow): void {

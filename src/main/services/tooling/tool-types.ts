@@ -1,11 +1,11 @@
 import type { z } from 'zod'
 
 export interface ToolExecutorParams {
-  args: UnsafeAny
+  args: unknown
   sourceIdPrefix?: string
   chatId?: string
 }
-export type ToolExecutor = (params: ToolExecutorParams) => Promise<UnsafeAny>
+export type ToolExecutor = (params: ToolExecutorParams) => Promise<unknown>
 
 export interface RegisteredToolDefinition {
   description: string

@@ -79,7 +79,7 @@ export interface AgentModelConfig {
     maxOutputTokens?: number
     frequencyPenalty?: number
     presencePenalty?: number
-    [key: string]: UnsafeAny
+    [key: string]: unknown
   }
 }
 

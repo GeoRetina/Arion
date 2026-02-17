@@ -10,7 +10,7 @@ export const createStreamingFetch = (): ((
 
   const streamingFetch = async (
     url: string,
-    options: { body?: UnsafeAny; signal?: AbortSignal }
+    options: { body?: unknown; signal?: AbortSignal }
   ): Promise<Response> => {
     if (url.endsWith('/api/chat')) {
       try {
@@ -26,7 +26,8 @@ export const createStreamingFetch = (): ((
       }
 
       try {
-        const body = options.body ? JSON.parse(options.body) : undefined
+        const body =
+          typeof options.body === 'string' ? JSON.parse(options.body) : (options.body ?? undefined)
 
         // Create a stream ID that will be used for this request
         const streamId = await window.ctg.chat.startMessageStream(body)
@@ -114,10 +115,17 @@ export const createStreamingFetch = (): ((
       }
     }
 
+    const requestBody =
+      typeof options.body === 'string'
+        ? options.body
+        : options.body !== undefined
+          ? JSON.stringify(options.body)
+          : undefined
+
     // For non-chat endpoints, use regular fetch
     return fetch(url, {
       ...options,
-      body: options.body ? options.body : undefined,
+      body: requestBody,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     })

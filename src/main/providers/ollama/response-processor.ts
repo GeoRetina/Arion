@@ -7,6 +7,10 @@ import { generateId } from '@ai-sdk/provider-utils'
 import type { OllamaConfig, OllamaResponse } from './types'
 import { mapOllamaFinishReason, normalizeToolArguments, serializeToolArguments } from './utils'
 
+type ToolCallContentWithArgs = Extract<LanguageModelV3Content, { type: 'tool-call' }> & {
+  args: unknown
+}
+
 export class OllamaResponseProcessor {
   constructor(private readonly config: OllamaConfig) {}
 
@@ -50,7 +54,7 @@ export class OllamaResponseProcessor {
         toolName: toolCall.function.name,
         input: serialized,
         args
-      } as UnsafeAny)
+      } as ToolCallContentWithArgs)
     }
 
     return content

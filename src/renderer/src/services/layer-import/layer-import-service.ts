@@ -126,7 +126,7 @@ export class LayerImportService {
     format?: ImportFormat
     isValid: boolean
     error?: string
-    details?: UnsafeAny
+    details?: unknown
   }> {
     const validation = this.validateFile(file)
     const fileSize = this.formatFileSize(file.size)
@@ -145,7 +145,7 @@ export class LayerImportService {
 
     // Get format-specific details
     try {
-      let details: UnsafeAny = {}
+      let details: unknown = {}
 
       switch (validation.format) {
         case 'geojson': {

@@ -193,7 +193,7 @@ export class PostgreSQLService {
       const startTime = Date.now()
       await client.query('BEGIN')
 
-      const results: UnsafeAny[] = []
+      const results: unknown[][] = []
       for (const query of queries) {
         const result = await client.query(query)
         results.push(result.rows)
@@ -205,7 +205,7 @@ export class PostgreSQLService {
       return {
         success: true,
         rows: results,
-        rowCount: results.reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0),
+        rowCount: results.reduce((sum: number, rows) => sum + rows.length, 0),
         fields: [],
         executionTime,
         message: `Transaction executed successfully in ${executionTime}ms`
