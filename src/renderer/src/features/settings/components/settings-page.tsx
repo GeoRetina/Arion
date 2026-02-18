@@ -9,7 +9,8 @@ import {
   SlidersHorizontal,
   MessageSquareText,
   Sparkles,
-  FolderTree
+  FolderTree,
+  Puzzle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -22,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { useThemeStore, applyTheme } from '@/stores/theme-store'
 import { SkillPackConfig, SkillPackInfo, SystemPromptConfig } from '@/../../shared/ipc-types'
 import { toast } from 'sonner'
+import { PluginsPage } from './plugins-page'
 
 const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useThemeStore()
@@ -215,7 +217,7 @@ const SettingsPage: React.FC = () => {
 
           <div className="w-xl">
             <Tabs defaultValue="appearance" className="w-full">
-              <TabsList className="grid grid-cols-5 mb-6">
+              <TabsList className="grid grid-cols-6 mb-6">
                 <TabsTrigger value="appearance" className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4" />
                   <span>Appearance</span>
@@ -231,6 +233,10 @@ const SettingsPage: React.FC = () => {
                 <TabsTrigger value="updates" className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
                   <span>Updates</span>
+                </TabsTrigger>
+                <TabsTrigger value="plugins" className="flex items-center gap-2">
+                  <Puzzle className="h-4 w-4" />
+                  <span>Plugins</span>
                 </TabsTrigger>
                 <TabsTrigger value="about" className="flex items-center gap-2">
                   <Info className="h-4 w-4" />
@@ -481,6 +487,12 @@ const SettingsPage: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Plugins Tab */}
+              <TabsContent value="plugins">
+                <h2 className="text-xl font-medium mb-5">Plugins and Hooks</h2>
+                <PluginsPage />
               </TabsContent>
 
               {/* About Tab */}

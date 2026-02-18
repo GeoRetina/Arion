@@ -221,7 +221,18 @@ export class ChatService {
       this.llmToolService.setCurrentChatId(chatId)
     }
 
+    await this.llmToolService.emitLifecycleHook('session_start', {
+      chatId,
+      agentId: agentId || null,
+      executionMode: 'structured'
+    })
+
     try {
+      await this.llmToolService.emitLifecycleHook('before_prompt_build', {
+        chatId,
+        agentId: agentId || null
+      })
+
       const { processedMessages, finalSystemPrompt } =
         await this.messagePreparationService.prepareMessagesAndSystemPrompt(
           messages,
@@ -240,12 +251,32 @@ export class ChatService {
         }
       }
 
+      await this.llmToolService.emitLifecycleHook('before_model_resolve', {
+        chatId,
+        agentId: agentId || null
+      })
+
       // Create LLM using agent-specific configuration or global settings
       const llm = await this.llmProviderFactory.createLLMFromAgentConfig(agentId)
       const llmConfig = await this.llmProviderFactory.getLLMConfig(agentId)
 
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)
       const combinedTools = await this.agentToolManager.getToolsForAgent(agentId)
+
+      await this.llmToolService.emitLifecycleHook('before_agent_start', {
+        chatId,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model
+      })
+
+      await this.llmToolService.emitLifecycleHook('llm_input', {
+        chatId,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model,
+        messageCount: processedMessages?.length || 0
+      })
 
       // Execute streaming with structured result
       const structuredResult = await this.streamingHandlerService.executeWithStructuredResult({
@@ -254,6 +285,16 @@ export class ChatService {
         system: finalSystemPrompt || '',
         tools: combinedTools,
         providerId: llmConfig.provider
+      })
+
+      await this.llmToolService.emitLifecycleHook('llm_output', {
+        chatId,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model,
+        success: structuredResult.success,
+        toolResultCount: structuredResult.toolResults.length,
+        textLength: structuredResult.textResponse.length
       })
 
       if (chatId) {
@@ -266,8 +307,35 @@ export class ChatService {
         )
       }
 
+      await this.llmToolService.emitLifecycleHook('agent_end', {
+        chatId,
+        agentId: agentId || null,
+        success: structuredResult.success,
+        executionMode: 'structured'
+      })
+      await this.llmToolService.emitLifecycleHook('session_end', {
+        chatId,
+        agentId: agentId || null,
+        executionMode: 'structured',
+        success: structuredResult.success
+      })
+
       return structuredResult
     } catch (error) {
+      await this.llmToolService.emitLifecycleHook('agent_end', {
+        chatId,
+        agentId: agentId || null,
+        success: false,
+        executionMode: 'structured',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+      await this.llmToolService.emitLifecycleHook('session_end', {
+        chatId,
+        agentId: agentId || null,
+        executionMode: 'structured',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
       return {
         textResponse: '',
         toolResults: [],
@@ -281,36 +349,74 @@ export class ChatService {
     body: ChatRequestBody & { id?: string; agentId?: string }
   ): Promise<Uint8Array[]> {
     const { messages: rendererMessages, agentId } = body
+    const chatId = body.id
 
     // Set the chat ID in the LlmToolService for permission tracking
-    if (body.id) {
-      this.llmToolService.setCurrentChatId(body.id)
+    if (chatId) {
+      this.llmToolService.setCurrentChatId(chatId)
     }
     const textEncoder = new TextEncoder()
+
+    await this.llmToolService.emitLifecycleHook('session_start', {
+      chatId: chatId || null,
+      agentId: agentId || null,
+      executionMode: 'chunk-stream'
+    })
 
     try {
       // Guard: only proceed if the last message is a user turn
       if (!rendererMessages || rendererMessages.length === 0) {
+        await this.llmToolService.emitLifecycleHook('session_end', {
+          chatId: chatId || null,
+          agentId: agentId || null,
+          executionMode: 'chunk-stream',
+          success: true
+        })
         return []
       }
       const last = rendererMessages[rendererMessages.length - 1]
       if (last.role !== 'user') {
+        await this.llmToolService.emitLifecycleHook('session_end', {
+          chatId: chatId || null,
+          agentId: agentId || null,
+          executionMode: 'chunk-stream',
+          success: true
+        })
         return []
       }
-      if (body.id) {
-        void this.captureCompletedAssistantMemories(rendererMessages, body.id, agentId)
+      if (chatId) {
+        void this.captureCompletedAssistantMemories(rendererMessages, chatId, agentId)
       }
+
+      await this.llmToolService.emitLifecycleHook('before_prompt_build', {
+        chatId: chatId || null,
+        agentId: agentId || null
+      })
 
       const { processedMessages, finalSystemPrompt } =
         await this.messagePreparationService.prepareMessagesAndSystemPrompt(
           rendererMessages,
-          body.id,
+          chatId,
           agentId
         )
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
           // Only error if there's no system prompt to guide an empty message list either
+          await this.llmToolService.emitLifecycleHook('agent_end', {
+            chatId: chatId || null,
+            agentId: agentId || null,
+            executionMode: 'chunk-stream',
+            success: false,
+            error: 'No messages or system prompt to send after preparation.'
+          })
+          await this.llmToolService.emitLifecycleHook('session_end', {
+            chatId: chatId || null,
+            agentId: agentId || null,
+            executionMode: 'chunk-stream',
+            success: false,
+            error: 'No messages or system prompt to send after preparation.'
+          })
           return [
             textEncoder.encode(
               JSON.stringify({
@@ -322,10 +428,29 @@ export class ChatService {
       }
 
       if (!processedMessages || processedMessages.length === 0) {
+        await this.llmToolService.emitLifecycleHook('agent_end', {
+          chatId: chatId || null,
+          agentId: agentId || null,
+          executionMode: 'chunk-stream',
+          success: false,
+          error: 'Cannot process empty message list.'
+        })
+        await this.llmToolService.emitLifecycleHook('session_end', {
+          chatId: chatId || null,
+          agentId: agentId || null,
+          executionMode: 'chunk-stream',
+          success: false,
+          error: 'Cannot process empty message list.'
+        })
         return [
           textEncoder.encode(JSON.stringify({ streamError: 'Cannot process empty message list.' }))
         ]
       }
+
+      await this.llmToolService.emitLifecycleHook('before_model_resolve', {
+        chatId: chatId || null,
+        agentId: agentId || null
+      })
 
       // Create LLM using agent-specific configuration or global settings
       const llm = await this.llmProviderFactory.createLLMFromAgentConfig(agentId)
@@ -334,8 +459,22 @@ export class ChatService {
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)
       const combinedTools = await this.agentToolManager.getToolsForAgent(agentId)
 
+      await this.llmToolService.emitLifecycleHook('before_agent_start', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model
+      })
+      await this.llmToolService.emitLifecycleHook('llm_input', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model,
+        messageCount: processedMessages.length
+      })
+
       // Handle streaming as chunks
-      return await this.streamingHandlerService.handleStreamAsChunks({
+      const chunks = await this.streamingHandlerService.handleStreamAsChunks({
         model: llm,
         messages: processedMessages,
         system: finalSystemPrompt || '',
@@ -343,8 +482,42 @@ export class ChatService {
         providerId: llmConfig.provider,
         modelId: llmConfig.model
       })
+      await this.llmToolService.emitLifecycleHook('llm_output', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model,
+        chunkCount: chunks.length
+      })
+      await this.llmToolService.emitLifecycleHook('agent_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'chunk-stream',
+        success: true
+      })
+      await this.llmToolService.emitLifecycleHook('session_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'chunk-stream',
+        success: true
+      })
+      return chunks
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred'
+      await this.llmToolService.emitLifecycleHook('agent_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'chunk-stream',
+        success: false,
+        error: errorMessage
+      })
+      await this.llmToolService.emitLifecycleHook('session_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'chunk-stream',
+        success: false,
+        error: errorMessage
+      })
       return [textEncoder.encode(JSON.stringify({ streamError: errorMessage }))]
     }
   }
@@ -359,36 +532,74 @@ export class ChatService {
     abortSignal?: AbortSignal
   ): Promise<void> {
     const { messages: rendererMessages, agentId } = body
+    const chatId = body.id
 
     // Set the chat ID in the LlmToolService for permission tracking
-    if (body.id) {
-      this.llmToolService.setCurrentChatId(body.id)
+    if (chatId) {
+      this.llmToolService.setCurrentChatId(chatId)
     }
+
+    await this.llmToolService.emitLifecycleHook('session_start', {
+      chatId: chatId || null,
+      agentId: agentId || null,
+      executionMode: 'realtime-stream'
+    })
 
     try {
       // Guard: only proceed if the last message is a user turn
       if (!rendererMessages || rendererMessages.length === 0) {
+        await this.llmToolService.emitLifecycleHook('session_end', {
+          chatId: chatId || null,
+          agentId: agentId || null,
+          executionMode: 'realtime-stream',
+          success: true
+        })
         callbacks.onComplete()
         return
       }
       const last = rendererMessages[rendererMessages.length - 1]
       if (last.role !== 'user') {
+        await this.llmToolService.emitLifecycleHook('session_end', {
+          chatId: chatId || null,
+          agentId: agentId || null,
+          executionMode: 'realtime-stream',
+          success: true
+        })
         callbacks.onComplete()
         return
       }
-      if (body.id) {
-        void this.captureCompletedAssistantMemories(rendererMessages, body.id, agentId)
+      if (chatId) {
+        void this.captureCompletedAssistantMemories(rendererMessages, chatId, agentId)
       }
+
+      await this.llmToolService.emitLifecycleHook('before_prompt_build', {
+        chatId: chatId || null,
+        agentId: agentId || null
+      })
 
       const { processedMessages, finalSystemPrompt } =
         await this.messagePreparationService.prepareMessagesAndSystemPrompt(
           rendererMessages,
-          body.id,
+          chatId,
           agentId
         )
 
       if (!processedMessages || processedMessages.length === 0) {
         if (!finalSystemPrompt) {
+          await this.llmToolService.emitLifecycleHook('agent_end', {
+            chatId: chatId || null,
+            agentId: agentId || null,
+            executionMode: 'realtime-stream',
+            success: false,
+            error: 'No messages or system prompt for streaming after preparation.'
+          })
+          await this.llmToolService.emitLifecycleHook('session_end', {
+            chatId: chatId || null,
+            agentId: agentId || null,
+            executionMode: 'realtime-stream',
+            success: false,
+            error: 'No messages or system prompt for streaming after preparation.'
+          })
           callbacks.onError(
             new Error('No messages or system prompt for streaming after preparation.')
           )
@@ -397,12 +608,41 @@ export class ChatService {
         }
       }
 
+      await this.llmToolService.emitLifecycleHook('before_model_resolve', {
+        chatId: chatId || null,
+        agentId: agentId || null
+      })
+
       // Create LLM using agent-specific configuration or global settings
       const llm = await this.llmProviderFactory.createLLMFromAgentConfig(agentId)
       const llmConfig = await this.llmProviderFactory.getLLMConfig(agentId)
 
       // Get appropriate tools for this agent (or main orchestrator if no agent ID)
       const combinedTools = await this.agentToolManager.getToolsForAgent(agentId)
+
+      await this.llmToolService.emitLifecycleHook('before_agent_start', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model
+      })
+      await this.llmToolService.emitLifecycleHook('llm_input', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model,
+        messageCount: processedMessages.length
+      })
+
+      let streamErrored = false
+      const wrappedCallbacks: StreamingCallbacks = {
+        onChunk: callbacks.onChunk,
+        onError: (error) => {
+          streamErrored = true
+          callbacks.onError(error)
+        },
+        onComplete: callbacks.onComplete
+      }
 
       // Handle real-time streaming
       await this.streamingHandlerService.handleRealTimeStreaming(
@@ -415,9 +655,43 @@ export class ChatService {
           modelId: llmConfig.model,
           abortSignal
         },
-        callbacks
+        wrappedCallbacks
       )
+
+      await this.llmToolService.emitLifecycleHook('llm_output', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        provider: llmConfig.provider,
+        model: llmConfig.model,
+        success: !streamErrored
+      })
+      await this.llmToolService.emitLifecycleHook('agent_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'realtime-stream',
+        success: !streamErrored
+      })
+      await this.llmToolService.emitLifecycleHook('session_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'realtime-stream',
+        success: !streamErrored
+      })
     } catch (error) {
+      await this.llmToolService.emitLifecycleHook('agent_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'realtime-stream',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+      await this.llmToolService.emitLifecycleHook('session_end', {
+        chatId: chatId || null,
+        agentId: agentId || null,
+        executionMode: 'realtime-stream',
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
       callbacks.onError(
         error instanceof Error ? error : new Error('Unknown error in streaming handler')
       )

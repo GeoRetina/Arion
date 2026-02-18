@@ -32,6 +32,8 @@ import {
   type SkillPackConfig,
   type SkillPackInfo,
   type SkillPackTemplateBootstrapResult,
+  type PluginPlatformConfig,
+  type PluginDiagnosticsSnapshot,
   type SetMapSidebarVisibilityPayload,
   type AddGeoreferencedImageLayerPayload,
   type KnowledgeBaseApi,
@@ -213,7 +215,15 @@ const ctgApi = {
     bootstrapWorkspaceTemplates: (
       workspaceRoot: string
     ): Promise<SkillPackTemplateBootstrapResult> =>
-      ipcRenderer.invoke(IpcChannels.bootstrapWorkspaceTemplates, workspaceRoot)
+      ipcRenderer.invoke(IpcChannels.bootstrapWorkspaceTemplates, workspaceRoot),
+    getPluginPlatformConfig: (): Promise<PluginPlatformConfig> =>
+      ipcRenderer.invoke(IpcChannels.getPluginPlatformConfig),
+    setPluginPlatformConfig: (config: PluginPlatformConfig): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.setPluginPlatformConfig, config),
+    getPluginDiagnostics: (): Promise<PluginDiagnosticsSnapshot> =>
+      ipcRenderer.invoke(IpcChannels.getPluginDiagnostics),
+    reloadPluginRuntime: (): Promise<PluginDiagnosticsSnapshot> =>
+      ipcRenderer.invoke(IpcChannels.reloadPluginRuntime)
   } as SettingsApi,
   chat: {
     sendMessageStream: async (body: PreloadChatRequestBody | undefined): Promise<Uint8Array[]> => {

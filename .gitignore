@@ -8,6 +8,4 @@ out
 .env.local
 venv/
 coverage
-.worktrees/
-
-
+.worktrees

@@ -151,6 +151,98 @@ export interface SkillPackTemplateBootstrapResult {
   existing: string[]
 }
 
+export type PluginSource = 'configured' | 'workspace' | 'global' | 'bundled'
+export type PluginRuntimeStatus = 'active' | 'disabled' | 'ignored' | 'error'
+export type PluginHookMode = 'modify' | 'observe'
+export type PluginDiagnosticLevel = 'info' | 'warning' | 'error'
+export type JsonSchemaPrimitiveType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'object'
+  | 'array'
+  | 'null'
+
+export interface JsonSchemaDefinition {
+  type?: JsonSchemaPrimitiveType | JsonSchemaPrimitiveType[]
+  description?: string
+  enum?: unknown[]
+  const?: unknown
+  properties?: Record<string, JsonSchemaDefinition>
+  required?: string[]
+  additionalProperties?: boolean | JsonSchemaDefinition
+  items?: JsonSchemaDefinition | JsonSchemaDefinition[]
+  minLength?: number
+  maxLength?: number
+  minimum?: number
+  maximum?: number
+  minItems?: number
+  maxItems?: number
+  pattern?: string
+  oneOf?: JsonSchemaDefinition[]
+  anyOf?: JsonSchemaDefinition[]
+}
+
+export interface PluginPlatformConfig {
+  enabled: boolean
+  workspaceRoot?: string | null
+  configuredPluginPaths: string[]
+  enableBundledPlugins: boolean
+  allowlist: string[]
+  denylist: string[]
+  enabledPluginIds: string[]
+  disabledPluginIds: string[]
+  exclusiveSlotAssignments: Record<string, string>
+  pluginConfigById: Record<string, unknown>
+}
+
+export interface PluginInventoryItem {
+  id: string
+  name: string
+  version: string
+  source: PluginSource
+  sourcePath: string
+  mainPath: string | null
+  category?: string
+  slots: string[]
+  status: PluginRuntimeStatus
+  hasConfigSchema: boolean
+  reason?: string
+}
+
+export interface PluginHookInfo {
+  pluginId: string
+  event: string
+  mode: PluginHookMode
+  priority: number
+}
+
+export interface PluginToolInfo {
+  pluginId: string
+  name: string
+  category: string
+}
+
+export interface PluginDiagnosticEntry {
+  level: PluginDiagnosticLevel
+  code: string
+  message: string
+  pluginId?: string
+  sourcePath?: string
+  timestamp: string
+}
+
+export interface PluginDiagnosticsSnapshot {
+  loadedAt: string
+  runtimeEnabled: boolean
+  config: PluginPlatformConfig
+  inventory: PluginInventoryItem[]
+  hooks: PluginHookInfo[]
+  tools: PluginToolInfo[]
+  diagnostics: PluginDiagnosticEntry[]
+}
+
 export const IpcChannels = {
   // Agent System IPC Channels
   getAgents: 'agents:getAll',
@@ -200,6 +292,10 @@ export const IpcChannels = {
   setSkillPackConfig: 'settings:set-skill-pack-config',
   listAvailableSkills: 'settings:list-available-skills',
   bootstrapWorkspaceTemplates: 'settings:bootstrap-workspace-templates',
+  getPluginPlatformConfig: 'settings:get-plugin-platform-config',
+  setPluginPlatformConfig: 'settings:set-plugin-platform-config',
+  getPluginDiagnostics: 'settings:get-plugin-diagnostics',
+  reloadPluginRuntime: 'settings:reload-plugin-runtime',
 
   // Database IPC Channels
   dbCreateChat: 'ctg:db:createChat',
@@ -348,6 +444,10 @@ export interface SettingsApi {
   setSkillPackConfig: (config: SkillPackConfig) => Promise<void>
   listAvailableSkills: (workspaceRoot?: string) => Promise<SkillPackInfo[]>
   bootstrapWorkspaceTemplates: (workspaceRoot: string) => Promise<SkillPackTemplateBootstrapResult>
+  getPluginPlatformConfig: () => Promise<PluginPlatformConfig>
+  setPluginPlatformConfig: (config: PluginPlatformConfig) => Promise<void>
+  getPluginDiagnostics: () => Promise<PluginDiagnosticsSnapshot>
+  reloadPluginRuntime: () => Promise<PluginDiagnosticsSnapshot>
 }
 
 // Type for the Chat API arguments and return type

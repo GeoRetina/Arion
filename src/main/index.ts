@@ -17,6 +17,7 @@ import { AgentRegistryService } from './services/agent-registry-service'
 import { ModularPromptManager } from './services/modular-prompt-manager'
 import { AgentRoutingService } from './services/agent-routing-service'
 import { SkillPackService } from './services/skill-pack-service'
+import { PluginLoaderService } from './services/plugin/plugin-loader-service'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -46,6 +47,7 @@ let agentRegistryServiceInstance: AgentRegistryService
 let modularPromptManagerInstance: ModularPromptManager
 let agentRoutingServiceInstance: AgentRoutingService
 let skillPackServiceInstance: SkillPackService
+let pluginLoaderServiceInstance: PluginLoaderService
 
 function createWindow(): void {
   const preloadPath = join(__dirname, '../preload/index.js')
@@ -140,6 +142,15 @@ app.whenReady().then(async () => {
     getResourcesPath: () => process.resourcesPath,
     getCwd: () => process.cwd()
   })
+  pluginLoaderServiceInstance = new PluginLoaderService({
+    settingsService: settingsServiceInstance,
+    environment: {
+      getUserDataPath: () => app.getPath('userData'),
+      getAppPath: () => app.getAppPath(),
+      getResourcesPath: () => process.resourcesPath,
+      getCwd: () => process.cwd()
+    }
+  })
 
   // Create llmToolService initially without agent services
   llmToolServiceInstance = new LlmToolService(
@@ -148,7 +159,8 @@ app.whenReady().then(async () => {
     mcpPermissionServiceInstance,
     undefined, // agentRegistryService - will be set later
     undefined, // orchestrationService - will be set later
-    postgresqlServiceInstance
+    postgresqlServiceInstance,
+    pluginLoaderServiceInstance
   )
 
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
@@ -213,7 +225,9 @@ app.whenReady().then(async () => {
     ipcMain,
     settingsServiceInstance,
     mcpClientServiceInstance,
-    skillPackServiceInstance
+    skillPackServiceInstance,
+    pluginLoaderServiceInstance,
+    llmToolServiceInstance
   )
   registerChatIpcHandlers(
     ipcMain,
