@@ -40,6 +40,7 @@ import {
   type KnowledgeBaseApi,
   type KBAddDocumentPayload,
   type KBAddDocumentResult,
+  type UpdateWorkspaceMemoryPayload,
   type ExposedShellApi,
   type McpPermissionApi,
   type McpPermissionRequest,
@@ -435,6 +436,10 @@ const ctgApi = {
     getAllDocuments: () => ipcRenderer.invoke(IpcChannels.kbGetAllDocuments),
     getWorkspaceMemories: (limit?: number) =>
       ipcRenderer.invoke(IpcChannels.kbGetWorkspaceMemories, limit),
+    updateWorkspaceMemory: (payload: UpdateWorkspaceMemoryPayload) =>
+      ipcRenderer.invoke(IpcChannels.kbUpdateWorkspaceMemory, payload),
+    deleteWorkspaceMemory: (memoryId: string) =>
+      ipcRenderer.invoke(IpcChannels.kbDeleteWorkspaceMemory, memoryId),
     deleteDocument: (documentId: string) =>
       ipcRenderer.invoke(IpcChannels.kbDeleteDocument, documentId)
   } as KnowledgeBaseApi,

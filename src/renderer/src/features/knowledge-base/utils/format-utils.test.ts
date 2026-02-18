@@ -41,4 +41,8 @@ describe('formatRelativeTime', () => {
   it('falls back to absolute date for older timestamps', () => {
     expect(formatRelativeTime(new Date(2026, 1, 1, 12, 0, 0))).toBe('Feb 1, 2026')
   })
+
+  it('returns Unknown for invalid timestamps', () => {
+    expect(formatRelativeTime(new Date('invalid-date'))).toBe('Unknown')
+  })
 })

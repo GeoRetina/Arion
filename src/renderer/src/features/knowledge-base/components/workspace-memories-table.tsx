@@ -1,5 +1,6 @@
 import React from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -9,11 +10,22 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { MoreHorizontal, Edit, Trash } from 'lucide-react'
 import { WorkspaceMemory } from '../stores/knowledge-base-store'
 import { formatRelativeTime } from '../utils/format-utils'
 
 interface WorkspaceMemoriesTableProps {
   memories: WorkspaceMemory[]
+  onEditMemory: (memory: WorkspaceMemory) => void
+  onDeleteMemory: (memory: WorkspaceMemory) => void
 }
 
 function getMemorySourceLabel(memory: WorkspaceMemory): string {
@@ -34,7 +46,9 @@ function compactChatId(chatId: string): string {
 }
 
 export function WorkspaceMemoriesTable({
-  memories
+  memories,
+  onEditMemory,
+  onDeleteMemory
 }: WorkspaceMemoriesTableProps): React.JSX.Element {
   const sortedMemories = [...memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
@@ -49,12 +63,13 @@ export function WorkspaceMemoriesTable({
             <TableHead className="w-[180px]">Source</TableHead>
             <TableHead className="w-[150px]">Chat</TableHead>
             <TableHead className="w-[130px]">Created</TableHead>
+            <TableHead className="w-[90px] text-right pr-6">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {sortedMemories.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-20 text-center text-muted-foreground">
+              <TableCell colSpan={7} className="h-20 text-center text-muted-foreground">
                 No workspace memories captured yet.
               </TableCell>
             </TableRow>
@@ -77,6 +92,28 @@ export function WorkspaceMemoriesTable({
                   {compactChatId(memory.chatId)}
                 </TableCell>
                 <TableCell>{formatRelativeTime(memory.createdAt)}</TableCell>
+                <TableCell className="text-right pr-6">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => onEditMemory(memory)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        <span>Edit</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onDeleteMemory(memory)}>
+                        <Trash className="mr-2 h-4 w-4" />
+                        <span>Delete</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>
             ))
           )}

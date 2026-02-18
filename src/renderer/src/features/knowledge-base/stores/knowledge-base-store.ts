@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   KnowledgeBaseDocumentForClient,
+  UpdateWorkspaceMemoryPayload,
   WorkspaceMemoryForClient
 } from '../../../../../shared/ipc-types'
 
@@ -42,6 +43,38 @@ export interface WorkspaceMemory {
   createdAt: Date
 }
 
+function parseTimestamp(value: unknown): Date {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const numericDate = new Date(value)
+    if (Number.isFinite(numericDate.getTime())) {
+      return numericDate
+    }
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed) {
+      const parsed = new Date(trimmed)
+      if (Number.isFinite(parsed.getTime())) {
+        return parsed
+      }
+
+      // Handle common SQL timestamp formats not guaranteed to be ISO-8601.
+      const normalized = trimmed.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00')
+      const reparsed = new Date(normalized)
+      if (Number.isFinite(reparsed.getTime())) {
+        return reparsed
+      }
+    }
+  }
+
+  return new Date('invalid-date')
+}
+
 interface KnowledgeBaseState {
   documents: Document[]
   workspaceMemories: WorkspaceMemory[]
@@ -61,6 +94,8 @@ interface KnowledgeBaseState {
   removeDocument: (id: string) => void
   fetchDocuments: () => Promise<void>
   fetchWorkspaceMemories: (limit?: number) => Promise<void>
+  updateWorkspaceMemoryEntry: (payload: UpdateWorkspaceMemoryPayload) => Promise<WorkspaceMemory>
+  deleteWorkspaceMemoryEntry: (id: string) => Promise<void>
   deleteDocumentAndEmbeddings: (id: string) => Promise<void>
 
   // Folder actions
@@ -163,7 +198,7 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set, get) => ({
             toolName: memory.toolName,
             summary: memory.summary,
             details: memory.details,
-            createdAt: new Date(memory.createdAt)
+            createdAt: parseTimestamp(memory.createdAt)
           })
         )
         set({ workspaceMemories, error: null })
@@ -173,6 +208,48 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set, get) => ({
     } catch (err) {
       set({ error: (err as Error).message })
     }
+  },
+
+  updateWorkspaceMemoryEntry: async (payload: UpdateWorkspaceMemoryPayload) => {
+    const response = await window.ctg.knowledgeBase.updateWorkspaceMemory(payload)
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to update workspace memory')
+    }
+
+    const updatedMemory: WorkspaceMemory = {
+      id: response.data.id,
+      chatId: response.data.chatId,
+      scope: response.data.scope,
+      sourceKey: response.data.sourceKey,
+      sourceMessageId: response.data.sourceMessageId,
+      memoryType: response.data.memoryType,
+      agentId: response.data.agentId,
+      toolName: response.data.toolName,
+      summary: response.data.summary,
+      details: response.data.details,
+      createdAt: parseTimestamp(response.data.createdAt)
+    }
+
+    set((state) => ({
+      workspaceMemories: state.workspaceMemories.map((memory) =>
+        memory.id === updatedMemory.id ? updatedMemory : memory
+      ),
+      error: null
+    }))
+
+    return updatedMemory
+  },
+
+  deleteWorkspaceMemoryEntry: async (id: string) => {
+    const response = await window.ctg.knowledgeBase.deleteWorkspaceMemory(id)
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to delete workspace memory')
+    }
+
+    set((state) => ({
+      workspaceMemories: state.workspaceMemories.filter((memory) => memory.id !== id),
+      error: null
+    }))
   },
 
   deleteDocumentAndEmbeddings: async (id: string) => {

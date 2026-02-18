@@ -4,6 +4,7 @@ import {
   KBAddDocumentPayload,
   KBAddDocumentResult,
   KnowledgeBaseDocumentForClient,
+  UpdateWorkspaceMemoryPayload,
   WorkspaceMemoryForClient
 } from '../../shared/ipc-types' // Assuming this path is correct
 import { KnowledgeBaseService } from '../services/knowledge-base-service'
@@ -103,6 +104,70 @@ export function registerKnowledgeBaseIpcHandlers(
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
       return { success: false, error: errorMessage, data: [] }
+    }
+  })
+
+  ipcMain.handle(
+    IpcChannels.kbUpdateWorkspaceMemory,
+    async (_event, payload: UpdateWorkspaceMemoryPayload) => {
+      if (!kbService) {
+        return {
+          success: false,
+          error: 'KnowledgeBaseService not initialized.',
+          data: null
+        }
+      }
+
+      const memoryId = typeof payload?.id === 'string' ? payload.id.trim() : ''
+      const summary = typeof payload?.summary === 'string' ? payload.summary.trim() : ''
+      if (!memoryId) {
+        return { success: false, error: 'Memory ID is required.', data: null }
+      }
+      if (!summary) {
+        return { success: false, error: 'Memory summary is required.', data: null }
+      }
+
+      try {
+        const updated = await kbService.updateWorkspaceMemoryEntry({
+          id: memoryId,
+          summary,
+          scope: payload.scope,
+          memoryType: payload.memoryType,
+          details: payload.details
+        })
+
+        if (!updated) {
+          return { success: false, error: 'Memory not found or not updated.', data: null }
+        }
+
+        return { success: true, data: updated as WorkspaceMemoryForClient }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
+        return { success: false, error: errorMessage, data: null }
+      }
+    }
+  )
+
+  ipcMain.handle(IpcChannels.kbDeleteWorkspaceMemory, async (_event, memoryId: string) => {
+    if (!kbService) {
+      return { success: false, error: 'KnowledgeBaseService not initialized.' }
+    }
+
+    const normalizedMemoryId = typeof memoryId === 'string' ? memoryId.trim() : ''
+    if (!normalizedMemoryId) {
+      return { success: false, error: 'Memory ID is required.' }
+    }
+
+    try {
+      const deleted = await kbService.deleteWorkspaceMemoryEntry(normalizedMemoryId)
+      if (!deleted) {
+        return { success: false, error: 'Memory not found or not deleted.' }
+      }
+
+      return { success: true, data: null }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.'
+      return { success: false, error: errorMessage }
     }
   })
 

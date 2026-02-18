@@ -62,6 +62,21 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
         name: 'query_knowledge_base',
         description:
           'Perform Retrieval Augmented Generation (RAG) to answer questions based on provided documents or a knowledge base'
+      },
+      {
+        name: 'search_workspace_memories',
+        description:
+          'Search workspace memory for prior outcomes, decisions, preferences, and historical context'
+      },
+      {
+        name: 'get_workspace_memory',
+        description:
+          'Retrieve a specific workspace memory entry by ID after searching for relevant matches'
+      },
+      {
+        name: 'create_workspace_memory',
+        description:
+          'Create an explicit durable workspace memory entry when the user asks to remember information'
       }
     ]
   },
