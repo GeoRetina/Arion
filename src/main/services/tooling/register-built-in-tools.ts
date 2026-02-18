@@ -5,6 +5,7 @@ import type { KnowledgeBaseService } from '../knowledge-base-service'
 import type { PostgreSQLService } from '../postgresql-service'
 import type { AgentRegistryService } from '../agent-registry-service'
 import type { OrchestrationService } from '../orchestration-service'
+import type { ConnectorExecutionService } from '../connectors/connector-execution-service'
 import { registerVisualizationTools } from './tool-packs/visualization-tool-pack'
 import { registerMapLayerManagementTools } from './tool-packs/map-layer-management-tool-pack'
 import { registerMapViewTools } from './tool-packs/map-view-tool-pack'
@@ -12,6 +13,7 @@ import { registerAppUiTools } from './tool-packs/app-ui-tool-pack'
 import { registerDatabaseTools } from './tool-packs/database-tool-pack'
 import { registerKnowledgeBaseTools } from './tool-packs/knowledge-base-tool-pack'
 import { registerAgentTools } from './tool-packs/agent-tool-pack'
+import { registerIntegrationTools } from './tool-packs/integration-tool-pack'
 
 export interface BuiltInRegistrationDeps {
   registry: ToolRegistry
@@ -21,6 +23,7 @@ export interface BuiltInRegistrationDeps {
   getPostgresqlService: () => PostgreSQLService | null
   getAgentRegistryService: () => AgentRegistryService | null
   getOrchestrationService: () => OrchestrationService | null
+  getConnectorExecutionService: () => ConnectorExecutionService | null
 }
 
 export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
@@ -42,6 +45,10 @@ export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
 
   registerDatabaseTools(deps.registry, {
     getPostgresqlService: deps.getPostgresqlService
+  })
+
+  registerIntegrationTools(deps.registry, {
+    getConnectorExecutionService: deps.getConnectorExecutionService
   })
 
   registerKnowledgeBaseTools(deps.registry, {

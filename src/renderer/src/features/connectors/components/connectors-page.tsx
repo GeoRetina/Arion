@@ -1,13 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
+  CheckCircle2,
+  Clock,
   Cloud,
   Database,
-  ExternalLink,
   Key,
   Layers,
   Link2,
-  Loader2
+  Loader2,
+  Pencil,
+  RefreshCw,
+  ShieldX,
+  Timer,
+  Trash2,
+  XCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -22,6 +29,7 @@ import {
   type PostgreSQLConnectionResult
 } from '../../../../../shared/ipc-types'
 import { integrationRegistry } from '../connectors'
+import { useConnectorRunLogs } from '../hooks/use-connector-run-logs'
 import type { IntegrationDefinition, IntegrationType } from '../types/connector'
 import { IntegrationConfigDialog } from './connector-config-dialog'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
@@ -102,6 +110,9 @@ const ConnectorsPage: React.FC = () => {
   const [isGenericConfigOpen, setIsGenericConfigOpen] = useState(false)
   const [genericInitialConfig, setGenericInitialConfig] = useState<Record<string, unknown>>({})
   const [pendingIntegrationId, setPendingIntegrationId] = useState<IntegrationId | null>(null)
+  const { runLogs, isRunLogsLoading, refreshRunLogs, clearRunLogs } = useConnectorRunLogs({
+    limit: 30
+  })
 
   const selectedIntegration = useMemo(
     () =>
@@ -172,6 +183,7 @@ const ConnectorsPage: React.FC = () => {
       }
       toast.success('Integration disconnected')
       await hydrateIntegrationState()
+      await refreshRunLogs()
     } catch (error) {
       toast.error('Failed to disconnect integration', {
         description: error instanceof Error ? error.message : 'Unknown error'
@@ -224,6 +236,7 @@ const ConnectorsPage: React.FC = () => {
     }
     toast.success('PostgreSQL/PostGIS connected')
     await hydrateIntegrationState()
+    await refreshRunLogs()
   }
 
   const mapToPostgreSQLConnectionResult = (
@@ -248,6 +261,7 @@ const ConnectorsPage: React.FC = () => {
     config: PostgreSQLConfig
   ): Promise<PostgreSQLConnectionResult> => {
     const result = await window.ctg.integrations.testConnection('postgresql-postgis', config)
+    await refreshRunLogs()
     return mapToPostgreSQLConnectionResult(result)
   }
 
@@ -263,10 +277,12 @@ const ConnectorsPage: React.FC = () => {
       }
     }
 
-    return window.ctg.integrations.testConnection(
+    const result = await window.ctg.integrations.testConnection(
       selectedIntegration.integration.id,
       config as unknown as IntegrationConfigMap[IntegrationId]
     )
+    await refreshRunLogs()
+    return result
   }
 
   const handleGenericSaveAndConnect = async (
@@ -295,11 +311,12 @@ const ConnectorsPage: React.FC = () => {
     }
 
     await hydrateIntegrationState()
+    await refreshRunLogs()
     return result
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="h-full">
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6 pb-8">
           <div>
@@ -316,6 +333,114 @@ const ConnectorsPage: React.FC = () => {
                 Loading connector states...
               </div>
             )}
+
+            <Card className="surface-elevated">
+              <CardHeader className="pb-2 pt-4 px-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">Connector Diagnostics</CardTitle>
+                    <CardDescription>
+                      Recent connector tests, connection events, and capability runs.
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => void refreshRunLogs()}
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Refresh
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => void clearRunLogs()}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 py-3">
+                {isRunLogsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading diagnostics...
+                  </div>
+                ) : runLogs.length === 0 ? (
+                  <div className="text-sm text-muted-foreground py-4 text-center">
+                    No connector runs yet. Events will appear here as you test and use connectors.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/40">
+                    {runLogs.slice(0, 8).map((log) => {
+                      const isSuccess = log.outcome === 'success'
+                      const isError = log.outcome === 'error'
+                      const isDenied = log.outcome === 'policy_denied'
+                      const isTimeout = log.outcome === 'timeout'
+
+                      const OutcomeIcon = isSuccess
+                        ? CheckCircle2
+                        : isError
+                          ? XCircle
+                          : isDenied
+                            ? ShieldX
+                            : Timer
+
+                      const outcomeColor = isSuccess
+                        ? 'text-green-500'
+                        : isError
+                          ? 'text-red-500'
+                          : isDenied
+                            ? 'text-yellow-500'
+                            : 'text-orange-500'
+
+                      return (
+                        <div key={log.runId} className="flex items-start gap-3 py-2.5">
+                          <div className={`mt-0.5 ${outcomeColor}`}>
+                            <OutcomeIcon className="h-4 w-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="text-sm font-medium truncate">
+                                {log.integrationId}
+                                <span className="text-muted-foreground font-normal">
+                                  {' / '}
+                                  {log.capability}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
+                                {log.backend && (
+                                  <span className="rounded-full bg-muted px-2 py-0.5">
+                                    {log.backend}
+                                  </span>
+                                )}
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {log.durationMs}ms
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {log.message}
+                            </p>
+                            {log.errorCode && (
+                              <span className="text-xs text-red-500 mt-0.5 inline-block">
+                                Error: {log.errorCode}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {integrationConfigs.map((definition) => {
@@ -338,12 +463,21 @@ const ConnectorsPage: React.FC = () => {
                     </CardHeader>
                     <CardContent className="px-5 py-3">
                       <div className="flex items-center gap-2 mb-2">
-                        <div
-                          className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
-                        ></div>
-                        <span className="text-sm capitalize">{statusText}</span>
-                        {integration.status === 'error' && (
-                          <AlertCircle className="h-3 w-3 text-red-500" />
+                        {integration.status === 'connected' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Connected
+                          </span>
+                        ) : (
+                          <>
+                            <div
+                              className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
+                            ></div>
+                            <span className="text-sm capitalize">{statusText}</span>
+                            {integration.status === 'error' && (
+                              <AlertCircle className="h-3 w-3 text-red-500" />
+                            )}
+                          </>
                         )}
                       </div>
                       {integration.message && integration.status === 'error' && (
@@ -360,7 +494,7 @@ const ConnectorsPage: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-xs"
+                          className="text-xs bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20 hover:text-red-600"
                           onClick={() => void handleDisconnect(integration.id)}
                           disabled={isPending}
                         >
@@ -388,8 +522,10 @@ const ConnectorsPage: React.FC = () => {
                           </>
                         ) : (
                           <>
-                            <span>Configure</span>
-                            <ExternalLink className="h-3 w-3" />
+                            <span>{integration.status === 'connected' ? 'Edit' : 'Configure'}</span>
+                            {integration.status === 'connected' && (
+                              <Pencil className="h-2.5 w-2.5" />
+                            )}
                           </>
                         )}
                       </Button>

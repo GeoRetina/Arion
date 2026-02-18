@@ -211,7 +211,7 @@ export function PluginsPage(): ReactElement {
                 }))
               }
               placeholder={'/path/to/plugin-a\n/path/to/plugin-root'}
-              className="min-h-[96px] resize-y"
+              className="min-h-24 resize-y"
             />
             <p className="text-xs text-muted-foreground">
               One path per line. Supports direct plugin folders or manifest files.

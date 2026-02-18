@@ -24,12 +24,6 @@ interface AgentCardProps {
 const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
-  // Generate a background color based on agent type
-  const bgColor =
-    agent.type === 'system'
-      ? 'bg-indigo-500/10 border-indigo-500/20'
-      : 'bg-emerald-500/10 border-emerald-500/20'
-
   // Handle edit button click
   const handleEditClick = (): void => {
     onEdit(agent.id)
@@ -46,7 +40,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
 
   return (
     <TooltipProvider>
-      <Card className={`overflow-hidden transition-all hover:shadow-md ${bgColor}`}>
+      <Card className="overflow-hidden surface-elevated transition-all hover:shadow-md">
         <CardHeader className="pb-2">
           <div className="space-y-1">
             <CardTitle className="text-lg flex items-start flex-col sm:flex-row sm:items-center gap-2">

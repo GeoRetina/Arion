@@ -18,6 +18,8 @@ import { ModularPromptManager } from './services/modular-prompt-manager'
 import { AgentRoutingService } from './services/agent-routing-service'
 import { SkillPackService } from './services/skill-pack-service'
 import { PluginLoaderService } from './services/plugin/plugin-loader-service'
+import { createConnectorExecutionRuntime } from './services/connectors/create-connector-execution-service'
+import type { ConnectorExecutionService } from './services/connectors/connector-execution-service'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -48,6 +50,7 @@ let modularPromptManagerInstance: ModularPromptManager
 let agentRoutingServiceInstance: AgentRoutingService
 let skillPackServiceInstance: SkillPackService
 let pluginLoaderServiceInstance: PluginLoaderService
+let connectorExecutionServiceInstance: ConnectorExecutionService
 
 function createWindow(): void {
   const preloadPath = join(__dirname, '../preload/index.js')
@@ -132,6 +135,12 @@ app.whenReady().then(async () => {
   mcpPermissionServiceInstance = new McpPermissionService()
   postgresqlServiceInstance = new PostgreSQLService()
   connectorHubServiceInstance = new ConnectorHubService(postgresqlServiceInstance)
+  connectorExecutionServiceInstance = createConnectorExecutionRuntime({
+    settingsService: settingsServiceInstance,
+    connectorHubService: connectorHubServiceInstance,
+    postgresqlService: postgresqlServiceInstance,
+    mcpClientService: mcpClientServiceInstance
+  }).executionService
 
   // Instantiate agent system services
   promptModuleServiceInstance = new PromptModuleService()
@@ -160,7 +169,9 @@ app.whenReady().then(async () => {
     undefined, // agentRegistryService - will be set later
     undefined, // orchestrationService - will be set later
     postgresqlServiceInstance,
-    pluginLoaderServiceInstance
+    pluginLoaderServiceInstance,
+    connectorExecutionServiceInstance,
+    settingsServiceInstance
   )
 
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
@@ -241,7 +252,11 @@ app.whenReady().then(async () => {
   registerShellHandlers(ipcMain)
   registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
   registerPostgreSQLIpcHandlers(ipcMain, postgresqlServiceInstance)
-  registerConnectorIpcHandlers(ipcMain, connectorHubServiceInstance)
+  registerConnectorIpcHandlers(
+    ipcMain,
+    connectorHubServiceInstance,
+    connectorExecutionServiceInstance
+  )
   registerLayerHandlers()
   registerAgentIpcHandlers(ipcMain, agentRegistryServiceInstance, promptModuleServiceInstance)
   registerToolIpcHandlers(ipcMain, llmToolServiceInstance)

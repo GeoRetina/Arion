@@ -352,6 +352,15 @@ export const IpcChannels = {
   integrationsTestConnection: 'ctg:integrations:testConnection',
   integrationsConnect: 'ctg:integrations:connect',
   integrationsDisconnect: 'ctg:integrations:disconnect',
+  integrationsGetCapabilities: 'ctg:integrations:getCapabilities',
+  integrationsGetRunLogs: 'ctg:integrations:getRunLogs',
+  integrationsClearRunLogs: 'ctg:integrations:clearRunLogs',
+  integrationsGrantApproval: 'ctg:integrations:grantApproval',
+  integrationsClearApprovals: 'ctg:integrations:clearApprovals',
+
+  // Connector Policy Settings IPC Channels
+  getConnectorPolicyConfig: 'settings:get-connector-policy-config',
+  setConnectorPolicyConfig: 'settings:set-connector-policy-config',
 
   // Layer Management IPC Channels
   layersGetAll: 'layers:getAll',
@@ -448,6 +457,8 @@ export interface SettingsApi {
   setPluginPlatformConfig: (config: PluginPlatformConfig) => Promise<void>
   getPluginDiagnostics: () => Promise<PluginDiagnosticsSnapshot>
   reloadPluginRuntime: () => Promise<PluginDiagnosticsSnapshot>
+  getConnectorPolicyConfig: () => Promise<ConnectorPolicyConfig>
+  setConnectorPolicyConfig: (config: ConnectorPolicyConfig) => Promise<void>
 }
 
 // Type for the Chat API arguments and return type
@@ -920,6 +931,84 @@ export interface IntegrationDisconnectResult {
   message: string
 }
 
+export type ConnectorBackend = 'native' | 'mcp' | 'plugin'
+export type ConnectorApprovalMode = 'once' | 'session' | 'always'
+
+export const CONNECTOR_CAPABILITIES = [
+  'catalog.search',
+  'raster.inspectMetadata',
+  'tiles.getCapabilities',
+  'tiles.inspectArchive',
+  'storage.list',
+  'sql.query',
+  'gee.listAlgorithms'
+] as const
+
+export type ConnectorCapability = (typeof CONNECTOR_CAPABILITIES)[number]
+
+export interface ConnectorCapabilityPolicy {
+  enabled?: boolean
+  approvalMode?: ConnectorApprovalMode
+  timeoutMs?: number
+  maxRetries?: number
+  allowedBackends?: ConnectorBackend[]
+}
+
+export interface ConnectorIntegrationPolicy {
+  enabled?: boolean
+  capabilities?: Record<string, ConnectorCapabilityPolicy>
+}
+
+export interface ConnectorPolicyConfig {
+  enabled: boolean
+  strictMode: boolean
+  defaultApprovalMode: ConnectorApprovalMode
+  defaultTimeoutMs: number
+  defaultMaxRetries: number
+  defaultAllowedBackends: ConnectorBackend[]
+  backendDenylist: ConnectorBackend[]
+  sensitiveCapabilities: string[]
+  blockedMcpToolNames: string[]
+  integrationPolicies: Record<string, ConnectorIntegrationPolicy>
+}
+
+export interface ConnectorCapabilityRegistration {
+  integrationId: IntegrationId
+  capability: ConnectorCapability
+  backends: ConnectorBackend[]
+  sensitivity: 'normal' | 'sensitive'
+  description?: string
+}
+
+export type ConnectorRunOutcome = 'success' | 'error' | 'policy_denied' | 'timeout'
+
+export interface ConnectorRunRecord {
+  runId: string
+  startedAt: string
+  finishedAt: string
+  durationMs: number
+  chatId?: string
+  agentId?: string
+  integrationId: IntegrationId
+  capability: ConnectorCapability
+  backend?: ConnectorBackend
+  outcome: ConnectorRunOutcome
+  message: string
+  errorCode?: string
+}
+
+export interface ConnectorApprovalGrantRequest {
+  chatId?: string
+  integrationId: IntegrationId
+  capability: ConnectorCapability
+  mode: ConnectorApprovalMode
+}
+
+export interface ConnectorApprovalGrantResult {
+  success: boolean
+  message: string
+}
+
 // Layer Management API for preload script
 export interface LayerApi {
   // Layer CRUD operations
@@ -1010,6 +1099,11 @@ export interface IntegrationsApi {
     config?: IntegrationConfigMap[T]
   ) => Promise<IntegrationHealthCheckResult>
   disconnect: (id: IntegrationId) => Promise<IntegrationDisconnectResult>
+  getCapabilities: () => Promise<ConnectorCapabilityRegistration[]>
+  getRunLogs: (limit?: number) => Promise<ConnectorRunRecord[]>
+  clearRunLogs: () => Promise<{ success: boolean }>
+  grantApproval: (request: ConnectorApprovalGrantRequest) => Promise<ConnectorApprovalGrantResult>
+  clearApprovals: (chatId?: string) => Promise<{ success: boolean }>
 }
 
 // Tools API for preload script

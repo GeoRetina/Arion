@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   registerAppUiTools: vi.fn(),
   registerDatabaseTools: vi.fn(),
   registerKnowledgeBaseTools: vi.fn(),
-  registerAgentTools: vi.fn()
+  registerAgentTools: vi.fn(),
+  registerIntegrationTools: vi.fn()
 }))
 
 vi.mock('./tool-packs/visualization-tool-pack', () => ({
@@ -27,6 +28,9 @@ vi.mock('./tool-packs/knowledge-base-tool-pack', () => ({
   registerKnowledgeBaseTools: mocks.registerKnowledgeBaseTools
 }))
 vi.mock('./tool-packs/agent-tool-pack', () => ({ registerAgentTools: mocks.registerAgentTools }))
+vi.mock('./tool-packs/integration-tool-pack', () => ({
+  registerIntegrationTools: mocks.registerIntegrationTools
+}))
 
 import { registerBuiltInTools } from './register-built-in-tools'
 
@@ -39,7 +43,8 @@ describe('registerBuiltInTools', () => {
       getKnowledgeBaseService: vi.fn(() => null),
       getPostgresqlService: vi.fn(() => null),
       getAgentRegistryService: vi.fn(() => null),
-      getOrchestrationService: vi.fn(() => null)
+      getOrchestrationService: vi.fn(() => null),
+      getConnectorExecutionService: vi.fn(() => null)
     }
 
     registerBuiltInTools(deps)
@@ -65,6 +70,9 @@ describe('registerBuiltInTools', () => {
     expect(mocks.registerAgentTools).toHaveBeenCalledWith(deps.registry, {
       getAgentRegistryService: deps.getAgentRegistryService,
       getOrchestrationService: deps.getOrchestrationService
+    })
+    expect(mocks.registerIntegrationTools).toHaveBeenCalledWith(deps.registry, {
+      getConnectorExecutionService: deps.getConnectorExecutionService
     })
   })
 })
