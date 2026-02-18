@@ -33,6 +33,22 @@ export class ToolRegistry {
     return this.registeredTools.has(toolName)
   }
 
+  public unregister(toolName: string): boolean {
+    return this.registeredTools.delete(toolName)
+  }
+
+  public removeWhere(predicate: (tool: RegisteredTool) => boolean): string[] {
+    const removed: string[] = []
+    for (const [toolName, registeredTool] of this.registeredTools.entries()) {
+      if (!predicate(registeredTool)) {
+        continue
+      }
+      this.registeredTools.delete(toolName)
+      removed.push(toolName)
+    }
+    return removed
+  }
+
   public getAllToolNames(): string[] {
     return Array.from(this.registeredTools.keys())
   }

@@ -17,7 +17,8 @@ import {
   AllLLMConfigurations,
   McpServerConfig,
   SystemPromptConfig,
-  SkillPackConfig
+  SkillPackConfig,
+  PluginPlatformConfig
 } from '../../shared/ipc-types'
 import {
   DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
@@ -56,6 +57,102 @@ const normalizeEmbeddingConfig = (
     model
   }
 }
+
+const DEFAULT_PLUGIN_PLATFORM_CONFIG: PluginPlatformConfig = {
+  enabled: true,
+  workspaceRoot: null,
+  configuredPluginPaths: [],
+  enableBundledPlugins: false,
+  allowlist: [],
+  denylist: [],
+  enabledPluginIds: [],
+  disabledPluginIds: [],
+  exclusiveSlotAssignments: {},
+  pluginConfigById: {}
+}
+
+const sanitizeStringList = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const unique = new Set<string>()
+  for (const item of value) {
+    if (typeof item !== 'string') {
+      continue
+    }
+
+    const normalized = item.trim()
+    if (normalized.length > 0) {
+      unique.add(normalized)
+    }
+  }
+
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
+}
+
+const sanitizeExclusiveSlotAssignments = (value: unknown): Record<string, string> => {
+  if (!value || typeof value !== 'object') {
+    return {}
+  }
+
+  const output: Record<string, string> = {}
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof rawValue !== 'string') {
+      continue
+    }
+
+    const slot = rawKey.trim()
+    const pluginId = rawValue.trim()
+    if (!slot || !pluginId) {
+      continue
+    }
+
+    output[slot] = pluginId
+  }
+
+  return output
+}
+
+const normalizePluginPlatformConfig = (
+  config: Partial<PluginPlatformConfig> | null | undefined
+): PluginPlatformConfig => {
+  const normalizedWorkspaceRoot =
+    typeof config?.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
+      ? config.workspaceRoot.trim()
+      : null
+
+  const pluginConfigById =
+    config?.pluginConfigById && typeof config.pluginConfigById === 'object'
+      ? (config.pluginConfigById as Record<string, unknown>)
+      : {}
+
+  return {
+    enabled: config?.enabled !== false,
+    workspaceRoot: normalizedWorkspaceRoot,
+    configuredPluginPaths: sanitizeStringList(config?.configuredPluginPaths),
+    enableBundledPlugins: config?.enableBundledPlugins === true,
+    allowlist: sanitizeStringList(config?.allowlist),
+    denylist: sanitizeStringList(config?.denylist),
+    enabledPluginIds: sanitizeStringList(config?.enabledPluginIds),
+    disabledPluginIds: sanitizeStringList(config?.disabledPluginIds),
+    exclusiveSlotAssignments: sanitizeExclusiveSlotAssignments(config?.exclusiveSlotAssignments),
+    pluginConfigById
+  }
+}
+
+const clonePluginPlatformConfig = (config: PluginPlatformConfig): PluginPlatformConfig => ({
+  enabled: config.enabled,
+  workspaceRoot: config.workspaceRoot,
+  configuredPluginPaths: [...config.configuredPluginPaths],
+  enableBundledPlugins: config.enableBundledPlugins,
+  allowlist: [...config.allowlist],
+  denylist: [...config.denylist],
+  enabledPluginIds: [...config.enabledPluginIds],
+  disabledPluginIds: [...config.disabledPluginIds],
+  exclusiveSlotAssignments: { ...config.exclusiveSlotAssignments },
+  pluginConfigById: { ...config.pluginConfigById }
+})
 
 // Define a more specific type for what we store in the DB (without API keys)
 interface StoredLLMConfig {
@@ -213,6 +310,30 @@ export class SettingsService {
       this.db
         .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
         .run('skillPackConfig', JSON.stringify(initialSkillPackConfig))
+    }
+
+    const pluginConfigRow = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('pluginPlatformConfig') as { value: string } | undefined
+
+    if (!pluginConfigRow) {
+      this.db
+        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
+        .run('pluginPlatformConfig', JSON.stringify(DEFAULT_PLUGIN_PLATFORM_CONFIG))
+    } else {
+      try {
+        const parsed = JSON.parse(pluginConfigRow.value) as Partial<PluginPlatformConfig>
+        const normalized = normalizePluginPlatformConfig(parsed)
+        if (JSON.stringify(normalized) !== pluginConfigRow.value) {
+          this.db
+            .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+            .run('pluginPlatformConfig', JSON.stringify(normalized))
+        }
+      } catch {
+        this.db
+          .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+          .run('pluginPlatformConfig', JSON.stringify(DEFAULT_PLUGIN_PLATFORM_CONFIG))
+      }
     }
   }
 
@@ -596,6 +717,30 @@ export class SettingsService {
       return {
         workspaceRoot: null
       }
+    }
+  }
+
+  async setPluginPlatformConfig(config: PluginPlatformConfig): Promise<void> {
+    const safeConfig = normalizePluginPlatformConfig(config)
+    this.db
+      .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+      .run('pluginPlatformConfig', JSON.stringify(safeConfig))
+  }
+
+  async getPluginPlatformConfig(): Promise<PluginPlatformConfig> {
+    try {
+      const row = this.db
+        .prepare('SELECT value FROM app_settings WHERE key = ?')
+        .get('pluginPlatformConfig') as { value: string } | undefined
+
+      if (!row) {
+        return clonePluginPlatformConfig(DEFAULT_PLUGIN_PLATFORM_CONFIG)
+      }
+
+      const parsed = JSON.parse(row.value) as Partial<PluginPlatformConfig>
+      return normalizePluginPlatformConfig(parsed)
+    } catch {
+      return clonePluginPlatformConfig(DEFAULT_PLUGIN_PLATFORM_CONFIG)
     }
   }
 

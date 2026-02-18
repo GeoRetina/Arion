@@ -18,4 +18,5 @@ export interface RegisteredTool {
   execute: ToolExecutor
   category: string
   isDynamic?: boolean
+  pluginId?: string
 }
