@@ -18,13 +18,18 @@ import {
   McpServerConfig,
   SystemPromptConfig,
   SkillPackConfig,
-  PluginPlatformConfig
+  PluginPlatformConfig,
+  ConnectorPolicyConfig
 } from '../../shared/ipc-types'
 import {
   DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
   DEFAULT_EMBEDDING_PROVIDER,
   SUPPORTED_EMBEDDING_PROVIDERS
 } from '../../shared/embedding-constants'
+import {
+  DEFAULT_CONNECTOR_POLICY_CONFIG,
+  normalizeConnectorPolicyConfig
+} from './connectors/policy/connector-policy-config'
 
 const SERVICE_NAME = 'ArionLLMCredentials'
 const DB_FILENAME = 'arion-settings.db'
@@ -152,6 +157,27 @@ const clonePluginPlatformConfig = (config: PluginPlatformConfig): PluginPlatform
   disabledPluginIds: [...config.disabledPluginIds],
   exclusiveSlotAssignments: { ...config.exclusiveSlotAssignments },
   pluginConfigById: { ...config.pluginConfigById }
+})
+
+const cloneConnectorPolicyConfig = (config: ConnectorPolicyConfig): ConnectorPolicyConfig => ({
+  enabled: config.enabled,
+  strictMode: config.strictMode,
+  defaultApprovalMode: config.defaultApprovalMode,
+  defaultTimeoutMs: config.defaultTimeoutMs,
+  defaultMaxRetries: config.defaultMaxRetries,
+  defaultAllowedBackends: [...config.defaultAllowedBackends],
+  backendDenylist: [...config.backendDenylist],
+  sensitiveCapabilities: [...config.sensitiveCapabilities],
+  blockedMcpToolNames: [...config.blockedMcpToolNames],
+  integrationPolicies: Object.fromEntries(
+    Object.entries(config.integrationPolicies).map(([integrationId, policy]) => [
+      integrationId,
+      {
+        enabled: policy.enabled,
+        capabilities: policy.capabilities ? { ...policy.capabilities } : {}
+      }
+    ])
+  )
 })
 
 // Define a more specific type for what we store in the DB (without API keys)
@@ -333,6 +359,34 @@ export class SettingsService {
         this.db
           .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
           .run('pluginPlatformConfig', JSON.stringify(DEFAULT_PLUGIN_PLATFORM_CONFIG))
+      }
+    }
+
+    const connectorPolicyRow = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get('connectorPolicyConfig') as { value: string } | undefined
+
+    if (!connectorPolicyRow) {
+      const normalized = normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG)
+      this.db
+        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
+        .run('connectorPolicyConfig', JSON.stringify(normalized))
+    } else {
+      try {
+        const parsed = JSON.parse(connectorPolicyRow.value) as Partial<ConnectorPolicyConfig>
+        const normalized = normalizeConnectorPolicyConfig(parsed)
+        if (JSON.stringify(normalized) !== connectorPolicyRow.value) {
+          this.db
+            .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+            .run('connectorPolicyConfig', JSON.stringify(normalized))
+        }
+      } catch {
+        this.db
+          .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+          .run(
+            'connectorPolicyConfig',
+            JSON.stringify(normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG))
+          )
       }
     }
   }
@@ -741,6 +795,34 @@ export class SettingsService {
       return normalizePluginPlatformConfig(parsed)
     } catch {
       return clonePluginPlatformConfig(DEFAULT_PLUGIN_PLATFORM_CONFIG)
+    }
+  }
+
+  async setConnectorPolicyConfig(config: ConnectorPolicyConfig): Promise<void> {
+    const safeConfig = normalizeConnectorPolicyConfig(config)
+    this.db
+      .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+      .run('connectorPolicyConfig', JSON.stringify(safeConfig))
+  }
+
+  async getConnectorPolicyConfig(): Promise<ConnectorPolicyConfig> {
+    try {
+      const row = this.db
+        .prepare('SELECT value FROM app_settings WHERE key = ?')
+        .get('connectorPolicyConfig') as { value: string } | undefined
+
+      if (!row) {
+        return cloneConnectorPolicyConfig(
+          normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG)
+        )
+      }
+
+      const parsed = JSON.parse(row.value) as Partial<ConnectorPolicyConfig>
+      return normalizeConnectorPolicyConfig(parsed)
+    } catch {
+      return cloneConnectorPolicyConfig(
+        normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG)
+      )
     }
   }
 

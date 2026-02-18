@@ -34,6 +34,7 @@ import {
   type SkillPackTemplateBootstrapResult,
   type PluginPlatformConfig,
   type PluginDiagnosticsSnapshot,
+  type ConnectorPolicyConfig,
   type SetMapSidebarVisibilityPayload,
   type AddGeoreferencedImageLayerPayload,
   type KnowledgeBaseApi,
@@ -53,6 +54,8 @@ import {
   type IntegrationStateRecord,
   type IntegrationHealthCheckResult,
   type IntegrationDisconnectResult,
+  type ConnectorApprovalGrantRequest,
+  type ConnectorApprovalGrantResult,
   type AgentApi,
   type PromptModuleApi,
   type AgentDefinition,
@@ -223,7 +226,17 @@ const ctgApi = {
     getPluginDiagnostics: (): Promise<PluginDiagnosticsSnapshot> =>
       ipcRenderer.invoke(IpcChannels.getPluginDiagnostics),
     reloadPluginRuntime: (): Promise<PluginDiagnosticsSnapshot> =>
-      ipcRenderer.invoke(IpcChannels.reloadPluginRuntime)
+      ipcRenderer.invoke(IpcChannels.reloadPluginRuntime),
+    getConnectorPolicyConfig: () => ipcRenderer.invoke(IpcChannels.getConnectorPolicyConfig),
+    setConnectorPolicyConfig: async (config: ConnectorPolicyConfig): Promise<void> => {
+      const response = (await ipcRenderer.invoke(IpcChannels.setConnectorPolicyConfig, config)) as {
+        success?: boolean
+        error?: string
+      }
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to save connector policy config')
+      }
+    }
   } as SettingsApi,
   chat: {
     sendMessageStream: async (body: PreloadChatRequestBody | undefined): Promise<Uint8Array[]> => {
@@ -541,7 +554,16 @@ const ctgApi = {
     ): Promise<IntegrationHealthCheckResult> =>
       ipcRenderer.invoke(IpcChannels.integrationsConnect, id, config),
     disconnect: (id: IntegrationId): Promise<IntegrationDisconnectResult> =>
-      ipcRenderer.invoke(IpcChannels.integrationsDisconnect, id)
+      ipcRenderer.invoke(IpcChannels.integrationsDisconnect, id),
+    getCapabilities: () => ipcRenderer.invoke(IpcChannels.integrationsGetCapabilities),
+    getRunLogs: (limit?: number) => ipcRenderer.invoke(IpcChannels.integrationsGetRunLogs, limit),
+    clearRunLogs: () => ipcRenderer.invoke(IpcChannels.integrationsClearRunLogs),
+    grantApproval: (
+      request: ConnectorApprovalGrantRequest
+    ): Promise<ConnectorApprovalGrantResult> =>
+      ipcRenderer.invoke(IpcChannels.integrationsGrantApproval, request),
+    clearApprovals: (chatId?: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IpcChannels.integrationsClearApprovals, chatId)
   } as IntegrationsApi,
   layers: {
     // Layer CRUD operations

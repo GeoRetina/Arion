@@ -10,7 +10,8 @@ import {
   MessageSquareText,
   Sparkles,
   FolderTree,
-  Puzzle
+  Puzzle,
+  Link2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
@@ -23,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { useThemeStore, applyTheme } from '@/stores/theme-store'
 import { SkillPackConfig, SkillPackInfo, SystemPromptConfig } from '@/../../shared/ipc-types'
 import { toast } from 'sonner'
+import { ConnectorPolicySettingsSection } from './connector-policy-settings-section'
 import { PluginsPage } from './plugins-page'
 
 const SettingsPage: React.FC = () => {
@@ -205,7 +207,7 @@ const SettingsPage: React.FC = () => {
   }, [])
 
   return (
-    <ScrollArea className="h-[calc(100vh-56px)]">
+    <ScrollArea className="h-full">
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6">
           <div>
@@ -217,7 +219,7 @@ const SettingsPage: React.FC = () => {
 
           <div className="w-xl">
             <Tabs defaultValue="appearance" className="w-full">
-              <TabsList className="grid grid-cols-6 mb-6">
+              <TabsList className="grid grid-cols-7 mb-6">
                 <TabsTrigger value="appearance" className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4" />
                   <span>Appearance</span>
@@ -229,6 +231,10 @@ const SettingsPage: React.FC = () => {
                 <TabsTrigger value="skills" className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4" />
                   <span>Skills</span>
+                </TabsTrigger>
+                <TabsTrigger value="connectors" className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  <span>Connectors</span>
                 </TabsTrigger>
                 <TabsTrigger value="updates" className="flex items-center gap-2">
                   <RefreshCw className="h-4 w-4" />
@@ -444,6 +450,10 @@ const SettingsPage: React.FC = () => {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="connectors">
+                <ConnectorPolicySettingsSection />
               </TabsContent>
 
               {/* Updates Tab */}

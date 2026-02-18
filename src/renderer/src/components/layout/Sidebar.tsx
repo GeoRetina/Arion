@@ -66,8 +66,8 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       title={title}
       onClick={() => navigate(path)}
     >
-      <Icon className="h-5 w-5 shrink-0 transition-colors duration-200" />
-      {isExpanded && <span className="ml-3 transition-all duration-200">{title}</span>}
+      <Icon className="h-5 w-5 shrink-0" />
+      {isExpanded && <span className="ml-3">{title}</span>}
     </Button>
   )
 

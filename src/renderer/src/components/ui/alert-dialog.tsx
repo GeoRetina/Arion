@@ -125,11 +125,17 @@ function AlertDialogDescription({
 
 function AlertDialogAction({
   className,
+  variant,
   ...props
-}: React.ComponentProps<
-  typeof AlertDialogPrimitive.Action
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
-  return <AlertDialogPrimitive.Action className={cn(buttonVariants(), className)} {...props} />
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> & {
+  variant?: Parameters<typeof buttonVariants>[0]['variant']
+}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+  return (
+    <AlertDialogPrimitive.Action
+      className={cn(buttonVariants({ variant }), className)}
+      {...props}
+    />
+  )
 }
 
 function AlertDialogCancel({

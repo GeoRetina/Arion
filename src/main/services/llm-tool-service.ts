@@ -15,6 +15,11 @@ import { CONNECTION_SECURITY_NOTE } from './tooling/database-placeholders'
 import type { PluginLoaderService } from './plugin/plugin-loader-service'
 import type { PluginHookEvent } from './plugin/plugin-types'
 import { validateAgainstJsonSchema } from './plugin/json-schema-validator'
+import type { ConnectorExecutionService } from './connectors/connector-execution-service'
+import type { SettingsService } from './settings-service'
+import { normalizeConnectorPolicyConfig } from './connectors/policy/connector-policy-config'
+
+const MCP_DYNAMIC_TOOL_CATEGORY_PREFIX = 'mcp_server_'
 
 export class LlmToolService {
   private readonly toolRegistry = new ToolRegistry()
@@ -30,6 +35,8 @@ export class LlmToolService {
   private orchestrationService: OrchestrationService | null = null
   private postgresqlService: PostgreSQLService | null = null
   private pluginLoaderService: PluginLoaderService | null = null
+  private connectorExecutionService: ConnectorExecutionService | null = null
+  private settingsService: SettingsService | null = null
 
   constructor(
     knowledgeBaseService?: KnowledgeBaseService,
@@ -38,7 +45,9 @@ export class LlmToolService {
     agentRegistryService?: AgentRegistryService,
     orchestrationService?: OrchestrationService,
     postgresqlService?: PostgreSQLService,
-    pluginLoaderService?: PluginLoaderService
+    pluginLoaderService?: PluginLoaderService,
+    connectorExecutionService?: ConnectorExecutionService,
+    settingsService?: SettingsService
   ) {
     this.knowledgeBaseService = knowledgeBaseService || null
     this.mcpClientService = mcpClientService || null
@@ -47,6 +56,8 @@ export class LlmToolService {
     this.orchestrationService = orchestrationService || null
     this.postgresqlService = postgresqlService || null
     this.pluginLoaderService = pluginLoaderService || null
+    this.connectorExecutionService = connectorExecutionService || null
+    this.settingsService = settingsService || null
     this.credentialInjector.setPostgresqlService(this.postgresqlService)
 
     registerBuiltInTools({
@@ -56,7 +67,8 @@ export class LlmToolService {
       getKnowledgeBaseService: () => this.knowledgeBaseService,
       getPostgresqlService: () => this.postgresqlService,
       getAgentRegistryService: () => this.agentRegistryService,
-      getOrchestrationService: () => this.orchestrationService
+      getOrchestrationService: () => this.orchestrationService,
+      getConnectorExecutionService: () => this.connectorExecutionService
     })
     // Actual assimilation of MCP tools will happen in initialize()
   }
@@ -71,7 +83,7 @@ export class LlmToolService {
     }
     if (this.mcpClientService) {
       await this.mcpClientService.ensureInitialized()
-      this.assimilateAndRegisterMcpTools()
+      await this.assimilateAndRegisterMcpTools()
     }
     this.isInitialized = true
   }
@@ -118,14 +130,46 @@ export class LlmToolService {
     }
   }
 
-  private assimilateAndRegisterMcpTools(): void {
+  public async refreshMcpToolsFromPolicy(): Promise<void> {
+    if (!this.mcpClientService) {
+      return
+    }
+    await this.mcpClientService.ensureInitialized()
+    await this.assimilateAndRegisterMcpTools()
+  }
+
+  private async getBlockedMcpToolNameSet(): Promise<Set<string>> {
+    if (!this.settingsService) {
+      return new Set<string>()
+    }
+
+    try {
+      const currentPolicy = await this.settingsService.getConnectorPolicyConfig()
+      const normalizedPolicy = normalizeConnectorPolicyConfig(currentPolicy)
+      return new Set(normalizedPolicy.blockedMcpToolNames)
+    } catch {
+      return new Set<string>()
+    }
+  }
+
+  private async assimilateAndRegisterMcpTools(): Promise<void> {
     if (!this.mcpClientService) {
       return
     }
 
+    const blockedToolNames = await this.getBlockedMcpToolNameSet()
+
+    this.toolRegistry.removeWhere(
+      (tool) =>
+        tool.isDynamic === true && tool.category.startsWith(MCP_DYNAMIC_TOOL_CATEGORY_PREFIX)
+    )
+
     const mcpTools: DiscoveredMcpTool[] = this.mcpClientService.getDiscoveredTools()
 
     mcpTools.forEach((mcpTool) => {
+      if (blockedToolNames.has(mcpTool.name)) {
+        return
+      }
       if (this.toolRegistry.has(mcpTool.name)) {
         return
       }
@@ -143,7 +187,7 @@ export class LlmToolService {
       this.toolRegistry.register({
         name: mcpTool.name,
         definition: toolDefinitionForLLM,
-        category: `mcp_server_${mcpTool.serverId}`,
+        category: `${MCP_DYNAMIC_TOOL_CATEGORY_PREFIX}${mcpTool.serverId}`,
         isDynamic: true,
         execute: async ({ args }) => {
           const hasPermission = await this.checkMcpToolPermission(mcpTool.name, mcpTool.serverId)

@@ -14,7 +14,8 @@ import {
   SkillPackConfig,
   SkillPackInfo,
   PluginPlatformConfig,
-  PluginDiagnosticsSnapshot
+  PluginDiagnosticsSnapshot,
+  ConnectorPolicyConfig
 } from '../../shared/ipc-types' // Adjusted path
 import { type SettingsService } from '../services/settings-service'
 import { type MCPClientService } from '../services/mcp-client-service'
@@ -27,6 +28,7 @@ import {
   DEFAULT_EMBEDDING_PROVIDER,
   SUPPORTED_EMBEDDING_PROVIDERS
 } from '../../shared/embedding-constants'
+import { normalizeConnectorPolicyConfig } from '../services/connectors/policy/connector-policy-config'
 
 type SettingsServiceWithGenericOps = SettingsService & {
   getSetting?: (key: string) => unknown | Promise<unknown>
@@ -529,5 +531,28 @@ export function registerSettingsIpcHandlers(
     const snapshot = await pluginLoaderService.reload()
     llmToolService.refreshPluginToolsFromLoader()
     return snapshot
+  })
+
+  ipcMain.handle(IpcChannels.getConnectorPolicyConfig, async (): Promise<ConnectorPolicyConfig> => {
+    try {
+      return await settingsService.getConnectorPolicyConfig()
+    } catch {
+      return normalizeConnectorPolicyConfig(null)
+    }
+  })
+
+  ipcMain.handle(IpcChannels.setConnectorPolicyConfig, async (_event, rawConfig: unknown) => {
+    try {
+      const normalized = normalizeConnectorPolicyConfig(rawConfig as Partial<ConnectorPolicyConfig>)
+      await settingsService.setConnectorPolicyConfig(normalized)
+      try {
+        await llmToolService.refreshMcpToolsFromPolicy()
+      } catch {
+        // Policy persisted successfully; MCP refresh can recover on next startup.
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   })
 }
