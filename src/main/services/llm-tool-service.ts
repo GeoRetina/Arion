@@ -12,6 +12,9 @@ import { registerBuiltInTools } from './tooling/register-built-in-tools'
 import { ConnectionCredentialInjector } from './tooling/connection-credential-injector'
 import type { RegisteredToolDefinition } from './tooling/tool-types'
 import { CONNECTION_SECURITY_NOTE } from './tooling/database-placeholders'
+import type { PluginLoaderService } from './plugin/plugin-loader-service'
+import type { PluginHookEvent } from './plugin/plugin-types'
+import { validateAgainstJsonSchema } from './plugin/json-schema-validator'
 
 export class LlmToolService {
   private readonly toolRegistry = new ToolRegistry()
@@ -26,6 +29,7 @@ export class LlmToolService {
   private agentRegistryService: AgentRegistryService | null = null
   private orchestrationService: OrchestrationService | null = null
   private postgresqlService: PostgreSQLService | null = null
+  private pluginLoaderService: PluginLoaderService | null = null
 
   constructor(
     knowledgeBaseService?: KnowledgeBaseService,
@@ -33,7 +37,8 @@ export class LlmToolService {
     mcpPermissionService?: McpPermissionService,
     agentRegistryService?: AgentRegistryService,
     orchestrationService?: OrchestrationService,
-    postgresqlService?: PostgreSQLService
+    postgresqlService?: PostgreSQLService,
+    pluginLoaderService?: PluginLoaderService
   ) {
     this.knowledgeBaseService = knowledgeBaseService || null
     this.mcpClientService = mcpClientService || null
@@ -41,6 +46,7 @@ export class LlmToolService {
     this.agentRegistryService = agentRegistryService || null
     this.orchestrationService = orchestrationService || null
     this.postgresqlService = postgresqlService || null
+    this.pluginLoaderService = pluginLoaderService || null
     this.credentialInjector.setPostgresqlService(this.postgresqlService)
 
     registerBuiltInTools({
@@ -58,6 +64,10 @@ export class LlmToolService {
   public async initialize(): Promise<void> {
     if (this.isInitialized) {
       return
+    }
+    if (this.pluginLoaderService) {
+      await this.pluginLoaderService.reload()
+      this.refreshPluginToolsFromLoader()
     }
     if (this.mcpClientService) {
       await this.mcpClientService.ensureInitialized()
@@ -159,6 +169,57 @@ export class LlmToolService {
     })
   }
 
+  public refreshPluginToolsFromLoader(): void {
+    this.toolRegistry.removeWhere((tool) => typeof tool.pluginId === 'string')
+    if (!this.pluginLoaderService) {
+      return
+    }
+
+    const resolvedTools = this.pluginLoaderService.getResolvedTools()
+    for (const pluginTool of resolvedTools) {
+      if (this.toolRegistry.has(pluginTool.name)) {
+        this.pluginLoaderService.appendDiagnostics([
+          {
+            level: 'warning',
+            code: 'plugin_tool_name_conflict',
+            message: `Tool "${pluginTool.name}" conflicts with an existing tool and was skipped.`,
+            pluginId: pluginTool.pluginId,
+            timestamp: new Date().toISOString()
+          }
+        ])
+        continue
+      }
+
+      const toolDefinitionForLLM: RegisteredToolDefinition = {
+        description: pluginTool.description,
+        inputSchema: z.object({}).passthrough()
+      }
+
+      this.toolRegistry.register({
+        name: pluginTool.name,
+        definition: toolDefinitionForLLM,
+        category: pluginTool.category,
+        isDynamic: true,
+        pluginId: pluginTool.pluginId,
+        execute: async ({ args, chatId }) => {
+          if (pluginTool.inputSchema) {
+            const schemaErrors = validateAgainstJsonSchema(args, pluginTool.inputSchema)
+            if (schemaErrors.length > 0) {
+              throw new Error(
+                `Plugin tool input validation failed for "${pluginTool.name}": ${schemaErrors.join('; ')}`
+              )
+            }
+          }
+
+          return pluginTool.execute({
+            args,
+            chatId
+          })
+        }
+      })
+    }
+  }
+
   public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, unknown> {
     return this.toolRegistry.createToolDefinitions(
       (toolName, args) => this.executeTool(toolName, args),
@@ -172,16 +233,49 @@ export class LlmToolService {
       throw new Error(`Tool "${toolName}" not found.`)
     }
 
+    const chatId = this.currentChatId || undefined
+    const beforePayload = await this.emitHook('before_tool_call', {
+      toolName,
+      args,
+      chatId
+    })
+    const normalizedArgs = this.extractFromHookPayload(beforePayload, 'args', args)
+
     try {
-      return await toolEntry.execute({ args, chatId: this.currentChatId || undefined })
+      let result = await toolEntry.execute({ args: normalizedArgs, chatId })
+      const afterPayload = await this.emitHook('after_tool_call', {
+        toolName,
+        args: normalizedArgs,
+        result,
+        chatId
+      })
+      result = this.extractFromHookPayload(afterPayload, 'result', result)
+      await this.emitHook('tool_result_persist', {
+        toolName,
+        args: normalizedArgs,
+        result,
+        chatId
+      })
+      return result
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'An unknown error occurred during tool execution.'
+      await this.emitHook('after_tool_call', {
+        toolName,
+        args: normalizedArgs,
+        error: errorMessage,
+        chatId
+      })
+      await this.emitHook('tool_result_persist', {
+        toolName,
+        args: normalizedArgs,
+        error: errorMessage,
+        chatId
+      })
       return {
         status: 'error',
         tool_name: toolName,
-        error_message:
-          error instanceof Error
-            ? error.message
-            : 'An unknown error occurred during tool execution.'
+        error_message: errorMessage
       }
     }
   }
@@ -195,5 +289,36 @@ export class LlmToolService {
 
   public getAllAvailableTools(): string[] {
     return this.toolRegistry.getAllToolNames().sort()
+  }
+
+  public async emitLifecycleHook(
+    event: PluginHookEvent,
+    payload: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.emitHook(event, payload)
+  }
+
+  private async emitHook<T extends Record<string, unknown>>(
+    event: PluginHookEvent,
+    payload: T
+  ): Promise<T> {
+    if (!this.pluginLoaderService) {
+      return payload
+    }
+
+    const hookResult = await this.pluginLoaderService.getHookRunner().emit(event, payload, {
+      chatId: this.currentChatId || undefined,
+      source: 'llm-tool-service'
+    })
+    this.pluginLoaderService.appendDiagnostics(hookResult.diagnostics)
+    return hookResult.payload
+  }
+
+  private extractFromHookPayload<T>(payload: unknown, key: string, fallback: T): T {
+    if (!payload || typeof payload !== 'object') {
+      return fallback
+    }
+    const candidate = (payload as Record<string, unknown>)[key]
+    return (candidate as T) ?? fallback
   }
 }

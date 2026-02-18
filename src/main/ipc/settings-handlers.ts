@@ -12,11 +12,16 @@ import {
   EmbeddingConfig,
   SystemPromptConfig,
   SkillPackConfig,
-  SkillPackInfo
+  SkillPackInfo,
+  PluginPlatformConfig,
+  PluginDiagnosticsSnapshot
 } from '../../shared/ipc-types' // Adjusted path
 import { type SettingsService } from '../services/settings-service'
 import { type MCPClientService } from '../services/mcp-client-service'
 import { type SkillPackService } from '../services/skill-pack-service'
+import { type PluginLoaderService } from '../services/plugin/plugin-loader-service'
+import { type LlmToolService } from '../services/llm-tool-service'
+import { z } from 'zod'
 import {
   DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
   DEFAULT_EMBEDDING_PROVIDER,
@@ -28,6 +33,19 @@ type SettingsServiceWithGenericOps = SettingsService & {
   setSetting?: (key: string, value: unknown) => void | Promise<void>
 }
 const SUPPORTED_EMBEDDING_PROVIDER_SET = new Set(SUPPORTED_EMBEDDING_PROVIDERS)
+
+const pluginPlatformConfigSchema = z.object({
+  enabled: z.boolean(),
+  workspaceRoot: z.string().trim().min(1).nullable().optional(),
+  configuredPluginPaths: z.array(z.string()).default([]),
+  enableBundledPlugins: z.boolean().default(false),
+  allowlist: z.array(z.string()).default([]),
+  denylist: z.array(z.string()).default([]),
+  enabledPluginIds: z.array(z.string()).default([]),
+  disabledPluginIds: z.array(z.string()).default([]),
+  exclusiveSlotAssignments: z.record(z.string()).default({}),
+  pluginConfigById: z.record(z.unknown()).default({})
+})
 
 const sanitizeEmbeddingConfig = (config: EmbeddingConfig): EmbeddingConfig => {
   if (!SUPPORTED_EMBEDDING_PROVIDER_SET.has(config.provider)) {
@@ -47,11 +65,63 @@ const sanitizeEmbeddingConfig = (config: EmbeddingConfig): EmbeddingConfig => {
   }
 }
 
+const normalizeStringArray = (values: string[]): string[] => {
+  const unique = new Set<string>()
+  for (const value of values) {
+    const normalized = value.trim()
+    if (normalized.length > 0) {
+      unique.add(normalized)
+    }
+  }
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
+}
+
+const normalizePluginPlatformConfig = (config: PluginPlatformConfig): PluginPlatformConfig => {
+  const normalizedWorkspaceRoot =
+    typeof config.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
+      ? config.workspaceRoot.trim()
+      : null
+
+  const normalizedSlotAssignments: Record<string, string> = {}
+  for (const [slot, pluginId] of Object.entries(config.exclusiveSlotAssignments || {})) {
+    const normalizedSlot = slot.trim()
+    const normalizedPluginId = pluginId.trim()
+    if (!normalizedSlot || !normalizedPluginId) {
+      continue
+    }
+    normalizedSlotAssignments[normalizedSlot] = normalizedPluginId
+  }
+
+  const normalizedPluginConfigById: Record<string, unknown> = {}
+  for (const [pluginId, pluginConfig] of Object.entries(config.pluginConfigById || {})) {
+    const normalizedPluginId = pluginId.trim()
+    if (!normalizedPluginId) {
+      continue
+    }
+    normalizedPluginConfigById[normalizedPluginId] = pluginConfig
+  }
+
+  return {
+    enabled: config.enabled,
+    workspaceRoot: normalizedWorkspaceRoot,
+    configuredPluginPaths: normalizeStringArray(config.configuredPluginPaths || []),
+    enableBundledPlugins: config.enableBundledPlugins,
+    allowlist: normalizeStringArray(config.allowlist || []),
+    denylist: normalizeStringArray(config.denylist || []),
+    enabledPluginIds: normalizeStringArray(config.enabledPluginIds || []),
+    disabledPluginIds: normalizeStringArray(config.disabledPluginIds || []),
+    exclusiveSlotAssignments: normalizedSlotAssignments,
+    pluginConfigById: normalizedPluginConfigById
+  }
+}
+
 export function registerSettingsIpcHandlers(
   ipcMain: IpcMain,
   settingsService: SettingsService,
   mcpClientService: MCPClientService,
-  skillPackService: SkillPackService
+  skillPackService: SkillPackService,
+  pluginLoaderService: PluginLoaderService,
+  llmToolService: LlmToolService
 ): void {
   const genericSettingsService = settingsService as SettingsServiceWithGenericOps
 
@@ -417,5 +487,47 @@ export function registerSettingsIpcHandlers(
         error instanceof Error ? error.message : 'Failed to bootstrap workspace templates'
       )
     }
+  })
+
+  ipcMain.handle(IpcChannels.getPluginPlatformConfig, async () => {
+    try {
+      return await settingsService.getPluginPlatformConfig()
+    } catch {
+      return {
+        enabled: true,
+        workspaceRoot: null,
+        configuredPluginPaths: [],
+        enableBundledPlugins: false,
+        allowlist: [],
+        denylist: [],
+        enabledPluginIds: [],
+        disabledPluginIds: [],
+        exclusiveSlotAssignments: {},
+        pluginConfigById: {}
+      } satisfies PluginPlatformConfig
+    }
+  })
+
+  ipcMain.handle(IpcChannels.setPluginPlatformConfig, async (_event, rawConfig: unknown) => {
+    try {
+      const parsed = pluginPlatformConfigSchema.parse(rawConfig)
+      const safeConfig = normalizePluginPlatformConfig(parsed)
+      await settingsService.setPluginPlatformConfig(safeConfig)
+      await pluginLoaderService.reload()
+      llmToolService.refreshPluginToolsFromLoader()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  ipcMain.handle(IpcChannels.getPluginDiagnostics, async (): Promise<PluginDiagnosticsSnapshot> => {
+    return pluginLoaderService.getDiagnosticsSnapshot()
+  })
+
+  ipcMain.handle(IpcChannels.reloadPluginRuntime, async (): Promise<PluginDiagnosticsSnapshot> => {
+    const snapshot = await pluginLoaderService.reload()
+    llmToolService.refreshPluginToolsFromLoader()
+    return snapshot
   })
 }
