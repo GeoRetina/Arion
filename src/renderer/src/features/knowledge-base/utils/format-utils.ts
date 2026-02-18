@@ -31,8 +31,20 @@ export function formatDate(date: Date): string {
  * Format relative time (e.g., "2 days ago")
  */
 export function formatRelativeTime(date: Date): string {
+  const timestamp = date.getTime()
+  if (!Number.isFinite(timestamp)) {
+    return 'Unknown'
+  }
+
   const now = new Date()
-  const diffInMilliseconds = now.getTime() - date.getTime()
+  const diffInMilliseconds = now.getTime() - timestamp
+  if (!Number.isFinite(diffInMilliseconds)) {
+    return 'Unknown'
+  }
+
+  if (diffInMilliseconds < 0) {
+    return formatDate(date)
+  }
 
   const diffInSeconds = Math.floor(diffInMilliseconds / 1000)
   const diffInMinutes = Math.floor(diffInSeconds / 60)

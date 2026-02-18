@@ -908,7 +908,7 @@ export class KnowledgeBaseService {
   }
 
   public async findRelevantWorkspaceMemories(params: {
-    chatId: string
+    chatId?: string
     query: string
     includeGlobal?: boolean
     limit?: number
@@ -932,10 +932,20 @@ export class KnowledgeBaseService {
     const limit = Math.max(1, Math.min(params.limit ?? 5, 20))
     const candidateLimit = Math.max(limit, Math.min(params.candidateLimit ?? limit * 4, 100))
     const includeGlobal = params.includeGlobal !== false
+    const normalizedChatId =
+      typeof params.chatId === 'string' && params.chatId.trim().length > 0
+        ? params.chatId.trim()
+        : undefined
+
+    if (!normalizedChatId && !includeGlobal) {
+      return []
+    }
+
     const queryEmbedding = await this.embedText(normalizedQuery)
     const queryEmbeddingString = JSON.stringify(queryEmbedding)
 
-    const query = `
+    const query = normalizedChatId
+      ? `
       SELECT
         id,
         chat_id,
@@ -958,6 +968,25 @@ export class KnowledgeBaseService {
       ORDER BY embedding <=> $2::vector
       LIMIT $3;
     `
+      : `
+      SELECT
+        id,
+        chat_id,
+        COALESCE(memory_scope, 'chat') AS memory_scope,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at,
+        embedding <=> $1::vector AS distance
+      FROM workspace_memories
+      WHERE COALESCE(memory_scope, 'chat') = 'global'
+      ORDER BY embedding <=> $1::vector
+      LIMIT $2;
+    `
 
     const result = await this.db.query<{
       id: string
@@ -972,12 +1001,18 @@ export class KnowledgeBaseService {
       details_json: string | null
       created_at: string
       distance: number
-    }>(query, [params.chatId, queryEmbeddingString, candidateLimit])
+    }>(
+      query,
+      normalizedChatId
+        ? [normalizedChatId, queryEmbeddingString, candidateLimit]
+        : [queryEmbeddingString, candidateLimit]
+    )
 
     const scoredEntries = (result.rows || []).map((row) => {
       const score = scoreWorkspaceMemory(Number(row.distance), row.created_at, params.scoreConfig)
       const scope = this.normalizeWorkspaceMemoryScope(row.memory_scope)
-      const scopeBoost = scope === 'chat' && row.chat_id === params.chatId ? 0.08 : 0
+      const scopeBoost =
+        normalizedChatId && scope === 'chat' && row.chat_id === normalizedChatId ? 0.08 : 0
       return {
         ...this.mapWorkspaceMemoryRow(row),
         similarityScore: score.similarityScore,
@@ -1032,6 +1067,88 @@ export class KnowledgeBaseService {
     }
   }
 
+  public async getWorkspaceMemoryById(params: {
+    id: string
+    chatId?: string
+    includeGlobal?: boolean
+  }): Promise<WorkspaceMemoryEntry | null> {
+    if (!this.db) {
+      throw new Error('Database not initialized.')
+    }
+
+    const normalizedId = params.id?.trim()
+    if (!normalizedId) {
+      return null
+    }
+
+    const includeGlobal = params.includeGlobal !== false
+    const normalizedChatId =
+      typeof params.chatId === 'string' && params.chatId.trim().length > 0
+        ? params.chatId.trim()
+        : undefined
+
+    const query = normalizedChatId
+      ? `
+      SELECT
+        id,
+        chat_id,
+        COALESCE(memory_scope, 'chat') AS memory_scope,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at
+      FROM workspace_memories
+      WHERE
+        id = $1
+        AND ${
+          includeGlobal
+            ? "(COALESCE(memory_scope, 'chat') = 'global' OR (COALESCE(memory_scope, 'chat') = 'chat' AND chat_id = $2))"
+            : "COALESCE(memory_scope, 'chat') = 'chat' AND chat_id = $2"
+        }
+      LIMIT 1;
+    `
+      : `
+      SELECT
+        id,
+        chat_id,
+        COALESCE(memory_scope, 'chat') AS memory_scope,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at
+      FROM workspace_memories
+      WHERE
+        id = $1
+        AND COALESCE(memory_scope, 'chat') = 'global'
+      LIMIT 1;
+    `
+
+    const result = await this.db.query<{
+      id: string
+      chat_id: string
+      memory_scope: WorkspaceMemoryScope
+      source_key: string
+      source_message_id: string | null
+      memory_type: WorkspaceMemoryType
+      agent_id: string | null
+      tool_name: string | null
+      summary: string
+      details_json: string | null
+      created_at: string
+    }>(query, normalizedChatId ? [normalizedId, normalizedChatId] : [normalizedId])
+
+    const row = result.rows?.[0]
+    return row ? this.mapWorkspaceMemoryRow(row) : null
+  }
+
   public async getWorkspaceMemories(params?: { limit?: number }): Promise<WorkspaceMemoryEntry[]> {
     if (!this.db) {
       throw new Error('Database not initialized.')
@@ -1072,6 +1189,105 @@ export class KnowledgeBaseService {
     return (result.rows || []).map((row) => this.mapWorkspaceMemoryRow(row))
   }
 
+  public async updateWorkspaceMemoryEntry(payload: {
+    id: string
+    summary: string
+    scope: WorkspaceMemoryScope
+    memoryType: WorkspaceMemoryType
+    details?: unknown
+  }): Promise<WorkspaceMemoryEntry | null> {
+    if (!this.db) {
+      throw new Error('Database not initialized.')
+    }
+
+    const normalizedId = payload.id?.trim()
+    const normalizedSummary = payload.summary?.trim()
+    if (!normalizedId || !normalizedSummary) {
+      return null
+    }
+
+    await this.initializeEmbeddingModel()
+    if (!this.embeddingModel) {
+      return null
+    }
+
+    const scope = this.normalizeWorkspaceMemoryScope(payload.scope)
+    const memoryType = this.normalizeWorkspaceMemoryType(payload.memoryType)
+    const embedding = await this.embedText(normalizedSummary)
+    const embeddingString = JSON.stringify(embedding)
+
+    let detailsJson: string | null = null
+    if (payload.details !== undefined) {
+      try {
+        detailsJson = JSON.stringify(payload.details)
+      } catch {
+        detailsJson = null
+      }
+    }
+
+    const query = `
+      UPDATE workspace_memories
+      SET
+        memory_scope = $2,
+        memory_type = $3,
+        summary = $4,
+        details_json = $5,
+        embedding = $6::vector
+      WHERE id = $1
+      RETURNING
+        id,
+        chat_id,
+        memory_scope,
+        source_key,
+        source_message_id,
+        memory_type,
+        agent_id,
+        tool_name,
+        summary,
+        details_json,
+        created_at;
+    `
+
+    const result = await this.db.query<{
+      id: string
+      chat_id: string
+      memory_scope: WorkspaceMemoryScope
+      source_key: string
+      source_message_id: string | null
+      memory_type: WorkspaceMemoryType
+      agent_id: string | null
+      tool_name: string | null
+      summary: string
+      details_json: string | null
+      created_at: string
+    }>(query, [normalizedId, scope, memoryType, normalizedSummary, detailsJson, embeddingString])
+
+    const row = result.rows?.[0]
+    return row ? this.mapWorkspaceMemoryRow(row) : null
+  }
+
+  public async deleteWorkspaceMemoryEntry(id: string): Promise<boolean> {
+    if (!this.db) {
+      throw new Error('Database not initialized.')
+    }
+
+    const normalizedId = id?.trim()
+    if (!normalizedId) {
+      return false
+    }
+
+    const result = await this.db.query<{ id: string }>(
+      `
+      DELETE FROM workspace_memories
+      WHERE id = $1
+      RETURNING id;
+    `,
+      [normalizedId]
+    )
+
+    return Boolean(result.rows?.[0]?.id)
+  }
+
   private safeParseJson(value: string | null): unknown {
     if (!value) {
       return undefined
@@ -1088,6 +1304,12 @@ export class KnowledgeBaseService {
     scope: WorkspaceMemoryScope | string | null | undefined
   ): WorkspaceMemoryScope {
     return scope === 'chat' ? 'chat' : 'global'
+  }
+
+  private normalizeWorkspaceMemoryType(
+    memoryType: WorkspaceMemoryType | string | null | undefined
+  ): WorkspaceMemoryType {
+    return memoryType === 'tool_outcome' ? 'tool_outcome' : 'session_outcome'
   }
 
   public async getChunkCount(): Promise<number> {

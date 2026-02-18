@@ -321,6 +321,8 @@ export const IpcChannels = {
   kbGetChunkCount: 'ctg:kb:getChunkCount',
   kbGetAllDocuments: 'ctg:kb:getAllDocuments',
   kbGetWorkspaceMemories: 'ctg:kb:getWorkspaceMemories',
+  kbUpdateWorkspaceMemory: 'ctg:kb:updateWorkspaceMemory',
+  kbDeleteWorkspaceMemory: 'ctg:kb:deleteWorkspaceMemory',
   kbDeleteDocument: 'ctg:kb:deleteDocument',
 
   // UI Control IPC Channels
@@ -636,6 +638,14 @@ export interface WorkspaceMemoryForClient {
   createdAt: string
 }
 
+export interface UpdateWorkspaceMemoryPayload {
+  id: string
+  summary: string
+  scope: WorkspaceMemoryScopeForClient
+  memoryType: WorkspaceMemoryTypeForClient
+  details?: unknown
+}
+
 // Type for the payload of kbAddDocument
 export interface KBAddDocumentPayload {
   documentId: string
@@ -664,6 +674,10 @@ export interface KnowledgeBaseApi {
   getChunkCount: () => Promise<{ success: boolean; data?: number; error?: string }>
   getAllDocuments: () => Promise<IPCResponse<KnowledgeBaseDocumentForClient[]>>
   getWorkspaceMemories: (limit?: number) => Promise<IPCResponse<WorkspaceMemoryForClient[]>>
+  updateWorkspaceMemory: (
+    payload: UpdateWorkspaceMemoryPayload
+  ) => Promise<IPCResponse<WorkspaceMemoryForClient | null>>
+  deleteWorkspaceMemory: (memoryId: string) => Promise<IPCResponse<null>>
   deleteDocument: (documentId: string) => Promise<IPCResponse<null>>
 }
 

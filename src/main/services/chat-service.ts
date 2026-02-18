@@ -182,6 +182,7 @@ export class ChatService {
   private streamingHandlerService: StreamingHandlerService
   private llmToolService: LlmToolService
   private knowledgeBaseService?: KnowledgeBaseService
+  private readonly enableAutomaticWorkspaceMemoryCapture = false
 
   constructor(
     settingsService: SettingsService,
@@ -201,8 +202,7 @@ export class ChatService {
       modularPromptManager,
       agentRegistryService,
       llmToolService,
-      this.agentToolManager, // Pass the agentToolManager to enable tool filtering
-      this.knowledgeBaseService
+      this.agentToolManager // Pass the agentToolManager to enable tool filtering
     )
     this.streamingHandlerService = new StreamingHandlerService()
   }
@@ -716,13 +716,38 @@ export class ChatService {
     return ''
   }
 
+  private extractNearestPriorUserPrompt(messages: ModelMessage[], assistantIndex: number): string {
+    if (!Number.isFinite(assistantIndex) || assistantIndex <= 0) {
+      return ''
+    }
+
+    for (let i = Math.min(assistantIndex - 1, messages.length - 1); i >= 0; i -= 1) {
+      const message = messages[i] as unknown
+      const messageRecord = asRecord(message)
+      if (!messageRecord || messageRecord.role !== 'user') {
+        continue
+      }
+
+      const text = extractMessageText(message)
+      if (text.trim().length > 0) {
+        return text.trim()
+      }
+    }
+
+    return ''
+  }
+
   private async captureStructuredExecutionMemory(
     chatId: string,
     userPrompt: string,
     result: StructuredExecutionResult,
     agentId?: string
   ): Promise<void> {
-    if (!this.knowledgeBaseService || !result.success) {
+    if (
+      !this.enableAutomaticWorkspaceMemoryCapture ||
+      !this.knowledgeBaseService ||
+      !result.success
+    ) {
       return
     }
 
@@ -748,12 +773,15 @@ export class ChatService {
       }
 
       for (const [index, toolResult] of result.toolResults.entries()) {
-        const toolSummary = this.buildToolOutcomeSummary({
-          toolName: toolResult.toolName,
-          toolCallId: toolResult.toolCallId,
-          args: toolResult.args,
-          result: toolResult.result
-        })
+        const toolSummary = this.buildToolOutcomeSummary(
+          {
+            toolName: toolResult.toolName,
+            toolCallId: toolResult.toolCallId,
+            args: toolResult.args,
+            result: toolResult.result
+          },
+          userPrompt
+        )
 
         await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
           chatId,
@@ -781,7 +809,7 @@ export class ChatService {
     chatId: string,
     agentId?: string
   ): Promise<void> {
-    if (!this.knowledgeBaseService) {
+    if (!this.enableAutomaticWorkspaceMemoryCapture || !this.knowledgeBaseService) {
       return
     }
 
@@ -804,9 +832,10 @@ export class ChatService {
           typeof messageRecord.id === 'string' ? messageRecord.id : `assistant-${index}`
         const messageText = extractMessageText(messageRecord).trim()
         const toolOutcomes = extractToolOutcomes(messageRecord)
+        const relatedUserPrompt = this.extractNearestPriorUserPrompt(rendererMessages, index)
 
         if (messageText) {
-          const summary = this.buildSessionSummary('', messageText)
+          const summary = this.buildSessionSummary(relatedUserPrompt, messageText)
           if (summary) {
             await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
               chatId,
@@ -818,6 +847,7 @@ export class ChatService {
               summary,
               details: {
                 source: 'renderer-history',
+                ...(relatedUserPrompt ? { userPrompt: truncateText(relatedUserPrompt, 500) } : {}),
                 assistantResponse: truncateText(messageText, 1200)
               }
             })
@@ -836,7 +866,7 @@ export class ChatService {
           } catch {
             void 0
           }
-          const summary = this.buildToolOutcomeSummary(toolOutcome)
+          const summary = this.buildToolOutcomeSummary(toolOutcome, relatedUserPrompt)
 
           await this.knowledgeBaseService.upsertWorkspaceMemoryEntry({
             chatId,
@@ -849,6 +879,7 @@ export class ChatService {
             summary,
             details: {
               source: 'renderer-history',
+              ...(relatedUserPrompt ? { userPrompt: truncateText(relatedUserPrompt, 500) } : {}),
               toolCallId: toolOutcome.toolCallId,
               args: toolOutcome.args,
               result: toolOutcome.result,
@@ -884,25 +915,28 @@ export class ChatService {
     )}`
   }
 
-  private buildToolOutcomeSummary(toolOutcome: ToolOutcomeCapture): string {
+  private buildToolOutcomeSummary(toolOutcome: ToolOutcomeCapture, userPrompt?: string): string {
     const toolName = toolOutcome.toolName || 'unknown_tool'
+    const requestContext = userPrompt?.trim()
+      ? ` for request "${truncateText(userPrompt.trim(), 120)}"`
+      : ''
     if (toolOutcome.error) {
-      return `Tool ${toolName} failed: ${truncateText(toolOutcome.error, 220)}`
+      return `Tool ${toolName}${requestContext} failed: ${truncateText(toolOutcome.error, 220)}`
     }
 
     if (typeof toolOutcome.result === 'string') {
-      return `Tool ${toolName} result: ${truncateText(toolOutcome.result, 220)}`
+      return `Tool ${toolName}${requestContext} result: ${truncateText(toolOutcome.result, 220)}`
     }
 
     if (toolOutcome.result && typeof toolOutcome.result === 'object') {
       const resultRecord = asRecord(toolOutcome.result)
       if (resultRecord && typeof resultRecord.message === 'string') {
-        return `Tool ${toolName} result: ${truncateText(resultRecord.message, 220)}`
+        return `Tool ${toolName}${requestContext} result: ${truncateText(resultRecord.message, 220)}`
       }
-      return `Tool ${toolName} completed with structured output.`
+      return `Tool ${toolName}${requestContext} completed with structured output.`
     }
 
-    return `Tool ${toolName} completed.`
+    return `Tool ${toolName}${requestContext} completed.`
   }
 
   /**
