@@ -20,7 +20,10 @@ import type {
   LayerValidationResult,
   LayerPerformanceMetrics,
   LayerType,
-  LayerContext
+  LayerContext,
+  LayerSourceConfig,
+  LayerMetadata,
+  LayerOrigin
 } from '../../../shared/types/layer-types'
 import { MapLibreIntegration } from '../utils/maplibre-integration'
 
@@ -327,8 +330,18 @@ const searchLayersImpl = (
 }
 
 // Persist only layers that have a string-based data reference (e.g., URL/file path).
-const isPersistableLayer = (layer: LayerDefinition): boolean =>
-  typeof layer.sourceConfig?.data === 'string'
+const isPersistableLayer = (layer: LayerDefinition): boolean => {
+  if (typeof layer.sourceConfig?.data !== 'string') {
+    return false
+  }
+
+  const sourceData = layer.sourceConfig.data.trim().toLowerCase()
+  if (sourceData.startsWith('blob:') || sourceData.startsWith('data:')) {
+    return false
+  }
+
+  return sourceData.length > 0
+}
 
 // Create the store
 export const useLayerStore = create<LayerStore>()(
@@ -455,7 +468,17 @@ export const useLayerStore = create<LayerStore>()(
       }))
 
       // Sync to map immediately after state update
-      await get().syncLayerToMap(layer)
+      try {
+        await get().syncLayerToMap(layer)
+      } catch (error) {
+        get().addError({
+          code: 'SOURCE_LOAD_FAILED',
+          message: `Failed to sync layer "${layer.name}" to map`,
+          details: { layerId: id, error: error instanceof Error ? error.message : 'Unknown error' },
+          timestamp: new Date(),
+          layerId: id
+        })
+      }
 
       // Auto-zoom to layer if bounds are available
       const map = get().mapLibreIntegration?.getMapInstance()
@@ -541,8 +564,21 @@ export const useLayerStore = create<LayerStore>()(
       // Only persist to database if not imported for session-only use
       const shouldPersist = isPersistableLayer(layer)
       if (shouldPersist) {
-        {
-          await window.ctg.layers.delete(id)
+        const deleted = await window.ctg.layers.delete(id)
+        if (!deleted) {
+          throw new Error(`Failed to delete persisted layer: ${id}`)
+        }
+      } else {
+        const rasterAssetId = layer.sourceConfig.options?.rasterAssetId
+        const hasOtherAssetRefs =
+          typeof rasterAssetId === 'string' &&
+          Array.from(get().layers.values()).some(
+            (candidate) =>
+              candidate.id !== id && candidate.sourceConfig.options?.rasterAssetId === rasterAssetId
+          )
+
+        if (typeof rasterAssetId === 'string' && rasterAssetId.length > 0 && !hasOtherAssetRefs) {
+          await window.ctg.layers.releaseGeoTiffAsset(rasterAssetId)
         }
       }
 
@@ -1120,15 +1156,15 @@ if (typeof window !== 'undefined' && window.ctg?.layers?.invoke) {
     name: string
     type: LayerType
     sourceId: string
-    sourceConfig: import('/mnt/e/Coding/open-source/Arion/src/shared/types/layer-types').LayerSourceConfig
+    sourceConfig: LayerSourceConfig
     style: LayerStyle
     visibility: boolean
     opacity: number
     zIndex: number
-    metadata: import('/mnt/e/Coding/open-source/Arion/src/shared/types/layer-types').LayerMetadata
+    metadata: LayerMetadata
     groupId?: string
     isLocked: boolean
-    createdBy: import('/mnt/e/Coding/open-source/Arion/src/shared/types/layer-types').LayerOrigin
+    createdBy: LayerOrigin
   } => ({
     ...layer,
     createdAt: layer.createdAt instanceof Date ? layer.createdAt.toISOString() : layer.createdAt,

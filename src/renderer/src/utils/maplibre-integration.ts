@@ -78,6 +78,7 @@ export class MapLibreIntegration {
           type: 'raster',
           tiles: [sourceConfig.data as string],
           tileSize: sourceConfig.options?.tileSize || 256,
+          ...(sourceConfig.options?.bounds && { bounds: sourceConfig.options.bounds }),
           ...(sourceConfig.options?.attribution && {
             attribution: sourceConfig.options.attribution
           }),

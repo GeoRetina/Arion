@@ -6,6 +6,7 @@
  */
 
 import type { LayerDefinition, ImportFormat } from '../../../../shared/types/layer-types'
+import type { GeoTiffAssetProcessingStatus } from '../../../../shared/ipc-types'
 import { LayerImportValidator, type ValidationResult } from './layer-import-validator'
 import { GeoJSONProcessor } from './processors/geojson-processor'
 import { ShapefileProcessor } from './processors/shapefile-processor'
@@ -16,6 +17,10 @@ export interface ImportResult {
   layerIds: string[]
   errors: string[]
   warnings: string[]
+}
+
+export interface LayerProcessOptions {
+  onRasterProgress?: (status: GeoTiffAssetProcessingStatus) => void
 }
 
 export class LayerImportService {
@@ -29,7 +34,11 @@ export class LayerImportService {
   /**
    * Process file and create layer definition
    */
-  static async processFile(file: File, format: ImportFormat): Promise<LayerDefinition> {
+  static async processFile(
+    file: File,
+    format: ImportFormat,
+    options?: LayerProcessOptions
+  ): Promise<LayerDefinition> {
     const fileName = file.name.replace(/\.[^/.]+$/, '') // Remove extension
 
     try {
@@ -41,7 +50,7 @@ export class LayerImportService {
           return await ShapefileProcessor.processFile(file, fileName)
 
         case 'geotiff':
-          return await RasterProcessor.processFile(file, fileName)
+          return await RasterProcessor.processFile(file, fileName, options?.onRasterProgress)
 
         default:
           throw new Error(`Processing for ${format} format not yet implemented`)
@@ -192,12 +201,17 @@ export class LayerImportService {
   /**
    * Clean up resources for imported layers (e.g., blob URLs)
    */
-  static cleanupLayer(layerDefinition: LayerDefinition): void {
+  static async cleanupLayer(layerDefinition: LayerDefinition): Promise<void> {
     if (
       layerDefinition.type === 'raster' &&
       typeof layerDefinition.sourceConfig.data === 'string'
     ) {
       RasterProcessor.cleanupBlobUrl(layerDefinition.sourceConfig.data)
+    }
+
+    const rasterAssetId = layerDefinition.sourceConfig.options?.rasterAssetId
+    if (typeof rasterAssetId === 'string' && rasterAssetId.length > 0) {
+      await RasterProcessor.cleanupRasterAsset(rasterAssetId)
     }
   }
 }
