@@ -21,9 +21,9 @@ import {
   type PostgreSQLConfig,
   type PostgreSQLConnectionResult
 } from '../../../../../shared/ipc-types'
-import { integrationRegistry } from '../integrations'
-import type { IntegrationDefinition, IntegrationType } from '../types/integration'
-import { IntegrationConfigDialog } from './integration-config-dialog'
+import { integrationRegistry } from '../connectors'
+import type { IntegrationDefinition, IntegrationType } from '../types/connector'
+import { IntegrationConfigDialog } from './connector-config-dialog'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
 
 const fallbackStatusStyle = 'bg-gray-400 text-gray-400'
@@ -92,7 +92,7 @@ const toPostgreSQLConfig = (value: unknown): PostgreSQLConfig => {
   }
 }
 
-const IntegrationsPage: React.FC = () => {
+const ConnectorsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] =
     useState<IntegrationDefinition[]>(integrationRegistry)
   const [isLoading, setIsLoading] = useState(true)
@@ -440,4 +440,4 @@ const IntegrationsPage: React.FC = () => {
   )
 }
 
-export default IntegrationsPage
+export default ConnectorsPage

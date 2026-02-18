@@ -1,5 +1,5 @@
 import type { IntegrationId } from '../../../../../shared/ipc-types'
-import type { IntegrationDefinition, IntegrationType } from '../types/integration'
+import type { IntegrationDefinition, IntegrationType } from '../types/connector'
 
 const createDefinition = (definition: IntegrationDefinition): IntegrationDefinition => definition
 

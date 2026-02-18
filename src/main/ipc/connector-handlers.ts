@@ -4,7 +4,7 @@ import {
   type IntegrationHealthCheckResult,
   type IntegrationStatus
 } from '../../shared/ipc-types'
-import type { IntegrationHubService } from '../services/integration-hub-service'
+import type { ConnectorHubService } from '../services/connector-hub-service'
 
 const buildFailureResult = (
   message: string,
@@ -16,13 +16,13 @@ const buildFailureResult = (
   checkedAt: new Date().toISOString()
 })
 
-export function registerIntegrationIpcHandlers(
+export function registerConnectorIpcHandlers(
   ipcMain: IpcMain,
-  integrationHubService: IntegrationHubService
+  connectorHubService: ConnectorHubService
 ): void {
   ipcMain.handle(IpcChannels.integrationsGetStates, async () => {
     try {
-      return await integrationHubService.getStates()
+      return await connectorHubService.getStates()
     } catch (error) {
       console.error('[IPC integrationsGetStates] Failed to fetch integration states:', error)
       return []
@@ -31,8 +31,8 @@ export function registerIntegrationIpcHandlers(
 
   ipcMain.handle(IpcChannels.integrationsGetConfig, async (_event, rawId: string) => {
     try {
-      const id = integrationHubService.validateIntegrationId(rawId)
-      return await integrationHubService.getConfig(id)
+      const id = connectorHubService.validateIntegrationId(rawId)
+      return await connectorHubService.getConfig(id)
     } catch (error) {
       console.error('[IPC integrationsGetConfig] Failed to fetch integration config:', error)
       return null
@@ -42,8 +42,8 @@ export function registerIntegrationIpcHandlers(
   ipcMain.handle(
     IpcChannels.integrationsSaveConfig,
     async (_event, rawId: string, rawConfig: unknown) => {
-      const id = integrationHubService.validateIntegrationId(rawId)
-      await integrationHubService.saveConfig(id, rawConfig)
+      const id = connectorHubService.validateIntegrationId(rawId)
+      await connectorHubService.saveConfig(id, rawConfig)
       return { success: true }
     }
   )
@@ -52,8 +52,8 @@ export function registerIntegrationIpcHandlers(
     IpcChannels.integrationsTestConnection,
     async (_event, rawId: string, rawConfig?: unknown): Promise<IntegrationHealthCheckResult> => {
       try {
-        const id = integrationHubService.validateIntegrationId(rawId)
-        return await integrationHubService.testConnection(id, rawConfig)
+        const id = connectorHubService.validateIntegrationId(rawId)
+        return await connectorHubService.testConnection(id, rawConfig)
       } catch (error) {
         console.error('[IPC integrationsTestConnection] Integration test failed:', error)
         return buildFailureResult(
@@ -67,8 +67,8 @@ export function registerIntegrationIpcHandlers(
     IpcChannels.integrationsConnect,
     async (_event, rawId: string, rawConfig?: unknown): Promise<IntegrationHealthCheckResult> => {
       try {
-        const id = integrationHubService.validateIntegrationId(rawId)
-        return await integrationHubService.connect(id, rawConfig)
+        const id = connectorHubService.validateIntegrationId(rawId)
+        return await connectorHubService.connect(id, rawConfig)
       } catch (error) {
         console.error('[IPC integrationsConnect] Integration connect failed:', error)
         return buildFailureResult(
@@ -80,8 +80,8 @@ export function registerIntegrationIpcHandlers(
 
   ipcMain.handle(IpcChannels.integrationsDisconnect, async (_event, rawId: string) => {
     try {
-      const id = integrationHubService.validateIntegrationId(rawId)
-      return await integrationHubService.disconnect(id)
+      const id = connectorHubService.validateIntegrationId(rawId)
+      return await connectorHubService.disconnect(id)
     } catch (error) {
       console.error('[IPC integrationsDisconnect] Integration disconnect failed:', error)
       return {

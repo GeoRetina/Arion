@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { IntegrationHealthCheckResult } from '../../../../../shared/ipc-types'
-import type { Integration, IntegrationFieldDefinition } from '../types/integration'
+import type { Integration, IntegrationFieldDefinition } from '../types/connector'
 
 interface IntegrationConfigDialogProps {
   isOpen: boolean

@@ -12,19 +12,19 @@ import {
   type IntegrationStatus
 } from '../../shared/ipc-types'
 import type { PostgreSQLService } from './postgresql-service'
-import { DB_FILENAME } from './integrations/constants'
+import { DB_FILENAME } from './connectors/constants'
 import {
   splitPublicAndSecretConfig,
   validateIntegrationConfig,
   validateIntegrationId
-} from './integrations/schemas'
-import { IntegrationSecretStore } from './integrations/secret-store'
-import { IntegrationStateStore, type IntegrationConfigRow } from './integrations/state-store'
-import { runIntegrationHealthCheck } from './integrations/health-checks/runner'
-import { createHealthCheckResult } from './integrations/health-checks/result'
-import { hasMeaningfulConfig, parseJsonRecord } from './integrations/utils'
+} from './connectors/schemas'
+import { IntegrationSecretStore } from './connectors/secret-store'
+import { IntegrationStateStore, type IntegrationConfigRow } from './connectors/state-store'
+import { runIntegrationHealthCheck } from './connectors/health-checks/runner'
+import { createHealthCheckResult } from './connectors/health-checks/result'
+import { hasMeaningfulConfig, parseJsonRecord } from './connectors/utils'
 
-export class IntegrationHubService {
+export class ConnectorHubService {
   private readonly stateStore: IntegrationStateStore
   private readonly secretStore: IntegrationSecretStore
   private readonly postgresqlService: PostgreSQLService
