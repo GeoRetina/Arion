@@ -1,6 +1,6 @@
 // TODO: Resolve TypeScript errors after full refactor & once all placeholders are replaced
 
-import { useState, useEffect, useCallback, useRef, startTransition, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, startTransition, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 // import { type ToolInvocation } from "ai"; // From 'ai' package if needed, or @ai-sdk/core
@@ -12,8 +12,8 @@ import { electronChatFetch } from '../utils/chat-fetch'
 const useAutoScroll = (
   props
 ): {
-  scrollContainerRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
-  messagesEndRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
+  scrollContainerRef: React.RefObject<null>
+  messagesEndRef: React.RefObject<null>
   isAutoScrollEnabled: boolean
   resetScrollBehavior: () => void
 } => {
@@ -139,11 +139,7 @@ interface UseChatLogicProps {
 }
 
 export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps): {
-  messages: UIMessage<
-    unknown,
-    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UIDataTypes,
-    import('/mnt/e/Coding/open-source/Arion/node_modules/ai/dist/index').UITools
-  >[]
+  messages: UIMessage[]
   isLoading: boolean
   error: Error | undefined
   isChatStarted: boolean
@@ -160,19 +156,17 @@ export function useChatLogic({ chatId, initialMessages }: UseChatLogicProps): {
   }
   handleSendMessage: (content: string, selectedRoi?: string | null) => void
   selectedRoiForBanner: string | null
-  scrollContainerRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
-  messagesEndRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<null>
+  scrollContainerRef: React.RefObject<null>
+  messagesEndRef: React.RefObject<null>
   toolCallTitlesMap: { [key: string]: { toolCallId: string; toolTitle: string }[] }
-  latestUserMessageIdRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<
-    string | null
-  >
+  latestUserMessageIdRef: React.RefObject<string | null>
   stop: () => void
   completedMessageIds: Set<string>
   stoppedSequenceId: string | null
   isManuallyStoppedByUser: boolean
   setStoppingRequested: (isRequested: boolean) => void
   shouldShowToolResults: (messageId: string) => boolean
-  isStoppingRequestedRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<boolean>
+  isStoppingRequestedRef: React.RefObject<boolean>
 } {
   // REMOVED: selectedRoiGeometryInChat and selectedUserGeospatialSource state/hooks
 

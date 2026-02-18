@@ -35,7 +35,7 @@ export function ConfirmationDialog({
   onCancel,
   variant = 'default',
   children
-}: ConfirmationDialogProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: ConfirmationDialogProps): React.JSX.Element {
   const handleConfirm = (): void => {
     onConfirm()
     onOpenChange(false)

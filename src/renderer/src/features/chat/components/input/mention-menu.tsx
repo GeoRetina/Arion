@@ -20,9 +20,7 @@ interface MentionMenuProps {
   searchQuery: string
 }
 
-const getIconForType = (
-  type: MentionItem['type']
-): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+const getIconForType = (type: MentionItem['type']): React.JSX.Element => {
   switch (type) {
     case 'layer-vector':
       return <Map className="h-4 w-4 text-slate-500" />
@@ -44,9 +42,7 @@ const getTypeLabel = (type: MentionItem['type']): string => {
   }
 }
 
-const getTypeBadge = (
-  type: MentionItem['type']
-): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+const getTypeBadge = (type: MentionItem['type']): React.JSX.Element => {
   const label = getTypeLabel(type)
 
   return (

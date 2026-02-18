@@ -13,11 +13,7 @@ const copyToClipboard = async (text: string): Promise<boolean> => {
 }
 
 // Exportable copy message button component
-export const CopyMessageButton = ({
-  content
-}: {
-  content: string
-}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+export const CopyMessageButton = ({ content }: { content: string }): React.JSX.Element => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async (): Promise<void> => {
@@ -53,7 +49,7 @@ interface MarkdownRendererProps {
 export const MarkdownRenderer = ({
   content,
   variant = 'default'
-}: MarkdownRendererProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+}: MarkdownRendererProps): React.JSX.Element => {
   const textSizeClass =
     variant === 'reasoning'
       ? 'text-xs [&_p]:text-xs [&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm'

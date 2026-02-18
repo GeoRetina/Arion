@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import React, { useRef, useEffect } from 'react'
 import type { UIMessage } from 'ai'
 
 interface UseAutoScrollProps {
@@ -14,7 +14,7 @@ interface UseAutoScrollProps {
  * @returns Object containing refs and helper functions
  */
 export function useAutoScroll(props: UseAutoScrollProps): {
-  latestUserMessageRef: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').RefObject<HTMLDivElement | null>
+  latestUserMessageRef: React.RefObject<HTMLDivElement | null>
   isLatestUserMessage: (message: UIMessage, index: number) => boolean
 } {
   const { messages, marginTop = '60px', scrollDelay = 100, clearMarginDelay = 1000 } = props

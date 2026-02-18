@@ -6,9 +6,7 @@ import { cn } from '@/lib/utils'
 function Tabs({
   className,
   ...props
-}: React.ComponentProps<
-  typeof TabsPrimitive.Root
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<typeof TabsPrimitive.Root>): React.JSX.Element {
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
@@ -21,9 +19,7 @@ function Tabs({
 function TabsList({
   className,
   ...props
-}: React.ComponentProps<
-  typeof TabsPrimitive.List
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<typeof TabsPrimitive.List>): React.JSX.Element {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
@@ -39,9 +35,7 @@ function TabsList({
 function TabsTrigger({
   className,
   ...props
-}: React.ComponentProps<
-  typeof TabsPrimitive.Trigger
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<typeof TabsPrimitive.Trigger>): React.JSX.Element {
   return (
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
@@ -57,9 +51,7 @@ function TabsTrigger({
 function TabsContent({
   className,
   ...props
-}: React.ComponentProps<
-  typeof TabsPrimitive.Content
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<typeof TabsPrimitive.Content>): React.JSX.Element {
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"

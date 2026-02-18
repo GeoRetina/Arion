@@ -8,9 +8,7 @@ import { cn } from '@/lib/utils'
 function Label({
   className,
   ...props
-}: React.ComponentProps<
-  typeof LabelPrimitive.Root
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<typeof LabelPrimitive.Root>): React.JSX.Element {
   return (
     <LabelPrimitive.Root
       data-slot="label"

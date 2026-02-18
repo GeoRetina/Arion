@@ -7,9 +7,7 @@ import { cn } from '@/lib/utils'
 function Checkbox({
   className,
   ...props
-}: React.ComponentProps<
-  typeof CheckboxPrimitive.Root
->): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<typeof CheckboxPrimitive.Root>): React.JSX.Element {
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"

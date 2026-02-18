@@ -34,9 +34,7 @@ function Toggle({
   size,
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> &
-  VariantProps<
-    typeof toggleVariants
-  >): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+  VariantProps<typeof toggleVariants>): React.JSX.Element {
   return (
     <TogglePrimitive.Root
       data-slot="toggle"

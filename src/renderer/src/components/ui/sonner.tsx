@@ -1,9 +1,7 @@
 import { useTheme } from 'next-themes'
 import { Toaster as Sonner, ToasterProps } from 'sonner'
 
-const Toaster = ({
-  ...props
-}: ToasterProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+const Toaster = ({ ...props }: ToasterProps): React.JSX.Element => {
   const { theme = 'system' } = useTheme()
 
   return (

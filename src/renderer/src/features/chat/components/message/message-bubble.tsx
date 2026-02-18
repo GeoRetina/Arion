@@ -12,14 +12,13 @@ import { hasRenderableAssistantContent } from '../../utils/message-part-utils'
 import type { UIDataTypes, UIMessage, UITools } from 'ai'
 
 // Streaming indicator - shown at bottom of message while generating
-const StreamingIndicator =
-  (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
-    <div className="streaming-indicator">
-      <span className="dot">.</span>
-      <span className="dot">.</span>
-      <span className="dot">.</span>
-    </div>
-  )
+const StreamingIndicator = (): React.JSX.Element => (
+  <div className="streaming-indicator">
+    <span className="dot">.</span>
+    <span className="dot">.</span>
+    <span className="dot">.</span>
+  </div>
+)
 
 // Extend the message type to include orchestration data
 interface ExtendedMessage {
