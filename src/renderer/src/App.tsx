@@ -14,9 +14,7 @@ import { resetChatStores } from './lib/chat-store-reset'
 const ModelsPage = React.lazy(() => import('./features/models/components/modals-page'))
 const McpServersPage = React.lazy(() => import('./features/settings/components/mcp-servers-page'))
 const SettingsPage = React.lazy(() => import('./features/settings/components/settings-page'))
-const IntegrationsPage = React.lazy(
-  () => import('./features/integrations/components/integrations-page')
-)
+const ConnectorsPage = React.lazy(() => import('./features/connectors/components/connectors-page'))
 const KnowledgeBasePage = React.lazy(
   () => import('./features/knowledge-base/components/knowledge-base')
 )
@@ -87,7 +85,8 @@ function App(): React.JSX.Element {
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
           <Route path="/agents" element={<AgentsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route path="/connectors" element={<ConnectorsPage />} />
+          <Route path="/integrations" element={<Navigate to="/connectors" replace />} />
         </Routes>
       </React.Suspense>
     </MainLayout>

@@ -61,8 +61,8 @@ export default function GoogleConfigModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-md bg-blue-100 flex items-center justify-center">
-              <Cloud className="h-4 w-4 text-blue-500" />
+            <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
+              <Cloud className="h-4 w-4 text-foreground" />
             </div>
             <DialogTitle className="text-xl">Configure Google</DialogTitle>
           </div>

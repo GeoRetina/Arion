@@ -27,24 +27,24 @@ export const PROVIDER_LOGOS: Record<NonNullable<LLMProvider>, string> = {
   ollama: ollamaLogo
 }
 
-// Provider card background colors
-export const PROVIDER_BACKGROUNDS: Record<NonNullable<LLMProvider>, string> = {
-  openai: 'bg-primary/10',
-  google: 'bg-blue-100',
-  azure: 'bg-blue-50',
-  anthropic: 'bg-purple-50',
-  vertex: 'bg-green-50',
-  ollama: 'bg-gray-100'
+// Extra CSS classes for provider logos (e.g. invert dark logos in dark mode)
+export const PROVIDER_LOGO_CLASSES: Record<NonNullable<LLMProvider>, string> = {
+  openai: '',
+  google: '',
+  azure: '',
+  anthropic: 'dark:invert',
+  vertex: '',
+  ollama: 'dark:invert'
 }
 
-// Provider card progress bar colors
-export const PROVIDER_PROGRESS_COLORS: Record<NonNullable<LLMProvider>, string> = {
-  openai: 'bg-primary',
-  google: 'bg-blue-500',
-  azure: 'bg-blue-600',
-  anthropic: 'bg-purple-600',
-  vertex: 'bg-green-600',
-  ollama: 'bg-gray-600'
+// Provider card background colors
+export const PROVIDER_BACKGROUNDS: Record<NonNullable<LLMProvider>, string> = {
+  openai: 'bg-muted',
+  google: 'bg-muted',
+  azure: 'bg-muted',
+  anthropic: 'bg-muted',
+  vertex: 'bg-muted',
+  ollama: 'bg-muted'
 }
 
 // Define a generic config type that covers the properties used for naming

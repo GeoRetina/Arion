@@ -144,7 +144,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
           <NavButton path="/models" title="Models" icon={Brain} />
           <NavButton path="/agents" title="Agents" icon={Bot} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
-          <NavButton path="/integrations" title="Connectors" icon={Link2} />
+          <NavButton path="/connectors" title="Connectors" icon={Link2} />
         </NavGroup>
       </div>
 

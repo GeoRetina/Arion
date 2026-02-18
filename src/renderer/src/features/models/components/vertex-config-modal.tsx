@@ -75,8 +75,8 @@ export default function VertexConfigModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-md bg-green-50 flex items-center justify-center">
-              <Shapes className="h-4 w-4 text-green-600" />
+            <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
+              <Shapes className="h-4 w-4 text-foreground" />
             </div>
             <DialogTitle className="text-xl">Configure Google Vertex AI</DialogTitle>
           </div>

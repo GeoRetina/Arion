@@ -11,6 +11,7 @@ import { LlmToolService } from './services/llm-tool-service'
 import { KnowledgeBaseService } from './services/knowledge-base-service'
 import { McpPermissionService } from './services/mcp-permission-service'
 import { PostgreSQLService } from './services/postgresql-service'
+import { ConnectorHubService } from './services/connector-hub-service'
 import { PromptModuleService } from './services/prompt-module-service'
 import { AgentRegistryService } from './services/agent-registry-service'
 import { ModularPromptManager } from './services/modular-prompt-manager'
@@ -26,6 +27,7 @@ import { registerKnowledgeBaseIpcHandlers } from './ipc/knowledge-base-handlers'
 import { registerShellHandlers } from './ipc/shell-handlers'
 import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
 import { registerPostgreSQLIpcHandlers } from './ipc/postgresql-handlers'
+import { registerConnectorIpcHandlers } from './ipc/connector-handlers'
 import { registerLayerHandlers, getLayerDbManager } from './ipc/layer-handlers'
 import { registerAgentIpcHandlers } from './ipc/agent-handlers'
 import { registerToolIpcHandlers } from './ipc/tool-handlers'
@@ -39,6 +41,7 @@ let llmToolServiceInstance: LlmToolService
 let knowledgeBaseServiceInstance: KnowledgeBaseService
 let mcpPermissionServiceInstance: McpPermissionService
 let postgresqlServiceInstance: PostgreSQLService
+let connectorHubServiceInstance: ConnectorHubService
 let promptModuleServiceInstance: PromptModuleService
 let agentRegistryServiceInstance: AgentRegistryService
 let modularPromptManagerInstance: ModularPromptManager
@@ -128,6 +131,7 @@ app.whenReady().then(async () => {
   knowledgeBaseServiceInstance = new KnowledgeBaseService(settingsServiceInstance)
   mcpPermissionServiceInstance = new McpPermissionService()
   postgresqlServiceInstance = new PostgreSQLService()
+  connectorHubServiceInstance = new ConnectorHubService(postgresqlServiceInstance)
 
   // Instantiate agent system services
   promptModuleServiceInstance = new PromptModuleService()
@@ -237,6 +241,7 @@ app.whenReady().then(async () => {
   registerShellHandlers(ipcMain)
   registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
   registerPostgreSQLIpcHandlers(ipcMain, postgresqlServiceInstance)
+  registerConnectorIpcHandlers(ipcMain, connectorHubServiceInstance)
   registerLayerHandlers()
   registerAgentIpcHandlers(ipcMain, agentRegistryServiceInstance, promptModuleServiceInstance)
   registerToolIpcHandlers(ipcMain, llmToolServiceInstance)
@@ -281,6 +286,9 @@ app.whenReady().then(async () => {
 
     if (postgresqlServiceInstance) {
       await postgresqlServiceInstance.cleanup()
+    }
+    if (connectorHubServiceInstance) {
+      connectorHubServiceInstance.cleanup()
     }
   })
 })

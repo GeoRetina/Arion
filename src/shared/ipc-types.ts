@@ -345,6 +345,14 @@ export const IpcChannels = {
   postgresqlGetActiveConnections: 'ctg:postgresql:getActiveConnections',
   postgresqlGetConnectionInfo: 'ctg:postgresql:getConnectionInfo',
 
+  // Integration Hub IPC Channels
+  integrationsGetStates: 'ctg:integrations:getStates',
+  integrationsGetConfig: 'ctg:integrations:getConfig',
+  integrationsSaveConfig: 'ctg:integrations:saveConfig',
+  integrationsTestConnection: 'ctg:integrations:testConnection',
+  integrationsConnect: 'ctg:integrations:connect',
+  integrationsDisconnect: 'ctg:integrations:disconnect',
+
   // Layer Management IPC Channels
   layersGetAll: 'layers:getAll',
   layersGetById: 'layers:getById',
@@ -682,6 +690,7 @@ declare global {
       shell: ExposedShellApi // Added shell API
       mcp: McpPermissionApi // Added MCP permission API
       postgresql: PostgreSQLApi // Added PostgreSQL API
+      integrations: IntegrationsApi // Integration Hub API
       layers: LayerApi // Added Layer Management API
       agents: AgentApi // Added Agent System API
       promptModules: PromptModuleApi // Added Prompt Module API
@@ -812,6 +821,105 @@ export interface PostgreSQLConnectionInfo {
   config?: PostgreSQLConfig
 }
 
+export const SUPPORTED_INTEGRATION_IDS = [
+  'postgresql-postgis',
+  'stac',
+  'cog',
+  'pmtiles',
+  'wms',
+  'wmts',
+  's3',
+  'google-earth-engine'
+] as const
+
+export type IntegrationId = (typeof SUPPORTED_INTEGRATION_IDS)[number]
+
+export type IntegrationStatus =
+  | 'connected'
+  | 'disconnected'
+  | 'not-configured'
+  | 'coming-soon'
+  | 'error'
+
+export interface StacIntegrationConfig {
+  baseUrl: string
+  timeoutMs?: number
+}
+
+export interface CogIntegrationConfig {
+  url: string
+  timeoutMs?: number
+}
+
+export interface PmtilesIntegrationConfig {
+  url: string
+  timeoutMs?: number
+}
+
+export interface WmsIntegrationConfig {
+  baseUrl: string
+  version?: '1.1.1' | '1.3.0'
+  timeoutMs?: number
+}
+
+export interface WmtsIntegrationConfig {
+  baseUrl: string
+  version?: string
+  timeoutMs?: number
+}
+
+export interface S3IntegrationConfig {
+  bucket: string
+  region: string
+  endpoint?: string
+  accessKeyId: string
+  secretAccessKey: string
+  sessionToken?: string
+  forcePathStyle?: boolean
+  timeoutMs?: number
+}
+
+export interface GoogleEarthEngineIntegrationConfig {
+  projectId: string
+  serviceAccountJson: string
+  timeoutMs?: number
+}
+
+export interface IntegrationConfigMap {
+  'postgresql-postgis': PostgreSQLConfig
+  stac: StacIntegrationConfig
+  cog: CogIntegrationConfig
+  pmtiles: PmtilesIntegrationConfig
+  wms: WmsIntegrationConfig
+  wmts: WmtsIntegrationConfig
+  s3: S3IntegrationConfig
+  'google-earth-engine': GoogleEarthEngineIntegrationConfig
+}
+
+export type IntegrationConfig = IntegrationConfigMap[IntegrationId]
+
+export interface IntegrationStateRecord {
+  id: IntegrationId
+  status: IntegrationStatus
+  lastUsed: string
+  hasConfig: boolean
+  message?: string
+  checkedAt?: string
+}
+
+export interface IntegrationHealthCheckResult {
+  success: boolean
+  status: IntegrationStatus
+  message: string
+  checkedAt: string
+  details?: Record<string, unknown>
+}
+
+export interface IntegrationDisconnectResult {
+  success: boolean
+  message: string
+}
+
 // Layer Management API for preload script
 export interface LayerApi {
   // Layer CRUD operations
@@ -887,6 +995,21 @@ export interface PostgreSQLApi {
   executeTransaction: (id: string, queries: string[]) => Promise<PostgreSQLQueryResult>
   getActiveConnections: () => Promise<string[]>
   getConnectionInfo: (id: string) => Promise<PostgreSQLConnectionInfo>
+}
+
+export interface IntegrationsApi {
+  getStates: () => Promise<IntegrationStateRecord[]>
+  getConfig: <T extends IntegrationId>(id: T) => Promise<IntegrationConfigMap[T] | null>
+  saveConfig: <T extends IntegrationId>(id: T, config: IntegrationConfigMap[T]) => Promise<void>
+  testConnection: <T extends IntegrationId>(
+    id: T,
+    config?: IntegrationConfigMap[T]
+  ) => Promise<IntegrationHealthCheckResult>
+  connect: <T extends IntegrationId>(
+    id: T,
+    config?: IntegrationConfigMap[T]
+  ) => Promise<IntegrationHealthCheckResult>
+  disconnect: (id: IntegrationId) => Promise<IntegrationDisconnectResult>
 }
 
 // Tools API for preload script

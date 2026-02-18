@@ -241,7 +241,7 @@ export class PostgreSQLService {
     }
 
     try {
-      const config = await this.getStoredCredentials(id)
+      const config = await this.readStoredCredentials(id)
       return {
         connected: true,
         config: config || undefined
@@ -249,6 +249,10 @@ export class PostgreSQLService {
     } catch {
       return { connected: false }
     }
+  }
+
+  async getSavedCredentials(id: string): Promise<PostgreSQLConfig | null> {
+    return this.readStoredCredentials(id)
   }
 
   private async storeCredentials(id: string, config: PostgreSQLConfig): Promise<void> {
@@ -267,7 +271,7 @@ export class PostgreSQLService {
     }
   }
 
-  private async getStoredCredentials(id: string): Promise<PostgreSQLConfig | null> {
+  private async readStoredCredentials(id: string): Promise<PostgreSQLConfig | null> {
     try {
       const credentialsKey = `${SERVICE_NAME}_${id}`
       const credentials = await keytar.getPassword(SERVICE_NAME, credentialsKey)

@@ -33,8 +33,8 @@ import { useLLMStore, LLMProvider } from '@/stores/llm-store'
 import AzureConfigModal from './azure-config-modal'
 import {
   PROVIDER_LOGOS,
-  PROVIDER_BACKGROUNDS,
-  PROVIDER_PROGRESS_COLORS
+  PROVIDER_LOGO_CLASSES,
+  PROVIDER_BACKGROUNDS
 } from '@/constants/llm-providers'
 import {
   EMBEDDING_PROVIDER_LABELS,
@@ -167,7 +167,7 @@ export default function ModelsPage(): React.JSX.Element {
     return (
       <Card
         className={`overflow-hidden transition-all hover:shadow-md flex flex-col surface-elevated ${
-          configured ? 'border-chart-5 ring-1 ring-chart-5' : ''
+          configured ? 'border-primary ring-1 ring-primary' : ''
         }`}
       >
         <CardHeader className="pb-2 pt-4 px-5">
@@ -178,7 +178,7 @@ export default function ModelsPage(): React.JSX.Element {
               <img
                 src={PROVIDER_LOGOS[providerName]}
                 alt={`${title} logo`}
-                className="h-full w-full object-contain"
+                className={`h-full w-full object-contain ${PROVIDER_LOGO_CLASSES[providerName]}`}
               />
             </div>
             <div>
@@ -204,7 +204,7 @@ export default function ModelsPage(): React.JSX.Element {
                   </p>
                 )}
                 <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full mt-1">
-                  <div className={`h-full ${PROVIDER_PROGRESS_COLORS[providerName]} w-full`} />
+                  <div className="h-full bg-primary w-full" />
                 </div>
               </div>
             </div>
@@ -361,12 +361,12 @@ export default function ModelsPage(): React.JSX.Element {
                 </p>
               </div>
               <Card
-                className={`max-w-lg surface-elevated ${isEmbeddingSaved && hasEmbeddingCredentials ? 'border-emerald-500 ring-1 ring-emerald-500' : ''}`}
+                className={`max-w-lg surface-elevated ${isEmbeddingSaved && hasEmbeddingCredentials ? 'border-primary ring-1 ring-primary' : ''}`}
               >
                 {isEmbeddingSaved && (
                   <CardHeader className="pb-0">
-                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground bg-emerald-500/10 rounded-md px-2.5 py-1.5">
-                      <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground bg-primary/10 rounded-md px-2.5 py-1.5">
+                      <CheckCircle className="h-3.5 w-3.5 text-primary" />
                       Currently using{' '}
                       <span className="font-medium text-foreground">
                         {EMBEDDING_PROVIDER_LABELS[embeddingConfig.provider]}
