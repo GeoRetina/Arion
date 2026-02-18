@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,6 +36,24 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
       ssl: false
     }
   )
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    setConfig(
+      initialConfig || {
+        host: 'localhost',
+        port: 5432,
+        database: '',
+        username: '',
+        password: '',
+        ssl: false
+      }
+    )
+    setTestResult(null)
+  }, [initialConfig, isOpen])
 
   const [testResult, setTestResult] = useState<PostgreSQLConnectionResult | null>(null)
   const [isTestingConnection, setIsTestingConnection] = useState(false)
@@ -162,7 +180,7 @@ export const PostgreSQLConfigDialog: React.FC<PostgreSQLConfigDialogProps> = ({
                 <Checkbox
                   id="ssl"
                   checked={config.ssl}
-                  onCheckedChange={(checked) => handleInputChange('ssl', checked)}
+                  onCheckedChange={(checked) => handleInputChange('ssl', checked === true)}
                 />
                 <Label htmlFor="ssl" className="flex items-center gap-1">
                   <Shield className="h-4 w-4" />

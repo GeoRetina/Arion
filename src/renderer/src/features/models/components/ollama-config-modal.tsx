@@ -80,8 +80,8 @@ export default function OllamaConfigModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-md bg-gray-100 flex items-center justify-center">
-              <HardDrive className="h-4 w-4 text-gray-600" />
+            <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
+              <HardDrive className="h-4 w-4 text-foreground" />
             </div>
             <DialogTitle className="text-xl">Configure Ollama</DialogTitle>
           </div>

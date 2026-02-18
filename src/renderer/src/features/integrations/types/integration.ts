@@ -1,14 +1,25 @@
-export type IntegrationStatus =
-  | 'connected'
-  | 'disconnected'
-  | 'not-configured'
-  | 'coming-soon'
-  | 'error'
+import type {
+  IntegrationConfig as SharedIntegrationConfig,
+  IntegrationId,
+  IntegrationStatus
+} from '../../../../../shared/ipc-types'
 
 export type IntegrationType = 'api' | 'cloud' | 'database' | 'cloud-platform'
 
+export type IntegrationFieldType = 'text' | 'password' | 'number' | 'url' | 'textarea' | 'boolean'
+
+export interface IntegrationFieldDefinition {
+  key: string
+  label: string
+  type: IntegrationFieldType
+  sensitive?: boolean
+  required?: boolean
+  placeholder?: string
+  description?: string
+}
+
 export interface Integration {
-  id: string
+  id: IntegrationId
   name: string
   description: string
   type: IntegrationType
@@ -18,13 +29,12 @@ export interface Integration {
   category?: string
   documentation?: string
   configurable?: boolean
-  connectionSettings?: unknown
+  connectionSettings?: SharedIntegrationConfig | null
+  message?: string
 }
 
-export interface IntegrationConfig {
+export interface IntegrationDefinition {
   integration: Integration
-  onConnect?: () => void
-  onDisconnect?: () => void
-  onConfigure?: () => void
-  onTest?: () => void
+  fields?: IntegrationFieldDefinition[]
+  defaultConnectionSettings?: Record<string, unknown>
 }

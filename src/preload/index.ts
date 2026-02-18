@@ -45,6 +45,12 @@ import {
   type PostgreSQLConnectionResult,
   type PostgreSQLQueryResult,
   type PostgreSQLConnectionInfo,
+  type IntegrationsApi,
+  type IntegrationId,
+  type IntegrationConfigMap,
+  type IntegrationStateRecord,
+  type IntegrationHealthCheckResult,
+  type IntegrationDisconnectResult,
   type AgentApi,
   type PromptModuleApi,
   type AgentDefinition,
@@ -507,6 +513,26 @@ const ctgApi = {
     getConnectionInfo: (id: string): Promise<PostgreSQLConnectionInfo> =>
       ipcRenderer.invoke(IpcChannels.postgresqlGetConnectionInfo, id)
   } as PostgreSQLApi,
+  integrations: {
+    getStates: (): Promise<IntegrationStateRecord[]> =>
+      ipcRenderer.invoke(IpcChannels.integrationsGetStates),
+    getConfig: <T extends IntegrationId>(id: T): Promise<IntegrationConfigMap[T] | null> =>
+      ipcRenderer.invoke(IpcChannels.integrationsGetConfig, id),
+    saveConfig: <T extends IntegrationId>(id: T, config: IntegrationConfigMap[T]): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.integrationsSaveConfig, id, config),
+    testConnection: <T extends IntegrationId>(
+      id: T,
+      config?: IntegrationConfigMap[T]
+    ): Promise<IntegrationHealthCheckResult> =>
+      ipcRenderer.invoke(IpcChannels.integrationsTestConnection, id, config),
+    connect: <T extends IntegrationId>(
+      id: T,
+      config?: IntegrationConfigMap[T]
+    ): Promise<IntegrationHealthCheckResult> =>
+      ipcRenderer.invoke(IpcChannels.integrationsConnect, id, config),
+    disconnect: (id: IntegrationId): Promise<IntegrationDisconnectResult> =>
+      ipcRenderer.invoke(IpcChannels.integrationsDisconnect, id)
+  } as IntegrationsApi,
   layers: {
     // Layer CRUD operations
     getAll: (): Promise<LayerDefinition[]> => ipcRenderer.invoke('layers:getAll'),

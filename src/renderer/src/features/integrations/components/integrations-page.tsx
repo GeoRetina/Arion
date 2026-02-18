@@ -1,158 +1,301 @@
-import React, { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Link2,
+  AlertCircle,
   Cloud,
   Database,
-  Key,
   ExternalLink,
-  AlertCircle,
-  Layers // Added for Google Earth Engine
+  Key,
+  Layers,
+  Link2,
+  Loader2
 } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  type IntegrationConfig as SharedIntegrationConfig,
+  type IntegrationConfigMap,
+  type IntegrationHealthCheckResult,
+  type IntegrationId,
+  type PostgreSQLConfig,
+  type PostgreSQLConnectionResult
+} from '../../../../../shared/ipc-types'
 import { integrationRegistry } from '../integrations'
-import type { IntegrationConfig } from '../types/integration'
+import type { IntegrationDefinition, IntegrationType } from '../types/integration'
+import { IntegrationConfigDialog } from './integration-config-dialog'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
-import type { PostgreSQLConfig, PostgreSQLConnectionResult } from '../../../../../shared/ipc-types'
+
+const fallbackStatusStyle = 'bg-gray-400 text-gray-400'
+
+const getStatusStyles = (status: string): string => {
+  switch (status) {
+    case 'connected':
+      return 'bg-[var(--chart-5)] text-[var(--chart-5)]'
+    case 'disconnected':
+    case 'not-configured':
+      return fallbackStatusStyle
+    case 'coming-soon':
+      return 'bg-blue-400 text-blue-400'
+    case 'error':
+      return 'bg-red-500 text-red-500'
+    default:
+      return fallbackStatusStyle
+  }
+}
+
+const getIntegrationIcon = (type: IntegrationType): React.ReactNode => {
+  switch (type) {
+    case 'api':
+      return <Link2 className="h-5 w-5 text-blue-500" />
+    case 'cloud':
+      return <Cloud className="h-5 w-5 text-cyan-500" />
+    case 'database':
+      return <Database className="h-5 w-5 text-orange-500" />
+    case 'cloud-platform':
+      return <Layers className="h-5 w-5 text-green-500" />
+    default:
+      return <Key className="h-5 w-5 text-gray-500" />
+  }
+}
+
+const toRecord = (value: unknown): Record<string, unknown> => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return {}
+  }
+  return value as Record<string, unknown>
+}
+
+const toPostgreSQLConfig = (value: unknown): PostgreSQLConfig => {
+  const record = toRecord(value)
+  const host =
+    typeof record.host === 'string' && record.host.trim().length > 0 ? record.host : 'localhost'
+  const database = typeof record.database === 'string' ? record.database : ''
+  const username = typeof record.username === 'string' ? record.username : ''
+  const password = typeof record.password === 'string' ? record.password : ''
+
+  const rawPort = record.port
+  const port =
+    typeof rawPort === 'number' && Number.isFinite(rawPort)
+      ? rawPort
+      : typeof rawPort === 'string' && rawPort.trim().length > 0
+        ? Number(rawPort)
+        : 5432
+
+  return {
+    host,
+    port: Number.isInteger(port) && port > 0 && port <= 65535 ? port : 5432,
+    database,
+    username,
+    password,
+    ssl: record.ssl === true
+  }
+}
 
 const IntegrationsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] =
-    useState<IntegrationConfig[]>(integrationRegistry)
+    useState<IntegrationDefinition[]>(integrationRegistry)
+  const [isLoading, setIsLoading] = useState(true)
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState<IntegrationId | null>(null)
   const [isPostgreSQLConfigOpen, setIsPostgreSQLConfigOpen] = useState(false)
-  const [selectedIntegration, setSelectedIntegration] = useState<IntegrationConfig | null>(null)
+  const [postgresInitialConfig, setPostgresInitialConfig] = useState<PostgreSQLConfig | null>(null)
+  const [isGenericConfigOpen, setIsGenericConfigOpen] = useState(false)
+  const [genericInitialConfig, setGenericInitialConfig] = useState<Record<string, unknown>>({})
+  const [pendingIntegrationId, setPendingIntegrationId] = useState<IntegrationId | null>(null)
 
-  const handleIntegrationAction = (
-    integrationId: string,
-    action: 'connect' | 'disconnect' | 'configure' | 'test'
-  ): void => {
-    const config = integrationConfigs.find((c) => c.integration.id === integrationId)
-    if (!config) return
+  const selectedIntegration = useMemo(
+    () =>
+      selectedIntegrationId
+        ? integrationConfigs.find((config) => config.integration.id === selectedIntegrationId) ||
+          null
+        : null,
+    [integrationConfigs, selectedIntegrationId]
+  )
 
-    switch (action) {
-      case 'connect':
-        if (integrationId === 'postgresql-postgis') {
-          handlePostgreSQLConnect(config)
-        } else {
-          config.onConnect?.()
-        }
-        break
-      case 'disconnect':
-        if (integrationId === 'postgresql-postgis') {
-          handlePostgreSQLDisconnect(config)
-        } else {
-          config.onDisconnect?.()
-        }
-        break
-      case 'configure':
-        if (integrationId === 'postgresql-postgis') {
-          setSelectedIntegration(config)
-          setIsPostgreSQLConfigOpen(true)
-        } else {
-          config.onConfigure?.()
-        }
-        break
-      case 'test':
-        config.onTest?.()
-        break
-    }
-  }
-
-  const handlePostgreSQLConnect = async (config: IntegrationConfig): Promise<void> => {
+  const hydrateIntegrationState = useCallback(async (): Promise<void> => {
+    setIsLoading(true)
     try {
-      await config.onConnect?.()
-      // Refresh the integration configs to update the UI
-      setIntegrationConfigs((prev) =>
-        prev.map((c) => (c.integration.id === config.integration.id ? config : c))
-      )
-    } catch {
-      // Handle error - could show a toast notification
-    }
-  }
+      const states = await window.ctg.integrations.getStates()
+      const stateById = new Map(states.map((state) => [state.id, state]))
 
-  const handlePostgreSQLDisconnect = async (config: IntegrationConfig): Promise<void> => {
+      const resolvedConfigs = new Map<IntegrationId, SharedIntegrationConfig | null>()
+      await Promise.all(
+        states
+          .filter((state) => state.hasConfig)
+          .map(async (state) => {
+            const config = await window.ctg.integrations.getConfig(state.id)
+            resolvedConfigs.set(state.id, (config as SharedIntegrationConfig | null) || null)
+          })
+      )
+
+      const nextConfigs = integrationRegistry.map((definition) => {
+        const state = stateById.get(definition.integration.id)
+        const storedConfig = resolvedConfigs.get(definition.integration.id)
+        const fallbackConfig =
+          storedConfig ||
+          (definition.integration.connectionSettings as SharedIntegrationConfig | null) ||
+          (definition.defaultConnectionSettings as unknown as SharedIntegrationConfig | null) ||
+          null
+
+        return {
+          ...definition,
+          integration: {
+            ...definition.integration,
+            status: state?.status || definition.integration.status,
+            lastUsed: state?.lastUsed || definition.integration.lastUsed,
+            message: state?.message,
+            connectionSettings: fallbackConfig
+          }
+        }
+      })
+
+      setIntegrationConfigs(nextConfigs)
+    } catch (error) {
+      toast.error('Failed to load integration states', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void hydrateIntegrationState()
+  }, [hydrateIntegrationState])
+
+  const handleDisconnect = async (integrationId: IntegrationId): Promise<void> => {
+    setPendingIntegrationId(integrationId)
     try {
-      await config.onDisconnect?.()
-      // Refresh the integration configs to update the UI
-      setIntegrationConfigs((prev) =>
-        prev.map((c) => (c.integration.id === config.integration.id ? config : c))
-      )
-    } catch {
-      // Handle error - could show a toast notification
-    }
-  }
-
-  const handlePostgreSQLSave = async (newConfig: PostgreSQLConfig): Promise<void> => {
-    if (selectedIntegration) {
-      // Update the integration's connection settings
-      selectedIntegration.integration.connectionSettings = newConfig
-
-      // Update the integration configs
-      setIntegrationConfigs((prev) =>
-        prev.map((c) =>
-          c.integration.id === selectedIntegration.integration.id ? selectedIntegration : c
-        )
-      )
-
-      // Automatically connect after saving configuration
-      try {
-        await handlePostgreSQLConnect(selectedIntegration)
-      } catch (error) {
-        console.error('Auto-connect failed:', error)
-        // Set status to disconnected if auto-connect fails
-        selectedIntegration.integration.status = 'disconnected'
-        setIntegrationConfigs((prev) =>
-          prev.map((c) =>
-            c.integration.id === selectedIntegration.integration.id ? selectedIntegration : c
-          )
-        )
+      const result = await window.ctg.integrations.disconnect(integrationId)
+      if (!result.success) {
+        throw new Error(result.message)
       }
+      toast.success('Integration disconnected')
+      await hydrateIntegrationState()
+    } catch (error) {
+      toast.error('Failed to disconnect integration', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } finally {
+      setPendingIntegrationId(null)
+    }
+  }
+
+  const openConfigureDialog = async (definition: IntegrationDefinition): Promise<void> => {
+    setPendingIntegrationId(definition.integration.id)
+    try {
+      const storedConfig = await window.ctg.integrations.getConfig(definition.integration.id)
+      const configRecord = toRecord(
+        storedConfig ||
+          definition.integration.connectionSettings ||
+          definition.defaultConnectionSettings ||
+          {}
+      )
+      const initialConfig = { ...configRecord }
+
+      // Never prefill sensitive fields from stored credentials into the renderer form.
+      for (const field of definition.fields || []) {
+        if (field.sensitive) {
+          initialConfig[field.key] = ''
+        }
+      }
+
+      setSelectedIntegrationId(definition.integration.id)
+      if (definition.integration.id === 'postgresql-postgis') {
+        setPostgresInitialConfig(toPostgreSQLConfig(initialConfig))
+        setIsPostgreSQLConfigOpen(true)
+      } else {
+        setGenericInitialConfig(initialConfig)
+        setIsGenericConfigOpen(true)
+      }
+    } catch (error) {
+      toast.error('Failed to load integration configuration', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } finally {
+      setPendingIntegrationId(null)
+    }
+  }
+
+  const handlePostgreSQLSave = async (config: PostgreSQLConfig): Promise<void> => {
+    const result = await window.ctg.integrations.connect('postgresql-postgis', config)
+    if (!result.success) {
+      throw new Error(result.message)
+    }
+    toast.success('PostgreSQL/PostGIS connected')
+    await hydrateIntegrationState()
+  }
+
+  const mapToPostgreSQLConnectionResult = (
+    result: IntegrationHealthCheckResult
+  ): PostgreSQLConnectionResult => {
+    const details = toRecord(result.details)
+    const version = typeof details.version === 'string' ? details.version : undefined
+    const postgisVersion =
+      details.postgisVersion === null || typeof details.postgisVersion === 'string'
+        ? (details.postgisVersion as string | null)
+        : undefined
+
+    return {
+      success: result.success,
+      version,
+      postgisVersion,
+      message: result.message
     }
   }
 
   const handlePostgreSQLTest = async (
     config: PostgreSQLConfig
   ): Promise<PostgreSQLConnectionResult> => {
-    return await window.ctg.postgresql.testConnection(config)
+    const result = await window.ctg.integrations.testConnection('postgresql-postgis', config)
+    return mapToPostgreSQLConnectionResult(result)
   }
 
-  const getIntegrationIcon = (
-    type: string
-  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
-    switch (type) {
-      case 'api':
-        return <Link2 className="h-5 w-5 text-blue-500" />
-      case 'cloud':
-        return <Cloud className="h-5 w-5 text-purple-500" />
-      case 'database':
-        return <Database className="h-5 w-5 text-orange-500" />
-      case 'cloud-platform': // Added case for GEE
-        return <Layers className="h-5 w-5 text-green-500" />
-      default:
-        return <Key className="h-5 w-5 text-gray-500" />
+  const handleGenericTest = async (
+    config: Record<string, unknown>
+  ): Promise<IntegrationHealthCheckResult> => {
+    if (!selectedIntegration) {
+      return {
+        success: false,
+        status: 'error',
+        message: 'No integration selected',
+        checkedAt: new Date().toISOString()
+      }
     }
+
+    return window.ctg.integrations.testConnection(
+      selectedIntegration.integration.id,
+      config as unknown as IntegrationConfigMap[IntegrationId]
+    )
   }
 
-  const getStatusStyles = (
-    status: string
-  ):
-    | 'bg-[var(--chart-5)] text-[var(--chart-5)]'
-    | 'bg-gray-400 text-gray-400'
-    | 'bg-blue-400 text-blue-400'
-    | 'bg-red-500 text-red-500' => {
-    switch (status) {
-      case 'connected':
-        return 'bg-[var(--chart-5)] text-[var(--chart-5)]'
-      case 'disconnected':
-      case 'not-configured': // Added case for not-configured
-        return 'bg-gray-400 text-gray-400'
-      case 'coming-soon':
-        return 'bg-blue-400 text-blue-400'
-      case 'error':
-        return 'bg-red-500 text-red-500'
-      default:
-        return 'bg-gray-400 text-gray-400'
+  const handleGenericSaveAndConnect = async (
+    config: Record<string, unknown>
+  ): Promise<IntegrationHealthCheckResult> => {
+    if (!selectedIntegration) {
+      return {
+        success: false,
+        status: 'error',
+        message: 'No integration selected',
+        checkedAt: new Date().toISOString()
+      }
     }
+
+    const result = await window.ctg.integrations.connect(
+      selectedIntegration.integration.id,
+      config as unknown as IntegrationConfigMap[IntegrationId]
+    )
+
+    if (result.success) {
+      toast.success(`${selectedIntegration.integration.name} connected`)
+    } else {
+      toast.error('Failed to connect integration', {
+        description: result.message
+      })
+    }
+
+    await hydrateIntegrationState()
+    return result
   }
 
   return (
@@ -162,17 +305,24 @@ const IntegrationsPage: React.FC = () => {
           <div>
             <h1 className="text-3xl font-semibold mb-2">Connectors</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Manage connections to external services and platforms.
+              Manage and validate connections to geospatial services and platforms.
             </p>
           </div>
 
-          {/* Categories section REMOVED */}
-
-          {/* Active Integrations */}
           <div className="w-full flex flex-col gap-4">
+            {isLoading && (
+              <div className="w-full flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading connector states...
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {integrationConfigs.map((config) => {
-                const integration = config.integration
+              {integrationConfigs.map((definition) => {
+                const integration = definition.integration
+                const isPending = pendingIntegrationId === integration.id
+                const statusText = integration.status.replace('-', ' ')
+
                 return (
                   <Card key={integration.id} className="overflow-hidden surface-elevated">
                     <CardHeader className="pb-2 pt-4 px-5">
@@ -187,19 +337,20 @@ const IntegrationsPage: React.FC = () => {
                       </div>
                     </CardHeader>
                     <CardContent className="px-5 py-3">
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-2 mb-2">
                         <div
                           className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
                         ></div>
-                        <span className="text-sm capitalize">
-                          {integration.status.replace('-', ' ')}
-                          {integration.status === 'error' && (
-                            <span className="text-xs ml-1 text-red-500 inline-flex items-center">
-                              <AlertCircle className="h-3 w-3 mr-1" /> Authentication failed
-                            </span>
-                          )}
-                        </span>
+                        <span className="text-sm capitalize">{statusText}</span>
+                        {integration.status === 'error' && (
+                          <AlertCircle className="h-3 w-3 text-red-500" />
+                        )}
                       </div>
+                      {integration.message && integration.status === 'error' && (
+                        <div className="text-xs text-red-500 mb-2 line-clamp-2">
+                          {integration.message}
+                        </div>
+                      )}
                       <div className="text-sm text-muted-foreground">
                         Last used: {integration.lastUsed}
                       </div>
@@ -210,20 +361,37 @@ const IntegrationsPage: React.FC = () => {
                           variant="outline"
                           size="sm"
                           className="text-xs"
-                          onClick={() => handleIntegrationAction(integration.id, 'disconnect')}
+                          onClick={() => void handleDisconnect(integration.id)}
+                          disabled={isPending}
                         >
-                          Disconnect
+                          {isPending ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              Disconnecting...
+                            </>
+                          ) : (
+                            'Disconnect'
+                          )}
                         </Button>
                       )}
                       <Button
                         variant="default"
                         size="sm"
                         className="flex items-center gap-1 text-xs"
-                        onClick={() => handleIntegrationAction(integration.id, 'configure')}
-                        disabled={integration.status === 'coming-soon'}
+                        onClick={() => void openConfigureDialog(definition)}
+                        disabled={isPending}
                       >
-                        <span>Configure</span>
-                        <ExternalLink className="h-3 w-3" />
+                        {isPending ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <span>Configure</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </>
+                        )}
                       </Button>
                     </div>
                   </Card>
@@ -231,25 +399,43 @@ const IntegrationsPage: React.FC = () => {
               })}
             </div>
           </div>
-
-          {/* Documentation section REMOVED */}
         </div>
       </div>
 
-      {/* PostgreSQL Configuration Dialog */}
       {selectedIntegration && selectedIntegration.integration.id === 'postgresql-postgis' && (
         <PostgreSQLConfigDialog
           isOpen={isPostgreSQLConfigOpen}
           onClose={() => {
             setIsPostgreSQLConfigOpen(false)
-            setSelectedIntegration(null)
+            setSelectedIntegrationId(null)
+            setPostgresInitialConfig(null)
           }}
           onSave={handlePostgreSQLSave}
           onTest={handlePostgreSQLTest}
-          initialConfig={selectedIntegration.integration.connectionSettings as PostgreSQLConfig}
+          initialConfig={
+            postgresInitialConfig ||
+            toPostgreSQLConfig(selectedIntegration.integration.connectionSettings)
+          }
           title="PostgreSQL/PostGIS Configuration"
         />
       )}
+
+      {selectedIntegration &&
+        selectedIntegration.integration.id !== 'postgresql-postgis' &&
+        selectedIntegration.fields && (
+          <IntegrationConfigDialog
+            isOpen={isGenericConfigOpen}
+            onClose={() => {
+              setIsGenericConfigOpen(false)
+              setSelectedIntegrationId(null)
+            }}
+            integration={selectedIntegration.integration}
+            fields={selectedIntegration.fields}
+            initialConfig={genericInitialConfig}
+            onTest={handleGenericTest}
+            onSaveAndConnect={handleGenericSaveAndConnect}
+          />
+        )}
     </ScrollArea>
   )
 }
