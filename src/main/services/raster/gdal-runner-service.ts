@@ -215,10 +215,11 @@ function buildGdalEnvironment(runtimePaths: GdalRuntimePaths): NodeJS.ProcessEnv
   env.GDAL_DATA = runtimePaths.gdalDataDirectory ?? ''
   env.PROJ_LIB = runtimePaths.projDirectory ?? ''
 
-  const useBundledPlugins =
-    process.env.ARION_GDAL_ENABLE_PLUGINS === '1' &&
-    typeof runtimePaths.gdalPluginsDirectory === 'string'
-  env.GDAL_DRIVER_PATH = useBundledPlugins ? runtimePaths.gdalPluginsDirectory! : 'disable'
+  // Use bundled GDAL plugins by default when available (never host/system plugins).
+  const pluginsDirectory = runtimePaths.gdalPluginsDirectory
+  const disableBundledPlugins = process.env.ARION_GDAL_ENABLE_PLUGINS === '0'
+  const useBundledPlugins = Boolean(pluginsDirectory) && !disableBundledPlugins
+  env.GDAL_DRIVER_PATH = useBundledPlugins ? pluginsDirectory! : 'disable'
 
   return env
 }

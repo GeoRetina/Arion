@@ -52,6 +52,7 @@ export function registerRasterTileProtocol(
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to render raster tile'
       const status = /not found|enoent|no such file/i.test(message) ? 404 : 400
+      console.error(`Raster tile request failed (${request.url}): ${message}`)
 
       return new Response(message, {
         status,
