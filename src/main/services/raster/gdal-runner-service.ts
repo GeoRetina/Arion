@@ -1,19 +1,20 @@
 import { spawn } from 'child_process'
 import { promises as fs } from 'fs'
 import { app } from 'electron'
-import { join } from 'path'
+import { delimiter, join } from 'path'
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 2 * 60 * 1000
 const AVAILABILITY_TIMEOUT_MS = 8 * 1000
-const EXECUTABLE_SUFFIX = process.platform === 'win32' ? '.exe' : ''
 
 export type GdalToolName = 'gdalinfo' | 'gdalwarp' | 'gdal_translate' | 'gdaladdo'
+export type GdalCommandSource = 'bundled' | 'system'
 
 export interface GdalRuntimePaths {
   binDirectory: string | null
   gdalDataDirectory: string | null
   projDirectory: string | null
   gdalPluginsDirectory: string | null
+  libraryDirectory?: string | null
 }
 
 export interface GdalAvailability {
@@ -21,6 +22,7 @@ export interface GdalAvailability {
   version?: string
   reason?: string
   runtimePaths: GdalRuntimePaths
+  commandSource?: GdalCommandSource
 }
 
 export interface GdalCommandResult {
@@ -71,16 +73,18 @@ export class GdalRunnerService {
       throw new Error(availability.reason || 'GDAL is not available')
     }
 
+    const commandSource = availability.commandSource ?? 'bundled'
     const binDirectory = availability.runtimePaths.binDirectory
-    if (!binDirectory) {
+    if (commandSource === 'bundled' && !binDirectory) {
       throw new Error('Bundled GDAL binary directory is unavailable')
     }
 
-    const command = resolveCommand(tool, binDirectory)
+    const command = resolveCommand(tool, binDirectory, process.platform, commandSource)
     return await this.spawnCommand({
       command,
       args,
       runtimePaths: availability.runtimePaths,
+      commandSource,
       timeoutMs: options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS,
       cwd: options.cwd
     })
@@ -88,37 +92,68 @@ export class GdalRunnerService {
 
   private async resolveAvailability(): Promise<GdalAvailability> {
     const runtimePaths = await resolveRuntimePaths()
-    if (!runtimePaths.binDirectory) {
+    if (runtimePaths.binDirectory) {
+      return await this.probeAvailability(runtimePaths, 'bundled')
+    }
+
+    const platformDirectoryHint = resolvePlatformDirectoryHint(process.platform)
+    const missingBundledReason = `Bundled GDAL binaries were not found. Expected gdalinfo in resources/gdal/${platformDirectoryHint}/bin or resources/gdal/bin (or ARION_GDAL_BIN_DIR).`
+
+    if (!allowsSystemGdalFallback(process.platform)) {
       return {
         available: false,
-        reason:
-          'Bundled GDAL binaries were not found. Expected gdalinfo in resources/gdal/bin (or ARION_GDAL_BIN_DIR).',
+        reason: `${missingBundledReason} System GDAL fallback is only enabled on macOS and Linux.`,
         runtimePaths
       }
     }
 
-    const command = resolveCommand('gdalinfo', runtimePaths.binDirectory)
+    const systemAvailability = await this.probeAvailability(runtimePaths, 'system')
+    if (systemAvailability.available) {
+      return systemAvailability
+    }
+
+    const systemReason = systemAvailability.reason || 'Failed to execute gdalinfo from PATH'
+    return {
+      available: false,
+      reason: `${missingBundledReason} System fallback failed: ${systemReason}`,
+      runtimePaths,
+      commandSource: 'system'
+    }
+  }
+
+  private async probeAvailability(
+    runtimePaths: GdalRuntimePaths,
+    commandSource: GdalCommandSource
+  ): Promise<GdalAvailability> {
+    const command = resolveCommand(
+      'gdalinfo',
+      runtimePaths.binDirectory,
+      process.platform,
+      commandSource
+    )
 
     try {
       const result = await this.spawnCommand({
         command,
         args: ['--version'],
         runtimePaths,
+        commandSource,
         timeoutMs: AVAILABILITY_TIMEOUT_MS
       })
       const versionLine = firstNonEmptyLine(result.stdout) ?? firstNonEmptyLine(result.stderr)
-
       return {
         available: true,
         version: versionLine ?? undefined,
-        runtimePaths
+        runtimePaths,
+        commandSource
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Failed to execute gdalinfo --version'
       return {
         available: false,
         reason,
-        runtimePaths
+        runtimePaths,
+        commandSource
       }
     }
   }
@@ -127,16 +162,18 @@ export class GdalRunnerService {
     command,
     args,
     runtimePaths,
+    commandSource,
     timeoutMs,
     cwd
   }: {
     command: string
     args: string[]
     runtimePaths: GdalRuntimePaths
+    commandSource: GdalCommandSource
     timeoutMs: number
     cwd?: string
   }): Promise<GdalCommandResult> {
-    const environment = buildGdalEnvironment(runtimePaths)
+    const environment = buildGdalEnvironment(runtimePaths, process.platform, commandSource)
     const startedAt = Date.now()
 
     return await new Promise<GdalCommandResult>((resolve, reject) => {
@@ -201,81 +238,150 @@ export class GdalRunnerService {
   }
 }
 
-function buildGdalEnvironment(runtimePaths: GdalRuntimePaths): NodeJS.ProcessEnv {
+function buildGdalEnvironment(
+  runtimePaths: GdalRuntimePaths,
+  platform: NodeJS.Platform = process.platform,
+  commandSource: GdalCommandSource = 'bundled'
+): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env }
-
-  // Keep GDAL execution isolated from host environment (e.g. Conda GDAL vars).
-  delete env.GDAL_DRIVER_PATH
-  delete env.GDAL_DATA
-  delete env.PROJ_LIB
-  delete env.CPL_CONFIG_FILE
-  delete env.CPL_CONFIG_PATH
-
-  env.PATH = runtimePaths.binDirectory ?? ''
-  env.GDAL_DATA = runtimePaths.gdalDataDirectory ?? ''
-  env.PROJ_LIB = runtimePaths.projDirectory ?? ''
-
-  // Use bundled GDAL plugins by default when available (never host/system plugins).
   const pluginsDirectory = runtimePaths.gdalPluginsDirectory
   const disableBundledPlugins = process.env.ARION_GDAL_ENABLE_PLUGINS === '0'
-  const useBundledPlugins = Boolean(pluginsDirectory) && !disableBundledPlugins
-  env.GDAL_DRIVER_PATH = useBundledPlugins ? pluginsDirectory! : 'disable'
+  const usePluginDirectory =
+    typeof pluginsDirectory === 'string' && pluginsDirectory.length > 0 && !disableBundledPlugins
+
+  if (commandSource === 'bundled') {
+    // Keep bundled GDAL execution isolated from host environment (e.g. Conda GDAL vars).
+    delete env.GDAL_DRIVER_PATH
+    delete env.GDAL_DATA
+    delete env.PROJ_LIB
+    delete env.CPL_CONFIG_FILE
+    delete env.CPL_CONFIG_PATH
+    env.PATH = prependPathEntry(runtimePaths.binDirectory, process.env.PATH)
+
+    if (runtimePaths.gdalDataDirectory) {
+      env.GDAL_DATA = runtimePaths.gdalDataDirectory
+    }
+
+    if (runtimePaths.projDirectory) {
+      env.PROJ_LIB = runtimePaths.projDirectory
+    }
+
+    env.GDAL_DRIVER_PATH = usePluginDirectory ? pluginsDirectory : 'disable'
+  } else {
+    if (runtimePaths.binDirectory) {
+      env.PATH = prependPathEntry(runtimePaths.binDirectory, process.env.PATH)
+    }
+
+    if (runtimePaths.gdalDataDirectory) {
+      env.GDAL_DATA = runtimePaths.gdalDataDirectory
+    }
+
+    if (runtimePaths.projDirectory) {
+      env.PROJ_LIB = runtimePaths.projDirectory
+    }
+
+    if (disableBundledPlugins) {
+      env.GDAL_DRIVER_PATH = 'disable'
+    } else if (usePluginDirectory) {
+      env.GDAL_DRIVER_PATH = pluginsDirectory
+    }
+  }
+
+  const libraryDirectory = runtimePaths.libraryDirectory
+  if (libraryDirectory && platform === 'linux') {
+    env.LD_LIBRARY_PATH = prependPathEntry(libraryDirectory, process.env.LD_LIBRARY_PATH)
+  } else if (libraryDirectory && platform === 'darwin') {
+    env.DYLD_LIBRARY_PATH = prependPathEntry(libraryDirectory, process.env.DYLD_LIBRARY_PATH)
+    env.DYLD_FALLBACK_LIBRARY_PATH = prependPathEntry(
+      libraryDirectory,
+      process.env.DYLD_FALLBACK_LIBRARY_PATH
+    )
+  }
 
   return env
 }
 
-async function resolveRuntimePaths(): Promise<GdalRuntimePaths> {
+async function resolveRuntimePaths(
+  platform: NodeJS.Platform = process.platform,
+  arch: string = process.arch
+): Promise<GdalRuntimePaths> {
   const configuredBinDirectory = normalizeOptionalPath(process.env.ARION_GDAL_BIN_DIR)
   const configuredGdalDataDirectory = normalizeOptionalPath(process.env.ARION_GDAL_DATA_DIR)
   const configuredProjDirectory = normalizeOptionalPath(process.env.ARION_PROJ_LIB_DIR)
   const configuredPluginsDirectory = normalizeOptionalPath(process.env.ARION_GDAL_PLUGINS_DIR)
+  const configuredLibraryDirectory = normalizeOptionalPath(process.env.ARION_GDAL_LIBRARY_DIR)
+  const resourcesPath = normalizeOptionalPath(process.resourcesPath)
+  const appPath = getAppPathSafe()
 
   const rootCandidates = unique([
     normalizeOptionalPath(process.env.ARION_GDAL_HOME),
-    normalizeOptionalPath(join(process.resourcesPath, 'gdal')),
-    normalizeOptionalPath(join(getAppPathSafe() ?? '', 'resources', 'gdal')),
-    normalizeOptionalPath(join(getAppPathSafe() ?? '', 'gdal')),
+    joinIfBase(resourcesPath, 'gdal'),
+    joinIfBase(appPath, 'resources', 'gdal'),
+    joinIfBase(appPath, 'gdal'),
     normalizeOptionalPath(join(process.cwd(), 'resources', 'gdal'))
   ])
+  const scopedRootCandidates = resolveScopedRootCandidates(rootCandidates, platform, arch)
 
   const bundledBinCandidates = unique([
     configuredBinDirectory,
-    ...rootCandidates,
-    ...rootCandidates.map((root) => join(root, 'bin'))
+    ...scopedRootCandidates.map((root) => join(root, 'bin')),
+    ...scopedRootCandidates
   ])
   const bundledDataCandidates = unique([
     configuredGdalDataDirectory,
-    ...rootCandidates.map((root) => join(root, 'share', 'gdal'))
+    ...scopedRootCandidates.map((root) => join(root, 'share', 'gdal'))
   ])
   const bundledProjCandidates = unique([
     configuredProjDirectory,
-    ...rootCandidates.map((root) => join(root, 'projlib')),
-    ...rootCandidates.map((root) => join(root, 'share', 'proj'))
+    ...scopedRootCandidates.map((root) => join(root, 'projlib')),
+    ...scopedRootCandidates.map((root) => join(root, 'share', 'proj'))
   ])
   const bundledPluginsCandidates = unique([
     configuredPluginsDirectory,
-    ...rootCandidates.map((root) => join(root, 'gdalplugins')),
-    ...rootCandidates.map((root) => join(root, 'bin', 'gdalplugins'))
+    ...scopedRootCandidates.map((root) => join(root, 'gdalplugins')),
+    ...scopedRootCandidates.map((root) => join(root, 'bin', 'gdalplugins')),
+    ...scopedRootCandidates.map((root) => join(root, 'lib', 'gdalplugins')),
+    ...scopedRootCandidates.map((root) => join(root, 'lib', 'gdal', 'plugins'))
+  ])
+  const bundledLibraryCandidates = unique([
+    configuredLibraryDirectory,
+    ...scopedRootCandidates.map((root) => join(root, 'lib')),
+    ...scopedRootCandidates.map((root) => join(root, 'bin'))
   ])
 
   const binDirectory = await findDirectoryWithFile(
     bundledBinCandidates,
-    `gdalinfo${EXECUTABLE_SUFFIX}`
+    `gdalinfo${resolveExecutableSuffix(platform)}`
   )
   const gdalDataDirectory = await findExistingDirectory(bundledDataCandidates)
   const projDirectory = await findExistingDirectory(bundledProjCandidates)
   const gdalPluginsDirectory = await findExistingDirectory(bundledPluginsCandidates)
+  const libraryDirectory = await findExistingDirectory(bundledLibraryCandidates)
 
   return {
     binDirectory,
     gdalDataDirectory,
     projDirectory,
-    gdalPluginsDirectory
+    gdalPluginsDirectory,
+    libraryDirectory
   }
 }
 
-function resolveCommand(tool: GdalToolName, binDirectory: string): string {
-  const executableName = `${tool}${EXECUTABLE_SUFFIX}`
+function resolveCommand(
+  tool: GdalToolName,
+  binDirectory: string | null,
+  platform: NodeJS.Platform = process.platform,
+  commandSource: GdalCommandSource = 'bundled'
+): string {
+  const executableName = `${tool}${resolveExecutableSuffix(platform)}`
+  if (commandSource === 'system') {
+    return executableName
+  }
+
+  if (!binDirectory) {
+    throw new Error('Bundled GDAL binary directory is unavailable')
+  }
+
   return join(binDirectory, executableName)
 }
 
@@ -320,6 +426,86 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
+function resolveExecutableSuffix(platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' ? '.exe' : ''
+}
+
+function resolvePlatformDirectoryHint(platform: NodeJS.Platform): string {
+  if (platform === 'win32') {
+    return 'windows'
+  }
+
+  if (platform === 'darwin') {
+    return 'macos'
+  }
+
+  if (platform === 'linux') {
+    return 'linux'
+  }
+
+  return platform
+}
+
+function allowsSystemGdalFallback(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === 'darwin' || platform === 'linux'
+}
+
+function resolvePlatformDirectoryNames(
+  platform: NodeJS.Platform,
+  arch: string = process.arch
+): string[] {
+  const normalizedArch = normalizeOptionalPath(arch)?.toLowerCase()
+  const archScoped = normalizedArch
+    ? unique([
+        `${platform}-${normalizedArch}`,
+        platform === 'win32' ? `windows-${normalizedArch}` : null,
+        platform === 'darwin' ? `macos-${normalizedArch}` : null
+      ])
+    : []
+
+  if (platform === 'win32') {
+    return unique([...archScoped, 'windows', 'win32', 'win'])
+  }
+
+  if (platform === 'darwin') {
+    return unique([...archScoped, 'macos', 'darwin', 'mac'])
+  }
+
+  if (platform === 'linux') {
+    return unique([...archScoped, 'linux'])
+  }
+
+  return unique([...archScoped, platform])
+}
+
+function resolveScopedRootCandidates(
+  rootCandidates: string[],
+  platform: NodeJS.Platform,
+  arch: string = process.arch
+): string[] {
+  const platformDirectoryNames = resolvePlatformDirectoryNames(platform, arch)
+  const scopedRoots = rootCandidates.flatMap((root) =>
+    platformDirectoryNames.map((directoryName) => join(root, directoryName))
+  )
+
+  return unique([...scopedRoots, ...rootCandidates])
+}
+
+function prependPathEntry(entry: string | null, existing: string | undefined): string {
+  return unique([entry, ...splitPathEntries(existing)]).join(delimiter)
+}
+
+function splitPathEntries(value: string | undefined): string[] {
+  if (!value) {
+    return []
+  }
+
+  return value
+    .split(delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+}
+
 function unique(values: Array<string | null | undefined>): string[] {
   const deduped = new Set<string>()
   for (const value of values) {
@@ -340,6 +526,14 @@ function normalizeOptionalPath(value: string | undefined): string | null {
 
   const normalized = value.trim()
   return normalized.length > 0 ? normalized : null
+}
+
+function joinIfBase(basePath: string | null, ...segments: string[]): string | null {
+  if (!basePath) {
+    return null
+  }
+
+  return join(basePath, ...segments)
 }
 
 function getAppPathSafe(): string | null {
@@ -367,6 +561,16 @@ function firstNonEmptyLine(value: string): string | null {
     .find((entry) => entry.length > 0)
 
   return line ?? null
+}
+
+export const __testing = {
+  allowsSystemGdalFallback,
+  buildGdalEnvironment,
+  prependPathEntry,
+  resolveCommand,
+  resolveExecutableSuffix,
+  resolvePlatformDirectoryNames,
+  resolveScopedRootCandidates
 }
 
 let gdalRunnerService: GdalRunnerService | null = null

@@ -116,6 +116,42 @@ npm run build:mac
 npm run build:linux
 ```
 
+### Raster GDAL Runtime
+
+- Windows builds include bundled GDAL binaries.
+- macOS and Linux use bundled GDAL first, then automatically fall back to system GDAL binaries from `PATH` if bundled binaries are not present.
+- See `resources/gdal/README.md` for supported layouts and `ARION_GDAL_*` overrides.
+
+### Install GDAL (Quick)
+
+Use these commands to install GDAL quickly on each OS:
+
+```bash
+# macOS (Homebrew)
+brew install gdal
+
+# Ubuntu / Debian
+sudo apt update && sudo apt install -y gdal-bin libgdal-dev
+
+# Fedora / RHEL
+sudo dnf install -y gdal gdal-devel
+
+# Arch Linux
+sudo pacman -S --needed gdal
+```
+
+Windows:
+
+- Arion does not use system GDAL fallback on Windows, and shipped Windows app builds already include GDAL.
+- For local development or preparing bundled binaries, install GDAL with Conda:
+  - `conda install -c conda-forge gdal`
+
+Verify install:
+
+```bash
+gdalinfo --version
+```
+
 ## Contributing
 
 We welcome contributions from the community! Please see our [Contributing Guide](./CONTRIBUTING.md) for details on:
