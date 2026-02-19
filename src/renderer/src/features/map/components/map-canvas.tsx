@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
 import maplibregl, {
-  IControl,
   Map,
   NavigationControl,
   ScaleControl,
@@ -13,21 +12,14 @@ import { useMapStore } from '../../../stores/map-store'
 interface MapCanvasProps {
   style: StyleSpecification
   isVisible: boolean
-  onSearchClick: () => void
 }
 
-export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible, onSearchClick }) => {
+export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible }) => {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<Map | null>(null)
-  const searchControlRef = useRef<IControl | null>(null)
-  const searchClickRef = useRef(onSearchClick)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const setMapInstance = useMapStore((state) => state.setMapInstance)
   const setMapReadyForOperations = useMapStore((state) => state.setMapReadyForOperations)
-
-  useEffect(() => {
-    searchClickRef.current = onSearchClick
-  }, [onSearchClick])
 
   // Initialize map once
   useEffect(() => {
@@ -63,64 +55,11 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible, onSearch
         unit: 'metric'
       })
       mapInstance.addControl(scaleControl, 'bottom-left')
-
-      const searchControl: IControl = (() => {
-        let container: HTMLDivElement | null = null
-        let button: HTMLButtonElement | null = null
-        const handleClick = (): void => {
-          searchClickRef.current?.()
-        }
-
-        return {
-          onAdd: () => {
-            container = document.createElement('div')
-            container.className =
-              'maplibregl-ctrl maplibregl-ctrl-group maplibregl-ctrl-search-custom'
-
-            button = document.createElement('button')
-            button.type = 'button'
-            button.className = 'map-search-btn'
-            button.setAttribute('aria-label', 'Search for an address')
-            button.title = 'Search for an address'
-            button.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="16.65" y1="16.65" x2="21" y2="21" />
-              </svg>
-            `
-
-            button.addEventListener('click', handleClick)
-            container.appendChild(button)
-            return container
-          },
-          onRemove: () => {
-            if (button) {
-              button.removeEventListener('click', handleClick)
-            }
-            if (container?.parentNode) {
-              container.parentNode.removeChild(container)
-            }
-            container = null
-            button = null
-          }
-        }
-      })()
-
-      searchControlRef.current = searchControl
-      mapInstance.addControl(searchControl, 'top-right')
     })
 
     mapInstance.on('error', () => {})
 
     return () => {
-      if (searchControlRef.current) {
-        try {
-          mapInstance.removeControl(searchControlRef.current)
-        } catch {
-          // Control might already be removed with the map instance
-        }
-        searchControlRef.current = null
-      }
       setMapInstance(null)
       setMapReadyForOperations(false)
       setIsMapLoaded(false)
