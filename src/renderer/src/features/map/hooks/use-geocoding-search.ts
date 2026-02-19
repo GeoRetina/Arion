@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 
 export interface GeocodingResult {
   name: string
@@ -32,9 +32,7 @@ const PHOTON_API_URL = 'https://photon.komoot.io/api'
 
 export function useGeocodingSearch(): {
   query: string
-  setQuery: import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').Dispatch<
-    import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/index').SetStateAction<string>
-  >
+  setQuery: React.Dispatch<React.SetStateAction<string>>
   results: GeocodingResult[]
   isLoading: boolean
   error: string | null

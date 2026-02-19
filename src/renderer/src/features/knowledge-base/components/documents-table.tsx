@@ -142,11 +142,7 @@ export function DocumentsTable({
   const isAllSelected =
     sortedDocuments.length > 0 && currentSelectedDocumentIds.length === sortedDocuments.length
 
-  const renderSortIndicator = (
-    field: SortField
-  ):
-    | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
-    | null => {
+  const renderSortIndicator = (field: SortField): React.JSX.Element | null => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? (
       <ChevronUp className="ml-2 h-4 w-4" />

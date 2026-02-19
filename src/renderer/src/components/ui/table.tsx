@@ -2,10 +2,7 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-function Table({
-  className,
-  ...props
-}: React.ComponentProps<'table'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function Table({ className, ...props }: React.ComponentProps<'table'>): React.JSX.Element {
   return (
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
@@ -17,17 +14,11 @@ function Table({
   )
 }
 
-function TableHeader({
-  className,
-  ...props
-}: React.ComponentProps<'thead'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableHeader({ className, ...props }: React.ComponentProps<'thead'>): React.JSX.Element {
   return <thead data-slot="table-header" className={cn('[&_tr]:border-b', className)} {...props} />
 }
 
-function TableBody({
-  className,
-  ...props
-}: React.ComponentProps<'tbody'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableBody({ className, ...props }: React.ComponentProps<'tbody'>): React.JSX.Element {
   return (
     <tbody
       data-slot="table-body"
@@ -37,10 +28,7 @@ function TableBody({
   )
 }
 
-function TableFooter({
-  className,
-  ...props
-}: React.ComponentProps<'tfoot'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableFooter({ className, ...props }: React.ComponentProps<'tfoot'>): React.JSX.Element {
   return (
     <tfoot
       data-slot="table-footer"
@@ -50,10 +38,7 @@ function TableFooter({
   )
 }
 
-function TableRow({
-  className,
-  ...props
-}: React.ComponentProps<'tr'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableRow({ className, ...props }: React.ComponentProps<'tr'>): React.JSX.Element {
   return (
     <tr
       data-slot="table-row"
@@ -66,10 +51,7 @@ function TableRow({
   )
 }
 
-function TableHead({
-  className,
-  ...props
-}: React.ComponentProps<'th'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableHead({ className, ...props }: React.ComponentProps<'th'>): React.JSX.Element {
   return (
     <th
       data-slot="table-head"
@@ -82,10 +64,7 @@ function TableHead({
   )
 }
 
-function TableCell({
-  className,
-  ...props
-}: React.ComponentProps<'td'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableCell({ className, ...props }: React.ComponentProps<'td'>): React.JSX.Element {
   return (
     <td
       data-slot="table-cell"
@@ -98,10 +77,7 @@ function TableCell({
   )
 }
 
-function TableCaption({
-  className,
-  ...props
-}: React.ComponentProps<'caption'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function TableCaption({ className, ...props }: React.ComponentProps<'caption'>): React.JSX.Element {
   return (
     <caption
       data-slot="table-caption"

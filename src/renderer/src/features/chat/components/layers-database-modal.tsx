@@ -60,13 +60,7 @@ interface LayerCardProps {
 type ViewMode = 'grid' | 'list'
 type FilterType = 'all' | 'vector' | 'raster'
 
-const LayerTypeIcon = ({
-  type
-}: {
-  type: LayerType
-}):
-  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
-  | null => {
+const LayerTypeIcon = ({ type }: { type: LayerType }): React.JSX.Element | null => {
   if (type === 'raster') {
     return <ImageIcon className="h-4 w-4" />
   }
@@ -81,7 +75,7 @@ const LayerCard = ({
   isSelected,
   onImport,
   onToggleSelect
-}: LayerCardProps): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+}: LayerCardProps): React.JSX.Element => {
   const [isImporting, setIsImporting] = useState(false)
 
   const handleImport = async (): Promise<void> => {

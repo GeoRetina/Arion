@@ -59,7 +59,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
     path: string
     title: string
     icon: React.ElementType
-  }): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
+  }): React.JSX.Element => (
     <Button
       variant="ghost"
       className={getButtonClasses(path)}
@@ -77,7 +77,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
   }: {
     title?: string
     children: React.ReactNode
-  }): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => (
+  }): React.JSX.Element => (
     <div className="px-3 py-2">
       {title && isExpanded && (
         <div className="mb-2 px-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground/80">

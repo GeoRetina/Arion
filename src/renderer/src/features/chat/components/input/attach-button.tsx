@@ -13,7 +13,14 @@ import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { LayerImportService, SUPPORTED_FORMATS } from '@/services/layer-import-service'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { FloatingProgressToast } from '@/components/ui/floating-progress-toast'
 import { toast } from 'sonner'
+import type { LayerDefinition } from '../../../../../../shared/types/layer-types'
+import {
+  createInitialRasterProgressToastState,
+  createRasterProgressToastState,
+  getRasterProgressSignature
+} from './raster-import-progress-toast-state'
 
 interface AttachButtonProps {
   disabled?: boolean
@@ -44,6 +51,25 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
 
     const file = files[0]
     setUploadState('uploading')
+    let layerDefinition: LayerDefinition | null = null
+    let progressToastId: string | number | undefined
+    let lastProgressSignature = ''
+    let isGeoTiffImport = false
+    let geotiffReady = false
+    let geotiffLayerAdded = false
+    let geotiffSuccessToastShown = false
+
+    const showGeoTiffImportSuccessToast = (): void => {
+      if (!isGeoTiffImport || !geotiffReady || !geotiffLayerAdded || geotiffSuccessToastShown) {
+        return
+      }
+
+      geotiffSuccessToastShown = true
+      const layerName = layerDefinition?.name ?? file.name.replace(/\.[^/.]+$/, '')
+      toast.success(`Layer "${layerName}" imported successfully`, {
+        description: 'Raster is ready on map'
+      })
+    }
 
     try {
       // Validate file
@@ -52,8 +78,59 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
         throw new Error(validation.error || 'Invalid file format')
       }
 
+      if (validation.format === 'geotiff') {
+        isGeoTiffImport = true
+        progressToastId = `raster-import-${Date.now()}`
+        const initialState = createInitialRasterProgressToastState()
+        toast.custom(() => <FloatingProgressToast state={initialState} />, {
+          id: progressToastId,
+          duration: Infinity
+        })
+      }
+
       // Process file and create layer
-      const layerDefinition = await LayerImportService.processFile(file, validation.format)
+      layerDefinition = await LayerImportService.processFile(file, validation.format, {
+        onRasterProgress: (status) => {
+          if (!progressToastId) {
+            return
+          }
+
+          if (status.stage === 'ready') {
+            geotiffReady = true
+            toast.dismiss(progressToastId)
+            progressToastId = undefined
+
+            if (status.warning) {
+              toast.warning('Raster optimization fallback', {
+                description: status.warning
+              })
+            }
+            showGeoTiffImportSuccessToast()
+            return
+          }
+
+          if (status.stage === 'error') {
+            toast.dismiss(progressToastId)
+            progressToastId = undefined
+            toast.error('Raster optimization failed', {
+              description: status.error || status.warning || 'Unknown optimization error'
+            })
+            return
+          }
+
+          const signature = getRasterProgressSignature(status)
+          if (signature === lastProgressSignature) {
+            return
+          }
+
+          lastProgressSignature = signature
+          const toastState = createRasterProgressToastState(status)
+          toast.custom(() => <FloatingProgressToast state={toastState} />, {
+            id: progressToastId,
+            duration: Infinity
+          })
+        }
+      })
 
       // Add to layer store with chat context for session tracking
       await addLayer(layerDefinition, {
@@ -65,16 +142,31 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
         }
       })
 
+      geotiffLayerAdded = true
+      showGeoTiffImportSuccessToast()
       setUploadState('success')
-      toast.success(`Layer "${layerDefinition.name}" imported successfully`, {
-        description: `Added to current chat session`
-      })
+      if (!isGeoTiffImport) {
+        toast.success(`Layer "${layerDefinition.name}" imported successfully`, {
+          description: `Added to current chat session`
+        })
+      }
+      if (progressToastId && !isGeoTiffImport) {
+        toast.dismiss(progressToastId)
+      }
 
       // Reset state after success animation
       setTimeout(() => {
         setUploadState('idle')
       }, 1500)
     } catch (error) {
+      if (layerDefinition) {
+        try {
+          await LayerImportService.cleanupLayer(layerDefinition)
+        } catch {
+          // Ignore cleanup failures and surface the original import error.
+        }
+      }
+
       setUploadState('error')
 
       const errorMessage = error instanceof Error ? error.message : 'Failed to import layer'
@@ -82,6 +174,9 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
       toast.error('Layer import failed', {
         description: errorMessage
       })
+      if (progressToastId) {
+        toast.dismiss(progressToastId)
+      }
 
       // Add error to layer store for display in UI
       addError({
@@ -103,19 +198,18 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
     }
   }
 
-  const getButtonIcon =
-    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
-      switch (uploadState) {
-        case 'uploading':
-          return <Upload className="h-4 w-4 animate-pulse" />
-        case 'success':
-          return <CheckCircle className="h-4 w-4 text-green-500" />
-        case 'error':
-          return <AlertCircle className="h-4 w-4 text-red-500" />
-        default:
-          return <Paperclip className="h-4 w-4" />
-      }
+  const getButtonIcon = (): React.JSX.Element => {
+    switch (uploadState) {
+      case 'uploading':
+        return <Upload className="h-4 w-4 animate-pulse" />
+      case 'success':
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case 'error':
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      default:
+        return <Paperclip className="h-4 w-4" />
     }
+  }
 
   const getButtonTitle = ():
     | 'Importing layer...'

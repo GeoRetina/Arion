@@ -23,10 +23,7 @@ function Alert({
   className,
   variant,
   ...props
-}: React.ComponentProps<'div'> &
-  VariantProps<
-    typeof alertVariants
-  >): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}: React.ComponentProps<'div'> & VariantProps<typeof alertVariants>): React.JSX.Element {
   return (
     <div
       data-slot="alert"
@@ -37,10 +34,7 @@ function Alert({
   )
 }
 
-function AlertTitle({
-  className,
-  ...props
-}: React.ComponentProps<'div'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function AlertTitle({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="alert-title"
@@ -50,10 +44,7 @@ function AlertTitle({
   )
 }
 
-function AlertDescription({
-  className,
-  ...props
-}: React.ComponentProps<'div'>): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+function AlertDescription({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div
       data-slot="alert-description"

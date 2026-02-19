@@ -1,4 +1,13 @@
-import type { LanguageModelV3, LanguageModelV3CallOptions } from '@ai-sdk/provider'
+import type {
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3Content,
+  LanguageModelV3FinishReason,
+  LanguageModelV3StreamPart,
+  LanguageModelV3Usage,
+  SharedV3ProviderMetadata,
+  SharedV3Warning
+} from '@ai-sdk/provider'
 import {
   combineHeaders,
   createJsonResponseHandler,
@@ -112,7 +121,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
   }
 
   async doGenerate(options: LanguageModelV3CallOptions): Promise<{
-    warnings: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').SharedV3Warning[]
+    warnings: SharedV3Warning[]
     request: { body: string }
     response: {
       modelId: string
@@ -120,10 +129,10 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
       headers: Record<string, string> | undefined
       body: unknown
     }
-    content: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3Content[]
-    finishReason: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3FinishReason
-    usage: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3Usage
-    providerMetadata: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').SharedV3ProviderMetadata
+    content: LanguageModelV3Content[]
+    finishReason: LanguageModelV3FinishReason
+    usage: LanguageModelV3Usage
+    providerMetadata: SharedV3ProviderMetadata
   }> {
     const { args, warnings } = await this.builder.buildRequest({
       ...options,
@@ -160,9 +169,7 @@ class OllamaResponsesLanguageModel implements LanguageModelV3 {
   }
 
   async doStream(options: LanguageModelV3CallOptions): Promise<{
-    stream: ReadableStream<
-      import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3StreamPart
-    >
+    stream: ReadableStream<LanguageModelV3StreamPart>
     request: { body: string }
     response: { headers: Record<string, string> | undefined }
   }> {

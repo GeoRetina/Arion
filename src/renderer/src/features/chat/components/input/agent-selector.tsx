@@ -87,9 +87,7 @@ const AgentSelector: React.FC<AgentSelectorProps> = ({
   const generalAgents = filteredAgents.filter((agent) => agent.type === 'general')
 
   // Get the icon for agent type
-  const getAgentTypeIcon = (
-    type: AgentSelectorAgent['type']
-  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+  const getAgentTypeIcon = (type: AgentSelectorAgent['type']): React.JSX.Element => {
     switch (type) {
       case 'orchestrator':
         return <Workflow className="h-4 w-4 text-purple-500" />

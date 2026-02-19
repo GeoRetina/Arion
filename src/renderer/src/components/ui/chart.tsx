@@ -41,7 +41,7 @@ function ChartContainer({
 }: React.ComponentProps<'div'> & {
   config: ChartConfig
   children: React.ComponentProps<typeof RechartsPrimitive.ResponsiveContainer>['children']
-}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}): React.JSX.Element {
   const uniqueId = React.useId()
   const chartId = `chart-${id || uniqueId.replace(/:/g, '')}`
 
@@ -69,9 +69,7 @@ const ChartStyle = ({
 }: {
   id: string
   config: ChartConfig
-}):
-  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
-  | null => {
+}): React.JSX.Element | null => {
   const colorConfig = Object.entries(config).filter(([, config]) => config.theme || config.color)
 
   if (!colorConfig.length) {
@@ -123,9 +121,7 @@ function ChartTooltipContent({
     indicator?: 'line' | 'dot' | 'dashed'
     nameKey?: string
     labelKey?: string
-  }):
-  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
-  | null {
+  }): React.JSX.Element | null {
   const { config } = useChart()
 
   const tooltipLabel = React.useMemo(() => {
@@ -250,9 +246,7 @@ function ChartLegendContent({
   Pick<RechartsPrimitive.LegendProps, 'payload' | 'verticalAlign'> & {
     hideIcon?: boolean
     nameKey?: string
-  }):
-  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
-  | null {
+  }): React.JSX.Element | null {
   const { config } = useChart()
 
   if (!payload?.length) {

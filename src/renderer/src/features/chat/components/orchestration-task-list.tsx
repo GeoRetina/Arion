@@ -54,9 +54,7 @@ const OrchestrationTaskList: React.FC<OrchestrationTaskListProps> = ({
   }
 
   // Render status indicator for each task
-  const renderStatusIcon = (
-    status: OrchestrationSubtask['status']
-  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+  const renderStatusIcon = (status: OrchestrationSubtask['status']): React.JSX.Element => {
     switch (status) {
       case 'pending':
         return <div className="h-4 w-4 rounded-full border border-gray-300 dark:border-gray-600" />

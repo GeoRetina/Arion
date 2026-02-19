@@ -624,11 +624,15 @@ const ctgApi = {
     import: (data: string, targetGroupId?: string): Promise<string[]> =>
       ipcRenderer.invoke('layers:import', data, targetGroupId),
 
-    // Process GeoTIFF files for display
-    processGeotiff: (
-      fileBuffer: ArrayBuffer,
-      fileName: string
-    ): Promise<{ imageUrl: string; bounds?: [number, number, number, number] }> =>
+    // Register GeoTIFF as a tiled raster asset
+    registerGeoTiffAsset: (request) => ipcRenderer.invoke('layers:registerGeoTiffAsset', request),
+    getGeoTiffAssetStatus: (jobId: string) =>
+      ipcRenderer.invoke('layers:getGeoTiffAssetStatus', jobId),
+    releaseGeoTiffAsset: (assetId: string): Promise<boolean> =>
+      ipcRenderer.invoke('layers:releaseGeoTiffAsset', assetId),
+
+    // Backward-compatible alias. Prefer registerGeoTiffAsset.
+    processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) =>
       ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName),
 
     // Generic invoke method for additional operations

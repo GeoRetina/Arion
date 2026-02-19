@@ -20,6 +20,11 @@ import { SkillPackService } from './services/skill-pack-service'
 import { PluginLoaderService } from './services/plugin/plugin-loader-service'
 import { createConnectorExecutionRuntime } from './services/connectors/create-connector-execution-service'
 import type { ConnectorExecutionService } from './services/connectors/connector-execution-service'
+import {
+  registerRasterProtocolPrivileges,
+  registerRasterTileProtocol
+} from './services/raster/raster-protocol-service'
+import { getRasterTileService } from './services/raster/raster-tile-service'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -51,6 +56,8 @@ let agentRoutingServiceInstance: AgentRoutingService
 let skillPackServiceInstance: SkillPackService
 let pluginLoaderServiceInstance: PluginLoaderService
 let connectorExecutionServiceInstance: ConnectorExecutionService
+
+registerRasterProtocolPrivileges()
 
 function createWindow(): void {
   const preloadPath = join(__dirname, '../preload/index.js')
@@ -112,11 +119,11 @@ app.whenReady().then(async () => {
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*",
+      "img-src 'self' data: blob: https://* arion-raster:",
       "worker-src 'self' blob:",
       "child-src 'self' blob:",
       "font-src 'self' data:",
-      "connect-src 'self' data: blob: http://localhost:* ws://localhost:* https://*",
+      "connect-src 'self' data: blob: http://localhost:* ws://localhost:* https://* arion-raster:",
       "frame-src 'none'"
     ]
     callback({
@@ -258,6 +265,7 @@ app.whenReady().then(async () => {
     connectorExecutionServiceInstance
   )
   registerLayerHandlers()
+  registerRasterTileProtocol(session.defaultSession, getRasterTileService())
   registerAgentIpcHandlers(ipcMain, agentRegistryServiceInstance, promptModuleServiceInstance)
   registerToolIpcHandlers(ipcMain, llmToolServiceInstance)
   // --- End IPC Handler Registration ---
@@ -305,6 +313,7 @@ app.whenReady().then(async () => {
     if (connectorHubServiceInstance) {
       connectorHubServiceInstance.cleanup()
     }
+    await getRasterTileService().shutdown()
   })
 })
 

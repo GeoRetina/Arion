@@ -161,7 +161,7 @@ export default function ModelsPage(): React.JSX.Element {
     description: string,
     config: ProviderCardConfig,
     openModalHandler: () => void
-  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+  ): React.JSX.Element => {
     const configured = isConfigured(providerName)
 
     return (

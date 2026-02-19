@@ -1,5 +1,6 @@
 import type {
   LanguageModelV3Content,
+  LanguageModelV3FinishReason,
   LanguageModelV3Usage,
   SharedV3ProviderMetadata
 } from '@ai-sdk/provider'
@@ -16,7 +17,7 @@ export class OllamaResponseProcessor {
 
   processGenerateResponse(response: OllamaResponse): {
     content: LanguageModelV3Content[]
-    finishReason: import('/mnt/e/Coding/open-source/Arion/node_modules/@ai-sdk/provider/dist/index').LanguageModelV3FinishReason
+    finishReason: LanguageModelV3FinishReason
     usage: LanguageModelV3Usage
     providerMetadata: SharedV3ProviderMetadata
   } {

@@ -124,7 +124,7 @@ function ThoughtsPart({
   index: number
   collapseReasoning?: boolean
   isStreamingReasoning?: boolean
-}): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element {
+}): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(true)
   useEffect(() => {
     // Collapse when normal text starts; otherwise keep open while reasoning streams
@@ -152,9 +152,7 @@ export const MessagePartRenderer = ({
   messageId,
   index,
   collapseReasoning
-}: InternalRendererProps):
-  | import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element
-  | null => {
+}: InternalRendererProps): React.JSX.Element | null => {
   // Input validation
   if (!part || typeof part !== 'object' || typeof part.type !== 'string') {
     return null

@@ -52,18 +52,17 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
   }
 
   // Get appropriate icon based on agent type
-  const getAgentIcon =
-    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
-      switch (agent.type) {
-        case 'orchestrator':
-          return <Workflow className={iconSizes[size]} />
-        case 'specialized':
-          return <Brain className={iconSizes[size]} />
-        case 'general':
-        default:
-          return <Bot className={iconSizes[size]} />
-      }
+  const getAgentIcon = (): React.JSX.Element => {
+    switch (agent.type) {
+      case 'orchestrator':
+        return <Workflow className={iconSizes[size]} />
+      case 'specialized':
+        return <Brain className={iconSizes[size]} />
+      case 'general':
+      default:
+        return <Bot className={iconSizes[size]} />
     }
+  }
 
   // Get color scheme based on agent type
   const getColorScheme = ():
@@ -87,37 +86,36 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
   }
 
   // Content for the tooltip
-  const getTooltipContent =
-    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
-      return (
-        <div className="text-sm">
-          <p className="font-medium">{agent.name}</p>
-          <p className="text-xs capitalize mt-1">Type: {agent.type}</p>
+  const getTooltipContent = (): React.JSX.Element => {
+    return (
+      <div className="text-sm">
+        <p className="font-medium">{agent.name}</p>
+        <p className="text-xs capitalize mt-1">Type: {agent.type}</p>
 
-          {agent.capabilities && agent.capabilities.length > 0 && (
-            <div className="mt-2">
-              <p className="text-xs font-medium mb-1">Capabilities:</p>
-              <div className="flex flex-wrap gap-1">
-                {agent.capabilities.map((capability) => (
-                  <span
-                    key={capability}
-                    className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 rounded"
-                  >
-                    {capability}
-                  </span>
-                ))}
-              </div>
+        {agent.capabilities && agent.capabilities.length > 0 && (
+          <div className="mt-2">
+            <p className="text-xs font-medium mb-1">Capabilities:</p>
+            <div className="flex flex-wrap gap-1">
+              {agent.capabilities.map((capability) => (
+                <span
+                  key={capability}
+                  className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-800 rounded"
+                >
+                  {capability}
+                </span>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {agent.isActive && (
-            <p className="text-xs mt-2 flex items-center gap-1">
-              <Zap className="h-3 w-3" /> Active
-            </p>
-          )}
-        </div>
-      )
-    }
+        {agent.isActive && (
+          <p className="text-xs mt-2 flex items-center gap-1">
+            <Zap className="h-3 w-3" /> Active
+          </p>
+        )}
+      </div>
+    )
+  }
 
   return (
     <Tooltip delayDuration={300}>

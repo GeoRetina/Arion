@@ -141,9 +141,7 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
   const { chartId, chartType, data, config: rawConfig } = chartData
 
   // Custom content renderer for Treemap to handle colors and text
-  const TreemapCustomContent = (
-    props: TreemapContentProps
-  ): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
+  const TreemapCustomContent = (props: TreemapContentProps): React.JSX.Element => {
     const {
       depth = 0,
       x = 0,
@@ -201,463 +199,462 @@ const ChartDisplay: React.FC<ChartDisplayProps> = ({ chartData }) => {
     )
   }
 
-  const renderChart =
-    (): import('/mnt/e/Coding/open-source/Arion/node_modules/@types/react/jsx-runtime').JSX.Element => {
-      switch (chartType) {
-        case 'bar': {
-          const barConfig = rawConfig as unknown as CategoryChartConfig
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey={barConfig.xAxisKey}
-                  angle={barConfig.xAxisKey && data.length > 5 ? -45 : 0}
-                  textAnchor={barConfig.xAxisKey && data.length > 5 ? 'end' : 'middle'}
-                  minTickGap={0}
-                  height={barConfig.xAxisKey && data.length > 5 ? 70 : 30}
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: barConfig.xAxisLabel,
-                    position: 'insideBottom',
-                    dy: 20,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: barConfig.yAxisLabel,
-                    angle: -90,
-                    position: 'insideLeft',
-                    dx: -10,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {barConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-                {barConfig.yAxisKeys.map((key, index) => (
-                  <Bar
-                    key={key}
-                    dataKey={key}
-                    fill={
-                      barConfig.colors?.[index % barConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                    radius={[4, 4, 0, 0]}
-                  />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'line': {
-          const lineConfig = rawConfig as unknown as CategoryChartConfig
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey={lineConfig.xAxisKey}
-                  angle={lineConfig.xAxisKey && data.length > 5 ? -45 : 0}
-                  textAnchor={lineConfig.xAxisKey && data.length > 5 ? 'end' : 'middle'}
-                  minTickGap={0}
-                  height={lineConfig.xAxisKey && data.length > 5 ? 70 : 30}
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: lineConfig.xAxisLabel,
-                    position: 'insideBottom',
-                    dy: 20,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: lineConfig.yAxisLabel,
-                    angle: -90,
-                    position: 'insideLeft',
-                    dx: -10,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {lineConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-                {lineConfig.yAxisKeys.map((key, index) => (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={
-                      lineConfig.colors?.[index % lineConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'pie':
-        case 'donut': {
-          const pieConfig = rawConfig as unknown as PieDonutChartConfig
-          const outerRadius = chartType === 'donut' ? 100 : 120
-          const innerRadius =
-            chartType === 'donut' ? outerRadius * (pieConfig.innerRadiusRatio ?? 0.5) : 0
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={pieConfig.legend !== false}
-                  label={({ name, percent }) =>
-                    pieConfig.legend === false ? `${name} (${(percent * 100).toFixed(0)}%)` : null
-                  }
-                  outerRadius={outerRadius}
-                  innerRadius={innerRadius}
-                  fill="#8884d8"
-                  dataKey={pieConfig.valueKey}
-                  nameKey={pieConfig.nameKey}
-                >
-                  {data.map((_entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        pieConfig.colors?.[index % pieConfig.colors.length] ||
-                        DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                      }
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {pieConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-              </PieChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'area': {
-          const areaConfig = rawConfig as unknown as CategoryChartConfig
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey={areaConfig.xAxisKey}
-                  angle={areaConfig.xAxisKey && data.length > 5 ? -45 : 0}
-                  textAnchor={areaConfig.xAxisKey && data.length > 5 ? 'end' : 'middle'}
-                  minTickGap={0}
-                  height={areaConfig.xAxisKey && data.length > 5 ? 70 : 30}
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: areaConfig.xAxisLabel,
-                    position: 'insideBottom',
-                    dy: 20,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: areaConfig.yAxisLabel,
-                    angle: -90,
-                    position: 'insideLeft',
-                    dx: -10,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {areaConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-                {areaConfig.yAxisKeys.map((key, index) => (
-                  <Area
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stroke={
-                      areaConfig.colors?.[index % areaConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                    fillOpacity={0.6}
-                    fill={
-                      areaConfig.colors?.[index % areaConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                  />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'scatter': {
-          const scatterConfig = rawConfig as unknown as ScatterChartConfig & {
-            xAxisKey?: string
-            yAxisKeys?: string[]
-          }
-          const scatterXAxisKey = scatterConfig.xKey || scatterConfig.xAxisKey || 'x'
-          const scatterSeriesKeys =
-            scatterConfig.yKeys && scatterConfig.yKeys.length > 0
-              ? scatterConfig.yKeys
-              : scatterConfig.yAxisKeys && scatterConfig.yAxisKeys.length > 0
-                ? scatterConfig.yAxisKeys
-                : scatterConfig.yKey
-                  ? [scatterConfig.yKey]
-                  : ['y']
-
-          const scatterSeriesData = scatterSeriesKeys.map((seriesKey) =>
-            data.map((point) => ({
-              ...point,
-              x: point[scatterXAxisKey] ?? point.x ?? point.lat ?? 0,
-              y: point[seriesKey] ?? point.y ?? point.lon ?? 0
-            }))
-          )
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  type="number"
-                  dataKey="x"
-                  name={scatterConfig.xAxisLabel || scatterXAxisKey}
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: scatterConfig.xAxisLabel,
-                    position: 'insideBottom',
-                    dy: 20,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="y"
-                  name={scatterConfig.yAxisLabel || scatterSeriesKeys[0] || 'Value'}
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                  label={{
-                    value: scatterConfig.yAxisLabel,
-                    angle: -90,
-                    position: 'insideLeft',
-                    dx: -10,
-                    fontSize: 14,
-                    fontWeight: 'bold',
-                    fill: 'var(--foreground)'
-                  }}
-                />
-                <Tooltip
-                  cursor={{ strokeDasharray: '3 3' }}
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {scatterConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-                {scatterSeriesKeys.map((seriesKey, index) => (
-                  <Scatter
-                    key={seriesKey}
-                    name={seriesKey}
-                    data={scatterSeriesData[index]}
-                    fill={
-                      scatterConfig.colors?.[index % scatterConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                  />
-                ))}
-              </ScatterChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'radar': {
-          const radarConfig = rawConfig as unknown as RadarChartConfig
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart
-                cx="50%"
-                cy="50%"
-                outerRadius="80%"
-                data={data}
-                margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
-              >
-                <PolarGrid stroke="var(--border)" />
-                <PolarAngleAxis
-                  dataKey={radarConfig.angleKey}
-                  tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
-                />
-                <PolarRadiusAxis
-                  angle={30}
-                  domain={[0, 'auto']}
-                  tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
-                />
-                {radarConfig.valueKeys.map((key, index) => (
-                  <Radar
-                    key={key}
-                    name={key}
-                    dataKey={key}
-                    stroke={
-                      radarConfig.colors?.[index % radarConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                    fill={
-                      radarConfig.colors?.[index % radarConfig.colors.length] ||
-                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-                    }
-                    fillOpacity={0.6}
-                  />
-                ))}
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {radarConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-              </RadarChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'radialBar': {
-          const radialBarConfig = rawConfig as unknown as RadialBarChartConfig
-          const radialData = data.map((item, index) => ({
-            name: item[radialBarConfig.nameKey],
-            value: item[radialBarConfig.valueKey],
-            fill:
-              radialBarConfig.colors?.[index % radialBarConfig.colors.length] ||
-              DEFAULT_COLORS[index % DEFAULT_COLORS.length]
-          }))
-
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                cx="50%"
-                cy="50%"
-                innerRadius="20%"
-                outerRadius="80%"
-                barSize={10}
-                data={radialData}
-                startAngle={90}
-                endAngle={-270}
-              >
-                <RadialBar
-                  label={{ position: 'insideStart', fill: 'var(--primary-foreground)' }}
-                  background={
-                    radialBarConfig.background
-                      ? typeof radialBarConfig.background === 'object'
-                        ? radialBarConfig.background
-                        : { fill: 'var(--muted)' }
-                      : false
-                  }
-                  dataKey="value"
-                >
-                  {radialData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </RadialBar>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--popover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)'
-                  }}
-                  labelStyle={{ color: 'var(--popover-foreground)' }}
-                  itemStyle={{ color: 'var(--popover-foreground)' }}
-                />
-                {radialBarConfig.legend !== false && (
-                  <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
-                )}
-              </RadialBarChart>
-            </ResponsiveContainer>
-          )
-        }
-        case 'treemap': {
-          const treemapConfig = rawConfig as unknown as TreemapChartConfig
-          return (
-            <ResponsiveContainer width="100%" height="100%">
-              <Treemap
-                data={data}
-                dataKey={treemapConfig.valueKey}
-                nameKey={treemapConfig.nameKey}
-                aspectRatio={4 / 3}
-                stroke="var(--background)"
-                fill="var(--primary)"
-                isAnimationActive={false}
-                content={<TreemapCustomContent colors={treemapConfig.colors || DEFAULT_COLORS} />}
+  const renderChart = (): React.JSX.Element => {
+    switch (chartType) {
+      case 'bar': {
+        const barConfig = rawConfig as unknown as CategoryChartConfig
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey={barConfig.xAxisKey}
+                angle={barConfig.xAxisKey && data.length > 5 ? -45 : 0}
+                textAnchor={barConfig.xAxisKey && data.length > 5 ? 'end' : 'middle'}
+                minTickGap={0}
+                height={barConfig.xAxisKey && data.length > 5 ? 70 : 30}
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: barConfig.xAxisLabel,
+                  position: 'insideBottom',
+                  dy: 20,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
               />
-            </ResponsiveContainer>
-          )
-        }
-        default:
-          return (
-            <div>
-              Unsupported chart type: {chartType} for ID: {chartId}
-            </div>
-          )
+              <YAxis
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: barConfig.yAxisLabel,
+                  angle: -90,
+                  position: 'insideLeft',
+                  dx: -10,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {barConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+              {barConfig.yAxisKeys.map((key, index) => (
+                <Bar
+                  key={key}
+                  dataKey={key}
+                  fill={
+                    barConfig.colors?.[index % barConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                  radius={[4, 4, 0, 0]}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )
       }
+      case 'line': {
+        const lineConfig = rawConfig as unknown as CategoryChartConfig
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey={lineConfig.xAxisKey}
+                angle={lineConfig.xAxisKey && data.length > 5 ? -45 : 0}
+                textAnchor={lineConfig.xAxisKey && data.length > 5 ? 'end' : 'middle'}
+                minTickGap={0}
+                height={lineConfig.xAxisKey && data.length > 5 ? 70 : 30}
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: lineConfig.xAxisLabel,
+                  position: 'insideBottom',
+                  dy: 20,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <YAxis
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: lineConfig.yAxisLabel,
+                  angle: -90,
+                  position: 'insideLeft',
+                  dx: -10,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {lineConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+              {lineConfig.yAxisKeys.map((key, index) => (
+                <Line
+                  key={key}
+                  type="monotone"
+                  dataKey={key}
+                  stroke={
+                    lineConfig.colors?.[index % lineConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )
+      }
+      case 'pie':
+      case 'donut': {
+        const pieConfig = rawConfig as unknown as PieDonutChartConfig
+        const outerRadius = chartType === 'donut' ? 100 : 120
+        const innerRadius =
+          chartType === 'donut' ? outerRadius * (pieConfig.innerRadiusRatio ?? 0.5) : 0
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                labelLine={pieConfig.legend !== false}
+                label={({ name, percent }) =>
+                  pieConfig.legend === false ? `${name} (${(percent * 100).toFixed(0)}%)` : null
+                }
+                outerRadius={outerRadius}
+                innerRadius={innerRadius}
+                fill="#8884d8"
+                dataKey={pieConfig.valueKey}
+                nameKey={pieConfig.nameKey}
+              >
+                {data.map((_entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      pieConfig.colors?.[index % pieConfig.colors.length] ||
+                      DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                    }
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {pieConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+            </PieChart>
+          </ResponsiveContainer>
+        )
+      }
+      case 'area': {
+        const areaConfig = rawConfig as unknown as CategoryChartConfig
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey={areaConfig.xAxisKey}
+                angle={areaConfig.xAxisKey && data.length > 5 ? -45 : 0}
+                textAnchor={areaConfig.xAxisKey && data.length > 5 ? 'end' : 'middle'}
+                minTickGap={0}
+                height={areaConfig.xAxisKey && data.length > 5 ? 70 : 30}
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: areaConfig.xAxisLabel,
+                  position: 'insideBottom',
+                  dy: 20,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <YAxis
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: areaConfig.yAxisLabel,
+                  angle: -90,
+                  position: 'insideLeft',
+                  dx: -10,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {areaConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+              {areaConfig.yAxisKeys.map((key, index) => (
+                <Area
+                  key={key}
+                  type="monotone"
+                  dataKey={key}
+                  stroke={
+                    areaConfig.colors?.[index % areaConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                  fillOpacity={0.6}
+                  fill={
+                    areaConfig.colors?.[index % areaConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        )
+      }
+      case 'scatter': {
+        const scatterConfig = rawConfig as unknown as ScatterChartConfig & {
+          xAxisKey?: string
+          yAxisKeys?: string[]
+        }
+        const scatterXAxisKey = scatterConfig.xKey || scatterConfig.xAxisKey || 'x'
+        const scatterSeriesKeys =
+          scatterConfig.yKeys && scatterConfig.yKeys.length > 0
+            ? scatterConfig.yKeys
+            : scatterConfig.yAxisKeys && scatterConfig.yAxisKeys.length > 0
+              ? scatterConfig.yAxisKeys
+              : scatterConfig.yKey
+                ? [scatterConfig.yKey]
+                : ['y']
+
+        const scatterSeriesData = scatterSeriesKeys.map((seriesKey) =>
+          data.map((point) => ({
+            ...point,
+            x: point[scatterXAxisKey] ?? point.x ?? point.lat ?? 0,
+            y: point[seriesKey] ?? point.y ?? point.lon ?? 0
+          }))
+        )
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                type="number"
+                dataKey="x"
+                name={scatterConfig.xAxisLabel || scatterXAxisKey}
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: scatterConfig.xAxisLabel,
+                  position: 'insideBottom',
+                  dy: 20,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <YAxis
+                type="number"
+                dataKey="y"
+                name={scatterConfig.yAxisLabel || scatterSeriesKeys[0] || 'Value'}
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+                label={{
+                  value: scatterConfig.yAxisLabel,
+                  angle: -90,
+                  position: 'insideLeft',
+                  dx: -10,
+                  fontSize: 14,
+                  fontWeight: 'bold',
+                  fill: 'var(--foreground)'
+                }}
+              />
+              <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {scatterConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+              {scatterSeriesKeys.map((seriesKey, index) => (
+                <Scatter
+                  key={seriesKey}
+                  name={seriesKey}
+                  data={scatterSeriesData[index]}
+                  fill={
+                    scatterConfig.colors?.[index % scatterConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                />
+              ))}
+            </ScatterChart>
+          </ResponsiveContainer>
+        )
+      }
+      case 'radar': {
+        const radarConfig = rawConfig as unknown as RadarChartConfig
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart
+              cx="50%"
+              cy="50%"
+              outerRadius="80%"
+              data={data}
+              margin={{ top: 5, right: 30, left: 30, bottom: 5 }}
+            >
+              <PolarGrid stroke="var(--border)" />
+              <PolarAngleAxis
+                dataKey={radarConfig.angleKey}
+                tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
+              />
+              <PolarRadiusAxis
+                angle={30}
+                domain={[0, 'auto']}
+                tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
+              />
+              {radarConfig.valueKeys.map((key, index) => (
+                <Radar
+                  key={key}
+                  name={key}
+                  dataKey={key}
+                  stroke={
+                    radarConfig.colors?.[index % radarConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                  fill={
+                    radarConfig.colors?.[index % radarConfig.colors.length] ||
+                    DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+                  }
+                  fillOpacity={0.6}
+                />
+              ))}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {radarConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+            </RadarChart>
+          </ResponsiveContainer>
+        )
+      }
+      case 'radialBar': {
+        const radialBarConfig = rawConfig as unknown as RadialBarChartConfig
+        const radialData = data.map((item, index) => ({
+          name: item[radialBarConfig.nameKey],
+          value: item[radialBarConfig.valueKey],
+          fill:
+            radialBarConfig.colors?.[index % radialBarConfig.colors.length] ||
+            DEFAULT_COLORS[index % DEFAULT_COLORS.length]
+        }))
+
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <RadialBarChart
+              cx="50%"
+              cy="50%"
+              innerRadius="20%"
+              outerRadius="80%"
+              barSize={10}
+              data={radialData}
+              startAngle={90}
+              endAngle={-270}
+            >
+              <RadialBar
+                label={{ position: 'insideStart', fill: 'var(--primary-foreground)' }}
+                background={
+                  radialBarConfig.background
+                    ? typeof radialBarConfig.background === 'object'
+                      ? radialBarConfig.background
+                      : { fill: 'var(--muted)' }
+                    : false
+                }
+                dataKey="value"
+              >
+                {radialData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </RadialBar>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'var(--popover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)'
+                }}
+                labelStyle={{ color: 'var(--popover-foreground)' }}
+                itemStyle={{ color: 'var(--popover-foreground)' }}
+              />
+              {radialBarConfig.legend !== false && (
+                <Legend wrapperStyle={{ color: 'var(--muted-foreground)', paddingTop: 24 }} />
+              )}
+            </RadialBarChart>
+          </ResponsiveContainer>
+        )
+      }
+      case 'treemap': {
+        const treemapConfig = rawConfig as unknown as TreemapChartConfig
+        return (
+          <ResponsiveContainer width="100%" height="100%">
+            <Treemap
+              data={data}
+              dataKey={treemapConfig.valueKey}
+              nameKey={treemapConfig.nameKey}
+              aspectRatio={4 / 3}
+              stroke="var(--background)"
+              fill="var(--primary)"
+              isAnimationActive={false}
+              content={<TreemapCustomContent colors={treemapConfig.colors || DEFAULT_COLORS} />}
+            />
+          </ResponsiveContainer>
+        )
+      }
+      default:
+        return (
+          <div>
+            Unsupported chart type: {chartType} for ID: {chartId}
+          </div>
+        )
     }
+  }
 
   return (
     <div className="p-4 bg-popover border border-border rounded-lg shadow-none w-full flex flex-col mb-6">

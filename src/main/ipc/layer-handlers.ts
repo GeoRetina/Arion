@@ -7,7 +7,9 @@
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { getLayerDbService, cleanupLayerDbService } from '../services/layer-database-service'
-import { getLayerProcessingService } from '../services/layer-processing-service'
+import { z } from 'zod'
+import { getRasterTileService } from '../services/raster/raster-tile-service'
+import type { RegisterGeoTiffAssetRequest } from '../services/raster/raster-types'
 import type {
   LayerDefinition,
   LayerGroup,
@@ -26,12 +28,38 @@ export function getRuntimeLayerSnapshot(): unknown[] {
   return runtimeLayerSnapshot
 }
 
+const registerGeoTiffAssetSchema = z
+  .object({
+    fileName: z.string().min(1),
+    filePath: z.string().min(1).optional(),
+    fileBuffer: z.instanceof(ArrayBuffer).optional(),
+    jobId: z.string().uuid().optional()
+  })
+  .superRefine((value, ctx) => {
+    if (!value.filePath && !value.fileBuffer) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Either filePath or fileBuffer must be provided'
+      })
+    }
+  })
+
+const releaseGeoTiffAssetSchema = z.object({
+  assetId: z.string().uuid()
+})
+
+const geoTiffAssetStatusSchema = z.object({
+  jobId: z.string().uuid()
+})
+
 /**
  * Register all layer-related IPC handlers
  */
 export function registerLayerHandlers(): void {
   const dbService = getLayerDbService()
-  const processingService = getLayerProcessingService()
+  const rasterTileService = getRasterTileService()
+
+  void cleanupOrphanedRasterAssets(dbService.getAllLayers(), rasterTileService)
 
   // Layer CRUD handlers
   ipcMain.handle('layers:getAll', async (): Promise<LayerDefinition[]> => {
@@ -77,9 +105,24 @@ export function registerLayerHandlers(): void {
   ipcMain.handle(
     'layers:delete',
     async (_event: IpcMainInvokeEvent, id: string): Promise<boolean> => {
-      {
-        return dbService.deleteLayer(id)
+      const existingLayer = dbService.getLayerById(id)
+      const deleted = dbService.deleteLayer(id)
+
+      if (deleted && existingLayer) {
+        const assetId = getRasterAssetId(existingLayer)
+        if (assetId) {
+          const remainingLayers = dbService.getAllLayers()
+          if (!hasRasterAssetReference(remainingLayers, assetId)) {
+            try {
+              await rasterTileService.releaseGeoTiffAsset(assetId)
+            } catch (error) {
+              console.warn(`Failed to release raster asset ${assetId}:`, error)
+            }
+          }
+        }
       }
+
+      return deleted
     }
   )
 
@@ -243,17 +286,40 @@ export function registerLayerHandlers(): void {
     }
   )
 
-  // GeoTIFF processing
+  // GeoTIFF tiling
+  ipcMain.handle(
+    'layers:registerGeoTiffAsset',
+    async (_event: IpcMainInvokeEvent, request: RegisterGeoTiffAssetRequest) => {
+      const parsedRequest = registerGeoTiffAssetSchema.parse(request)
+      return await rasterTileService.registerGeoTiffAsset(parsedRequest)
+    }
+  )
+
+  ipcMain.handle(
+    'layers:releaseGeoTiffAsset',
+    async (_event: IpcMainInvokeEvent, assetId: string) => {
+      const parsedRequest = releaseGeoTiffAssetSchema.parse({ assetId })
+      if (!hasRasterAssetReference(dbService.getAllLayers(), parsedRequest.assetId)) {
+        await rasterTileService.releaseGeoTiffAsset(parsedRequest.assetId)
+      }
+      return true
+    }
+  )
+
+  ipcMain.handle(
+    'layers:getGeoTiffAssetStatus',
+    async (_event: IpcMainInvokeEvent, jobId: string) => {
+      const parsedRequest = geoTiffAssetStatusSchema.parse({ jobId })
+      return rasterTileService.getGeoTiffAssetStatus(parsedRequest.jobId)
+    }
+  )
+
+  // Backward-compatible alias. New code should use layers:registerGeoTiffAsset.
   ipcMain.handle(
     'layers:processGeotiff',
-    async (
-      _event: IpcMainInvokeEvent,
-      fileBuffer: ArrayBuffer,
-      fileName: string
-    ): Promise<{ imageUrl: string; bounds?: [number, number, number, number] }> => {
-      {
-        return await processingService.processGeotiff(fileBuffer, fileName)
-      }
+    async (_event: IpcMainInvokeEvent, fileBuffer: ArrayBuffer, fileName: string) => {
+      const parsedRequest = registerGeoTiffAssetSchema.parse({ fileBuffer, fileName })
+      return await rasterTileService.registerGeoTiffAsset(parsedRequest)
     }
   )
 
@@ -276,3 +342,35 @@ export function cleanupLayerHandlers(): void {
 
 // Export database service getter for other services that need direct access
 export { getLayerDbService as getLayerDbManager }
+
+function getRasterAssetId(layer: LayerDefinition): string | null {
+  const assetId = layer.sourceConfig.options?.rasterAssetId
+  if (typeof assetId !== 'string' || assetId.length === 0) {
+    return null
+  }
+
+  return assetId
+}
+
+function hasRasterAssetReference(layers: LayerDefinition[], assetId: string): boolean {
+  return layers.some((layer) => getRasterAssetId(layer) === assetId)
+}
+
+async function cleanupOrphanedRasterAssets(
+  layers: LayerDefinition[],
+  rasterTileService: ReturnType<typeof getRasterTileService>
+): Promise<void> {
+  const referencedAssetIds = new Set<string>()
+  for (const layer of layers) {
+    const assetId = getRasterAssetId(layer)
+    if (assetId) {
+      referencedAssetIds.add(assetId)
+    }
+  }
+
+  try {
+    await rasterTileService.cleanupOrphanedAssets(referencedAssetIds)
+  } catch (error) {
+    console.warn('Failed to clean up orphaned raster assets:', error)
+  }
+}
