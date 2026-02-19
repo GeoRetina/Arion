@@ -13,9 +13,14 @@ import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { LayerImportService } from '@/services/layer-import-service'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { FloatingProgressToast } from '@/components/ui/floating-progress-toast'
 import { toast } from 'sonner'
 import type { LayerDefinition } from '../../../../../../shared/types/layer-types'
-import type { GeoTiffAssetProcessingStatus } from '../../../../../../shared/ipc-types'
+import {
+  createInitialRasterProgressToastState,
+  createRasterProgressToastState,
+  getRasterProgressSignature
+} from './raster-import-progress-toast-state'
 
 interface PlusDropdownProps {
   disabled?: boolean
@@ -51,7 +56,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
     setUploadState('uploading')
     let layerDefinition: LayerDefinition | null = null
     let progressToastId: string | number | undefined
-    let lastProgressMessage = ''
+    let lastProgressSignature = ''
     let isGeoTiffImport = false
     let geotiffReady = false
     let geotiffLayerAdded = false
@@ -79,7 +84,8 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
       if (validation.format === 'geotiff') {
         isGeoTiffImport = true
         progressToastId = `raster-import-${Date.now()}`
-        toast('Preparing raster import', {
+        const initialState = createInitialRasterProgressToastState()
+        toast.custom(() => <FloatingProgressToast state={initialState} />, {
           id: progressToastId,
           duration: Infinity
         })
@@ -115,13 +121,14 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
             return
           }
 
-          const message = formatGeoTiffProgress(status)
-          if (!message || message === lastProgressMessage) {
+          const signature = getRasterProgressSignature(status)
+          if (signature === lastProgressSignature) {
             return
           }
 
-          lastProgressMessage = message
-          toast(message, {
+          lastProgressSignature = signature
+          const toastState = createRasterProgressToastState(status)
+          toast.custom(() => <FloatingProgressToast state={toastState} />, {
             id: progressToastId,
             duration: Infinity
           })
@@ -192,22 +199,6 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
         fileInputRef.current.value = ''
       }
     }
-  }
-
-  const formatGeoTiffProgress = (status: GeoTiffAssetProcessingStatus): string | null => {
-    if (status.stage === 'ready') {
-      return null
-    }
-
-    if (status.stage === 'error') {
-      return status.error
-        ? `Raster optimization failed: ${status.error}`
-        : 'Raster optimization failed'
-    }
-
-    const clampedProgress = Math.max(0, Math.min(100, Math.round(status.progress)))
-    const baseMessage = status.message?.trim() || 'Processing raster'
-    return `${baseMessage} (${clampedProgress}%)`
   }
 
   const getButtonIcon = (): React.JSX.Element => {

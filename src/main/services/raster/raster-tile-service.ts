@@ -942,23 +942,23 @@ function readImageFileDirectory(image: GeoTIFFImage): Record<string, unknown> | 
   return candidate as Record<string, unknown>
 }
 
-function readNumericTagValues(
-  fileDirectory: Record<string, unknown>,
-  tagName: string
-): number[] {
+function readNumericTagValues(fileDirectory: Record<string, unknown>, tagName: string): number[] {
   const value = fileDirectory[tagName]
   if (typeof value === 'number' && Number.isFinite(value)) {
     return [value]
   }
 
   if (Array.isArray(value)) {
-    return value.filter((entry): entry is number => typeof entry === 'number' && Number.isFinite(entry))
+    return value.filter(
+      (entry): entry is number => typeof entry === 'number' && Number.isFinite(entry)
+    )
   }
 
-  if (ArrayBuffer.isView(value)) {
+  if (ArrayBuffer.isView(value) && hasArrayLength(value)) {
+    const arrayLike = value as unknown as ArrayLike<unknown>
     const values: number[] = []
-    for (let index = 0; index < value.length; index += 1) {
-      const sample = Number(value[index] as unknown)
+    for (let index = 0; index < arrayLike.length; index += 1) {
+      const sample = Number(arrayLike[index])
       if (Number.isFinite(sample)) {
         values.push(sample)
       }
@@ -969,9 +969,17 @@ function readNumericTagValues(
   return []
 }
 
-function readNumericTagValue(fileDirectory: Record<string, unknown>, tagName: string): number | null {
+function readNumericTagValue(
+  fileDirectory: Record<string, unknown>,
+  tagName: string
+): number | null {
   const values = readNumericTagValues(fileDirectory, tagName)
   return values.length > 0 ? values[0] : null
+}
+
+function hasArrayLength(value: ArrayBufferView): value is ArrayBufferView & { length: number } {
+  const withLength = value as ArrayBufferView & { length?: unknown }
+  return typeof withLength.length === 'number'
 }
 
 function isNoDataPixel(noDataValue: number | null, value: number | undefined): boolean {
@@ -1061,4 +1069,13 @@ export function getRasterTileService(): RasterTileService {
   }
 
   return rasterTileService
+}
+
+export const __testing = {
+  isPaletteIndexedImage,
+  isByteLikeImage,
+  readNumericTagValues,
+  computeBandRange,
+  computePercentileRange,
+  pickPercentile
 }
