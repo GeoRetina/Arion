@@ -47,6 +47,19 @@ export interface WorkspaceTemplateBootstrapResult {
   existing: string[]
 }
 
+export interface ManagedSkillUploadInput {
+  fileName: string
+  content: string
+}
+
+export interface ManagedSkillUploadResult {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+  overwritten: boolean
+}
+
 interface SkillLookupOptions {
   workspaceRoot?: string
 }
@@ -199,6 +212,54 @@ export class SkillPackService {
       workspaceRoot,
       created,
       existing
+    }
+  }
+
+  public uploadManagedSkill(input: ManagedSkillUploadInput): ManagedSkillUploadResult {
+    const rawContent = typeof input.content === 'string' ? input.content.trim() : ''
+    if (!rawContent) {
+      throw new Error('Skill content is required')
+    }
+
+    const { metadata, body } = this.parseFrontmatter(rawContent)
+    const fallbackId = this.normalizeSkillId(path.parse(input.fileName || '').name || 'uploaded-skill')
+    const normalizedId = this.normalizeSkillId(
+      metadata.id || metadata.name || this.getFirstHeading(body.trim()) || fallbackId || 'uploaded-skill'
+    )
+
+    if (!normalizedId || normalizedId === '.' || normalizedId === '..') {
+      throw new Error('Invalid skill identifier')
+    }
+
+    const managedSkillsRoot = path.resolve(this.environment.getUserDataPath(), 'managed-skills')
+    fs.mkdirSync(managedSkillsRoot, { recursive: true })
+
+    const targetDir = path.resolve(managedSkillsRoot, normalizedId)
+    const managedRootPrefix = `${managedSkillsRoot}${path.sep}`
+    if (!targetDir.startsWith(managedRootPrefix)) {
+      throw new Error('Invalid skill path')
+    }
+
+    fs.mkdirSync(targetDir, { recursive: true })
+    const targetSkillPath = path.join(targetDir, 'SKILL.md')
+    const overwritten = fs.existsSync(targetSkillPath)
+    fs.writeFileSync(targetSkillPath, `${rawContent}\n`, 'utf8')
+
+    const parsed = this.parseSkillFile(
+      targetSkillPath,
+      { source: 'managed', dir: managedSkillsRoot, precedence: 200, order: 0 },
+      normalizedId
+    )
+    if (!parsed) {
+      throw new Error('Uploaded skill could not be parsed')
+    }
+
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      description: parsed.description,
+      sourcePath: targetSkillPath,
+      overwritten
     }
   }
 

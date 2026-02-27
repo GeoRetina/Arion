@@ -13,6 +13,8 @@ import {
   SystemPromptConfig,
   SkillPackConfig,
   SkillPackInfo,
+  SkillPackUploadPayload,
+  SkillPackUploadResult,
   PluginPlatformConfig,
   PluginDiagnosticsSnapshot,
   ConnectorPolicyConfig
@@ -47,6 +49,11 @@ const pluginPlatformConfigSchema = z.object({
   disabledPluginIds: z.array(z.string()).default([]),
   exclusiveSlotAssignments: z.record(z.string()).default({}),
   pluginConfigById: z.record(z.unknown()).default({})
+})
+
+const skillUploadPayloadSchema = z.object({
+  fileName: z.string().trim().min(1).max(256),
+  content: z.string().trim().min(1).max(200_000)
 })
 
 const sanitizeEmbeddingConfig = (config: EmbeddingConfig): EmbeddingConfig => {
@@ -488,6 +495,26 @@ export function registerSettingsIpcHandlers(
       throw new Error(
         error instanceof Error ? error.message : 'Failed to bootstrap workspace templates'
       )
+    }
+  })
+
+  ipcMain.handle(IpcChannels.uploadManagedSkill, async (_event, rawPayload: unknown) => {
+    try {
+      const payload = skillUploadPayloadSchema.parse(rawPayload) satisfies SkillPackUploadPayload
+      const result = skillPackService.uploadManagedSkill({
+        fileName: payload.fileName,
+        content: payload.content
+      })
+
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        sourcePath: result.sourcePath,
+        overwritten: result.overwritten
+      } satisfies SkillPackUploadResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to upload skill')
     }
   })
 

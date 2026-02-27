@@ -204,4 +204,98 @@ description: Verify polygon coverage quality
     expect(secondRun.created).toEqual([])
     expect(secondRun.existing).toEqual(WORKSPACE_TEMPLATE_FILES)
   })
+
+  it('uploads managed skills and marks replacements', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-managed-skill-upload-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    const firstUpload = service.uploadManagedSkill({
+      fileName: 'hazard-assessment.md',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Evaluate map hazards before release.
+---
+
+# Hazard Assessment
+`
+    })
+
+    expect(firstUpload.id).toBe('hazard-assessment')
+    expect(firstUpload.overwritten).toBe(false)
+    expect(fs.existsSync(firstUpload.sourcePath)).toBe(true)
+
+    const secondUpload = service.uploadManagedSkill({
+      fileName: 'hazard-assessment.md',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Updated hazard checklist.
+---
+
+# Hazard Assessment
+`
+    })
+
+    expect(secondUpload.id).toBe('hazard-assessment')
+    expect(secondUpload.overwritten).toBe(true)
+
+    const listedSkills = service.listAvailableSkills({ workspaceRoot })
+    const uploadedSkill = listedSkills.find((skill) => skill.id === 'hazard-assessment')
+    expect(uploadedSkill).toBeDefined()
+    expect(uploadedSkill?.source).toBe('managed')
+  })
+
+  it('rejects uploads with unsafe skill identifiers', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-managed-skill-invalid-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    expect(() =>
+      service.uploadManagedSkill({
+        fileName: 'SKILL.md',
+        content: `---
+id: ..
+name: Broken
+description: This should fail.
+---
+
+# Broken
+`
+      })
+    ).toThrow('Invalid skill identifier')
+  })
 })

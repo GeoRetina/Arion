@@ -32,6 +32,8 @@ import {
   type SkillPackConfig,
   type SkillPackInfo,
   type SkillPackTemplateBootstrapResult,
+  type SkillPackUploadPayload,
+  type SkillPackUploadResult,
   type PluginPlatformConfig,
   type PluginDiagnosticsSnapshot,
   type ConnectorPolicyConfig,
@@ -220,6 +222,8 @@ const ctgApi = {
       workspaceRoot: string
     ): Promise<SkillPackTemplateBootstrapResult> =>
       ipcRenderer.invoke(IpcChannels.bootstrapWorkspaceTemplates, workspaceRoot),
+    uploadManagedSkill: (payload: SkillPackUploadPayload): Promise<SkillPackUploadResult> =>
+      ipcRenderer.invoke(IpcChannels.uploadManagedSkill, payload),
     getPluginPlatformConfig: (): Promise<PluginPlatformConfig> =>
       ipcRenderer.invoke(IpcChannels.getPluginPlatformConfig),
     setPluginPlatformConfig: (config: PluginPlatformConfig): Promise<void> =>

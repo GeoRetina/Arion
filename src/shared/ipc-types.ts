@@ -151,6 +151,19 @@ export interface SkillPackTemplateBootstrapResult {
   existing: string[]
 }
 
+export interface SkillPackUploadPayload {
+  fileName: string
+  content: string
+}
+
+export interface SkillPackUploadResult {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+  overwritten: boolean
+}
+
 export type PluginSource = 'configured' | 'workspace' | 'global' | 'bundled'
 export type PluginRuntimeStatus = 'active' | 'disabled' | 'ignored' | 'error'
 export type PluginHookMode = 'modify' | 'observe'
@@ -292,6 +305,7 @@ export const IpcChannels = {
   setSkillPackConfig: 'settings:set-skill-pack-config',
   listAvailableSkills: 'settings:list-available-skills',
   bootstrapWorkspaceTemplates: 'settings:bootstrap-workspace-templates',
+  uploadManagedSkill: 'settings:upload-managed-skill',
   getPluginPlatformConfig: 'settings:get-plugin-platform-config',
   setPluginPlatformConfig: 'settings:set-plugin-platform-config',
   getPluginDiagnostics: 'settings:get-plugin-diagnostics',
@@ -455,6 +469,7 @@ export interface SettingsApi {
   setSkillPackConfig: (config: SkillPackConfig) => Promise<void>
   listAvailableSkills: (workspaceRoot?: string) => Promise<SkillPackInfo[]>
   bootstrapWorkspaceTemplates: (workspaceRoot: string) => Promise<SkillPackTemplateBootstrapResult>
+  uploadManagedSkill: (payload: SkillPackUploadPayload) => Promise<SkillPackUploadResult>
   getPluginPlatformConfig: () => Promise<PluginPlatformConfig>
   setPluginPlatformConfig: (config: PluginPlatformConfig) => Promise<void>
   getPluginDiagnostics: () => Promise<PluginDiagnosticsSnapshot>
