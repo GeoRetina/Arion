@@ -2,9 +2,9 @@
   "files": [],
   "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }],
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/renderer/src/*"]
+      "@/*": ["./src/renderer/src/*"],
+      "src/*": ["./src/*"]
     },
     "module": "ESNext",
     "moduleResolution": "bundler"

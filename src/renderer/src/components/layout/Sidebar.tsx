@@ -6,6 +6,7 @@ import {
   Brain,
   History as HistoryIcon,
   Settings as SettingsIcon,
+  Boxes,
   Server,
   Link2,
   Database,
@@ -143,6 +144,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
         <NavGroup title="System">
           <NavButton path="/models" title="Models" icon={Brain} />
           <NavButton path="/agents" title="Agents" icon={Bot} />
+          <NavButton path="/skills" title="Skills" icon={Boxes} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
           <NavButton path="/connectors" title="Connectors" icon={Link2} />
         </NavGroup>

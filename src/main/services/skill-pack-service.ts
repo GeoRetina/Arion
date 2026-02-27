@@ -23,6 +23,7 @@ export interface SkillPromptBuildOptions {
   workspaceRoot?: string
   recentUserMessages?: string[]
   explicitSkillIds?: string[]
+  disabledSkillIds?: string[]
 }
 
 export interface SkillPromptSections {
@@ -45,6 +46,56 @@ export interface WorkspaceTemplateBootstrapResult {
   workspaceRoot: string
   created: string[]
   existing: string[]
+}
+
+export interface ManagedSkillUploadInput {
+  fileName: string
+  content: string
+}
+
+export interface ManagedSkillUploadResult {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+  overwritten: boolean
+}
+
+export interface ManagedSkillReadResult {
+  id: string
+  sourcePath: string
+  content: string
+}
+
+export interface ManagedSkillUpdateInput {
+  id: string
+  content: string
+}
+
+export interface ManagedSkillUpdateResult {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+}
+
+export interface SkillTarget {
+  id: string
+  source: SkillSource
+  sourcePath: string
+}
+
+export interface SkillReadResult extends SkillTarget {
+  content: string
+}
+
+export interface SkillUpdateInput extends SkillTarget {
+  content: string
+}
+
+export interface SkillUpdateResult extends SkillTarget {
+  name: string
+  description: string
 }
 
 interface SkillLookupOptions {
@@ -160,7 +211,13 @@ export class SkillPackService {
   }
 
   public buildPromptSections(options: SkillPromptBuildOptions = {}): SkillPromptSections {
-    const skills = this.listAvailableSkills({ workspaceRoot: options.workspaceRoot })
+    const allSkills = this.listAvailableSkills({ workspaceRoot: options.workspaceRoot })
+    const disabledSkillIds = new Set(
+      (options.disabledSkillIds || [])
+        .map((skillId) => this.normalizeSkillId(skillId))
+        .filter((skillId) => Boolean(skillId))
+    )
+    const skills = allSkills.filter((skill) => !disabledSkillIds.has(skill.id))
     const selectedSkills = this.selectSkills(
       skills,
       options.recentUserMessages || [],
@@ -200,6 +257,243 @@ export class SkillPackService {
       created,
       existing
     }
+  }
+
+  public uploadManagedSkill(input: ManagedSkillUploadInput): ManagedSkillUploadResult {
+    const rawContent = typeof input.content === 'string' ? input.content.trim() : ''
+    if (!rawContent) {
+      throw new Error('Skill content is required')
+    }
+
+    const { metadata, body } = this.parseFrontmatter(rawContent)
+    const fallbackId = this.normalizeSkillId(path.parse(input.fileName || '').name || 'uploaded-skill')
+    const normalizedId = this.normalizeSkillId(
+      metadata.id || metadata.name || this.getFirstHeading(body.trim()) || fallbackId || 'uploaded-skill'
+    )
+
+    const safeSkillId = this.ensureSafeManagedSkillId(normalizedId)
+    const managedSkillsRoot = this.getManagedSkillsRoot()
+    fs.mkdirSync(managedSkillsRoot, { recursive: true })
+
+    const targetDir = this.resolveManagedSkillDirectory(safeSkillId)
+    fs.mkdirSync(targetDir, { recursive: true })
+    const targetSkillPath = path.join(targetDir, 'SKILL.md')
+    const overwritten = fs.existsSync(targetSkillPath)
+    fs.writeFileSync(targetSkillPath, `${rawContent}\n`, 'utf8')
+
+    const parsed = this.parseSkillFile(
+      targetSkillPath,
+      { source: 'managed', dir: managedSkillsRoot, precedence: 200, order: 0 },
+      safeSkillId
+    )
+    if (!parsed) {
+      throw new Error('Uploaded skill could not be parsed')
+    }
+
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      description: parsed.description,
+      sourcePath: targetSkillPath,
+      overwritten
+    }
+  }
+
+  public getManagedSkillContent(skillId: string): ManagedSkillReadResult {
+    const safeSkillId = this.ensureSafeManagedSkillId(skillId)
+    const sourcePath = this.resolveManagedSkillPath(safeSkillId)
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Managed skill "${safeSkillId}" was not found`)
+    }
+
+    let content = ''
+    try {
+      content = fs.readFileSync(sourcePath, 'utf8')
+    } catch {
+      throw new Error(`Failed to read managed skill "${safeSkillId}"`)
+    }
+
+    if (!content.trim()) {
+      throw new Error(`Managed skill "${safeSkillId}" is empty`)
+    }
+
+    return {
+      id: safeSkillId,
+      sourcePath,
+      content
+    }
+  }
+
+  public updateManagedSkill(input: ManagedSkillUpdateInput): ManagedSkillUpdateResult {
+    const safeSkillId = this.ensureSafeManagedSkillId(input.id)
+    const rawContent = typeof input.content === 'string' ? input.content.trim() : ''
+    if (!rawContent) {
+      throw new Error('Skill content is required')
+    }
+
+    const { metadata } = this.parseFrontmatter(rawContent)
+    if (metadata.id && this.normalizeSkillId(metadata.id) !== safeSkillId) {
+      throw new Error('Managed skill id cannot be changed')
+    }
+
+    const managedSkillsRoot = this.getManagedSkillsRoot()
+    const sourcePath = this.resolveManagedSkillPath(safeSkillId)
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`Managed skill "${safeSkillId}" was not found`)
+    }
+
+    fs.writeFileSync(sourcePath, `${rawContent}\n`, 'utf8')
+    const parsed = this.parseSkillFile(
+      sourcePath,
+      { source: 'managed', dir: managedSkillsRoot, precedence: 200, order: 0 },
+      safeSkillId
+    )
+
+    if (!parsed) {
+      throw new Error('Updated skill could not be parsed')
+    }
+    if (parsed.id !== safeSkillId) {
+      throw new Error('Managed skill id cannot be changed')
+    }
+
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      description: parsed.description,
+      sourcePath
+    }
+  }
+
+  public deleteManagedSkill(skillId: string): boolean {
+    const safeSkillId = this.ensureSafeManagedSkillId(skillId)
+    const targetDir = this.resolveManagedSkillDirectory(safeSkillId)
+    const sourcePath = path.join(targetDir, 'SKILL.md')
+    if (!fs.existsSync(sourcePath)) {
+      return false
+    }
+
+    fs.rmSync(targetDir, { recursive: true, force: true })
+    return true
+  }
+
+  public getSkillContent(input: SkillTarget, options: SkillLookupOptions = {}): SkillReadResult {
+    const resolved = this.resolveSkillTarget(input, options)
+
+    let content = ''
+    try {
+      content = fs.readFileSync(resolved.sourcePath, 'utf8')
+    } catch {
+      throw new Error(`Failed to read skill "${resolved.id}" from ${resolved.sourcePath}`)
+    }
+
+    if (!content.trim()) {
+      throw new Error(`Skill "${resolved.id}" is empty`)
+    }
+
+    return {
+      id: resolved.id,
+      source: resolved.source,
+      sourcePath: resolved.sourcePath,
+      content
+    }
+  }
+
+  public updateSkill(input: SkillUpdateInput, options: SkillLookupOptions = {}): SkillUpdateResult {
+    const resolved = this.resolveSkillTarget(input, options)
+    const rawContent = typeof input.content === 'string' ? input.content.trim() : ''
+    if (!rawContent) {
+      throw new Error('Skill content is required')
+    }
+
+    const { metadata, body } = this.parseFrontmatter(rawContent)
+    const metadataId = typeof metadata.id === 'string' ? this.normalizeSkillId(metadata.id) : ''
+    if (metadataId && metadataId !== resolved.id) {
+      throw new Error('Skill id cannot be changed')
+    }
+
+    try {
+      fs.writeFileSync(resolved.sourcePath, `${rawContent}\n`, 'utf8')
+    } catch {
+      throw new Error(`Failed to write skill "${resolved.id}" at ${resolved.sourcePath}`)
+    }
+
+    const bodyTrimmed = body.trim()
+    const name = (metadata.name || this.getFirstHeading(bodyTrimmed) || resolved.name).trim()
+    const description = (
+      metadata.description ||
+      this.getFirstMeaningfulLine(bodyTrimmed) ||
+      `Skill ${resolved.id} from ${path.dirname(resolved.sourcePath)}`
+    ).trim()
+
+    return {
+      id: resolved.id,
+      name,
+      description,
+      source: resolved.source,
+      sourcePath: resolved.sourcePath
+    }
+  }
+
+  public deleteSkill(input: SkillTarget, options: SkillLookupOptions = {}): boolean {
+    const resolved = this.resolveSkillTarget(input, options)
+    if (!fs.existsSync(resolved.sourcePath)) {
+      return false
+    }
+
+    try {
+      fs.rmSync(resolved.sourcePath, { force: true })
+    } catch {
+      throw new Error(`Failed to delete skill "${resolved.id}" at ${resolved.sourcePath}`)
+    }
+
+    return !fs.existsSync(resolved.sourcePath)
+  }
+
+  private getManagedSkillsRoot(): string {
+    return path.resolve(this.environment.getUserDataPath(), 'managed-skills')
+  }
+
+  private resolveManagedSkillDirectory(skillId: string): string {
+    const managedSkillsRoot = this.getManagedSkillsRoot()
+    const targetDir = path.resolve(managedSkillsRoot, skillId)
+    const managedRootPrefix = `${managedSkillsRoot}${path.sep}`
+    if (!targetDir.startsWith(managedRootPrefix)) {
+      throw new Error('Invalid skill path')
+    }
+    return targetDir
+  }
+
+  private resolveManagedSkillPath(skillId: string): string {
+    return path.join(this.resolveManagedSkillDirectory(skillId), 'SKILL.md')
+  }
+
+  private ensureSafeManagedSkillId(skillId: string): string {
+    const normalized = this.normalizeSkillId(skillId || '')
+    if (!normalized || normalized === '.' || normalized === '..') {
+      throw new Error('Invalid skill identifier')
+    }
+    return normalized
+  }
+
+  private resolveSkillTarget(input: SkillTarget, options: SkillLookupOptions = {}): ResolvedSkill {
+    const safeId = this.ensureSafeManagedSkillId(input.id)
+    const safeSourcePath = path.resolve(input.sourcePath || '')
+    const skills = this.listAvailableSkills(options)
+    const resolved = skills.find((skill) => {
+      return (
+        skill.id === safeId &&
+        skill.source === input.source &&
+        path.resolve(skill.sourcePath) === safeSourcePath
+      )
+    })
+
+    if (!resolved) {
+      throw new Error(
+        `Skill "${safeId}" from source "${input.source}" was not found at ${safeSourcePath}`
+      )
+    }
+
+    return resolved
   }
 
   private getWorkspaceTemplateContent(fileName: WorkspaceTemplateFile): string {

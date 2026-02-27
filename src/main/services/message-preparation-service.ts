@@ -168,6 +168,9 @@ export class MessagePreparationService {
         skillPackConfig.workspaceRoot.trim().length > 0
           ? skillPackConfig.workspaceRoot.trim()
           : undefined
+      const disabledSkillIds = Array.isArray(skillPackConfig.disabledSkillIds)
+        ? skillPackConfig.disabledSkillIds
+        : []
 
       // Get available agents information if the registry is available
       const availableAgentsInfo = await this.getAvailableAgentsInfo()
@@ -179,7 +182,8 @@ export class MessagePreparationService {
         baseSystemPrompt,
         agentId,
         recentUserMessages,
-        workspaceRoot
+        workspaceRoot,
+        disabledSkillIds
       )
 
       // Add available agents info to the system prompt if we have any
@@ -281,7 +285,8 @@ export class MessagePreparationService {
     baseSystemPrompt?: string,
     agentId?: string,
     recentUserMessages: string[] = [],
-    workspaceRoot?: string
+    workspaceRoot?: string,
+    disabledSkillIds: string[] = []
   ): Promise<string> {
     // Use the modular prompt manager to get a system prompt if available
     if (this.modularPromptManager) {
@@ -290,7 +295,8 @@ export class MessagePreparationService {
           chatId: chatId || 'default',
           timestamp: new Date().toISOString(),
           recentUserMessages,
-          workspaceRoot
+          workspaceRoot,
+          disabledSkillIds
           // Add any other context that would be useful for prompt assembly
         }
 

@@ -235,7 +235,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
 
   return (
     <div
-      className="flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-stone-300 dark:border-stone-600 w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative"
+      className="flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-border w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative"
       style={{
         minHeight: 'auto', // Allow shrinking based on content
         maxHeight: 'calc(100vh - 200px)' // Example: constrain overall component height
@@ -251,7 +251,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         {/* Banner for Active Selection (simplified) */}
         {activeBanner && (
           <div
-            className="px-4 py-1 border-b border-stone-300 dark:border-stone-600 bg-muted/50 flex items-center gap-2 rounded-t-2xl shrink-0"
+            className="px-4 py-1 border-b border-border bg-muted/50 flex items-center gap-2 rounded-t-2xl shrink-0"
             style={{ height: `${bannerHeightReduction}px` }}
           >
             <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -342,7 +342,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
                     type="button"
                     className={`
                       h-8 w-8 flex items-center justify-center ml-1 border rounded-md
-                      border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
+                      border-border hover:border-border/80
                       ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
                     `}
                   >

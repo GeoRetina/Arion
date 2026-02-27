@@ -12,7 +12,6 @@ import {
   VertexConfig,
   OllamaConfig,
   EmbeddingConfig,
-  EmbeddingProviderType,
   LLMProviderType,
   AllLLMConfigurations,
   McpServerConfig,
@@ -22,191 +21,27 @@ import {
   ConnectorPolicyConfig
 } from '../../shared/ipc-types'
 import {
-  DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
-  DEFAULT_EMBEDDING_PROVIDER,
-  SUPPORTED_EMBEDDING_PROVIDERS
-} from '../../shared/embedding-constants'
+  DEFAULT_EMBEDDING_CONFIG,
+  DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG,
+  DEFAULT_PLUGIN_PLATFORM_CONFIG,
+  DEFAULT_SKILL_PACK_CONFIG,
+  DEFAULT_SYSTEM_PROMPT_CONFIG,
+  DB_FILENAME,
+  EMBEDDING_CONFIG_KEY,
+  SERVICE_NAME,
+  cloneConnectorPolicyConfig,
+  clonePluginPlatformConfig,
+  normalizeEmbeddingConfig,
+  normalizePluginPlatformConfig,
+  normalizeSkillPackConfig
+} from './settings/settings-service-config'
+import { normalizeConnectorPolicyConfig } from './connectors/policy/connector-policy-config'
+import { initializeSettingsDatabase } from './settings/settings-db-init'
 import {
-  DEFAULT_CONNECTOR_POLICY_CONFIG,
-  normalizeConnectorPolicyConfig
-} from './connectors/policy/connector-policy-config'
-
-const SERVICE_NAME = 'ArionLLMCredentials'
-const DB_FILENAME = 'arion-settings.db'
-const EMBEDDING_CONFIG_KEY = 'embeddingConfig'
-
-const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
-  provider: DEFAULT_EMBEDDING_PROVIDER,
-  model: DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[DEFAULT_EMBEDDING_PROVIDER]
-}
-const SUPPORTED_EMBEDDING_PROVIDER_SET = new Set<EmbeddingProviderType>(
-  SUPPORTED_EMBEDDING_PROVIDERS
-)
-
-const normalizeEmbeddingConfig = (
-  config: Partial<EmbeddingConfig> | null | undefined
-): EmbeddingConfig => {
-  const requestedProvider = config?.provider
-  const provider = SUPPORTED_EMBEDDING_PROVIDER_SET.has(requestedProvider as EmbeddingProviderType)
-    ? (requestedProvider as EmbeddingProviderType)
-    : DEFAULT_EMBEDDING_CONFIG.provider
-
-  const requestedModel =
-    typeof config?.model === 'string' && config.model.trim().length > 0
-      ? config.model.trim()
-      : DEFAULT_EMBEDDING_MODEL_BY_PROVIDER[provider]
-  const model = requestedModel
-
-  return {
-    provider,
-    model
-  }
-}
-
-const DEFAULT_PLUGIN_PLATFORM_CONFIG: PluginPlatformConfig = {
-  enabled: true,
-  workspaceRoot: null,
-  configuredPluginPaths: [],
-  enableBundledPlugins: false,
-  allowlist: [],
-  denylist: [],
-  enabledPluginIds: [],
-  disabledPluginIds: [],
-  exclusiveSlotAssignments: {},
-  pluginConfigById: {}
-}
-
-const sanitizeStringList = (value: unknown): string[] => {
-  if (!Array.isArray(value)) {
-    return []
-  }
-
-  const unique = new Set<string>()
-  for (const item of value) {
-    if (typeof item !== 'string') {
-      continue
-    }
-
-    const normalized = item.trim()
-    if (normalized.length > 0) {
-      unique.add(normalized)
-    }
-  }
-
-  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
-}
-
-const sanitizeExclusiveSlotAssignments = (value: unknown): Record<string, string> => {
-  if (!value || typeof value !== 'object') {
-    return {}
-  }
-
-  const output: Record<string, string> = {}
-  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof rawValue !== 'string') {
-      continue
-    }
-
-    const slot = rawKey.trim()
-    const pluginId = rawValue.trim()
-    if (!slot || !pluginId) {
-      continue
-    }
-
-    output[slot] = pluginId
-  }
-
-  return output
-}
-
-const normalizePluginPlatformConfig = (
-  config: Partial<PluginPlatformConfig> | null | undefined
-): PluginPlatformConfig => {
-  const normalizedWorkspaceRoot =
-    typeof config?.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
-      ? config.workspaceRoot.trim()
-      : null
-
-  const pluginConfigById =
-    config?.pluginConfigById && typeof config.pluginConfigById === 'object'
-      ? (config.pluginConfigById as Record<string, unknown>)
-      : {}
-
-  return {
-    enabled: config?.enabled !== false,
-    workspaceRoot: normalizedWorkspaceRoot,
-    configuredPluginPaths: sanitizeStringList(config?.configuredPluginPaths),
-    enableBundledPlugins: config?.enableBundledPlugins === true,
-    allowlist: sanitizeStringList(config?.allowlist),
-    denylist: sanitizeStringList(config?.denylist),
-    enabledPluginIds: sanitizeStringList(config?.enabledPluginIds),
-    disabledPluginIds: sanitizeStringList(config?.disabledPluginIds),
-    exclusiveSlotAssignments: sanitizeExclusiveSlotAssignments(config?.exclusiveSlotAssignments),
-    pluginConfigById
-  }
-}
-
-const clonePluginPlatformConfig = (config: PluginPlatformConfig): PluginPlatformConfig => ({
-  enabled: config.enabled,
-  workspaceRoot: config.workspaceRoot,
-  configuredPluginPaths: [...config.configuredPluginPaths],
-  enableBundledPlugins: config.enableBundledPlugins,
-  allowlist: [...config.allowlist],
-  denylist: [...config.denylist],
-  enabledPluginIds: [...config.enabledPluginIds],
-  disabledPluginIds: [...config.disabledPluginIds],
-  exclusiveSlotAssignments: { ...config.exclusiveSlotAssignments },
-  pluginConfigById: { ...config.pluginConfigById }
-})
-
-const cloneConnectorPolicyConfig = (config: ConnectorPolicyConfig): ConnectorPolicyConfig => ({
-  enabled: config.enabled,
-  strictMode: config.strictMode,
-  defaultApprovalMode: config.defaultApprovalMode,
-  defaultTimeoutMs: config.defaultTimeoutMs,
-  defaultMaxRetries: config.defaultMaxRetries,
-  defaultAllowedBackends: [...config.defaultAllowedBackends],
-  backendDenylist: [...config.backendDenylist],
-  sensitiveCapabilities: [...config.sensitiveCapabilities],
-  blockedMcpToolNames: [...config.blockedMcpToolNames],
-  integrationPolicies: Object.fromEntries(
-    Object.entries(config.integrationPolicies).map(([integrationId, policy]) => [
-      integrationId,
-      {
-        enabled: policy.enabled,
-        capabilities: policy.capabilities ? { ...policy.capabilities } : {}
-      }
-    ])
-  )
-})
-
-// Define a more specific type for what we store in the DB (without API keys)
-interface StoredLLMConfig {
-  model?: string | null
-  endpoint?: string | null
-  deploymentName?: string | null
-  project?: string | null
-  location?: string | null
-  baseURL?: string | null
-}
-
-interface McpServerConfigRow {
-  id: string
-  name: string
-  url: string | null
-  command: string | null
-  args: string | null
-  enabled: number
-}
-
-const mapMcpRowToConfig = (row: McpServerConfigRow): McpServerConfig => ({
-  id: row.id,
-  name: row.name,
-  url: row.url ?? undefined,
-  command: row.command ?? undefined,
-  args: row.args ? (JSON.parse(row.args) as string[]) : undefined,
-  enabled: row.enabled === 1
-})
+  mapMcpRowToConfig,
+  type McpServerConfigRow,
+  type StoredLLMConfig
+} from './settings/settings-service-types'
 
 export class SettingsService {
   private db: Database.Database
@@ -224,171 +59,7 @@ export class SettingsService {
   }
 
   private initializeDatabase(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS llm_configs (
-        provider TEXT PRIMARY KEY,
-        model TEXT,
-        endpoint TEXT, 
-        deploymentName TEXT,
-        project TEXT,
-        location TEXT,
-        baseURL TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS mcp_server_configs (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        url TEXT,
-        command TEXT,
-        args TEXT, -- Stored as JSON string
-        enabled INTEGER NOT NULL DEFAULT 1 -- 1 for true, 0 for false
-      );
-    `)
-
-    // --- Add missing columns to llm_configs if they don't exist (simple migration) ---
-    try {
-      this.db.exec('ALTER TABLE llm_configs ADD COLUMN project TEXT;')
-    } catch (e: unknown) {
-      if (!this.isDuplicateColumnError(e)) {
-        void 0
-      } // Ignore if column already exists
-    }
-    try {
-      this.db.exec('ALTER TABLE llm_configs ADD COLUMN location TEXT;')
-    } catch (e: unknown) {
-      if (!this.isDuplicateColumnError(e)) {
-        void 0
-      }
-    }
-    try {
-      this.db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
-    } catch (e: unknown) {
-      if (!this.isDuplicateColumnError(e)) {
-        void 0
-      }
-    }
-    // --- End simple migration ---
-
-    // Initialize active provider if not set
-    const activeProviderRow = this.db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('activeLLMProvider') as { value: string } | undefined
-    if (!activeProviderRow) {
-      this.db
-        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
-        .run('activeLLMProvider', JSON.stringify(null))
-    }
-
-    // Initialize embedding config if not set, and normalize legacy/invalid values.
-    const embeddingConfigRow = this.db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get(EMBEDDING_CONFIG_KEY) as { value: string } | undefined
-    if (!embeddingConfigRow) {
-      this.db
-        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
-        .run(EMBEDDING_CONFIG_KEY, JSON.stringify(DEFAULT_EMBEDDING_CONFIG))
-    } else {
-      try {
-        const parsed = JSON.parse(embeddingConfigRow.value) as Partial<EmbeddingConfig>
-        const normalized = normalizeEmbeddingConfig(parsed)
-        if (JSON.stringify(normalized) !== embeddingConfigRow.value) {
-          this.db
-            .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-            .run(EMBEDDING_CONFIG_KEY, JSON.stringify(normalized))
-        }
-      } catch {
-        this.db
-          .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-          .run(EMBEDDING_CONFIG_KEY, JSON.stringify(DEFAULT_EMBEDDING_CONFIG))
-      }
-    }
-
-    // Initialize system prompt config if not set
-    const defaultUserSystemPrompt = ''
-
-    const systemPromptRow = this.db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('systemPromptConfig') as { value: string } | undefined
-
-    if (!systemPromptRow) {
-      const initialConfig: SystemPromptConfig = {
-        userSystemPrompt: defaultUserSystemPrompt
-      }
-      this.db
-        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
-        .run('systemPromptConfig', JSON.stringify(initialConfig))
-    }
-
-    // Initialize skill pack config if not set
-    const skillPackRow = this.db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('skillPackConfig') as { value: string } | undefined
-
-    if (!skillPackRow) {
-      const initialSkillPackConfig: SkillPackConfig = {
-        workspaceRoot: null
-      }
-      this.db
-        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
-        .run('skillPackConfig', JSON.stringify(initialSkillPackConfig))
-    }
-
-    const pluginConfigRow = this.db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('pluginPlatformConfig') as { value: string } | undefined
-
-    if (!pluginConfigRow) {
-      this.db
-        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
-        .run('pluginPlatformConfig', JSON.stringify(DEFAULT_PLUGIN_PLATFORM_CONFIG))
-    } else {
-      try {
-        const parsed = JSON.parse(pluginConfigRow.value) as Partial<PluginPlatformConfig>
-        const normalized = normalizePluginPlatformConfig(parsed)
-        if (JSON.stringify(normalized) !== pluginConfigRow.value) {
-          this.db
-            .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-            .run('pluginPlatformConfig', JSON.stringify(normalized))
-        }
-      } catch {
-        this.db
-          .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-          .run('pluginPlatformConfig', JSON.stringify(DEFAULT_PLUGIN_PLATFORM_CONFIG))
-      }
-    }
-
-    const connectorPolicyRow = this.db
-      .prepare('SELECT value FROM app_settings WHERE key = ?')
-      .get('connectorPolicyConfig') as { value: string } | undefined
-
-    if (!connectorPolicyRow) {
-      const normalized = normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG)
-      this.db
-        .prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)')
-        .run('connectorPolicyConfig', JSON.stringify(normalized))
-    } else {
-      try {
-        const parsed = JSON.parse(connectorPolicyRow.value) as Partial<ConnectorPolicyConfig>
-        const normalized = normalizeConnectorPolicyConfig(parsed)
-        if (JSON.stringify(normalized) !== connectorPolicyRow.value) {
-          this.db
-            .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-            .run('connectorPolicyConfig', JSON.stringify(normalized))
-        }
-      } catch {
-        this.db
-          .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-          .run(
-            'connectorPolicyConfig',
-            JSON.stringify(normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG))
-          )
-      }
-    }
+    initializeSettingsDatabase(this.db)
   }
 
   // --- Generic Keytar Helper --- (can be moved to a secure key storage utility later)
@@ -723,28 +394,22 @@ export class SettingsService {
         .get('systemPromptConfig') as { value: string } | undefined
 
       if (!row) {
-        // If no configuration is found, return default values
-        const defaultConfig: SystemPromptConfig = {
-          userSystemPrompt: ''
-        }
-        return defaultConfig
+        return { ...DEFAULT_SYSTEM_PROMPT_CONFIG }
       }
 
       return JSON.parse(row.value) as SystemPromptConfig
     } catch {
-      // Return default values if there's an error
-      return {
-        userSystemPrompt: ''
-      }
+      return { ...DEFAULT_SYSTEM_PROMPT_CONFIG }
     }
   }
 
   // --- Skill Pack Configuration ---
   async setSkillPackConfig(config: SkillPackConfig): Promise<void> {
+    const safeConfig = normalizeSkillPackConfig(config)
     {
       this.db
         .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
-        .run('skillPackConfig', JSON.stringify(config))
+        .run('skillPackConfig', JSON.stringify(safeConfig))
     }
   }
 
@@ -755,22 +420,13 @@ export class SettingsService {
         .get('skillPackConfig') as { value: string } | undefined
 
       if (!row) {
-        return {
-          workspaceRoot: null
-        }
+        return normalizeSkillPackConfig(DEFAULT_SKILL_PACK_CONFIG)
       }
 
-      const parsed = JSON.parse(row.value) as SkillPackConfig
-      return {
-        workspaceRoot:
-          typeof parsed.workspaceRoot === 'string' && parsed.workspaceRoot.trim().length > 0
-            ? parsed.workspaceRoot
-            : null
-      }
+      const parsed = JSON.parse(row.value) as Partial<SkillPackConfig>
+      return normalizeSkillPackConfig(parsed)
     } catch {
-      return {
-        workspaceRoot: null
-      }
+      return normalizeSkillPackConfig(DEFAULT_SKILL_PACK_CONFIG)
     }
   }
 
@@ -812,21 +468,13 @@ export class SettingsService {
         .get('connectorPolicyConfig') as { value: string } | undefined
 
       if (!row) {
-        return cloneConnectorPolicyConfig(
-          normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG)
-        )
+        return cloneConnectorPolicyConfig(DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG)
       }
 
       const parsed = JSON.parse(row.value) as Partial<ConnectorPolicyConfig>
       return normalizeConnectorPolicyConfig(parsed)
     } catch {
-      return cloneConnectorPolicyConfig(
-        normalizeConnectorPolicyConfig(DEFAULT_CONNECTOR_POLICY_CONFIG)
-      )
+      return cloneConnectorPolicyConfig(DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG)
     }
-  }
-
-  private isDuplicateColumnError(error: unknown): boolean {
-    return error instanceof Error && error.message.includes('duplicate column name')
   }
 }

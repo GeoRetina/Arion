@@ -13,6 +13,17 @@ import {
   SystemPromptConfig,
   SkillPackConfig,
   SkillPackInfo,
+  SkillPackManagedSkillContentResult,
+  SkillPackManagedSkillDeleteResult,
+  SkillPackManagedSkillUpdatePayload,
+  SkillPackManagedSkillUpdateResult,
+  SkillPackSkillContentResult,
+  SkillPackSkillDeleteResult,
+  SkillPackSkillTarget,
+  SkillPackSkillUpdatePayload,
+  SkillPackSkillUpdateResult,
+  SkillPackUploadPayload,
+  SkillPackUploadResult,
   PluginPlatformConfig,
   PluginDiagnosticsSnapshot,
   ConnectorPolicyConfig
@@ -49,6 +60,36 @@ const pluginPlatformConfigSchema = z.object({
   pluginConfigById: z.record(z.unknown()).default({})
 })
 
+const skillUploadPayloadSchema = z.object({
+  fileName: z.string().trim().min(1).max(256),
+  content: z.string().trim().min(1).max(200_000)
+})
+
+const managedSkillIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[a-zA-Z0-9._-]+$/)
+  .transform((value) => value.toLowerCase())
+
+const managedSkillUpdatePayloadSchema = z.object({
+  id: managedSkillIdSchema,
+  content: z.string().trim().min(1).max(200_000)
+})
+
+const skillSourceSchema = z.enum(['workspace', 'global', 'managed', 'bundled'])
+
+const skillTargetSchema = z.object({
+  id: managedSkillIdSchema,
+  source: skillSourceSchema,
+  sourcePath: z.string().trim().min(1).max(4096)
+})
+
+const skillUpdatePayloadSchema = skillTargetSchema.extend({
+  content: z.string().trim().min(1).max(200_000)
+})
+
 const sanitizeEmbeddingConfig = (config: EmbeddingConfig): EmbeddingConfig => {
   if (!SUPPORTED_EMBEDDING_PROVIDER_SET.has(config.provider)) {
     throw new Error(
@@ -75,6 +116,35 @@ const normalizeStringArray = (values: string[]): string[] => {
       unique.add(normalized)
     }
   }
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
+}
+
+const normalizeSkillId = (value: string): string => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+const normalizeSkillIdArray = (values: unknown): string[] => {
+  if (!Array.isArray(values)) {
+    return []
+  }
+
+  const unique = new Set<string>()
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      continue
+    }
+    const normalized = normalizeSkillId(value)
+    if (!normalized || normalized === '.' || normalized === '..') {
+      continue
+    }
+    unique.add(normalized)
+  }
+
   return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
 }
 
@@ -427,18 +497,28 @@ export function registerSettingsIpcHandlers(
       return await settingsService.getSkillPackConfig()
     } catch {
       return {
-        workspaceRoot: null
+        workspaceRoot: null,
+        disabledSkillIds: []
       } satisfies SkillPackConfig
     }
   })
 
   ipcMain.handle(IpcChannels.setSkillPackConfig, async (_event, config: SkillPackConfig) => {
     try {
+      const storedConfig = await settingsService.getSkillPackConfig()
       const safeConfig: SkillPackConfig = {
         workspaceRoot:
-          typeof config?.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
-            ? config.workspaceRoot.trim()
-            : null
+          typeof config?.workspaceRoot === 'string'
+            ? config.workspaceRoot.trim().length > 0
+              ? config.workspaceRoot.trim()
+              : null
+            : typeof storedConfig.workspaceRoot === 'string' && storedConfig.workspaceRoot.trim().length > 0
+              ? storedConfig.workspaceRoot.trim()
+              : null,
+        disabledSkillIds:
+          config && 'disabledSkillIds' in config
+            ? normalizeSkillIdArray(config.disabledSkillIds)
+            : normalizeSkillIdArray(storedConfig.disabledSkillIds)
       }
 
       await settingsService.setSkillPackConfig(safeConfig)
@@ -448,16 +528,20 @@ export function registerSettingsIpcHandlers(
     }
   })
 
+  const resolveSkillWorkspaceRoot = async (
+    workspaceRoot?: string
+  ): Promise<string | undefined> => {
+    const storedConfig = await settingsService.getSkillPackConfig()
+    return typeof workspaceRoot === 'string' && workspaceRoot.trim().length > 0
+      ? workspaceRoot.trim()
+      : typeof storedConfig.workspaceRoot === 'string' && storedConfig.workspaceRoot.trim().length > 0
+        ? storedConfig.workspaceRoot.trim()
+        : undefined
+  }
+
   ipcMain.handle(IpcChannels.listAvailableSkills, async (_event, workspaceRoot?: string) => {
     try {
-      const storedConfig = await settingsService.getSkillPackConfig()
-      const safeWorkspaceRoot =
-        typeof workspaceRoot === 'string' && workspaceRoot.trim().length > 0
-          ? workspaceRoot.trim()
-          : typeof storedConfig.workspaceRoot === 'string' &&
-              storedConfig.workspaceRoot.trim().length > 0
-            ? storedConfig.workspaceRoot.trim()
-            : undefined
+      const safeWorkspaceRoot = await resolveSkillWorkspaceRoot(workspaceRoot)
 
       const skills = skillPackService.listAvailableSkills({ workspaceRoot: safeWorkspaceRoot })
       return skills.map(
@@ -488,6 +572,146 @@ export function registerSettingsIpcHandlers(
       throw new Error(
         error instanceof Error ? error.message : 'Failed to bootstrap workspace templates'
       )
+    }
+  })
+
+  ipcMain.handle(IpcChannels.uploadManagedSkill, async (_event, rawPayload: unknown) => {
+    try {
+      const payload = skillUploadPayloadSchema.parse(rawPayload) satisfies SkillPackUploadPayload
+      const result = skillPackService.uploadManagedSkill({
+        fileName: payload.fileName,
+        content: payload.content
+      })
+
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        sourcePath: result.sourcePath,
+        overwritten: result.overwritten
+      } satisfies SkillPackUploadResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to upload skill')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.getManagedSkillContent, async (_event, rawSkillId: unknown) => {
+    try {
+      const skillId = managedSkillIdSchema.parse(rawSkillId)
+      const result = skillPackService.getManagedSkillContent(skillId)
+      return {
+        id: result.id,
+        sourcePath: result.sourcePath,
+        content: result.content
+      } satisfies SkillPackManagedSkillContentResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to load managed skill')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.updateManagedSkill, async (_event, rawPayload: unknown) => {
+    try {
+      const payload = managedSkillUpdatePayloadSchema.parse(
+        rawPayload
+      ) satisfies SkillPackManagedSkillUpdatePayload
+      const result = skillPackService.updateManagedSkill({
+        id: payload.id,
+        content: payload.content
+      })
+
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        sourcePath: result.sourcePath
+      } satisfies SkillPackManagedSkillUpdateResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to update managed skill')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.deleteManagedSkill, async (_event, rawSkillId: unknown) => {
+    try {
+      const skillId = managedSkillIdSchema.parse(rawSkillId)
+      const deleted = skillPackService.deleteManagedSkill(skillId)
+      return {
+        id: skillId,
+        deleted
+      } satisfies SkillPackManagedSkillDeleteResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete managed skill')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.getSkillContent, async (_event, rawTarget: unknown) => {
+    try {
+      const target = skillTargetSchema.parse(rawTarget) satisfies SkillPackSkillTarget
+      const safeWorkspaceRoot = await resolveSkillWorkspaceRoot()
+      const result = skillPackService.getSkillContent(
+        {
+          id: target.id,
+          source: target.source,
+          sourcePath: target.sourcePath
+        },
+        { workspaceRoot: safeWorkspaceRoot }
+      )
+      return {
+        id: result.id,
+        source: result.source,
+        sourcePath: result.sourcePath,
+        content: result.content
+      } satisfies SkillPackSkillContentResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to load skill')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.updateSkill, async (_event, rawPayload: unknown) => {
+    try {
+      const payload = skillUpdatePayloadSchema.parse(rawPayload) satisfies SkillPackSkillUpdatePayload
+      const safeWorkspaceRoot = await resolveSkillWorkspaceRoot()
+      const result = skillPackService.updateSkill(
+        {
+          id: payload.id,
+          source: payload.source,
+          sourcePath: payload.sourcePath,
+          content: payload.content
+        },
+        { workspaceRoot: safeWorkspaceRoot }
+      )
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        source: result.source,
+        sourcePath: result.sourcePath
+      } satisfies SkillPackSkillUpdateResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to update skill')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.deleteSkill, async (_event, rawTarget: unknown) => {
+    try {
+      const target = skillTargetSchema.parse(rawTarget) satisfies SkillPackSkillTarget
+      const safeWorkspaceRoot = await resolveSkillWorkspaceRoot()
+      const deleted = skillPackService.deleteSkill(
+        {
+          id: target.id,
+          source: target.source,
+          sourcePath: target.sourcePath
+        },
+        { workspaceRoot: safeWorkspaceRoot }
+      )
+
+      return {
+        id: target.id,
+        source: target.source,
+        sourcePath: target.sourcePath,
+        deleted
+      } satisfies SkillPackSkillDeleteResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete skill')
     }
   })
 

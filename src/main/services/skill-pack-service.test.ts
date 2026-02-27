@@ -169,6 +169,51 @@ description: Verify polygon coverage quality
     expect(sections.selectedInstructionSection).not.toContain('`$risk-audit`')
   })
 
+  it('omits disabled skills from prompt sections', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-skill-disabled-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    writeSkill(
+      path.join(workspaceRoot, 'skills'),
+      'map-qc',
+      `---
+id: map-qc
+name: Map QC
+description: Validate map layer readiness
+---
+
+# Map QC
+`
+    )
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    const sections = service.buildPromptSections({
+      workspaceRoot,
+      recentUserMessages: ['Please run $map-qc'],
+      disabledSkillIds: ['map-qc']
+    })
+
+    expect(sections.compactIndexSection).not.toContain('`$map-qc`')
+    expect(sections.selectedSkillIds).toEqual([])
+    expect(sections.selectedInstructionSection).toBe('')
+  })
+
   it('bootstraps workspace templates and keeps existing files untouched', () => {
     const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-skill-templates-'))
     tempRoots.push(testRoot)
@@ -203,5 +248,292 @@ description: Verify polygon coverage quality
     const secondRun = service.bootstrapWorkspaceTemplateFiles(workspaceRoot)
     expect(secondRun.created).toEqual([])
     expect(secondRun.existing).toEqual(WORKSPACE_TEMPLATE_FILES)
+  })
+
+  it('uploads managed skills and marks replacements', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-managed-skill-upload-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    const firstUpload = service.uploadManagedSkill({
+      fileName: 'hazard-assessment.md',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Evaluate map hazards before release.
+---
+
+# Hazard Assessment
+`
+    })
+
+    expect(firstUpload.id).toBe('hazard-assessment')
+    expect(firstUpload.overwritten).toBe(false)
+    expect(fs.existsSync(firstUpload.sourcePath)).toBe(true)
+
+    const secondUpload = service.uploadManagedSkill({
+      fileName: 'hazard-assessment.md',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Updated hazard checklist.
+---
+
+# Hazard Assessment
+`
+    })
+
+    expect(secondUpload.id).toBe('hazard-assessment')
+    expect(secondUpload.overwritten).toBe(true)
+
+    const listedSkills = service.listAvailableSkills({ workspaceRoot })
+    const uploadedSkill = listedSkills.find((skill) => skill.id === 'hazard-assessment')
+    expect(uploadedSkill).toBeDefined()
+    expect(uploadedSkill?.source).toBe('managed')
+  })
+
+  it('reads and updates managed skills while keeping their id stable', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-managed-skill-edit-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    service.uploadManagedSkill({
+      fileName: 'hazard-assessment.md',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Initial checklist.
+---
+
+# Hazard Assessment
+`
+    })
+
+    const before = service.getManagedSkillContent('hazard-assessment')
+    expect(before.content).toContain('Initial checklist.')
+
+    const updated = service.updateManagedSkill({
+      id: 'hazard-assessment',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Updated checklist.
+---
+
+# Hazard Assessment
+`
+    })
+
+    expect(updated.id).toBe('hazard-assessment')
+    expect(updated.description).toBe('Updated checklist.')
+
+    const after = service.getManagedSkillContent('hazard-assessment')
+    expect(after.content).toContain('Updated checklist.')
+
+    expect(() =>
+      service.updateManagedSkill({
+        id: 'hazard-assessment',
+        content: `---
+id: renamed-skill
+name: Hazard Assessment
+description: Should fail.
+---
+
+# Hazard Assessment
+`
+      })
+    ).toThrow('Managed skill id cannot be changed')
+  })
+
+  it('deletes managed skills', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-managed-skill-delete-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    service.uploadManagedSkill({
+      fileName: 'hazard-assessment.md',
+      content: `---
+id: hazard-assessment
+name: Hazard Assessment
+description: Checklist.
+---
+
+# Hazard Assessment
+`
+    })
+
+    expect(service.deleteManagedSkill('hazard-assessment')).toBe(true)
+    expect(service.deleteManagedSkill('hazard-assessment')).toBe(false)
+
+    const listedSkills = service.listAvailableSkills({ workspaceRoot })
+    const deletedSkill = listedSkills.find((skill) => skill.id === 'hazard-assessment')
+    expect(deletedSkill).toBeUndefined()
+  })
+
+  it('updates and deletes bundled skills via source-aware operations', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-bundled-skill-edit-delete-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    writeSkill(
+      path.join(resourcesRoot, 'skills', 'bundled'),
+      'geospatial-triage',
+      `---
+id: geospatial-triage
+name: Geospatial Triage
+description: Bundled version
+---
+
+# Bundled Version
+`
+    )
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    const bundledSkill = service
+      .listAvailableSkills({ workspaceRoot })
+      .find((skill) => skill.id === 'geospatial-triage' && skill.source === 'bundled')
+    expect(bundledSkill).toBeDefined()
+    if (!bundledSkill) {
+      return
+    }
+
+    const before = service.getSkillContent({
+      id: bundledSkill.id,
+      source: bundledSkill.source,
+      sourcePath: bundledSkill.sourcePath
+    })
+    expect(before.content).toContain('Bundled version')
+
+    const updated = service.updateSkill({
+      id: bundledSkill.id,
+      source: bundledSkill.source,
+      sourcePath: bundledSkill.sourcePath,
+      content: `---
+id: geospatial-triage
+name: Geospatial Triage
+description: Bundled version updated
+---
+
+# Bundled Version Updated
+`
+    })
+    expect(updated.description).toBe('Bundled version updated')
+
+    const after = service.getSkillContent({
+      id: bundledSkill.id,
+      source: bundledSkill.source,
+      sourcePath: bundledSkill.sourcePath
+    })
+    expect(after.content).toContain('Bundled version updated')
+
+    const deleted = service.deleteSkill({
+      id: bundledSkill.id,
+      source: bundledSkill.source,
+      sourcePath: bundledSkill.sourcePath
+    })
+    expect(deleted).toBe(true)
+
+    const listedSkills = service.listAvailableSkills({ workspaceRoot })
+    const deletedSkill = listedSkills.find((skill) => skill.id === 'geospatial-triage')
+    expect(deletedSkill).toBeUndefined()
+  })
+
+  it('rejects uploads with unsafe skill identifiers', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-managed-skill-invalid-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    expect(() =>
+      service.uploadManagedSkill({
+        fileName: 'SKILL.md',
+        content: `---
+id: ..
+name: Broken
+description: This should fail.
+---
+
+# Broken
+`
+      })
+    ).toThrow('Invalid skill identifier')
   })
 })
