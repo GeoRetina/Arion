@@ -352,6 +352,15 @@ function getRasterAssetId(layer: LayerDefinition): string | null {
   return assetId
 }
 
+function getRasterSourcePath(layer: LayerDefinition): string | null {
+  const sourcePath = layer.sourceConfig.options?.rasterSourcePath
+  if (typeof sourcePath !== 'string' || sourcePath.trim().length === 0) {
+    return null
+  }
+
+  return sourcePath
+}
+
 function hasRasterAssetReference(layers: LayerDefinition[], assetId: string): boolean {
   return layers.some((layer) => getRasterAssetId(layer) === assetId)
 }
@@ -365,6 +374,10 @@ async function cleanupOrphanedRasterAssets(
     const assetId = getRasterAssetId(layer)
     if (assetId) {
       referencedAssetIds.add(assetId)
+      const sourcePath = getRasterSourcePath(layer)
+      if (sourcePath) {
+        await rasterTileService.bindGeoTiffAssetSourcePath(assetId, sourcePath)
+      }
     }
   }
 

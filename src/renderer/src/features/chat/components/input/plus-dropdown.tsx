@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useRef } from 'react'
-import { Plus, Upload, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useLayerStore } from '@/stores/layer-store'
@@ -204,7 +204,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   const getButtonIcon = (): React.JSX.Element => {
     switch (uploadState) {
       case 'uploading':
-        return <Upload className="h-5 w-5 animate-pulse" />
+        return <Loader2 className="h-5 w-5 animate-spin" />
       case 'success':
         return <CheckCircle className="h-5 w-5 text-green-500" />
       case 'error':
