@@ -1,13 +1,12 @@
-import { randomUUID } from 'crypto'
 import { promises as fs } from 'fs'
-import { cpus, tmpdir } from 'os'
-import { join } from 'path'
+import { cpus } from 'os'
 import { getGdalRunnerService, type GdalRunnerService } from './gdal-runner-service'
 
 const GDAL_INFO_TIMEOUT_MS = 30 * 1000
 const GDAL_WARP_TIMEOUT_MS = 30 * 60 * 1000
 const GDAL_ADDO_TIMEOUT_MS = 20 * 60 * 1000
 const GDAL_TRANSLATE_TIMEOUT_MS = 30 * 60 * 1000
+const GDAL_STATS_TIMEOUT_MS = 10 * 60 * 1000
 const WEB_MERCATOR_EPSG_CODES = new Set([3857, 3785, 900913])
 const OVERVIEW_MIN_DIMENSION = 256
 const OVERVIEW_MAX_FACTOR = 512
@@ -67,17 +66,23 @@ export class RasterGdalPreprocessService {
       }
     }
 
-    const scratchDirectory = await fs.mkdtemp(join(tmpdir(), `arion-raster-${request.assetId}-`))
-    const workingPath = join(scratchDirectory, `${request.assetId}-${randomUUID()}-working.tif`)
     let sourceEpsg: number | null = null
     let reprojected = false
-    let builtOverviews = false
-    let usedCogDriver = false
+    const usedCogDriver = false
     let warning: string | undefined
     const threadCount = resolveGdalThreadCount()
     const threadCountString = String(threadCount)
+    const inPlaceOutput = request.inputPath === request.outputPath
+    const outputOverviewPath = `${request.outputPath}.ovr`
+    const outputAuxMetadataPath = `${request.outputPath}.aux.xml`
 
     try {
+      if (!inPlaceOutput) {
+        await safeUnlink(request.outputPath)
+        await safeUnlink(outputOverviewPath)
+        await safeUnlink(outputAuxMetadataPath)
+      }
+
       request.onProgress?.({
         stage: 'inspect',
         progress: 18,
@@ -87,6 +92,18 @@ export class RasterGdalPreprocessService {
       const sourceInfo = await this.readGdalInfo(request.inputPath)
       sourceEpsg = extractEpsgCode(sourceInfo)
       const shouldReproject = sourceEpsg === null || !WEB_MERCATOR_EPSG_CODES.has(sourceEpsg)
+
+      if (inPlaceOutput && shouldReproject) {
+        return {
+          success: false,
+          processingEngine: 'geotiff-js',
+          sourceEpsg,
+          reprojected: false,
+          usedCogDriver,
+          warning:
+            'Source raster is not EPSG:4326 or EPSG:3857, so auxiliary files cannot be prepared in place'
+        }
+      }
 
       if (shouldReproject) {
         reprojected = true
@@ -123,91 +140,16 @@ export class RasterGdalPreprocessService {
             '-co',
             'BLOCKYSIZE=512',
             request.inputPath,
-            workingPath
+            request.outputPath
           ],
           { timeoutMs: GDAL_WARP_TIMEOUT_MS }
         )
-      } else {
-        await fs.copyFile(request.inputPath, workingPath)
-      }
-
-      const workingInfo = await this.readGdalInfo(workingPath)
-      const [width, height] = getRasterDimensions(workingInfo)
-      const overviewFactors = computeOverviewFactors(width, height)
-
-      if (overviewFactors.length > 0) {
+      } else if (!inPlaceOutput) {
         request.onProgress?.({
-          stage: 'overview',
-          progress: 64,
-          message: 'Building overview pyramid'
+          stage: 'translate',
+          progress: 46,
+          message: 'Normalizing GeoTIFF layout'
         })
-
-        try {
-          await this.gdalRunner.run(
-            'gdaladdo',
-            [
-              '--config',
-              'GDAL_NUM_THREADS',
-              threadCountString,
-              '-r',
-              'average',
-              workingPath,
-              ...overviewFactors.map((factor) => String(factor))
-            ],
-            { timeoutMs: GDAL_ADDO_TIMEOUT_MS }
-          )
-          builtOverviews = true
-        } catch (error) {
-          warning = appendWarning(
-            warning,
-            error instanceof Error
-              ? `Failed to build overviews: ${error.message}`
-              : 'Failed to build overviews'
-          )
-        }
-      }
-
-      request.onProgress?.({
-        stage: 'translate',
-        progress: 82,
-        message: 'Encoding optimized Cloud Optimized GeoTIFF'
-      })
-
-      await safeUnlink(request.outputPath)
-
-      try {
-        await this.gdalRunner.run(
-          'gdal_translate',
-          [
-            '-of',
-            'COG',
-            '-co',
-            'COMPRESS=DEFLATE',
-            '-co',
-            'BIGTIFF=IF_SAFER',
-            '-co',
-            `NUM_THREADS=${threadCountString}`,
-            '-co',
-            'BLOCKSIZE=512',
-            ...(builtOverviews ? ['-co', 'COPY_SRC_OVERVIEWS=YES'] : ['-co', 'OVERVIEWS=AUTO']),
-            '-co',
-            'RESAMPLING=BILINEAR',
-            workingPath,
-            request.outputPath
-          ],
-          { timeoutMs: GDAL_TRANSLATE_TIMEOUT_MS }
-        )
-        usedCogDriver = true
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'gdal_translate failed'
-        if (!isCogDriverUnavailable(message)) {
-          throw error
-        }
-
-        warning = appendWarning(
-          warning,
-          'COG driver is unavailable; created an optimized GeoTIFF fallback'
-        )
 
         await this.gdalRunner.run(
           'gdal_translate',
@@ -226,12 +168,76 @@ export class RasterGdalPreprocessService {
             'BLOCKXSIZE=512',
             '-co',
             'BLOCKYSIZE=512',
-            ...(builtOverviews ? ['-co', 'COPY_SRC_OVERVIEWS=YES'] : []),
-            workingPath,
+            request.inputPath,
             request.outputPath
           ],
           { timeoutMs: GDAL_TRANSLATE_TIMEOUT_MS }
         )
+      }
+
+      const targetInfo = inPlaceOutput ? sourceInfo : await this.readGdalInfo(request.outputPath)
+      const [width, height] = getRasterDimensions(targetInfo)
+      const overviewFactors = computeOverviewFactors(width, height)
+
+      if (overviewFactors.length > 0 && !(await hasNonEmptyFile(outputOverviewPath))) {
+        request.onProgress?.({
+          stage: 'overview',
+          progress: 64,
+          message: 'Building external overview pyramid'
+        })
+
+        try {
+          await this.gdalRunner.run(
+            'gdaladdo',
+            [
+              '--config',
+              'GDAL_NUM_THREADS',
+              threadCountString,
+              '--config',
+              'COMPRESS_OVERVIEW',
+              'DEFLATE',
+              '--config',
+              'BIGTIFF_OVERVIEW',
+              'IF_SAFER',
+              '-ro',
+              '-r',
+              'average',
+              request.outputPath,
+              ...overviewFactors.map((factor) => String(factor))
+            ],
+            { timeoutMs: GDAL_ADDO_TIMEOUT_MS }
+          )
+        } catch (error) {
+          warning = appendWarning(
+            warning,
+            error instanceof Error
+              ? `Failed to build overviews: ${error.message}`
+              : 'Failed to build overviews'
+          )
+        }
+      }
+
+      request.onProgress?.({
+        stage: 'translate',
+        progress: 82,
+        message: 'Computing raster statistics metadata'
+      })
+
+      if (!(await hasNonEmptyFile(outputAuxMetadataPath))) {
+        try {
+          await this.gdalRunner.run(
+            'gdalinfo',
+            ['--config', 'GDAL_PAM_ENABLED', 'YES', '-stats', request.outputPath],
+            { timeoutMs: GDAL_STATS_TIMEOUT_MS }
+          )
+        } catch (error) {
+          warning = appendWarning(
+            warning,
+            error instanceof Error
+              ? `Failed to compute auxiliary statistics metadata: ${error.message}`
+              : 'Failed to compute auxiliary statistics metadata'
+          )
+        }
       }
 
       return {
@@ -243,7 +249,11 @@ export class RasterGdalPreprocessService {
         warning
       }
     } catch (error) {
-      await safeUnlink(request.outputPath)
+      if (!inPlaceOutput) {
+        await safeUnlink(request.outputPath)
+        await safeUnlink(outputOverviewPath)
+        await safeUnlink(outputAuxMetadataPath)
+      }
       const message = error instanceof Error ? error.message : 'Unknown GDAL preprocessing failure'
 
       return {
@@ -254,8 +264,6 @@ export class RasterGdalPreprocessService {
         usedCogDriver,
         warning: appendWarning(warning, message)
       }
-    } finally {
-      await fs.rm(scratchDirectory, { recursive: true, force: true })
     }
   }
 
@@ -360,16 +368,25 @@ function resolveGdalThreadCount(): number {
   return DEFAULT_GDAL_THREAD_COUNT
 }
 
-function isCogDriverUnavailable(message: string): boolean {
-  return /driver.*cog|no driver.*cog|unknown output format.*cog/i.test(message)
-}
-
 function appendWarning(existing: string | undefined, next: string): string {
   if (!existing) {
     return next
   }
 
   return `${existing}; ${next}`
+}
+
+async function hasNonEmptyFile(path: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(path)
+    return stats.isFile() && stats.size > 0
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT') {
+      return false
+    }
+    throw error
+  }
 }
 
 async function safeUnlink(path: string): Promise<void> {

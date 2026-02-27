@@ -71,6 +71,7 @@ export interface LayerSourceOptions {
   minZoom?: number
   attribution?: string
   rasterAssetId?: string
+  rasterSourcePath?: string
   scheme?: 'xyz' | 'tms'
   bounds?: [number, number, number, number]
   buffer?: number

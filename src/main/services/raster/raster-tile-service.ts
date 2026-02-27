@@ -119,7 +119,6 @@ export class RasterTileService {
 
     const assetId = randomUUID()
     const destinationPath = this.getAssetPath(assetId)
-    const optimizedPath = this.getOptimizedAssetPath(assetId)
     const jobId = this.resolveJobId(request.jobId)
     const nowIso = new Date().toISOString()
     this.setProcessingStatus({
@@ -132,6 +131,8 @@ export class RasterTileService {
     })
 
     let materializedInput: MaterializedRasterInput | null = null
+    let usesSourcePath = false
+    let activePath = destinationPath
 
     try {
       this.updateProcessingStatus(jobId, {
@@ -148,12 +149,16 @@ export class RasterTileService {
       })
       await this.assertGeoTiffMagic(materializedInput.path)
 
+      usesSourcePath = !materializedInput.cleanupDirectory
+      activePath = usesSourcePath ? materializedInput.path : destinationPath
+
       this.updateProcessingStatus(jobId, {
         stage: 'preparing',
         progress: 20,
-        message: 'Staging raster source'
+        message: usesSourcePath
+          ? 'Preparing source raster metadata'
+          : 'Preparing canonical raster asset'
       })
-      await fs.copyFile(materializedInput.path, destinationPath)
 
       this.updateProcessingStatus(jobId, {
         stage: 'preprocessing',
@@ -164,8 +169,8 @@ export class RasterTileService {
 
       const preprocessResult = await this.preprocessService.preprocessGeoTiff({
         assetId,
-        inputPath: destinationPath,
-        outputPath: optimizedPath,
+        inputPath: materializedInput.path,
+        outputPath: activePath,
         onProgress: (update) => {
           this.updateProcessingStatus(jobId, {
             stage: 'preprocessing',
@@ -181,16 +186,17 @@ export class RasterTileService {
           preprocessResult.warning || 'GDAL optimization failed and no fallback pipeline is enabled'
         )
       }
+      const processingWarning = preprocessResult.warning
 
       this.updateProcessingStatus(jobId, {
         stage: 'loading',
         progress: 92,
-        message: 'Loading optimized raster context',
+        message: 'Loading raster context',
         processingEngine: 'gdal',
-        warning: preprocessResult.warning
+        warning: processingWarning
       })
-      const context = await this.loadAssetContext(assetId, optimizedPath)
-      this.assetActivePaths.set(assetId, optimizedPath)
+      const context = await this.loadAssetContext(assetId, activePath)
+      this.assetActivePaths.set(assetId, activePath)
       this.touchAssetContext(assetId, context)
       await this.enforceOpenAssetContextLimit(assetId)
 
@@ -198,9 +204,9 @@ export class RasterTileService {
         assetId,
         stage: 'ready',
         progress: 100,
-        message: 'Raster ready (GDAL optimized)',
+        message: 'Raster ready',
         processingEngine: 'gdal',
-        warning: preprocessResult.warning
+        warning: processingWarning
       })
 
       return {
@@ -215,11 +221,12 @@ export class RasterTileService {
         minZoom: context.minZoom,
         maxZoom: context.maxZoom,
         processingEngine: 'gdal',
-        processingWarning: preprocessResult.warning
+        processingWarning
       }
     } catch (error) {
-      await this.safeRemoveAssetFile(destinationPath)
-      await this.safeRemoveAssetFile(optimizedPath)
+      if (!usesSourcePath) {
+        await this.safeRemoveAssetArtifacts(destinationPath)
+      }
       this.assetActivePaths.delete(assetId)
       const message = error instanceof Error ? error.message : 'Failed to register GeoTIFF asset'
       this.updateProcessingStatus(jobId, {
@@ -234,6 +241,24 @@ export class RasterTileService {
       if (materializedInput) {
         await this.cleanupMaterializedInput(materializedInput)
       }
+    }
+  }
+
+  async bindGeoTiffAssetSourcePath(assetId: string, sourcePath: string): Promise<void> {
+    if (
+      !isValidAssetId(assetId) ||
+      typeof sourcePath !== 'string' ||
+      sourcePath.trim().length === 0
+    ) {
+      return
+    }
+
+    const resolvedPath = resolve(sourcePath)
+    try {
+      await fs.access(resolvedPath)
+      this.assetActivePaths.set(assetId, resolvedPath)
+    } catch {
+      // Ignore unavailable source paths. Rendering will fall back to managed asset lookup.
     }
   }
 
@@ -256,8 +281,7 @@ export class RasterTileService {
       }
     }
 
-    await this.removeAssetFileWithRetry(this.getOptimizedAssetPath(assetId))
-    await this.removeAssetFileWithRetry(this.getAssetPath(assetId))
+    await this.removeAssetArtifactsWithRetry(assetId)
     await this.gdalTileService.releaseAsset(assetId)
   }
 
@@ -339,12 +363,11 @@ export class RasterTileService {
         continue
       }
 
-      const match = /^([a-f0-9-]{36})(?:\.optimized)?\.tif$/i.exec(entry.name)
-      if (!match) {
+      const assetId = parseAssetIdFromRasterAssetFilename(entry.name)
+      if (!assetId) {
         continue
       }
 
-      const assetId = match[1]
       if (handledAssetIds.has(assetId)) {
         continue
       }
@@ -609,12 +632,12 @@ export class RasterTileService {
     return join(this.getAssetsDirectoryPath(), `${assetId}.tif`)
   }
 
-  private getOptimizedAssetPath(assetId: string): string {
-    if (!isValidAssetId(assetId)) {
-      throw new Error('Invalid raster asset id')
-    }
+  private getAssetOverviewPath(assetId: string): string {
+    return `${this.getAssetPath(assetId)}.ovr`
+  }
 
-    return join(this.getAssetsDirectoryPath(), `${assetId}.optimized.tif`)
+  private getAssetAuxMetadataPath(assetId: string): string {
+    return `${this.getAssetPath(assetId)}.aux.xml`
   }
 
   private createTransparentTile(): Buffer {
@@ -753,6 +776,26 @@ export class RasterTileService {
     }
   }
 
+  private async safeRemoveAssetArtifacts(mainAssetPath: string): Promise<void> {
+    const paths = [mainAssetPath, `${mainAssetPath}.ovr`, `${mainAssetPath}.aux.xml`]
+
+    for (const path of paths) {
+      await this.safeRemoveAssetFile(path)
+    }
+  }
+
+  private async removeAssetArtifactsWithRetry(assetId: string): Promise<void> {
+    const paths = [
+      this.getAssetPath(assetId),
+      this.getAssetOverviewPath(assetId),
+      this.getAssetAuxMetadataPath(assetId)
+    ]
+
+    for (const path of paths) {
+      await this.removeAssetFileWithRetry(path)
+    }
+  }
+
   private async removeAssetFileWithRetry(filePath: string): Promise<void> {
     try {
       await this.safeRemoveAssetFile(filePath)
@@ -796,6 +839,23 @@ export class RasterTileService {
       }
     }
   }
+}
+
+const RASTER_ASSET_FILENAME_SUFFIXES = new Set(['.tif', '.tif.ovr', '.tif.aux.xml'])
+
+function parseAssetIdFromRasterAssetFilename(filename: string): string | null {
+  const match = /^([a-f0-9-]{36})(\..+)$/i.exec(filename)
+  if (!match) {
+    return null
+  }
+
+  const assetId = match[1]
+  const suffix = match[2].toLowerCase()
+  if (!RASTER_ASSET_FILENAME_SUFFIXES.has(suffix)) {
+    return null
+  }
+
+  return assetId
 }
 
 function isGeoTiffMagic(header: Buffer): boolean {

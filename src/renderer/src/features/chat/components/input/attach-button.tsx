@@ -6,7 +6,7 @@
  */
 
 import React, { useRef, useState } from 'react'
-import { Paperclip, Upload, AlertCircle, CheckCircle } from 'lucide-react'
+import { Paperclip, Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useLayerStore } from '@/stores/layer-store'
@@ -201,7 +201,7 @@ export const AttachButton: React.FC<AttachButtonProps> = ({ disabled = false, cl
   const getButtonIcon = (): React.JSX.Element => {
     switch (uploadState) {
       case 'uploading':
-        return <Upload className="h-4 w-4 animate-pulse" />
+        return <Loader2 className="h-4 w-4 animate-spin" />
       case 'success':
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case 'error':

@@ -40,6 +40,7 @@ export class RasterProcessor {
       }
 
       const fileInfo = RasterMetadataExtractor.getFileTypeInfo(file)
+      const sourceFilePath = this.getElectronFilePath(file)
       let sourceConfig: LayerSourceConfig
       let bounds: [number, number, number, number] | undefined
       let geotiffAsset: RegisterGeoTiffAssetResult | null = null
@@ -58,7 +59,8 @@ export class RasterProcessor {
             minZoom: geotiffAsset.minZoom,
             maxZoom: geotiffAsset.maxZoom,
             bounds: geotiffAsset.bounds,
-            rasterAssetId: geotiffAsset.assetId
+            rasterAssetId: geotiffAsset.assetId,
+            rasterSourcePath: sourceFilePath || undefined
           }
         } as LayerSourceConfig
       } else {

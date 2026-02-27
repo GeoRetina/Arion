@@ -93,7 +93,7 @@ describe('raster-gdal-tile-service', () => {
     service.shutdown()
   })
 
-  it('reuses disk-cached tiles without invoking GDAL again', async () => {
+  it('does not persist rendered tiles to the on-disk cache', async () => {
     const cacheRoot = mkdtempSync(join(tmpdir(), 'arion-gdal-tile-test-'))
     cleanupPaths.push(cacheRoot)
     let runCalls = 0
@@ -130,7 +130,14 @@ describe('raster-gdal-tile-service', () => {
     const second = await service.renderTile(request)
     expect(first?.toString()).toBe('cached-tile')
     expect(second?.toString()).toBe('cached-tile')
-    expect(runCalls).toBe(1)
+    expect(runCalls).toBe(2)
+    await expect(
+      fs.access(
+        join(cacheRoot, request.assetId, `${request.z}`, `${request.x}`, `${request.y}.png`)
+      )
+    ).rejects.toMatchObject({
+      code: 'ENOENT'
+    })
     service.shutdown()
   })
 

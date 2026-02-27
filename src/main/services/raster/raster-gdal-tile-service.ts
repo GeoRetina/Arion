@@ -1,5 +1,5 @@
 import { promises as fs } from 'fs'
-import { cpus } from 'os'
+import { cpus, tmpdir } from 'os'
 import { join } from 'path'
 import { app } from 'electron'
 import type { BoundingBox, SupportedRasterCrs } from './raster-types'
@@ -84,22 +84,8 @@ export class RasterGdalTileService {
   }
 
   private async renderTileInternal(request: RasterGdalTileRenderRequest): Promise<Buffer> {
-    const tilePath = this.getTileCachePath(request)
     const warpInputPath = await this.resolveWarpInputPath(request)
-
-    try {
-      const cachedTile = await fs.readFile(tilePath)
-      if (cachedTile.length > 0) {
-        return cachedTile
-      }
-      return request.transparentTilePng
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code
-      if (code !== 'ENOENT') {
-        this.disableAsset(request.assetId, 'failed to read cached GDAL tile', error)
-        throw new Error('GDAL tile cache is unreadable for this asset')
-      }
-    }
+    const { tilePath, cleanupDirectory } = await this.createTemporaryTileOutputPath(request.assetId)
 
     const [minX, minY] = lonLatToWebMercator(request.mapBounds[0], request.mapBounds[1])
     const [maxX, maxY] = lonLatToWebMercator(request.mapBounds[2], request.mapBounds[3])
@@ -107,9 +93,6 @@ export class RasterGdalTileService {
     const threadCountString = String(threadCount)
 
     try {
-      await fs.mkdir(this.getTileDirectoryPath(request), { recursive: true })
-      await this.safeRemoveFile(tilePath)
-
       await this.gdalRunner.run(
         'gdalwarp',
         [
@@ -148,11 +131,12 @@ export class RasterGdalTileService {
 
       return request.transparentTilePng
     } catch (error) {
-      await this.safeRemoveFile(tilePath)
       this.disableAsset(request.assetId, 'failed to render GDAL tile', error)
       throw new Error(
         error instanceof Error ? error.message : 'GDAL tile rendering failed unexpectedly'
       )
+    } finally {
+      await this.safeRemoveDirectory(cleanupDirectory)
     }
   }
 
@@ -218,12 +202,14 @@ export class RasterGdalTileService {
     return `${request.assetId}:${request.z}:${request.x}:${request.y}`
   }
 
-  private getTileDirectoryPath(request: RasterGdalTileRenderRequest): string {
-    return join(this.getAssetCachePath(request.assetId), `${request.z}`, `${request.x}`)
-  }
-
-  private getTileCachePath(request: RasterGdalTileRenderRequest): string {
-    return join(this.getTileDirectoryPath(request), `${request.y}.png`)
+  private async createTemporaryTileOutputPath(
+    assetId: string
+  ): Promise<{ tilePath: string; cleanupDirectory: string }> {
+    const cleanupDirectory = await fs.mkdtemp(join(tmpdir(), `arion-gdal-tile-${assetId}-`))
+    return {
+      tilePath: join(cleanupDirectory, 'tile.png'),
+      cleanupDirectory
+    }
   }
 
   private getAssetCachePath(assetId: string): string {
