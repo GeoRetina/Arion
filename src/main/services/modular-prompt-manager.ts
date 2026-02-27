@@ -113,13 +113,15 @@ export class ModularPromptManager {
     try {
       const recentUserMessages = this.readStringArray(context?.recentUserMessages)
       const explicitSkillIds = this.readStringArray(context?.explicitSkillIds)
+      const disabledSkillIds = this.readStringArray(context?.disabledSkillIds)
       const workspaceRoot =
         typeof context?.workspaceRoot === 'string' ? context.workspaceRoot : undefined
 
       const skillSections = this.skillPackService.buildPromptSections({
         workspaceRoot,
         recentUserMessages,
-        explicitSkillIds
+        explicitSkillIds,
+        disabledSkillIds
       })
 
       const additions = [

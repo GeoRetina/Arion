@@ -23,6 +23,7 @@ export interface SkillPromptBuildOptions {
   workspaceRoot?: string
   recentUserMessages?: string[]
   explicitSkillIds?: string[]
+  disabledSkillIds?: string[]
 }
 
 export interface SkillPromptSections {
@@ -210,7 +211,13 @@ export class SkillPackService {
   }
 
   public buildPromptSections(options: SkillPromptBuildOptions = {}): SkillPromptSections {
-    const skills = this.listAvailableSkills({ workspaceRoot: options.workspaceRoot })
+    const allSkills = this.listAvailableSkills({ workspaceRoot: options.workspaceRoot })
+    const disabledSkillIds = new Set(
+      (options.disabledSkillIds || [])
+        .map((skillId) => this.normalizeSkillId(skillId))
+        .filter((skillId) => Boolean(skillId))
+    )
+    const skills = allSkills.filter((skill) => !disabledSkillIds.has(skill.id))
     const selectedSkills = this.selectSkills(
       skills,
       options.recentUserMessages || [],

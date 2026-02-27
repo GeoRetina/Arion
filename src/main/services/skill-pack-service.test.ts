@@ -169,6 +169,51 @@ description: Verify polygon coverage quality
     expect(sections.selectedInstructionSection).not.toContain('`$risk-audit`')
   })
 
+  it('omits disabled skills from prompt sections', () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-skill-disabled-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    writeSkill(
+      path.join(workspaceRoot, 'skills'),
+      'map-qc',
+      `---
+id: map-qc
+name: Map QC
+description: Validate map layer readiness
+---
+
+# Map QC
+`
+    )
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot
+    })
+
+    const sections = service.buildPromptSections({
+      workspaceRoot,
+      recentUserMessages: ['Please run $map-qc'],
+      disabledSkillIds: ['map-qc']
+    })
+
+    expect(sections.compactIndexSection).not.toContain('`$map-qc`')
+    expect(sections.selectedSkillIds).toEqual([])
+    expect(sections.selectedInstructionSection).toBe('')
+  })
+
   it('bootstraps workspace templates and keeps existing files untouched', () => {
     const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-skill-templates-'))
     tempRoots.push(testRoot)

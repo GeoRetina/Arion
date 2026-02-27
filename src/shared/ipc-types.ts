@@ -135,6 +135,7 @@ export type SkillPackSkillSource = 'workspace' | 'global' | 'managed' | 'bundled
 
 export interface SkillPackConfig {
   workspaceRoot?: string | null
+  disabledSkillIds?: string[]
 }
 
 export interface SkillPackInfo {

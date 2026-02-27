@@ -119,6 +119,35 @@ const normalizeStringArray = (values: string[]): string[] => {
   return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
 }
 
+const normalizeSkillId = (value: string): string => {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+const normalizeSkillIdArray = (values: unknown): string[] => {
+  if (!Array.isArray(values)) {
+    return []
+  }
+
+  const unique = new Set<string>()
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      continue
+    }
+    const normalized = normalizeSkillId(value)
+    if (!normalized || normalized === '.' || normalized === '..') {
+      continue
+    }
+    unique.add(normalized)
+  }
+
+  return Array.from(unique.values()).sort((a, b) => a.localeCompare(b))
+}
+
 const normalizePluginPlatformConfig = (config: PluginPlatformConfig): PluginPlatformConfig => {
   const normalizedWorkspaceRoot =
     typeof config.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
@@ -468,18 +497,28 @@ export function registerSettingsIpcHandlers(
       return await settingsService.getSkillPackConfig()
     } catch {
       return {
-        workspaceRoot: null
+        workspaceRoot: null,
+        disabledSkillIds: []
       } satisfies SkillPackConfig
     }
   })
 
   ipcMain.handle(IpcChannels.setSkillPackConfig, async (_event, config: SkillPackConfig) => {
     try {
+      const storedConfig = await settingsService.getSkillPackConfig()
       const safeConfig: SkillPackConfig = {
         workspaceRoot:
-          typeof config?.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0
-            ? config.workspaceRoot.trim()
-            : null
+          typeof config?.workspaceRoot === 'string'
+            ? config.workspaceRoot.trim().length > 0
+              ? config.workspaceRoot.trim()
+              : null
+            : typeof storedConfig.workspaceRoot === 'string' && storedConfig.workspaceRoot.trim().length > 0
+              ? storedConfig.workspaceRoot.trim()
+              : null,
+        disabledSkillIds:
+          config && 'disabledSkillIds' in config
+            ? normalizeSkillIdArray(config.disabledSkillIds)
+            : normalizeSkillIdArray(storedConfig.disabledSkillIds)
       }
 
       await settingsService.setSkillPackConfig(safeConfig)
