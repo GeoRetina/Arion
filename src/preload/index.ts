@@ -32,6 +32,15 @@ import {
   type SkillPackConfig,
   type SkillPackInfo,
   type SkillPackTemplateBootstrapResult,
+  type SkillPackManagedSkillContentResult,
+  type SkillPackManagedSkillDeleteResult,
+  type SkillPackManagedSkillUpdatePayload,
+  type SkillPackManagedSkillUpdateResult,
+  type SkillPackSkillContentResult,
+  type SkillPackSkillDeleteResult,
+  type SkillPackSkillTarget,
+  type SkillPackSkillUpdatePayload,
+  type SkillPackSkillUpdateResult,
   type SkillPackUploadPayload,
   type SkillPackUploadResult,
   type PluginPlatformConfig,
@@ -224,6 +233,20 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.bootstrapWorkspaceTemplates, workspaceRoot),
     uploadManagedSkill: (payload: SkillPackUploadPayload): Promise<SkillPackUploadResult> =>
       ipcRenderer.invoke(IpcChannels.uploadManagedSkill, payload),
+    getManagedSkillContent: (skillId: string): Promise<SkillPackManagedSkillContentResult> =>
+      ipcRenderer.invoke(IpcChannels.getManagedSkillContent, skillId),
+    updateManagedSkill: (
+      payload: SkillPackManagedSkillUpdatePayload
+    ): Promise<SkillPackManagedSkillUpdateResult> =>
+      ipcRenderer.invoke(IpcChannels.updateManagedSkill, payload),
+    deleteManagedSkill: (skillId: string): Promise<SkillPackManagedSkillDeleteResult> =>
+      ipcRenderer.invoke(IpcChannels.deleteManagedSkill, skillId),
+    getSkillContent: (target: SkillPackSkillTarget): Promise<SkillPackSkillContentResult> =>
+      ipcRenderer.invoke(IpcChannels.getSkillContent, target),
+    updateSkill: (payload: SkillPackSkillUpdatePayload): Promise<SkillPackSkillUpdateResult> =>
+      ipcRenderer.invoke(IpcChannels.updateSkill, payload),
+    deleteSkill: (target: SkillPackSkillTarget): Promise<SkillPackSkillDeleteResult> =>
+      ipcRenderer.invoke(IpcChannels.deleteSkill, target),
     getPluginPlatformConfig: (): Promise<PluginPlatformConfig> =>
       ipcRenderer.invoke(IpcChannels.getPluginPlatformConfig),
     setPluginPlatformConfig: (config: PluginPlatformConfig): Promise<void> =>

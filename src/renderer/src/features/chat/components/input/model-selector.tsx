@@ -1,5 +1,5 @@
 import React from 'react'
-import { Check, ChevronUp } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Arrow as PopoverArrow } from '@radix-ui/react-popover'
 import { Button } from '@/components/ui/button'
@@ -45,10 +45,10 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
-          className={`group h-8 px-2.5 rounded-md bg-secondary/50 hover:bg-secondary/70 flex items-center gap-2 transition-colors 
-            border-[1px] border-stone-300 dark:border-stone-600 hover:border-stone-400 dark:hover:border-stone-500
+          className={`group h-8 px-2.5 rounded-md bg-transparent hover:bg-secondary/50 flex items-center gap-2 transition-colors
+            border-0 shadow-none
             max-w-42
             ${activeProvider ? 'text-foreground' : 'text-muted-foreground'}`}
         >
@@ -71,7 +71,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
               <span className="text-xs">Select Model</span>
             </div>
           )}
-          <ChevronUp className="h-3 w-3 text-foreground/50 ml-1 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+          <ChevronDown className="h-3 w-3 text-foreground/50 ml-1" />
         </Button>
       </PopoverTrigger>
 

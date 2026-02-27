@@ -164,6 +164,52 @@ export interface SkillPackUploadResult {
   overwritten: boolean
 }
 
+export interface SkillPackManagedSkillContentResult {
+  id: string
+  sourcePath: string
+  content: string
+}
+
+export interface SkillPackManagedSkillUpdatePayload {
+  id: string
+  content: string
+}
+
+export interface SkillPackManagedSkillUpdateResult {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+}
+
+export interface SkillPackManagedSkillDeleteResult {
+  id: string
+  deleted: boolean
+}
+
+export interface SkillPackSkillTarget {
+  id: string
+  source: SkillPackSkillSource
+  sourcePath: string
+}
+
+export interface SkillPackSkillContentResult extends SkillPackSkillTarget {
+  content: string
+}
+
+export interface SkillPackSkillUpdatePayload extends SkillPackSkillTarget {
+  content: string
+}
+
+export interface SkillPackSkillUpdateResult extends SkillPackSkillTarget {
+  name: string
+  description: string
+}
+
+export interface SkillPackSkillDeleteResult extends SkillPackSkillTarget {
+  deleted: boolean
+}
+
 export type PluginSource = 'configured' | 'workspace' | 'global' | 'bundled'
 export type PluginRuntimeStatus = 'active' | 'disabled' | 'ignored' | 'error'
 export type PluginHookMode = 'modify' | 'observe'
@@ -306,6 +352,12 @@ export const IpcChannels = {
   listAvailableSkills: 'settings:list-available-skills',
   bootstrapWorkspaceTemplates: 'settings:bootstrap-workspace-templates',
   uploadManagedSkill: 'settings:upload-managed-skill',
+  getManagedSkillContent: 'settings:get-managed-skill-content',
+  updateManagedSkill: 'settings:update-managed-skill',
+  deleteManagedSkill: 'settings:delete-managed-skill',
+  getSkillContent: 'settings:get-skill-content',
+  updateSkill: 'settings:update-skill',
+  deleteSkill: 'settings:delete-skill',
   getPluginPlatformConfig: 'settings:get-plugin-platform-config',
   setPluginPlatformConfig: 'settings:set-plugin-platform-config',
   getPluginDiagnostics: 'settings:get-plugin-diagnostics',
@@ -470,6 +522,14 @@ export interface SettingsApi {
   listAvailableSkills: (workspaceRoot?: string) => Promise<SkillPackInfo[]>
   bootstrapWorkspaceTemplates: (workspaceRoot: string) => Promise<SkillPackTemplateBootstrapResult>
   uploadManagedSkill: (payload: SkillPackUploadPayload) => Promise<SkillPackUploadResult>
+  getManagedSkillContent: (skillId: string) => Promise<SkillPackManagedSkillContentResult>
+  updateManagedSkill: (
+    payload: SkillPackManagedSkillUpdatePayload
+  ) => Promise<SkillPackManagedSkillUpdateResult>
+  deleteManagedSkill: (skillId: string) => Promise<SkillPackManagedSkillDeleteResult>
+  getSkillContent: (target: SkillPackSkillTarget) => Promise<SkillPackSkillContentResult>
+  updateSkill: (payload: SkillPackSkillUpdatePayload) => Promise<SkillPackSkillUpdateResult>
+  deleteSkill: (target: SkillPackSkillTarget) => Promise<SkillPackSkillDeleteResult>
   getPluginPlatformConfig: () => Promise<PluginPlatformConfig>
   setPluginPlatformConfig: (config: PluginPlatformConfig) => Promise<void>
   getPluginDiagnostics: () => Promise<PluginDiagnosticsSnapshot>
