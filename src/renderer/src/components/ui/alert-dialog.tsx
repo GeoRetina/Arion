@@ -1,5 +1,6 @@
 import * as React from 'react'
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
+import type { VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
@@ -114,7 +115,7 @@ function AlertDialogAction({
   variant,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Action> & {
-  variant?: Parameters<typeof buttonVariants>[0]['variant']
+  variant?: VariantProps<typeof buttonVariants>['variant']
 }): React.JSX.Element {
   return (
     <AlertDialogPrimitive.Action

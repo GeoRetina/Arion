@@ -99,22 +99,20 @@ export function DocumentForm({
     setFormData((prev) => ({
       ...prev,
       name: prev.name || file.name.split('.').slice(0, -1).join('.') || file.name,
-      filePath: file.path, // Keep trying to get file.path
+      filePath: '',
       fileType: file.type,
       fileSize: file.size
     }))
 
-    if (!file.path) {
-      try {
-        const buffer = await file.arrayBuffer()
-        setFileBuffer(buffer)
-      } catch {
-        toast.error('Error Reading File', {
-          description: 'Could not read the file content. Please try again.'
-        })
-        setSelectedFile(null) // Clear selected file as we can't process it
-        return // Stop processing this file
-      }
+    try {
+      const buffer = await file.arrayBuffer()
+      setFileBuffer(buffer)
+    } catch {
+      toast.error('Error Reading File', {
+        description: 'Could not read the file content. Please try again.'
+      })
+      setSelectedFile(null) // Clear selected file as we can't process it
+      return // Stop processing this file
     }
 
     if (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
@@ -192,11 +190,9 @@ export function DocumentForm({
       }
 
       const documentIdForBackend = nanoid()
-      const actualFilePath = selectedFile?.path
-
-      if (!actualFilePath && !fileBuffer) {
+      if (!fileBuffer) {
         toast.error('File Error', {
-          description: 'Could not get file path or read file content. Please try again.'
+          description: 'Could not read file content. Please try again.'
         })
         setIsProcessing(false)
         return
@@ -211,8 +207,7 @@ export function DocumentForm({
             fileSize: selectedFile.size,
             folderId: formData.folderId || undefined,
             description: formData.description || undefined,
-            ...(actualFilePath && { filePath: actualFilePath }),
-            ...(fileBuffer && { fileBuffer: fileBuffer })
+            fileBuffer
           }
 
           const result = await window.ctg.knowledgeBase.addDocument(payload)

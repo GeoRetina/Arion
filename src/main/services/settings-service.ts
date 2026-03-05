@@ -6,14 +6,20 @@ import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import {
   OpenAIConfig,
+  OpenAIConfigForRenderer,
   GoogleConfig,
+  GoogleConfigForRenderer,
   AzureConfig,
+  AzureConfigForRenderer,
   AnthropicConfig,
+  AnthropicConfigForRenderer,
   VertexConfig,
+  VertexConfigForRenderer,
   OllamaConfig,
   EmbeddingConfig,
   LLMProviderType,
   AllLLMConfigurations,
+  AllLLMConfigurationsForRenderer,
   McpServerConfig,
   SystemPromptConfig,
   SkillPackConfig,
@@ -69,6 +75,11 @@ export class SettingsService {
 
   private async getApiKey(provider: LLMProviderType): Promise<string | null> {
     return keytar.getPassword(SERVICE_NAME, provider)
+  }
+
+  private async hasApiKey(provider: LLMProviderType): Promise<boolean> {
+    const apiKey = await this.getApiKey(provider)
+    return typeof apiKey === 'string' && apiKey.trim().length > 0
   }
 
   private async deleteApiKey(provider: LLMProviderType): Promise<boolean> {
@@ -266,6 +277,94 @@ export class SettingsService {
     return allConfigs
   }
 
+  async getOpenAIConfigForRenderer(): Promise<OpenAIConfigForRenderer | null> {
+    const storedConfig = await this.getStoredConfig('openai')
+    if (!storedConfig?.model) {
+      return null
+    }
+
+    return {
+      model: storedConfig.model,
+      hasApiKey: await this.hasApiKey('openai')
+    }
+  }
+
+  async getGoogleConfigForRenderer(): Promise<GoogleConfigForRenderer | null> {
+    const storedConfig = await this.getStoredConfig('google')
+    if (!storedConfig?.model) {
+      return null
+    }
+
+    return {
+      model: storedConfig.model,
+      hasApiKey: await this.hasApiKey('google')
+    }
+  }
+
+  async getAzureConfigForRenderer(): Promise<AzureConfigForRenderer | null> {
+    const storedConfig = await this.getStoredConfig('azure')
+    if (!storedConfig?.endpoint || !storedConfig.deploymentName) {
+      return null
+    }
+
+    return {
+      endpoint: storedConfig.endpoint,
+      deploymentName: storedConfig.deploymentName,
+      hasApiKey: await this.hasApiKey('azure')
+    }
+  }
+
+  async getAnthropicConfigForRenderer(): Promise<AnthropicConfigForRenderer | null> {
+    const storedConfig = await this.getStoredConfig('anthropic')
+    if (!storedConfig?.model) {
+      return null
+    }
+
+    return {
+      model: storedConfig.model,
+      hasApiKey: await this.hasApiKey('anthropic')
+    }
+  }
+
+  async getVertexConfigForRenderer(): Promise<VertexConfigForRenderer | null> {
+    const storedConfig = await this.getStoredConfig('vertex')
+    if (!storedConfig?.model && !storedConfig?.project && !storedConfig?.location) {
+      return null
+    }
+
+    return {
+      model: storedConfig?.model ?? null,
+      project: storedConfig?.project ?? null,
+      location: storedConfig?.location ?? null,
+      hasApiKey: await this.hasApiKey('vertex')
+    }
+  }
+
+  async getAllLLMConfigsForRenderer(): Promise<AllLLMConfigurationsForRenderer> {
+    const [openai, google, azure, anthropic, vertex, ollama, embedding, activeProvider] =
+      await Promise.all([
+        this.getOpenAIConfigForRenderer(),
+        this.getGoogleConfigForRenderer(),
+        this.getAzureConfigForRenderer(),
+        this.getAnthropicConfigForRenderer(),
+        this.getVertexConfigForRenderer(),
+        this.getOllamaConfig(),
+        this.getEmbeddingConfig(),
+        this.getActiveLLMProvider()
+      ])
+
+    return {
+      openai: openai || undefined,
+      google: google || undefined,
+      azure: azure || undefined,
+      anthropic: anthropic || undefined,
+      vertex: vertex || undefined,
+      ollama: ollama || undefined,
+      embedding,
+      activeProvider: activeProvider || null
+    }
+  }
+
   // --- MCP Server Configuration Management ---
   async getMcpServerConfigurations(): Promise<McpServerConfig[]> {
     try {
@@ -310,12 +409,21 @@ export class SettingsService {
         return null
       }
 
-      const fieldsToUpdate = Object.keys(updates) as Array<keyof Omit<McpServerConfig, 'id'>>
+      const updateColumnMap: Record<'name' | 'url' | 'command' | 'args' | 'enabled', string> = {
+        name: 'name',
+        url: 'url',
+        command: 'command',
+        args: 'args',
+        enabled: 'enabled'
+      }
+      const fieldsToUpdate = (
+        Object.keys(updates) as Array<keyof Omit<McpServerConfig, 'id'>>
+      ).filter((key): key is keyof typeof updateColumnMap => key in updateColumnMap)
       if (fieldsToUpdate.length === 0) {
         return mapMcpRowToConfig(current) // Return current if no actual updates
       }
 
-      const setClauses = fieldsToUpdate.map((key) => `${key} = ?`).join(', ')
+      const setClauses = fieldsToUpdate.map((key) => `${updateColumnMap[key]} = ?`).join(', ')
       const values = fieldsToUpdate.map((key) => {
         const value = updates[key]
         if (key === 'args' && value !== undefined) return JSON.stringify(value)

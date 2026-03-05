@@ -1,21 +1,21 @@
-process.stderr.write('[Preload Script] Preload script executing.\n')
-
-// REMOVED: throw new Error('[Preload Script] INTENTIONAL CRASH TO TEST EXECUTION')
-
 import { contextBridge, ipcRenderer } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 // Import IPC types from the shared directory
 import {
   IpcChannels,
   type OpenAIConfig,
+  type OpenAIConfigForRenderer,
   type GoogleConfig,
+  type GoogleConfigForRenderer,
   type AzureConfig,
+  type AzureConfigForRenderer,
   type AnthropicConfig,
+  type AnthropicConfigForRenderer,
   type VertexConfig,
+  type VertexConfigForRenderer,
   type OllamaConfig,
   type EmbeddingConfig,
   type LLMProviderType,
-  type AllLLMConfigurations,
+  type AllLLMConfigurationsForRenderer,
   type McpServerConfig,
   type McpServerTestResult,
   type SettingsApi,
@@ -65,6 +65,7 @@ import {
   type IntegrationsApi,
   type IntegrationId,
   type IntegrationConfigMap,
+  type IntegrationConfigForRendererMap,
   type IntegrationStateRecord,
   type IntegrationHealthCheckResult,
   type IntegrationDisconnectResult,
@@ -174,23 +175,23 @@ const ctgApi = {
     },
     setOpenAIConfig: (config: OpenAIConfig): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setOpenAIConfig, config),
-    getOpenAIConfig: (): Promise<OpenAIConfig | null> =>
+    getOpenAIConfig: (): Promise<OpenAIConfigForRenderer | null> =>
       ipcRenderer.invoke(IpcChannels.getOpenAIConfig),
     setGoogleConfig: (config: GoogleConfig): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setGoogleConfig, config),
-    getGoogleConfig: (): Promise<GoogleConfig | null> =>
+    getGoogleConfig: (): Promise<GoogleConfigForRenderer | null> =>
       ipcRenderer.invoke(IpcChannels.getGoogleConfig),
     setAzureConfig: (config: AzureConfig): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setAzureConfig, config),
-    getAzureConfig: (): Promise<AzureConfig | null> =>
+    getAzureConfig: (): Promise<AzureConfigForRenderer | null> =>
       ipcRenderer.invoke(IpcChannels.getAzureConfig),
     setAnthropicConfig: (config: AnthropicConfig): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setAnthropicConfig, config),
-    getAnthropicConfig: (): Promise<AnthropicConfig | null> =>
+    getAnthropicConfig: (): Promise<AnthropicConfigForRenderer | null> =>
       ipcRenderer.invoke(IpcChannels.getAnthropicConfig),
     setVertexConfig: (config: VertexConfig): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setVertexConfig, config),
-    getVertexConfig: (): Promise<VertexConfig | null> =>
+    getVertexConfig: (): Promise<VertexConfigForRenderer | null> =>
       ipcRenderer.invoke(IpcChannels.getVertexConfig),
     setOllamaConfig: (config: OllamaConfig): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.setOllamaConfig, config),
@@ -204,7 +205,7 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.setActiveLLMProvider, provider),
     getActiveLLMProvider: (): Promise<LLMProviderType | null> =>
       ipcRenderer.invoke(IpcChannels.getActiveLLMProvider),
-    getAllLLMConfigs: (): Promise<AllLLMConfigurations> =>
+    getAllLLMConfigs: (): Promise<AllLLMConfigurationsForRenderer> =>
       ipcRenderer.invoke(IpcChannels.getAllLLMConfigs),
     getMcpServerConfigs: (): Promise<McpServerConfig[]> =>
       ipcRenderer.invoke(IpcChannels.getMcpServerConfigs),
@@ -577,7 +578,9 @@ const ctgApi = {
   integrations: {
     getStates: (): Promise<IntegrationStateRecord[]> =>
       ipcRenderer.invoke(IpcChannels.integrationsGetStates),
-    getConfig: <T extends IntegrationId>(id: T): Promise<IntegrationConfigMap[T] | null> =>
+    getConfig: <T extends IntegrationId>(
+      id: T
+    ): Promise<IntegrationConfigForRendererMap[T] | null> =>
       ipcRenderer.invoke(IpcChannels.integrationsGetConfig, id),
     saveConfig: <T extends IntegrationId>(id: T, config: IntegrationConfigMap[T]): Promise<void> =>
       ipcRenderer.invoke(IpcChannels.integrationsSaveConfig, id, config),
@@ -663,14 +666,12 @@ const ctgApi = {
       ipcRenderer.invoke('layers:getGeoTiffAssetStatus', jobId),
     releaseGeoTiffAsset: (assetId: string): Promise<boolean> =>
       ipcRenderer.invoke('layers:releaseGeoTiffAsset', assetId),
+    updateRuntimeSnapshot: (layers: unknown[]): Promise<boolean> =>
+      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers),
 
     // Backward-compatible alias. Prefer registerGeoTiffAsset.
     processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) =>
-      ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName),
-
-    // Generic invoke method for additional operations
-    invoke: (channel: string, ...args: unknown[]): Promise<unknown> =>
-      ipcRenderer.invoke(channel, ...args)
+      ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName)
   } as LayerApi,
   // Agent API for managing agents
   agents: {
@@ -797,23 +798,12 @@ const ctgApi = {
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
 if (process.contextIsolated) {
-  process.stderr.write('[Preload Script] Context isolation is ON. STDERR WRITE\n')
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    process.stderr.write(
-      '[Preload Script] Attempting to expose ctg API via contextBridge. STDERR WRITE\n'
-    )
     contextBridge.exposeInMainWorld('ctg', ctgApi)
-    process.stderr.write('[Preload Script] ctg API exposure call completed. STDERR WRITE\n')
   } catch (error) {
-    process.stderr.write(`[Preload Script] Error exposing API: ${error}\n`)
+    console.error('[Preload Script] Error exposing API:', error)
   }
 } else {
-  process.stderr.write(
-    '[Preload Script] Context isolation is OFF. APIs will be exposed on global window directly. STDERR WRITE\n'
-  )
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.ctg = ctgApi
 }

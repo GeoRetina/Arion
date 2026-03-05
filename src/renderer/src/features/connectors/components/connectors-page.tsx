@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  type IntegrationConfig as SharedIntegrationConfig,
+  type IntegrationConfigForRendererMap,
   type IntegrationConfigMap,
   type IntegrationHealthCheckResult,
   type IntegrationId,
@@ -129,13 +129,19 @@ const ConnectorsPage: React.FC = () => {
       const states = await window.ctg.integrations.getStates()
       const stateById = new Map(states.map((state) => [state.id, state]))
 
-      const resolvedConfigs = new Map<IntegrationId, SharedIntegrationConfig | null>()
+      const resolvedConfigs = new Map<
+        IntegrationId,
+        IntegrationConfigForRendererMap[IntegrationId] | null
+      >()
       await Promise.all(
         states
           .filter((state) => state.hasConfig)
           .map(async (state) => {
             const config = await window.ctg.integrations.getConfig(state.id)
-            resolvedConfigs.set(state.id, (config as SharedIntegrationConfig | null) || null)
+            resolvedConfigs.set(
+              state.id,
+              (config as IntegrationConfigForRendererMap[IntegrationId] | null) || null
+            )
           })
       )
 
@@ -144,8 +150,12 @@ const ConnectorsPage: React.FC = () => {
         const storedConfig = resolvedConfigs.get(definition.integration.id)
         const fallbackConfig =
           storedConfig ||
-          (definition.integration.connectionSettings as SharedIntegrationConfig | null) ||
-          (definition.defaultConnectionSettings as unknown as SharedIntegrationConfig | null) ||
+          (definition.integration.connectionSettings as
+            | IntegrationConfigForRendererMap[IntegrationId]
+            | null) ||
+          (definition.defaultConnectionSettings as unknown as
+            | IntegrationConfigForRendererMap[IntegrationId]
+            | null) ||
           null
 
         return {
@@ -381,7 +391,6 @@ const ConnectorsPage: React.FC = () => {
                       const isSuccess = log.outcome === 'success'
                       const isError = log.outcome === 'error'
                       const isDenied = log.outcome === 'policy_denied'
-                      const isTimeout = log.outcome === 'timeout'
 
                       const OutcomeIcon = isSuccess
                         ? CheckCircle2

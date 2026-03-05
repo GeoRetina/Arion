@@ -47,9 +47,19 @@ export interface OpenAIConfig {
   model: string
 }
 
+export interface OpenAIConfigForRenderer {
+  model: string
+  hasApiKey: boolean
+}
+
 export interface GoogleConfig {
   apiKey: string
   model: string
+}
+
+export interface GoogleConfigForRenderer {
+  model: string
+  hasApiKey: boolean
 }
 
 export interface AzureConfig {
@@ -58,9 +68,20 @@ export interface AzureConfig {
   deploymentName: string
 }
 
+export interface AzureConfigForRenderer {
+  endpoint: string
+  deploymentName: string
+  hasApiKey: boolean
+}
+
 export interface AnthropicConfig {
   apiKey: string
   model: string
+}
+
+export interface AnthropicConfigForRenderer {
+  model: string
+  hasApiKey: boolean
 }
 
 export interface VertexConfig {
@@ -70,12 +91,24 @@ export interface VertexConfig {
   model?: string | null
 }
 
+export interface VertexConfigForRenderer {
+  project?: string | null
+  location?: string | null
+  model?: string | null
+  hasApiKey: boolean
+}
+
 export interface OllamaConfig {
   baseURL?: string | null
   model?: string | null
 }
 
 export interface EmbeddingConfig {
+  provider: EmbeddingProviderType
+  model: string
+}
+
+export interface EmbeddingConfigForRenderer {
   provider: EmbeddingProviderType
   model: string
 }
@@ -124,6 +157,17 @@ export interface AllLLMConfigurations {
   vertex?: VertexConfig
   ollama?: OllamaConfig
   embedding?: EmbeddingConfig
+  activeProvider?: LLMProviderType | null
+}
+
+export interface AllLLMConfigurationsForRenderer {
+  openai?: OpenAIConfigForRenderer
+  google?: GoogleConfigForRenderer
+  azure?: AzureConfigForRenderer
+  anthropic?: AnthropicConfigForRenderer
+  vertex?: VertexConfigForRenderer
+  ollama?: OllamaConfig
+  embedding?: EmbeddingConfigForRenderer
   activeProvider?: LLMProviderType | null
 }
 
@@ -504,22 +548,22 @@ export interface McpPermissionRequest {
 // Type for the API exposed by preload script
 export interface SettingsApi {
   setOpenAIConfig: (config: OpenAIConfig) => Promise<void>
-  getOpenAIConfig: () => Promise<OpenAIConfig | null>
+  getOpenAIConfig: () => Promise<OpenAIConfigForRenderer | null>
   setGoogleConfig: (config: GoogleConfig) => Promise<void>
-  getGoogleConfig: () => Promise<GoogleConfig | null>
+  getGoogleConfig: () => Promise<GoogleConfigForRenderer | null>
   setAzureConfig: (config: AzureConfig) => Promise<void>
-  getAzureConfig: () => Promise<AzureConfig | null>
+  getAzureConfig: () => Promise<AzureConfigForRenderer | null>
   setAnthropicConfig: (config: AnthropicConfig) => Promise<void>
-  getAnthropicConfig: () => Promise<AnthropicConfig | null>
+  getAnthropicConfig: () => Promise<AnthropicConfigForRenderer | null>
   setVertexConfig: (config: VertexConfig) => Promise<void>
-  getVertexConfig: () => Promise<VertexConfig | null>
+  getVertexConfig: () => Promise<VertexConfigForRenderer | null>
   setOllamaConfig: (config: OllamaConfig) => Promise<void>
   getOllamaConfig: () => Promise<OllamaConfig | null>
   setEmbeddingConfig: (config: EmbeddingConfig) => Promise<void>
   getEmbeddingConfig: () => Promise<EmbeddingConfig>
   setActiveLLMProvider: (provider: LLMProviderType | null) => Promise<void>
   getActiveLLMProvider: () => Promise<LLMProviderType | null>
-  getAllLLMConfigs: () => Promise<AllLLMConfigurations>
+  getAllLLMConfigs: () => Promise<AllLLMConfigurationsForRenderer>
 
   // MCP Server Config methods
   getMcpServerConfigs: () => Promise<McpServerConfig[]>
@@ -747,8 +791,7 @@ export interface KBAddDocumentPayload {
   documentId: string
   fileType: string
   originalName: string // This comes from formData.name in the UI
-  filePath?: string // For file system access
-  fileBuffer?: ArrayBuffer // For drag-drop or when path is unavailable
+  fileBuffer: ArrayBuffer
   fileSize?: number // Add fileSize
   folderId?: string // Add folderId (optional)
   description?: string // Add description (optional)
@@ -913,6 +956,15 @@ export interface PostgreSQLConfig {
   ssl: boolean
 }
 
+export interface PostgreSQLConfigForRenderer {
+  host: string
+  port: number
+  database: string
+  username: string
+  ssl: boolean
+  hasPassword: boolean
+}
+
 export interface PostgreSQLConnectionResult {
   success: boolean
   version?: string
@@ -939,7 +991,7 @@ export interface PostgreSQLQueryResult {
 
 export interface PostgreSQLConnectionInfo {
   connected: boolean
-  config?: PostgreSQLConfig
+  config?: PostgreSQLConfigForRenderer
 }
 
 export const SUPPORTED_INTEGRATION_IDS = [
@@ -1015,6 +1067,34 @@ export interface IntegrationConfigMap {
   wmts: WmtsIntegrationConfig
   s3: S3IntegrationConfig
   'google-earth-engine': GoogleEarthEngineIntegrationConfig
+}
+
+export interface S3IntegrationConfigForRenderer {
+  bucket: string
+  region: string
+  endpoint?: string
+  forcePathStyle?: boolean
+  timeoutMs?: number
+  hasAccessKeyId: boolean
+  hasSecretAccessKey: boolean
+  hasSessionToken: boolean
+}
+
+export interface GoogleEarthEngineIntegrationConfigForRenderer {
+  projectId: string
+  timeoutMs?: number
+  hasServiceAccountJson: boolean
+}
+
+export interface IntegrationConfigForRendererMap {
+  'postgresql-postgis': PostgreSQLConfigForRenderer
+  stac: StacIntegrationConfig
+  cog: CogIntegrationConfig
+  pmtiles: PmtilesIntegrationConfig
+  wms: WmsIntegrationConfig
+  wmts: WmtsIntegrationConfig
+  s3: S3IntegrationConfigForRenderer
+  'google-earth-engine': GoogleEarthEngineIntegrationConfigForRenderer
 }
 
 export type IntegrationConfig = IntegrationConfigMap[IntegrationId]
@@ -1121,8 +1201,7 @@ export interface ConnectorApprovalGrantResult {
 
 export interface RegisterGeoTiffAssetRequest {
   fileName: string
-  filePath?: string
-  fileBuffer?: ArrayBuffer
+  fileBuffer: ArrayBuffer
   jobId?: string
 }
 
@@ -1227,12 +1306,10 @@ export interface LayerApi {
   ) => Promise<RegisterGeoTiffAssetResult>
   getGeoTiffAssetStatus: (jobId: string) => Promise<GeoTiffAssetProcessingStatus | null>
   releaseGeoTiffAsset: (assetId: string) => Promise<boolean>
+  updateRuntimeSnapshot: (layers: unknown[]) => Promise<boolean>
 
   // Backward-compatible alias. Prefer registerGeoTiffAsset.
   processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) => Promise<RegisterGeoTiffAssetResult>
-
-  // Generic invoke method for additional operations
-  invoke: (channel: string, ...args: unknown[]) => Promise<unknown>
 }
 
 // PostgreSQL API for preload script
@@ -1248,7 +1325,7 @@ export interface PostgreSQLApi {
 
 export interface IntegrationsApi {
   getStates: () => Promise<IntegrationStateRecord[]>
-  getConfig: <T extends IntegrationId>(id: T) => Promise<IntegrationConfigMap[T] | null>
+  getConfig: <T extends IntegrationId>(id: T) => Promise<IntegrationConfigForRendererMap[T] | null>
   saveConfig: <T extends IntegrationId>(id: T, config: IntegrationConfigMap[T]) => Promise<void>
   testConnection: <T extends IntegrationId>(
     id: T,

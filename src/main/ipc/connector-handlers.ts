@@ -44,7 +44,7 @@ export function registerConnectorIpcHandlers(
   ipcMain.handle(IpcChannels.integrationsGetConfig, async (_event, rawId: string) => {
     try {
       const id = connectorHubService.validateIntegrationId(rawId)
-      return await connectorHubService.getConfig(id)
+      return await connectorHubService.getConfigForRenderer(id)
     } catch (error) {
       console.error('[IPC integrationsGetConfig] Failed to fetch integration config:', error)
       return null

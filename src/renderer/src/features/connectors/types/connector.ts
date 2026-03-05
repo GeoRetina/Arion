@@ -1,8 +1,13 @@
 import type {
-  IntegrationConfig as SharedIntegrationConfig,
+  IntegrationConfigForRendererMap,
+  IntegrationConfigMap,
   IntegrationId,
   IntegrationStatus
 } from '../../../../../shared/ipc-types'
+
+type SharedIntegrationConfig =
+  | IntegrationConfigForRendererMap[IntegrationId]
+  | IntegrationConfigMap[IntegrationId]
 
 export type IntegrationType = 'api' | 'cloud' | 'database' | 'cloud-platform'
 

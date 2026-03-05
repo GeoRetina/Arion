@@ -13,6 +13,7 @@ import { createDiagnostic } from './plugin-diagnostic-utils'
 import { PluginHookRunner } from './plugin-hook-runner'
 import { PluginManifestService } from './plugin-manifest-service'
 import { PluginPolicyService } from './plugin-policy-service'
+import { isNetworkPath } from '../../security/path-security'
 import type {
   PluginActivationContext,
   PluginActivationResult,
@@ -217,14 +218,17 @@ export class PluginLoaderService {
 
   private async resolveWorkspaceRoot(config: PluginPlatformConfig): Promise<string> {
     if (typeof config.workspaceRoot === 'string' && config.workspaceRoot.trim().length > 0) {
-      return path.resolve(config.workspaceRoot)
+      if (!isNetworkPath(config.workspaceRoot)) {
+        return path.resolve(config.workspaceRoot)
+      }
     }
 
     try {
       const skillPackConfig = await this.settingsService.getSkillPackConfig()
       if (
         typeof skillPackConfig.workspaceRoot === 'string' &&
-        skillPackConfig.workspaceRoot.trim().length > 0
+        skillPackConfig.workspaceRoot.trim().length > 0 &&
+        !isNetworkPath(skillPackConfig.workspaceRoot)
       ) {
         return path.resolve(skillPackConfig.workspaceRoot)
       }
@@ -244,11 +248,13 @@ export class PluginLoaderService {
     const resourcesPath = this.environment.getResourcesPath()
     const cwd = this.environment.getCwd()
 
-    const configuredRoots = config.configuredPluginPaths.map((configuredPath) => ({
-      source: 'configured' as const,
-      dir: path.resolve(configuredPath),
-      precedence: 400
-    }))
+    const configuredRoots = config.configuredPluginPaths
+      .filter((configuredPath) => !isNetworkPath(configuredPath))
+      .map((configuredPath) => ({
+        source: 'configured' as const,
+        dir: path.resolve(configuredPath),
+        precedence: 400
+      }))
 
     const unorderedRoots: Omit<PluginDiscoveryRoot, 'order'>[] = [
       ...configuredRoots,

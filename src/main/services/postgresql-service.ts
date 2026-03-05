@@ -2,6 +2,7 @@ import { Pool, PoolClient, QueryResult } from 'pg'
 import * as keytar from 'keytar'
 import {
   PostgreSQLConfig,
+  PostgreSQLConfigForRenderer,
   PostgreSQLConnectionResult,
   PostgreSQLQueryResult
 } from '../../shared/ipc-types'
@@ -248,6 +249,29 @@ export class PostgreSQLService {
       }
     } catch {
       return { connected: false }
+    }
+  }
+
+  async getConnectionInfoForRenderer(
+    id: string
+  ): Promise<{ connected: boolean; config?: PostgreSQLConfigForRenderer }> {
+    const connectionInfo = await this.getConnectionInfo(id)
+    if (!connectionInfo.connected || !connectionInfo.config) {
+      return { connected: false }
+    }
+
+    return {
+      connected: true,
+      config: {
+        host: connectionInfo.config.host,
+        port: connectionInfo.config.port,
+        database: connectionInfo.config.database,
+        username: connectionInfo.config.username,
+        ssl: connectionInfo.config.ssl,
+        hasPassword:
+          typeof connectionInfo.config.password === 'string' &&
+          connectionInfo.config.password.trim().length > 0
+      }
     }
   }
 

@@ -7,6 +7,22 @@ import {
   PostgreSQLConnectionInfo
 } from '../../shared/ipc-types'
 import { type PostgreSQLService } from '../services/postgresql-service'
+import { z } from 'zod'
+
+const connectionIdSchema = z.string().trim().min(1).max(256)
+const postgresqlConfigSchema = z
+  .object({
+    host: z.string().trim().min(1).max(512),
+    port: z.number().int().min(1).max(65535),
+    database: z.string().trim().min(1).max(512),
+    username: z.string().trim().min(1).max(512),
+    password: z.string().trim().min(1).max(4096),
+    ssl: z.boolean()
+  })
+  .strict()
+const querySchema = z.string().trim().min(1).max(1_000_000)
+const queryParamsSchema = z.array(z.unknown()).max(10_000).optional()
+const transactionQueriesSchema = z.array(querySchema).min(1).max(1_000)
 
 export function registerPostgreSQLIpcHandlers(
   ipcMain: IpcMain,
@@ -17,7 +33,8 @@ export function registerPostgreSQLIpcHandlers(
     IpcChannels.postgresqlTestConnection,
     async (_event, config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> => {
       try {
-        return await postgresqlService.testConnection(config)
+        const parsedConfig = postgresqlConfigSchema.parse(config)
+        return await postgresqlService.testConnection(parsedConfig)
       } catch (error) {
         return {
           success: false,
@@ -32,7 +49,9 @@ export function registerPostgreSQLIpcHandlers(
     IpcChannels.postgresqlCreateConnection,
     async (_event, id: string, config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> => {
       try {
-        return await postgresqlService.createConnection(id, config)
+        const parsedId = connectionIdSchema.parse(id)
+        const parsedConfig = postgresqlConfigSchema.parse(config)
+        return await postgresqlService.createConnection(parsedId, parsedConfig)
       } catch (error) {
         return {
           success: false,
@@ -48,7 +67,8 @@ export function registerPostgreSQLIpcHandlers(
     IpcChannels.postgresqlCloseConnection,
     async (_event, id: string): Promise<void> => {
       try {
-        await postgresqlService.closeConnection(id)
+        const parsedId = connectionIdSchema.parse(id)
+        await postgresqlService.closeConnection(parsedId)
       } catch {
         // Don't throw here as this is cleanup
       }
@@ -65,7 +85,10 @@ export function registerPostgreSQLIpcHandlers(
       params?: unknown[]
     ): Promise<PostgreSQLQueryResult> => {
       try {
-        return await postgresqlService.executeQuery(id, query, params)
+        const parsedId = connectionIdSchema.parse(id)
+        const parsedQuery = querySchema.parse(query)
+        const parsedParams = queryParamsSchema.parse(params)
+        return await postgresqlService.executeQuery(parsedId, parsedQuery, parsedParams)
       } catch (error) {
         return {
           success: false,
@@ -80,7 +103,9 @@ export function registerPostgreSQLIpcHandlers(
     IpcChannels.postgresqlExecuteTransaction,
     async (_event, id: string, queries: string[]): Promise<PostgreSQLQueryResult> => {
       try {
-        return await postgresqlService.executeTransaction(id, queries)
+        const parsedId = connectionIdSchema.parse(id)
+        const parsedQueries = transactionQueriesSchema.parse(queries)
+        return await postgresqlService.executeTransaction(parsedId, parsedQueries)
       } catch (error) {
         return {
           success: false,
@@ -105,7 +130,8 @@ export function registerPostgreSQLIpcHandlers(
     IpcChannels.postgresqlGetConnectionInfo,
     async (_event, id: string): Promise<PostgreSQLConnectionInfo> => {
       try {
-        return await postgresqlService.getConnectionInfo(id)
+        const parsedId = connectionIdSchema.parse(id)
+        return await postgresqlService.getConnectionInfoForRenderer(parsedId)
       } catch {
         return { connected: false }
       }

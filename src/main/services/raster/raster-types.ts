@@ -28,8 +28,7 @@ export interface GeoTiffAssetProcessingStatus {
 
 export interface RegisterGeoTiffAssetRequest {
   fileName: string
-  filePath?: string
-  fileBuffer?: ArrayBuffer
+  fileBuffer: ArrayBuffer
   jobId?: string
 }
 

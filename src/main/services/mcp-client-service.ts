@@ -9,6 +9,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { SettingsService } from './settings-service'
 import { McpServerConfig, McpServerTestResult } from '../../shared/ipc-types'
+import { ensureLocalCommandOrExecutable } from '../security/path-security'
 
 // Interface for a discovered MCP tool
 export interface DiscoveredMcpTool extends Tool {
@@ -56,8 +57,9 @@ export class MCPClientService {
     config: Pick<McpServerConfig, 'command' | 'args' | 'url'>
   ): StdioClientTransport | SSEClientTransport | null {
     if (config.command) {
+      const safeCommand = ensureLocalCommandOrExecutable(config.command)
       return new StdioClientTransport({
-        command: config.command,
+        command: safeCommand,
         args: config.args || []
       })
     }

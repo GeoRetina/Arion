@@ -17,6 +17,7 @@ import {
 } from './raster-coordinate-utils'
 import { getRasterGdalTileService } from './raster-gdal-tile-service'
 import { getRasterGdalPreprocessService } from './raster-gdal-preprocess-service'
+import { isPathInsideDirectory } from '../../security/path-security'
 import type {
   BoundingBox,
   GeoTiffAssetProcessingStatus,
@@ -254,6 +255,10 @@ export class RasterTileService {
     }
 
     const resolvedPath = resolve(sourcePath)
+    if (!isPathInsideDirectory(resolvedPath, this.getAssetsDirectoryPath())) {
+      return
+    }
+
     try {
       await fs.access(resolvedPath)
       this.assetActivePaths.set(assetId, resolvedPath)
@@ -518,27 +523,18 @@ export class RasterTileService {
     request: RegisterGeoTiffAssetRequest,
     assetId: string
   ): Promise<MaterializedRasterInput> {
-    if (request.filePath) {
-      const sourcePath = resolve(request.filePath)
-      await fs.access(sourcePath)
-      return {
-        path: sourcePath,
-        cleanupDirectory: null
-      }
+    if (!(request.fileBuffer instanceof ArrayBuffer)) {
+      throw new Error('GeoTIFF registration requires fileBuffer')
     }
 
-    if (request.fileBuffer) {
-      const scratchDirectory = await fs.mkdtemp(join(tmpdir(), `arion-raster-input-${assetId}-`))
-      const scratchFilePath = join(scratchDirectory, `${assetId}.tif`)
-      await fs.writeFile(scratchFilePath, Buffer.from(request.fileBuffer))
+    const scratchDirectory = await fs.mkdtemp(join(tmpdir(), `arion-raster-input-${assetId}-`))
+    const scratchFilePath = join(scratchDirectory, `${assetId}.tif`)
+    await fs.writeFile(scratchFilePath, Buffer.from(request.fileBuffer))
 
-      return {
-        path: scratchFilePath,
-        cleanupDirectory: scratchDirectory
-      }
+    return {
+      path: scratchFilePath,
+      cleanupDirectory: scratchDirectory
     }
-
-    throw new Error('GeoTIFF registration requires either filePath or fileBuffer')
   }
 
   private async cleanupMaterializedInput(input: MaterializedRasterInput): Promise<void> {

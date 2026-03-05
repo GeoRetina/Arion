@@ -8,6 +8,24 @@ import {
   WorkspaceMemoryForClient
 } from '../../shared/ipc-types' // Assuming this path is correct
 import { KnowledgeBaseService } from '../services/knowledge-base-service'
+import { z } from 'zod'
+
+const kbAddDocumentPayloadSchema = z
+  .object({
+    documentId: z.string().trim().min(1).max(128),
+    fileType: z.string().trim().min(1).max(256),
+    originalName: z.string().trim().min(1).max(512),
+    fileBuffer: z.instanceof(ArrayBuffer),
+    fileSize: z
+      .number()
+      .int()
+      .min(0)
+      .max(512 * 1024 * 1024)
+      .optional(),
+    folderId: z.string().trim().min(1).max(128).optional(),
+    description: z.string().trim().max(5000).optional()
+  })
+  .strict()
 
 export function registerKnowledgeBaseIpcHandlers(
   ipcMain: IpcMain,
@@ -26,10 +44,13 @@ export function registerKnowledgeBaseIpcHandlers(
         }
       }
       try {
+        const parsedPayload = kbAddDocumentPayloadSchema.parse(
+          payload
+        ) satisfies KBAddDocumentPayload
         // kbService.addDocumentFromFile now directly returns the KnowledgeBaseDocumentForClient object
         // and handles all database operations internally (PGlite transaction for metadata and chunks).
         const documentFromKbService: KnowledgeBaseDocumentForClient =
-          await kbService.addDocumentFromFile(payload)
+          await kbService.addDocumentFromFile(parsedPayload)
 
         // No more interaction with dbService here for document metadata.
         // The documentFromKbService is the source of truth.

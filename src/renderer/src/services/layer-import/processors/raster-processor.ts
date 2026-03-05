@@ -40,7 +40,6 @@ export class RasterProcessor {
       }
 
       const fileInfo = RasterMetadataExtractor.getFileTypeInfo(file)
-      const sourceFilePath = this.getElectronFilePath(file)
       let sourceConfig: LayerSourceConfig
       let bounds: [number, number, number, number] | undefined
       let geotiffAsset: RegisterGeoTiffAssetResult | null = null
@@ -59,8 +58,7 @@ export class RasterProcessor {
             minZoom: geotiffAsset.minZoom,
             maxZoom: geotiffAsset.maxZoom,
             bounds: geotiffAsset.bounds,
-            rasterAssetId: geotiffAsset.assetId,
-            rasterSourcePath: sourceFilePath || undefined
+            rasterAssetId: geotiffAsset.assetId
           }
         } as LayerSourceConfig
       } else {
@@ -226,26 +224,17 @@ export class RasterProcessor {
 
     const pollingPromise = this.pollGeoTiffAssetStatus(jobId, emitProgress, () => shouldStopPolling)
 
-    const filePath = this.getElectronFilePath(file)
     const requestBase = {
       fileName: file.name,
       jobId
     }
 
     try {
-      let result: RegisterGeoTiffAssetResult
-      if (filePath) {
-        result = await window.ctg.layers.registerGeoTiffAsset({
-          ...requestBase,
-          filePath
-        })
-      } else {
-        const fileBuffer = await file.arrayBuffer()
-        result = await window.ctg.layers.registerGeoTiffAsset({
-          ...requestBase,
-          fileBuffer
-        })
-      }
+      const fileBuffer = await file.arrayBuffer()
+      const result = await window.ctg.layers.registerGeoTiffAsset({
+        ...requestBase,
+        fileBuffer
+      })
 
       await this.emitLatestStatus(jobId, emitProgress)
       void this.pollGeoTiffAssetStatusUntilTerminal(
@@ -258,15 +247,6 @@ export class RasterProcessor {
       shouldStopPolling = true
       await pollingPromise
     }
-  }
-
-  private static getElectronFilePath(file: File): string | null {
-    const fileWithPath = file as File & { path?: string }
-    if (typeof fileWithPath.path === 'string' && fileWithPath.path.trim().length > 0) {
-      return fileWithPath.path
-    }
-
-    return null
   }
 
   private static async pollGeoTiffAssetStatus(

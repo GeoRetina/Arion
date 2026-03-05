@@ -30,6 +30,7 @@ import {
   scoreWorkspaceMemory,
   type WorkspaceMemoryScoreConfig
 } from './utils/workspace-memory-scorer'
+import { isPathInsideDirectory } from '../security/path-security'
 
 const KB_DB_SUBFOLDER = 'knowledgebase_db'
 const KB_DB_FILENAME = 'arion-kb.db'
@@ -558,23 +559,12 @@ export class KnowledgeBaseService {
   }
 
   private async extractTextFromFile(payload: {
-    filePath?: string
     fileType: string
-    fileBuffer?: ArrayBuffer
+    fileBuffer: ArrayBuffer
   }): Promise<string> {
-    const { filePath, fileType, fileBuffer } = payload
+    const { fileType, fileBuffer } = payload
     let rawText = ''
-    let nodeBuffer: Buffer // Explicitly type as Node.js Buffer
-
-    if (!filePath && !fileBuffer) {
-      throw new Error('Either filePath or fileBuffer must be provided to extract text.')
-    }
-
-    if (fileBuffer) {
-      nodeBuffer = Buffer.from(fileBuffer) // Convert ArrayBuffer to Node.js Buffer
-    } else {
-      nodeBuffer = fs.readFileSync(filePath!) // Read file path into Node.js Buffer
-    }
+    const nodeBuffer = Buffer.from(fileBuffer)
 
     if (fileType === 'application/pdf') {
       const data = await pdfParse(nodeBuffer) // pdf-parse can handle Node.js Buffer
@@ -593,10 +583,40 @@ export class KnowledgeBaseService {
     return rawText
   }
 
+  private getKnowledgeBaseFilesDirectory(): string {
+    return path.join(app.getPath('userData'), 'kb_document_files')
+  }
+
+  private cacheDocumentFile(
+    documentId: string,
+    originalName: string,
+    fileBuffer: ArrayBuffer
+  ): string | null {
+    const filesDirectory = this.getKnowledgeBaseFilesDirectory()
+    const resolvedDirectory = path.resolve(filesDirectory)
+    fs.mkdirSync(resolvedDirectory, { recursive: true })
+
+    const safeFileName = originalName.replace(/[^a-zA-Z0-9_.-]/g, '_')
+    const fallbackName = safeFileName.length > 0 ? safeFileName : `${documentId}.bin`
+    const candidatePath = path.join(resolvedDirectory, `${documentId}_${fallbackName}`)
+    const resolvedFilePath = path.resolve(candidatePath)
+
+    if (!isPathInsideDirectory(resolvedFilePath, resolvedDirectory)) {
+      throw new Error('Refusing to write cached document outside the knowledge base directory')
+    }
+
+    try {
+      fs.writeFileSync(resolvedFilePath, Buffer.from(fileBuffer))
+      return resolvedFilePath
+    } catch {
+      return null
+    }
+  }
+
   /**
-   * Adds a document to the knowledge base from a file path or buffer.
+   * Adds a document to the knowledge base from an in-memory file buffer.
    * It extracts text, chunks it, generates embeddings, and stores them.
-   * @param payload - Object containing document ID, file type, original name, and either filePath or fileBuffer.
+   * @param payload - Object containing document ID, file type, original name, and file buffer.
    */
   public async addDocumentFromFile(
     payload: KBAddDocumentPayload
@@ -604,8 +624,11 @@ export class KnowledgeBaseService {
     const { documentId, fileType, originalName, fileBuffer, fileSize, folderId, description } =
       payload
 
-    let filePathToStore: string | null = payload.filePath || null
-    const localPayloadFilePath = payload.filePath // Keep a copy of original payload.filePath for extractTextFromFile
+    if (!(fileBuffer instanceof ArrayBuffer)) {
+      throw new Error('fileBuffer is required to add a knowledge-base document')
+    }
+
+    const filePathToStore = this.cacheDocumentFile(documentId, originalName, fileBuffer)
 
     if (!this.db) {
       throw new Error('[KnowledgeBaseService] Database not initialized.')
@@ -619,26 +642,7 @@ export class KnowledgeBaseService {
       )
     }
 
-    // If filePath is not provided but buffer is, save the buffer to a local cache and use that path
-    if (!filePathToStore && fileBuffer) {
-      const KNOWLEDGE_BASE_FILES_DIR = path.join(app.getPath('userData'), 'kb_document_files')
-      if (!fs.existsSync(KNOWLEDGE_BASE_FILES_DIR)) {
-        fs.mkdirSync(KNOWLEDGE_BASE_FILES_DIR, { recursive: true })
-      }
-      // Sanitize originalName for use in file path, or use documentId for uniqueness
-      const safeFileName = originalName.replace(/[^a-zA-Z0-9_.-]/g, '_')
-      const cachedFilePath = path.join(KNOWLEDGE_BASE_FILES_DIR, `${documentId}_${safeFileName}`)
-
-      try {
-        fs.writeFileSync(cachedFilePath, Buffer.from(fileBuffer)) // Convert ArrayBuffer to Node.js Buffer
-        filePathToStore = cachedFilePath
-      } catch {
-        filePathToStore = null // Fallback if saving fails, though this means 'View' won't work.
-      }
-    }
-
     const documentContent = await this.extractTextFromFile({
-      filePath: localPayloadFilePath, // Use original filePath for extraction if present
       fileType,
       fileBuffer
     })
@@ -1386,12 +1390,12 @@ export class KnowledgeBaseService {
 
       // If a file path exists and it seems to be a cached file, attempt to delete it
       if (filePathToDelete) {
-        const KNOWLEDGE_BASE_FILES_DIR = path.join(app.getPath('userData'), 'kb_document_files')
-        // Check if the path is within our designated cache directory to avoid deleting other files
-        if (filePathToDelete.startsWith(KNOWLEDGE_BASE_FILES_DIR)) {
+        const filesDirectory = this.getKnowledgeBaseFilesDirectory()
+        const resolvedDeletePath = path.resolve(filePathToDelete)
+        if (isPathInsideDirectory(resolvedDeletePath, filesDirectory)) {
           try {
-            if (fs.existsSync(filePathToDelete)) {
-              fs.unlinkSync(filePathToDelete)
+            if (fs.existsSync(resolvedDeletePath)) {
+              fs.unlinkSync(resolvedDeletePath)
             } else {
               void 0
             }
