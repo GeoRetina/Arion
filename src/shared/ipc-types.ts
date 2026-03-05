@@ -146,6 +146,14 @@ export interface SkillPackInfo {
   sourcePath: string
 }
 
+export interface SkillPackBundledCatalogSkill {
+  id: string
+  name: string
+  description: string
+  repositoryPath: string
+  isInstalled: boolean
+}
+
 export interface SkillPackTemplateBootstrapResult {
   workspaceRoot: string
   created: string[]
@@ -209,6 +217,14 @@ export interface SkillPackSkillUpdateResult extends SkillPackSkillTarget {
 
 export interface SkillPackSkillDeleteResult extends SkillPackSkillTarget {
   deleted: boolean
+}
+
+export interface SkillPackInstallBundledSkillResult {
+  id: string
+  name: string
+  description: string
+  sourcePath: string
+  overwritten: boolean
 }
 
 export type PluginSource = 'configured' | 'workspace' | 'global' | 'bundled'
@@ -351,6 +367,8 @@ export const IpcChannels = {
   getSkillPackConfig: 'settings:get-skill-pack-config',
   setSkillPackConfig: 'settings:set-skill-pack-config',
   listAvailableSkills: 'settings:list-available-skills',
+  listBundledSkillCatalog: 'settings:list-bundled-skill-catalog',
+  installBundledSkill: 'settings:install-bundled-skill',
   bootstrapWorkspaceTemplates: 'settings:bootstrap-workspace-templates',
   uploadManagedSkill: 'settings:upload-managed-skill',
   getManagedSkillContent: 'settings:get-managed-skill-content',
@@ -521,6 +539,8 @@ export interface SettingsApi {
   getSkillPackConfig: () => Promise<SkillPackConfig>
   setSkillPackConfig: (config: SkillPackConfig) => Promise<void>
   listAvailableSkills: (workspaceRoot?: string) => Promise<SkillPackInfo[]>
+  listBundledSkillCatalog: () => Promise<SkillPackBundledCatalogSkill[]>
+  installBundledSkill: (skillId: string) => Promise<SkillPackInstallBundledSkillResult>
   bootstrapWorkspaceTemplates: (workspaceRoot: string) => Promise<SkillPackTemplateBootstrapResult>
   uploadManagedSkill: (payload: SkillPackUploadPayload) => Promise<SkillPackUploadResult>
   getManagedSkillContent: (skillId: string) => Promise<SkillPackManagedSkillContentResult>

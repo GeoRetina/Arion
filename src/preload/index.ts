@@ -30,6 +30,8 @@ import {
   type SetMapViewPayload,
   type SystemPromptConfig,
   type SkillPackConfig,
+  type SkillPackBundledCatalogSkill,
+  type SkillPackInstallBundledSkillResult,
   type SkillPackInfo,
   type SkillPackTemplateBootstrapResult,
   type SkillPackManagedSkillContentResult,
@@ -227,6 +229,10 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.setSkillPackConfig, config),
     listAvailableSkills: (workspaceRoot?: string): Promise<SkillPackInfo[]> =>
       ipcRenderer.invoke(IpcChannels.listAvailableSkills, workspaceRoot),
+    listBundledSkillCatalog: (): Promise<SkillPackBundledCatalogSkill[]> =>
+      ipcRenderer.invoke(IpcChannels.listBundledSkillCatalog),
+    installBundledSkill: (skillId: string): Promise<SkillPackInstallBundledSkillResult> =>
+      ipcRenderer.invoke(IpcChannels.installBundledSkill, skillId),
     bootstrapWorkspaceTemplates: (
       workspaceRoot: string
     ): Promise<SkillPackTemplateBootstrapResult> =>

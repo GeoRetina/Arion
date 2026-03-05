@@ -57,90 +57,94 @@ const SkillsList: React.FC<SkillsListProps> = ({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
-      {availableSkills.map((skill) => (
-        <Card
-          key={`${skill.id}:${skill.source}`}
-          className={`flex flex-col overflow-hidden transition-all hover:shadow-md ${
-            isSkillDisabled(skill.id) ? 'opacity-70' : ''
-          }`}
-        >
-          <CardHeader className="pb-2">
-            <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base leading-snug">{skill.name}</CardTitle>
-              <div className="flex items-center gap-2">
-                {isSkillDisabled(skill.id) && (
-                  <Badge variant="outline" className="shrink-0 text-xs">
-                    disabled
+      {availableSkills.map((skill) => {
+        const deleteLabel = skill.source === 'managed' ? 'Uninstall' : 'Delete'
+
+        return (
+          <Card
+            key={`${skill.id}:${skill.source}`}
+            className={`flex flex-col overflow-hidden transition-all hover:shadow-md surface-elevated ${
+              isSkillDisabled(skill.id) ? 'opacity-70' : ''
+            }`}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-base leading-snug">{skill.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  {isSkillDisabled(skill.id) && (
+                    <Badge variant="outline" className="shrink-0 text-xs">
+                      disabled
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className={`shrink-0 text-xs ${sourceColorMap[skill.source] || ''}`}
+                  >
+                    {skill.source}
                   </Badge>
-                )}
-                <Badge
-                  variant="outline"
-                  className={`shrink-0 text-xs ${sourceColorMap[skill.source] || ''}`}
-                >
-                  {skill.source}
-                </Badge>
+                </div>
               </div>
-            </div>
-            <CardDescription className="text-xs font-mono">{`$${skill.id}`}</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0 grow">
-            <p className="text-sm text-muted-foreground">{skill.description}</p>
-            <p className="text-xs text-muted-foreground/70 mt-3 break-all">{skill.sourcePath}</p>
-            <div className="mt-4 flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onToggleSkillDisabled(skill)}
-                disabled={
-                  skillDisableTogglingId === skill.id ||
-                  isDeletingSkill ||
-                  isUploadingSkill ||
-                  isSavingSkill
-                }
-                title={isSkillDisabled(skill.id) ? 'Enable' : 'Disable'}
-                aria-label={isSkillDisabled(skill.id) ? 'Enable skill' : 'Disable skill'}
-              >
-                {isSkillDisabled(skill.id) ? (
-                  <Power className="h-4 w-4" />
-                ) : (
-                  <PowerOff className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onEditSkill(skill)}
-                disabled={
-                  isDeletingSkill ||
-                  isUploadingSkill ||
-                  isSavingSkill ||
-                  skillDisableTogglingId === skill.id
-                }
-                title="Edit"
-                aria-label="Edit skill"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
-                onClick={() => onDeleteSkill(skill)}
-                disabled={
-                  isDeletingSkill ||
-                  isUploadingSkill ||
-                  isSavingSkill ||
-                  skillDisableTogglingId === skill.id
-                }
-                title="Delete"
-                aria-label="Delete skill"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              <CardDescription className="text-xs font-mono">{`$${skill.id}`}</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 grow">
+              <p className="text-sm text-muted-foreground">{skill.description}</p>
+              <p className="text-xs text-muted-foreground/70 mt-3 break-all">{skill.sourcePath}</p>
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onToggleSkillDisabled(skill)}
+                  disabled={
+                    skillDisableTogglingId === skill.id ||
+                    isDeletingSkill ||
+                    isUploadingSkill ||
+                    isSavingSkill
+                  }
+                  title={isSkillDisabled(skill.id) ? 'Enable' : 'Disable'}
+                  aria-label={isSkillDisabled(skill.id) ? 'Enable skill' : 'Disable skill'}
+                >
+                  {isSkillDisabled(skill.id) ? (
+                    <Power className="h-4 w-4" />
+                  ) : (
+                    <PowerOff className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onEditSkill(skill)}
+                  disabled={
+                    isDeletingSkill ||
+                    isUploadingSkill ||
+                    isSavingSkill ||
+                    skillDisableTogglingId === skill.id
+                  }
+                  title="Edit"
+                  aria-label="Edit skill"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                  onClick={() => onDeleteSkill(skill)}
+                  disabled={
+                    isDeletingSkill ||
+                    isUploadingSkill ||
+                    isSavingSkill ||
+                    skillDisableTogglingId === skill.id
+                  }
+                  title={deleteLabel}
+                  aria-label={`${deleteLabel} skill`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }
