@@ -1,4 +1,4 @@
-import arionLogo from '@/assets/icon.png'
+import arionLogo from '@/assets/arion_logo.svg'
 
 export const EmptyState = (): React.JSX.Element => {
   return (
