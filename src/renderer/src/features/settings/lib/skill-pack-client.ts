@@ -1,6 +1,8 @@
 import type {
+  SkillPackBundledCatalogSkill,
   SkillPackConfig,
   SkillPackInfo,
+  SkillPackInstallBundledSkillResult,
   SkillPackSkillContentResult,
   SkillPackSkillDeleteResult,
   SkillPackSkillTarget,
@@ -31,6 +33,16 @@ export const normalizeSkillPackConfig = (config: SkillPackConfig): SkillPackConf
 
 export const listAvailableSkills = async (): Promise<SkillPackInfo[]> => {
   return window.ctg.settings.listAvailableSkills()
+}
+
+export const listBundledSkillCatalog = async (): Promise<SkillPackBundledCatalogSkill[]> => {
+  return window.ctg.settings.listBundledSkillCatalog()
+}
+
+export const installBundledSkill = async (
+  skillId: string
+): Promise<SkillPackInstallBundledSkillResult> => {
+  return window.ctg.settings.installBundledSkill(skillId)
 }
 
 export const getSkillPackConfig = async (): Promise<SkillPackConfig> => {

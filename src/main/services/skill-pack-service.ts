@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { z } from 'zod'
 
 export type SkillSource = 'workspace' | 'global' | 'managed' | 'bundled'
 
@@ -8,6 +9,7 @@ export interface SkillPackEnvironment {
   getAppPath: () => string
   getResourcesPath: () => string
   getCwd: () => string
+  getBundledSkillsManifestUrl: () => string
 }
 
 export interface ResolvedSkill {
@@ -98,6 +100,14 @@ export interface SkillUpdateResult extends SkillTarget {
   description: string
 }
 
+export interface BundledSkillCatalogEntry {
+  id: string
+  name: string
+  description: string
+  repositoryPath: string
+  isInstalled: boolean
+}
+
 interface SkillLookupOptions {
   workspaceRoot?: string
 }
@@ -119,9 +129,34 @@ interface ParsedFrontmatter {
   body: string
 }
 
+interface BundledSkillManifestRecord {
+  id: string
+  name: string
+  description: string
+  repositoryPath: string
+  downloadUrl: string
+}
+
 const MAX_SELECTED_SKILLS = 3
 const MAX_SELECTED_INSTRUCTION_CHARS = 24000
 const INDEX_DESCRIPTION_LIMIT = 140
+const MAX_REMOTE_SKILL_CONTENT_CHARS = 200_000
+const REMOTE_FETCH_TIMEOUT_MS = 10_000
+const BUNDLED_MANIFEST_CACHE_TTL_MS = 120_000
+const DEFAULT_BUNDLED_SKILLS_MANIFEST_URL =
+  'https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/index.json'
+
+const bundledSkillManifestSchema = z.object({
+  skills: z.array(
+    z.object({
+      id: z.string().trim().min(1).max(128),
+      name: z.string().trim().min(1).max(160),
+      description: z.string().trim().min(1).max(1000),
+      repositoryPath: z.string().trim().min(1).max(512),
+      downloadUrl: z.string().trim().url().max(2048)
+    })
+  )
+})
 
 const DEFAULT_TEMPLATE_CONTENT: Record<WorkspaceTemplateFile, string> = {
   'AGENTS.md': `# Agents
@@ -165,6 +200,8 @@ const DEFAULT_TEMPLATE_CONTENT: Record<WorkspaceTemplateFile, string> = {
 
 export class SkillPackService {
   private environment: SkillPackEnvironment
+  private bundledManifestCache: { fetchedAt: number; skills: BundledSkillManifestRecord[] } | null =
+    null
 
   constructor(environment?: Partial<SkillPackEnvironment>) {
     this.environment = {
@@ -172,7 +209,10 @@ export class SkillPackService {
         environment?.getUserDataPath ?? (() => path.join(process.cwd(), '.arion-user-data')),
       getAppPath: environment?.getAppPath ?? (() => process.cwd()),
       getResourcesPath: environment?.getResourcesPath ?? (() => process.resourcesPath || ''),
-      getCwd: environment?.getCwd ?? (() => process.cwd())
+      getCwd: environment?.getCwd ?? (() => process.cwd()),
+      getBundledSkillsManifestUrl:
+        environment?.getBundledSkillsManifestUrl ??
+        (() => process.env.ARION_BUNDLED_SKILLS_MANIFEST_URL || DEFAULT_BUNDLED_SKILLS_MANIFEST_URL)
     }
   }
 
@@ -208,6 +248,43 @@ export class SkillPackService {
         sourcePath: skill.sourcePath,
         content: skill.content
       }))
+  }
+
+  public async listBundledSkillCatalog(): Promise<BundledSkillCatalogEntry[]> {
+    const manifestSkills = await this.getBundledManifestSkills()
+    const installedSkillIds = this.getManagedSkillIds()
+
+    return manifestSkills.map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      description: skill.description,
+      repositoryPath: skill.repositoryPath,
+      isInstalled: installedSkillIds.has(skill.id)
+    }))
+  }
+
+  public async installBundledSkill(skillId: string): Promise<ManagedSkillUploadResult> {
+    const normalizedSkillId = this.ensureSafeManagedSkillId(skillId)
+    const manifestSkills = await this.getBundledManifestSkills()
+    const manifestSkill = manifestSkills.find((skill) => skill.id === normalizedSkillId)
+    if (!manifestSkill) {
+      throw new Error(`Bundled skill "${normalizedSkillId}" was not found in the catalog`)
+    }
+
+    const rawContent = await this.fetchRemoteText(manifestSkill.downloadUrl)
+    if (rawContent.length > MAX_REMOTE_SKILL_CONTENT_CHARS) {
+      throw new Error(`Bundled skill "${normalizedSkillId}" exceeds the maximum supported size`)
+    }
+
+    const contentSkillId = this.deriveSkillIdFromContent(`${normalizedSkillId}.md`, rawContent)
+    if (contentSkillId !== normalizedSkillId) {
+      throw new Error(`Bundled skill "${normalizedSkillId}" failed identity validation`)
+    }
+
+    return this.uploadManagedSkill({
+      fileName: `${normalizedSkillId}.md`,
+      content: rawContent
+    })
   }
 
   public buildPromptSections(options: SkillPromptBuildOptions = {}): SkillPromptSections {
@@ -496,6 +573,141 @@ export class SkillPackService {
     return resolved
   }
 
+  private async getBundledManifestSkills(): Promise<BundledSkillManifestRecord[]> {
+    if (
+      this.bundledManifestCache &&
+      Date.now() - this.bundledManifestCache.fetchedAt < BUNDLED_MANIFEST_CACHE_TTL_MS
+    ) {
+      return this.bundledManifestCache.skills
+    }
+
+    const manifestUrl = this.environment.getBundledSkillsManifestUrl().trim()
+    if (!manifestUrl) {
+      throw new Error('Bundled skills manifest URL is not configured')
+    }
+
+    const rawManifest = await this.fetchRemoteJson(manifestUrl)
+    const parsedManifest = bundledSkillManifestSchema.parse(rawManifest)
+    const manifestHost = new URL(manifestUrl).host
+    const byId = new Map<string, BundledSkillManifestRecord>()
+
+    for (const manifestSkill of parsedManifest.skills) {
+      const normalizedId = this.ensureSafeManagedSkillId(manifestSkill.id)
+      if (byId.has(normalizedId)) {
+        continue
+      }
+
+      const repositoryPath = this.normalizeRepositoryPath(manifestSkill.repositoryPath)
+      const downloadUrl = this.normalizeBundledDownloadUrl(manifestSkill.downloadUrl, manifestHost)
+
+      byId.set(normalizedId, {
+        id: normalizedId,
+        name: manifestSkill.name.trim(),
+        description: manifestSkill.description.trim(),
+        repositoryPath,
+        downloadUrl
+      })
+    }
+
+    const skills = Array.from(byId.values()).sort((a, b) => a.id.localeCompare(b.id))
+    this.bundledManifestCache = {
+      fetchedAt: Date.now(),
+      skills
+    }
+    return skills
+  }
+
+  private getManagedSkillIds(): Set<string> {
+    const managedRoot = this.getManagedSkillsRoot()
+    const managedSkills = this.readSkillsFromRoot({
+      source: 'managed',
+      dir: managedRoot,
+      precedence: 200,
+      order: 0
+    })
+
+    return new Set(managedSkills.map((skill) => skill.id))
+  }
+
+  private normalizeRepositoryPath(value: string): string {
+    const normalized = value.trim().replace(/\\/g, '/').replace(/^\/+/, '')
+    if (!normalized) {
+      throw new Error('Bundled skill repository path is required')
+    }
+    if (normalized.includes('..')) {
+      throw new Error(`Invalid bundled skill repository path: ${normalized}`)
+    }
+    return normalized
+  }
+
+  private normalizeBundledDownloadUrl(value: string, expectedHost: string): string {
+    const normalized = value.trim()
+    const url = new URL(normalized)
+    const isHttpLocalhost =
+      url.protocol === 'http:' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost')
+    if (url.protocol !== 'https:' && !isHttpLocalhost) {
+      throw new Error(`Bundled skill download URL must use HTTPS: ${normalized}`)
+    }
+    if (url.host !== expectedHost) {
+      throw new Error(
+        `Bundled skill download URL host "${url.host}" does not match manifest host "${expectedHost}"`
+      )
+    }
+    return url.toString()
+  }
+
+  private async fetchRemoteJson(url: string): Promise<unknown> {
+    const response = await this.fetchWithTimeout(url, REMOTE_FETCH_TIMEOUT_MS)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch bundled skills catalog (${response.status})`)
+    }
+    return response.json()
+  }
+
+  private async fetchRemoteText(url: string): Promise<string> {
+    const response = await this.fetchWithTimeout(url, REMOTE_FETCH_TIMEOUT_MS)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch bundled skill content (${response.status})`)
+    }
+
+    const text = await response.text()
+    const trimmed = text.trim()
+    if (!trimmed) {
+      throw new Error('Bundled skill content is empty')
+    }
+    return trimmed
+  }
+
+  private async fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      return await fetch(url, {
+        signal: controller.signal
+      })
+    } catch (error) {
+      if ((error as Error)?.name === 'AbortError') {
+        throw new Error(`Request timed out while fetching ${url}`)
+      }
+      throw error
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  private deriveSkillIdFromContent(fileName: string, content: string): string {
+    const normalizedContent = content.trim()
+    if (!normalizedContent) {
+      return ''
+    }
+
+    const { metadata, body } = this.parseFrontmatter(normalizedContent)
+    const fallbackId = this.normalizeSkillId(path.parse(fileName || '').name || 'uploaded-skill')
+    return this.normalizeSkillId(
+      metadata.id || metadata.name || this.getFirstHeading(body.trim()) || fallbackId || 'uploaded-skill'
+    )
+  }
+
   private getWorkspaceTemplateContent(fileName: WorkspaceTemplateFile): string {
     const candidatePaths = this.deduplicatePaths([
       path.join(this.environment.getResourcesPath(), 'workspace-templates', fileName),
@@ -527,22 +739,12 @@ export class SkillPackService {
 
   private getSkillSearchRoots(workspaceRoot: string): SkillSearchRoot[] {
     const userDataPath = this.environment.getUserDataPath()
-    const appPath = this.environment.getAppPath()
-    const resourcesPath = this.environment.getResourcesPath()
-    const cwd = this.environment.getCwd()
 
     const unorderedRoots: Omit<SkillSearchRoot, 'order'>[] = [
       { source: 'workspace', precedence: 300, dir: path.join(workspaceRoot, 'skills') },
       { source: 'workspace', precedence: 300, dir: path.join(workspaceRoot, '.arion', 'skills') },
       { source: 'managed', precedence: 200, dir: path.join(userDataPath, 'managed-skills') },
-      { source: 'global', precedence: 200, dir: path.join(userDataPath, 'skills') },
-      { source: 'bundled', precedence: 100, dir: path.join(resourcesPath, 'skills', 'bundled') },
-      {
-        source: 'bundled',
-        precedence: 100,
-        dir: path.join(appPath, 'resources', 'skills', 'bundled')
-      },
-      { source: 'bundled', precedence: 100, dir: path.join(cwd, 'resources', 'skills', 'bundled') }
+      { source: 'global', precedence: 200, dir: path.join(userDataPath, 'skills') }
     ]
 
     return this.deduplicatePaths(unorderedRoots.map((root) => root.dir))

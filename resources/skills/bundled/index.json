@@ -1,0 +1,46 @@
+{
+  "skills": [
+    {
+      "id": "crs-sanity-check",
+      "name": "CRS Sanity Check",
+      "description": "Validate coordinate systems, units, and reprojection assumptions before analysis.",
+      "repositoryPath": "resources/skills/bundled/crs-sanity-check/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/crs-sanity-check/SKILL.md"
+    },
+    {
+      "id": "data-source-intake",
+      "name": "Data Source Intake",
+      "description": "Standard intake checklist for evaluating geospatial data sources before use.",
+      "repositoryPath": "resources/skills/bundled/data-source-intake/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/data-source-intake/SKILL.md"
+    },
+    {
+      "id": "geospatial-triage",
+      "name": "Geospatial Triage",
+      "description": "Rapidly scope a geospatial request, validate data assumptions, and propose an execution plan.",
+      "repositoryPath": "resources/skills/bundled/geospatial-triage/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/geospatial-triage/SKILL.md"
+    },
+    {
+      "id": "layer-qc",
+      "name": "Layer QC",
+      "description": "Run quality checks on vector or raster layers before downstream workflows.",
+      "repositoryPath": "resources/skills/bundled/layer-qc/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/layer-qc/SKILL.md"
+    },
+    {
+      "id": "raster-change-detection",
+      "name": "Raster Change Detection",
+      "description": "Compare baseline and current rasters to identify meaningful spatial change.",
+      "repositoryPath": "resources/skills/bundled/raster-change-detection/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/raster-change-detection/SKILL.md"
+    },
+    {
+      "id": "vector-topology-repair",
+      "name": "Vector Topology Repair",
+      "description": "Detect and repair common topology issues in vector datasets.",
+      "repositoryPath": "resources/skills/bundled/vector-topology-repair/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/vector-topology-repair/SKILL.md"
+    }
+  ]
+}

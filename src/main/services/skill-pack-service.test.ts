@@ -1,4 +1,5 @@
 import fs from 'fs'
+import http from 'http'
 import os from 'os'
 import path from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -22,7 +23,7 @@ describe('SkillPackService', () => {
     tempRoots.length = 0
   })
 
-  it('prefers workspace skill over global and bundled copies with same id', () => {
+  it('prefers workspace skill over global copies with same id', () => {
     const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-skill-precedence-'))
     tempRoots.push(testRoot)
 
@@ -36,17 +37,6 @@ describe('SkillPackService', () => {
     fs.mkdirSync(resourcesRoot, { recursive: true })
     fs.mkdirSync(appRoot, { recursive: true })
 
-    writeSkill(
-      path.join(resourcesRoot, 'skills', 'bundled'),
-      'geospatial-triage',
-      `---
-id: geospatial-triage
-name: Geospatial Triage
-description: Bundled version
----
-
-# Bundled Version`
-    )
     writeSkill(
       path.join(userDataRoot, 'skills'),
       'geospatial-triage',
@@ -85,7 +75,6 @@ description: Workspace version
     expect(sections.selectedSkillIds).toEqual(['geospatial-triage'])
     expect(sections.selectedInstructionSection).toContain('# Workspace Version')
     expect(sections.selectedInstructionSection).not.toContain('# Global Version')
-    expect(sections.selectedInstructionSection).not.toContain('# Bundled Version')
     expect(sections.compactIndexSection).toContain('`$geospatial-triage` (workspace)')
   })
 
@@ -418,8 +407,8 @@ description: Checklist.
     expect(deletedSkill).toBeUndefined()
   })
 
-  it('updates and deletes bundled skills via source-aware operations', () => {
-    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-bundled-skill-edit-delete-'))
+  it('lists bundled skills from remote manifest and installs them into managed source', async () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-bundled-skill-install-'))
     tempRoots.push(testRoot)
 
     const workspaceRoot = path.join(testRoot, 'workspace')
@@ -432,10 +421,7 @@ description: Checklist.
     fs.mkdirSync(resourcesRoot, { recursive: true })
     fs.mkdirSync(appRoot, { recursive: true })
 
-    writeSkill(
-      path.join(resourcesRoot, 'skills', 'bundled'),
-      'geospatial-triage',
-      `---
+    const skillContent = `---
 id: geospatial-triage
 name: Geospatial Triage
 description: Bundled version
@@ -443,62 +429,97 @@ description: Bundled version
 
 # Bundled Version
 `
-    )
+
+    let manifestPayload = ''
+
+    const server = await new Promise<http.Server>((resolve, reject) => {
+      const nextServer = http
+        .createServer((request, response) => {
+          const requestUrl = request.url || ''
+
+          if (requestUrl === '/resources/skills/bundled/index.json') {
+            response.statusCode = 200
+            response.setHeader('Content-Type', 'application/json')
+            response.end(manifestPayload)
+            return
+          }
+
+          if (requestUrl === '/resources/skills/bundled/geospatial-triage/SKILL.md') {
+            response.statusCode = 200
+            response.setHeader('Content-Type', 'text/markdown')
+            response.end(skillContent)
+            return
+          }
+
+          response.statusCode = 404
+          response.end('Not found')
+        })
+        .listen(0, '127.0.0.1', () => resolve(nextServer))
+      nextServer.once('error', reject)
+    })
+
+    const serverAddress = server.address()
+    if (!serverAddress || typeof serverAddress === 'string') {
+      server.close()
+      throw new Error('Server failed to bind')
+    }
+
+    const manifestUrl = `http://127.0.0.1:${serverAddress.port}/resources/skills/bundled/index.json`
+    manifestPayload = JSON.stringify({
+      skills: [
+        {
+          id: 'geospatial-triage',
+          name: 'Geospatial Triage',
+          description: 'Bundled version',
+          repositoryPath: 'resources/skills/bundled/geospatial-triage/SKILL.md',
+          downloadUrl: `http://127.0.0.1:${serverAddress.port}/resources/skills/bundled/geospatial-triage/SKILL.md`
+        }
+      ]
+    })
 
     const service = new SkillPackService({
       getUserDataPath: () => userDataRoot,
       getResourcesPath: () => resourcesRoot,
       getAppPath: () => appRoot,
-      getCwd: () => workspaceRoot
+      getCwd: () => workspaceRoot,
+      getBundledSkillsManifestUrl: () => manifestUrl
     })
 
-    const bundledSkill = service
-      .listAvailableSkills({ workspaceRoot })
-      .find((skill) => skill.id === 'geospatial-triage' && skill.source === 'bundled')
-    expect(bundledSkill).toBeDefined()
-    if (!bundledSkill) {
-      return
+    try {
+      const beforeInstallCatalog = await service.listBundledSkillCatalog()
+      expect(beforeInstallCatalog).toEqual([
+        {
+          id: 'geospatial-triage',
+          name: 'Geospatial Triage',
+          description: 'Bundled version',
+          repositoryPath: 'resources/skills/bundled/geospatial-triage/SKILL.md',
+          isInstalled: false
+        }
+      ])
+
+      const installResult = await service.installBundledSkill('geospatial-triage')
+      expect(installResult.id).toBe('geospatial-triage')
+      expect(installResult.overwritten).toBe(false)
+
+      const listedSkills = service.listAvailableSkills({ workspaceRoot })
+      const installedSkill = listedSkills.find(
+        (skill) => skill.id === 'geospatial-triage' && skill.source === 'managed'
+      )
+      expect(installedSkill).toBeDefined()
+
+      const afterInstallCatalog = await service.listBundledSkillCatalog()
+      expect(afterInstallCatalog[0]?.isInstalled).toBe(true)
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error)
+            return
+          }
+          resolve()
+        })
+      })
     }
-
-    const before = service.getSkillContent({
-      id: bundledSkill.id,
-      source: bundledSkill.source,
-      sourcePath: bundledSkill.sourcePath
-    })
-    expect(before.content).toContain('Bundled version')
-
-    const updated = service.updateSkill({
-      id: bundledSkill.id,
-      source: bundledSkill.source,
-      sourcePath: bundledSkill.sourcePath,
-      content: `---
-id: geospatial-triage
-name: Geospatial Triage
-description: Bundled version updated
----
-
-# Bundled Version Updated
-`
-    })
-    expect(updated.description).toBe('Bundled version updated')
-
-    const after = service.getSkillContent({
-      id: bundledSkill.id,
-      source: bundledSkill.source,
-      sourcePath: bundledSkill.sourcePath
-    })
-    expect(after.content).toContain('Bundled version updated')
-
-    const deleted = service.deleteSkill({
-      id: bundledSkill.id,
-      source: bundledSkill.source,
-      sourcePath: bundledSkill.sourcePath
-    })
-    expect(deleted).toBe(true)
-
-    const listedSkills = service.listAvailableSkills({ workspaceRoot })
-    const deletedSkill = listedSkills.find((skill) => skill.id === 'geospatial-triage')
-    expect(deletedSkill).toBeUndefined()
   })
 
   it('rejects uploads with unsafe skill identifiers', () => {

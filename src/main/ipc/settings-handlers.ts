@@ -12,7 +12,9 @@ import {
   EmbeddingConfig,
   SystemPromptConfig,
   SkillPackConfig,
+  SkillPackBundledCatalogSkill,
   SkillPackInfo,
+  SkillPackInstallBundledSkillResult,
   SkillPackManagedSkillContentResult,
   SkillPackManagedSkillDeleteResult,
   SkillPackManagedSkillUpdatePayload,
@@ -555,6 +557,39 @@ export function registerSettingsIpcHandlers(
       )
     } catch {
       return []
+    }
+  })
+
+  ipcMain.handle(IpcChannels.listBundledSkillCatalog, async () => {
+    try {
+      const catalog = await skillPackService.listBundledSkillCatalog()
+      return catalog.map(
+        (skill): SkillPackBundledCatalogSkill => ({
+          id: skill.id,
+          name: skill.name,
+          description: skill.description,
+          repositoryPath: skill.repositoryPath,
+          isInstalled: skill.isInstalled
+        })
+      )
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to load bundled skill catalog')
+    }
+  })
+
+  ipcMain.handle(IpcChannels.installBundledSkill, async (_event, rawSkillId: unknown) => {
+    try {
+      const skillId = managedSkillIdSchema.parse(rawSkillId)
+      const result = await skillPackService.installBundledSkill(skillId)
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        sourcePath: result.sourcePath,
+        overwritten: result.overwritten
+      } satisfies SkillPackInstallBundledSkillResult
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to install bundled skill')
     }
   })
 
