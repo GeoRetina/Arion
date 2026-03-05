@@ -214,29 +214,6 @@ const BundledCard: React.FC<{
         </p>
       </CardContent>
       <CardFooter className="pt-2 pb-4 px-5 mt-auto flex flex-col space-y-2">
-        <Button
-          className="w-full"
-          variant={isInstalled ? 'outline' : 'default'}
-          onClick={() => onToggleBundledSkillInstalled(bundled)}
-          disabled={actionDisabled}
-        >
-          {isBusy ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {isInstalled ? 'Uninstalling...' : 'Installing...'}
-            </>
-          ) : isInstalled ? (
-            <>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Uninstall
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4 mr-2" />
-              Install
-            </>
-          )}
-        </Button>
         {isInstalled && installed && (
           <div className="flex w-full gap-2">
             <Button
@@ -267,6 +244,29 @@ const BundledCard: React.FC<{
             </Button>
           </div>
         )}
+        <Button
+          className="w-full"
+          variant={isInstalled ? 'outline' : 'default'}
+          onClick={() => onToggleBundledSkillInstalled(bundled)}
+          disabled={actionDisabled}
+        >
+          {isBusy ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {isInstalled ? 'Uninstalling...' : 'Installing...'}
+            </>
+          ) : isInstalled ? (
+            <>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Uninstall
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Install
+            </>
+          )}
+        </Button>
       </CardFooter>
     </Card>
   )
