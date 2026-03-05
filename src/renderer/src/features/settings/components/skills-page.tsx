@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import BundledSkillsList from './bundled-skills-list'
 import SkillsEditorDialog from './skills-editor-dialog'
-import SkillsList from './skills-list'
 import { useSkillsPageState } from '../hooks/use-skills-page-state'
 
 const SkillsPage: React.FC = () => {
@@ -46,21 +45,21 @@ const SkillsPage: React.FC = () => {
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6">
           {/* Header */}
-          <div className="w-full">
+          <div>
             <h1 className="text-3xl font-semibold mb-2">Skills</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Manage installed skills and optional bundled skills from the public repository.
-              Installed skills are resolved from managed, workspace, and global sources.
+              Manage your skills from the bundled catalog and other sources. Install bundled skills
+              or upload your own.
             </p>
           </div>
 
           {/* Actions toolbar */}
           <div className="flex items-center gap-3 w-full">
             <h2 className="text-xl font-semibold">
-              Bundled Catalog{' '}
+              All Skills{' '}
               {!isSkillsLoading && (
                 <span className="text-muted-foreground font-normal">
-                  ({bundledCatalogSkills.length})
+                  ({bundledCatalogSkills.length + availableSkills.filter((s) => !bundledCatalogSkills.some((b) => b.id === s.id)).length})
                 </span>
               )}
             </h2>
@@ -76,27 +75,6 @@ const SkillsPage: React.FC = () => {
             </div>
           </div>
 
-          <BundledSkillsList
-            bundledSkills={bundledCatalogSkills}
-            isSkillsLoading={isSkillsLoading}
-            isDeletingSkill={isDeletingSkill}
-            isUploadingSkill={isUploadingSkill}
-            isSavingSkill={isSavingSkill}
-            bundledSkillActionId={bundledSkillActionId}
-            onToggleBundledSkillInstalled={(skill) => void handleToggleBundledSkillInstalled(skill)}
-          />
-
-          <div className="flex items-center gap-3 w-full pt-4">
-            <h2 className="text-xl font-semibold">
-              Installed Skills{' '}
-              {!isSkillsLoading && (
-                <span className="text-muted-foreground font-normal">
-                  ({availableSkills.length})
-                </span>
-              )}
-            </h2>
-          </div>
-
           <Input
             ref={skillUploadInputRef}
             type="file"
@@ -105,15 +83,17 @@ const SkillsPage: React.FC = () => {
             onChange={handleUploadSkill}
           />
 
-          {/* Skills Grid */}
-          <SkillsList
-            availableSkills={availableSkills}
+          <BundledSkillsList
+            bundledSkills={bundledCatalogSkills}
+            installedSkills={availableSkills}
             isSkillsLoading={isSkillsLoading}
             isDeletingSkill={isDeletingSkill}
             isUploadingSkill={isUploadingSkill}
             isSavingSkill={isSavingSkill}
+            bundledSkillActionId={bundledSkillActionId}
             skillDisableTogglingId={skillDisableTogglingId}
             isSkillDisabled={isSkillDisabled}
+            onToggleBundledSkillInstalled={(skill) => void handleToggleBundledSkillInstalled(skill)}
             onToggleSkillDisabled={(skill) => void handleToggleSkillDisabled(skill)}
             onEditSkill={(skill) => void handleEditSkill(skill)}
             onDeleteSkill={handleDeleteClick}
