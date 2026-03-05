@@ -416,7 +416,7 @@ export default function ModelsPage(): React.JSX.Element {
                   )}
 
                   <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                     <p>
                       Arion enforces 1536-dimension embeddings for schema compatibility. Make sure
                       the selected model outputs 1536-dimension vectors.

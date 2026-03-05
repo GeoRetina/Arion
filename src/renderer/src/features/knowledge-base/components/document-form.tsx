@@ -250,7 +250,7 @@ export function DocumentForm({
         if (!isProcessing) onClose()
       }}
     >
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-131.25">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Edit Document' : 'Add New Document'}</DialogTitle>
           <DialogDescription>
