@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { SettingsService } from './services/settings-service'
@@ -25,6 +26,7 @@ import {
   registerRasterTileProtocol
 } from './services/raster/raster-protocol-service'
 import { getRasterTileService } from './services/raster/raster-tile-service'
+import { parseHttpsUrl } from './security/path-security'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -59,8 +61,52 @@ let connectorExecutionServiceInstance: ConnectorExecutionService
 
 registerRasterProtocolPrivileges()
 
+const resolveAllowedDevOrigin = (): string | null => {
+  if (!is.dev || !process.env['ELECTRON_RENDERER_URL']) {
+    return null
+  }
+
+  try {
+    return new URL(process.env['ELECTRON_RENDERER_URL']).origin
+  } catch {
+    return null
+  }
+}
+
+const resolveAllowedProdRendererEntryUrl = (): string => {
+  return pathToFileURL(join(__dirname, '../renderer/index.html')).toString()
+}
+
+const normalizeFileUrlPathname = (url: URL): string => {
+  return process.platform === 'win32' ? url.pathname.toLowerCase() : url.pathname
+}
+
+const canNavigateToUrl = (
+  targetUrl: string,
+  allowedDevOrigin: string | null,
+  allowedProdRendererEntryUrl: string
+): boolean => {
+  try {
+    const parsed = new URL(targetUrl)
+    if (allowedDevOrigin) {
+      return parsed.origin === allowedDevOrigin
+    }
+
+    if (parsed.protocol !== 'file:') {
+      return false
+    }
+
+    const allowedProdUrl = new URL(allowedProdRendererEntryUrl)
+    return normalizeFileUrlPathname(parsed) === normalizeFileUrlPathname(allowedProdUrl)
+  } catch {
+    return false
+  }
+}
+
 function createWindow(): void {
   const preloadPath = join(__dirname, '../preload/index.js')
+  const allowedDevOrigin = resolveAllowedDevOrigin()
+  const allowedProdRendererEntryUrl = resolveAllowedProdRendererEntryUrl()
 
   if (fs.existsSync(preloadPath)) {
     // Preload script exists
@@ -78,7 +124,7 @@ function createWindow(): void {
     icon: icon,
     webPreferences: {
       preload: preloadPath,
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -98,8 +144,22 @@ function createWindow(): void {
   }
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    const safeExternalUrl = parseHttpsUrl(details.url)
+    if (safeExternalUrl) {
+      void shell.openExternal(safeExternalUrl.toString())
+    } else {
+      console.warn(`[Security] Blocked external URL from renderer: ${details.url}`)
+    }
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
+    if (canNavigateToUrl(targetUrl, allowedDevOrigin, allowedProdRendererEntryUrl)) {
+      return
+    }
+
+    event.preventDefault()
+    console.warn(`[Security] Blocked navigation to: ${targetUrl}`)
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -115,15 +175,23 @@ app.whenReady().then(async () => {
 
   // --- Content Security Policy (CSP) ---
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const connectSrc = ["'self'", 'https:', 'wss:', 'arion-raster:']
+    const scriptSrc = ["'self'"]
+    if (is.dev) {
+      connectSrc.push('http://localhost:*', 'ws://localhost:*')
+      // Vite/React fast refresh injects an inline preamble in development.
+      scriptSrc.push("'unsafe-inline'", "'unsafe-eval'")
+    }
+
     const cspDirectives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      `script-src ${scriptSrc.join(' ')}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://* arion-raster:",
       "worker-src 'self' blob:",
       "child-src 'self' blob:",
       "font-src 'self' data:",
-      "connect-src 'self' data: blob: http://localhost:* ws://localhost:* https://* arion-raster:",
+      `connect-src ${connectSrc.join(' ')}`,
       "frame-src 'none'"
     ]
     callback({

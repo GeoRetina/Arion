@@ -4,12 +4,16 @@ import { app } from 'electron'
 import {
   SUPPORTED_INTEGRATION_IDS,
   type IntegrationConfig,
+  type IntegrationConfigForRendererMap,
   type IntegrationConfigMap,
   type IntegrationDisconnectResult,
   type IntegrationHealthCheckResult,
   type IntegrationId,
   type IntegrationStateRecord,
-  type IntegrationStatus
+  type IntegrationStatus,
+  type PostgreSQLConfigForRenderer,
+  type S3IntegrationConfigForRenderer,
+  type GoogleEarthEngineIntegrationConfigForRenderer
 } from '../../shared/ipc-types'
 import type { PostgreSQLService } from './postgresql-service'
 import { DB_FILENAME } from './connectors/constants'
@@ -83,6 +87,19 @@ export class ConnectorHubService {
       console.warn(`[IntegrationHub] Returning stored partial config for ${id}:`, error)
       return mergedConfig as unknown as IntegrationConfigMap[T]
     }
+  }
+
+  public async getConfigForRenderer<T extends IntegrationId>(
+    id: T
+  ): Promise<IntegrationConfigForRendererMap[T] | null> {
+    const config = await this.getConfig(id)
+    if (!config) {
+      return null
+    }
+
+    return this.redactConfigForRenderer(id, config as IntegrationConfigMap[IntegrationId]) as
+      | IntegrationConfigForRendererMap[T]
+      | null
   }
 
   public async saveConfig(id: IntegrationId, rawConfig: unknown): Promise<void> {
@@ -284,6 +301,54 @@ export class ConnectorHubService {
 
     return mergedConfig
   }
+
+  private redactConfigForRenderer(
+    id: IntegrationId,
+    config: IntegrationConfigMap[IntegrationId]
+  ): IntegrationConfigForRendererMap[IntegrationId] {
+    if (id === 'postgresql-postgis') {
+      const postgresConfig = config as IntegrationConfigMap['postgresql-postgis']
+      const redacted: PostgreSQLConfigForRenderer = {
+        host: postgresConfig.host,
+        port: postgresConfig.port,
+        database: postgresConfig.database,
+        username: postgresConfig.username,
+        ssl: postgresConfig.ssl,
+        hasPassword: hasNonEmptyString(postgresConfig.password)
+      }
+      return redacted as IntegrationConfigForRendererMap[IntegrationId]
+    }
+
+    if (id === 's3') {
+      const s3Config = config as IntegrationConfigMap['s3']
+      const redacted: S3IntegrationConfigForRenderer = {
+        bucket: s3Config.bucket,
+        region: s3Config.region,
+        endpoint: s3Config.endpoint,
+        forcePathStyle: s3Config.forcePathStyle,
+        timeoutMs: s3Config.timeoutMs,
+        hasAccessKeyId: hasNonEmptyString(s3Config.accessKeyId),
+        hasSecretAccessKey: hasNonEmptyString(s3Config.secretAccessKey),
+        hasSessionToken: hasNonEmptyString(s3Config.sessionToken)
+      }
+      return redacted as IntegrationConfigForRendererMap[IntegrationId]
+    }
+
+    if (id === 'google-earth-engine') {
+      const geeConfig = config as IntegrationConfigMap['google-earth-engine']
+      const redacted: GoogleEarthEngineIntegrationConfigForRenderer = {
+        projectId: geeConfig.projectId,
+        timeoutMs: geeConfig.timeoutMs,
+        hasServiceAccountJson: hasNonEmptyString(geeConfig.serviceAccountJson)
+      }
+      return redacted as IntegrationConfigForRendererMap[IntegrationId]
+    }
+
+    return config as IntegrationConfigForRendererMap[IntegrationId]
+  }
 }
+
+const hasNonEmptyString = (value: unknown): boolean =>
+  typeof value === 'string' && value.trim().length > 0
 
 export type { IntegrationConfigRow }

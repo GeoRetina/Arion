@@ -252,15 +252,15 @@ export default function ModelsPage(): React.JSX.Element {
   const isEmbeddingProviderCredentialsConfigured = (provider: EmbeddingProviderType): boolean => {
     switch (provider) {
       case 'openai':
-        return Boolean(openaiConfig.apiKey)
+        return Boolean(openaiConfig.hasApiKey)
       case 'google':
-        return Boolean(googleConfig.apiKey)
+        return Boolean(googleConfig.hasApiKey)
       case 'anthropic':
-        return Boolean(anthropicConfig.apiKey)
+        return Boolean(anthropicConfig.hasApiKey)
       case 'azure':
-        return Boolean(azureConfig.apiKey && azureConfig.endpoint)
+        return Boolean(azureConfig.hasApiKey && azureConfig.endpoint)
       case 'vertex':
-        return Boolean(vertexConfig.apiKey && vertexConfig.project && vertexConfig.location)
+        return Boolean(vertexConfig.project && vertexConfig.location)
       case 'ollama':
         return Boolean(ollamaConfig.baseURL)
       default:

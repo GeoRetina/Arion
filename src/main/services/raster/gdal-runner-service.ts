@@ -1,7 +1,7 @@
 import { spawn } from 'child_process'
 import { promises as fs } from 'fs'
 import { app } from 'electron'
-import { delimiter, join } from 'path'
+import { delimiter, join, posix, win32 } from 'path'
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 2 * 60 * 1000
 const AVAILABILITY_TIMEOUT_MS = 8 * 1000
@@ -382,7 +382,17 @@ function resolveCommand(
     throw new Error('Bundled GDAL binary directory is unavailable')
   }
 
-  return join(binDirectory, executableName)
+  // Preserve the separator style of an explicit bin path when present.
+  // Falls back to the current platform when style cannot be inferred.
+  const joinPath =
+    binDirectory.includes('\\') || /^[A-Za-z]:[\\/]/.test(binDirectory)
+      ? win32.join
+      : binDirectory.includes('/')
+        ? posix.join
+        : platform === 'win32'
+          ? win32.join
+          : posix.join
+  return joinPath(binDirectory, executableName)
 }
 
 async function findDirectoryWithFile(

@@ -14,6 +14,7 @@ export type { LLMProvider }
 
 export interface LLMConfig {
   apiKey?: string | null
+  hasApiKey?: boolean
   model?: string | null
   endpoint?: string | null
   deploymentName?: string | null
@@ -48,6 +49,7 @@ interface LLMStoreState {
 
 const initialConfig: LLMConfig = {
   apiKey: null,
+  hasApiKey: false,
   model: null,
   endpoint: null,
   deploymentName: null,
@@ -86,7 +88,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     if (!config) return false
 
     if (provider === 'azure') {
-      return !!(config.apiKey && config.endpoint && config.deploymentName)
+      return !!(config.hasApiKey && config.endpoint && config.deploymentName)
     }
     if (provider === 'vertex') {
       return !!(config.project && config.location && config.model)
@@ -94,7 +96,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     if (provider === 'ollama') {
       return !!(config.baseURL && config.model)
     }
-    return !!(config.apiKey && config.model)
+    return !!(config.hasApiKey && config.model)
   },
 
   initializeStore: async () => {
@@ -103,12 +105,51 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
       const settings = window.ctg?.settings
       if (settings?.getAllLLMConfigs) {
         const allConfigs = await settings.getAllLLMConfigs()
+        const openaiConfig: LLMConfig = allConfigs.openai
+          ? {
+              ...initialConfig,
+              model: allConfigs.openai.model,
+              hasApiKey: allConfigs.openai.hasApiKey
+            }
+          : { ...initialConfig }
+        const googleConfig: LLMConfig = allConfigs.google
+          ? {
+              ...initialConfig,
+              model: allConfigs.google.model,
+              hasApiKey: allConfigs.google.hasApiKey
+            }
+          : { ...initialConfig }
+        const azureConfig: LLMConfig = allConfigs.azure
+          ? {
+              ...initialConfig,
+              endpoint: allConfigs.azure.endpoint,
+              deploymentName: allConfigs.azure.deploymentName,
+              hasApiKey: allConfigs.azure.hasApiKey
+            }
+          : { ...initialConfig }
+        const anthropicConfig: LLMConfig = allConfigs.anthropic
+          ? {
+              ...initialConfig,
+              model: allConfigs.anthropic.model,
+              hasApiKey: allConfigs.anthropic.hasApiKey
+            }
+          : { ...initialConfig }
+        const vertexConfig: LLMConfig = allConfigs.vertex
+          ? {
+              ...initialConfig,
+              model: allConfigs.vertex.model ?? null,
+              project: allConfigs.vertex.project ?? null,
+              location: allConfigs.vertex.location ?? null,
+              hasApiKey: allConfigs.vertex.hasApiKey
+            }
+          : { ...initialConfig }
+
         set({
-          openaiConfig: allConfigs.openai || { ...initialConfig },
-          googleConfig: allConfigs.google || { ...initialConfig },
-          azureConfig: allConfigs.azure || { ...initialConfig },
-          anthropicConfig: allConfigs.anthropic || { ...initialConfig },
-          vertexConfig: allConfigs.vertex || { ...initialConfig },
+          openaiConfig,
+          googleConfig,
+          azureConfig,
+          anthropicConfig,
+          vertexConfig,
           ollamaConfig: allConfigs.ollama || { ...initialConfig },
           embeddingConfig: allConfigs.embedding || { ...defaultEmbeddingConfig },
           activeProvider: allConfigs.activeProvider || null,
@@ -145,9 +186,14 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     let becameActive = false
 
     set((state) => {
-      const newOpenAIConfig = { ...state.openaiConfig, ...config }
+      const newOpenAIConfig = {
+        ...state.openaiConfig,
+        model: config.model,
+        apiKey: null,
+        hasApiKey: true
+      }
       const shouldBecomeActive =
-        state.activeProvider === null && newOpenAIConfig.apiKey && newOpenAIConfig.model
+        state.activeProvider === null && newOpenAIConfig.hasApiKey && newOpenAIConfig.model
       if (shouldBecomeActive) becameActive = true
       return {
         openaiConfig: newOpenAIConfig,
@@ -177,9 +223,14 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     let becameActive = false
 
     set((state) => {
-      const newGoogleConfig = { ...state.googleConfig, ...config }
+      const newGoogleConfig = {
+        ...state.googleConfig,
+        model: config.model,
+        apiKey: null,
+        hasApiKey: true
+      }
       const shouldBecomeActive =
-        state.activeProvider === null && newGoogleConfig.apiKey && newGoogleConfig.model
+        state.activeProvider === null && newGoogleConfig.hasApiKey && newGoogleConfig.model
       if (shouldBecomeActive) becameActive = true
       return {
         googleConfig: newGoogleConfig,
@@ -209,10 +260,16 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     let becameActive = false
 
     set((state) => {
-      const newAzureConfig = { ...state.azureConfig, ...config }
+      const newAzureConfig = {
+        ...state.azureConfig,
+        endpoint: config.endpoint,
+        deploymentName: config.deploymentName,
+        apiKey: null,
+        hasApiKey: true
+      }
       const shouldBecomeActive =
         state.activeProvider === null &&
-        newAzureConfig.apiKey &&
+        newAzureConfig.hasApiKey &&
         newAzureConfig.endpoint &&
         newAzureConfig.deploymentName
       if (shouldBecomeActive) becameActive = true
@@ -244,9 +301,14 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     let becameActive = false
 
     set((state) => {
-      const newAnthropicConfig = { ...state.anthropicConfig, ...config }
+      const newAnthropicConfig = {
+        ...state.anthropicConfig,
+        model: config.model,
+        apiKey: null,
+        hasApiKey: true
+      }
       const shouldBecomeActive =
-        state.activeProvider === null && newAnthropicConfig.apiKey && newAnthropicConfig.model
+        state.activeProvider === null && newAnthropicConfig.hasApiKey && newAnthropicConfig.model
       if (shouldBecomeActive) becameActive = true
       return {
         anthropicConfig: newAnthropicConfig,
@@ -276,7 +338,18 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
     let becameActive = false
 
     set((state) => {
-      const newVertexConfig = { ...state.vertexConfig, ...config }
+      const hasApiKey =
+        typeof config.apiKey === 'string'
+          ? config.apiKey.trim().length > 0
+          : state.vertexConfig.hasApiKey === true
+      const newVertexConfig = {
+        ...state.vertexConfig,
+        model: config.model ?? state.vertexConfig.model,
+        project: config.project ?? state.vertexConfig.project,
+        location: config.location ?? state.vertexConfig.location,
+        apiKey: null,
+        hasApiKey
+      }
       const shouldBecomeActive =
         state.activeProvider === null &&
         newVertexConfig.project &&

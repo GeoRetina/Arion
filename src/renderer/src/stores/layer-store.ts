@@ -1146,7 +1146,7 @@ export const useLayerStore = create<LayerStore>()(
 )
 
 // Push the in-memory layer store snapshot to the main process (for LLM tools).
-if (typeof window !== 'undefined' && window.ctg?.layers?.invoke) {
+if (typeof window !== 'undefined' && window.ctg?.layers?.updateRuntimeSnapshot) {
   const serializeLayerForRuntime = (
     layer: LayerDefinition
   ): {
@@ -1176,7 +1176,7 @@ if (typeof window !== 'undefined' && window.ctg?.layers?.invoke) {
     const layers = Array.from(useLayerStore.getState().layers.values()).map((l) =>
       serializeLayerForRuntime(l)
     )
-    window.ctg.layers.invoke('layers:runtime:updateSnapshot', layers).catch(() => {})
+    window.ctg.layers.updateRuntimeSnapshot(layers).catch(() => {})
   }
 
   const schedulePush = (): void => {

@@ -1,7 +1,42 @@
 import { type IpcMain } from 'electron'
 import { IpcChannels } from '../../shared/ipc-types' // Adjusted path
 import { dbService, type Chat, type Message } from '../services/db-service'
+import { z } from 'zod'
 // import { KnowledgeBaseService } from '../services/knowledge-base.service' // No longer needed here
+
+const idSchema = z.string().trim().min(1).max(256)
+const orderBySchema = z.enum(['created_at', 'updated_at']).optional()
+const orderSchema = z.enum(['ASC', 'DESC']).optional()
+const messageOrderBySchema = z.enum(['created_at']).optional()
+const chatRoleSchema = z.enum(['system', 'user', 'assistant', 'function', 'data', 'tool'])
+
+const createChatSchema = z
+  .object({
+    id: idSchema,
+    title: z.string().max(1000).nullable().optional(),
+    metadata: z.string().max(200_000).nullable().optional()
+  })
+  .strict()
+
+const updateChatSchema = z
+  .object({
+    title: z.string().max(1000).nullable().optional(),
+    metadata: z.string().max(200_000).nullable().optional()
+  })
+  .strict()
+
+const addMessageSchema = z
+  .object({
+    id: idSchema,
+    chat_id: idSchema,
+    role: chatRoleSchema,
+    content: z.string().min(1).max(1_000_000),
+    name: z.string().max(256).nullable().optional(),
+    tool_calls: z.string().max(2_000_000).nullable().optional(),
+    tool_call_id: z.string().max(256).nullable().optional(),
+    orchestration: z.string().max(2_000_000).nullable().optional()
+  })
+  .strict()
 
 export function registerDbIpcHandlers(
   ipcMain: IpcMain
@@ -14,7 +49,8 @@ export function registerDbIpcHandlers(
       chatData: Pick<Chat, 'id'> & Partial<Omit<Chat, 'id' | 'created_at' | 'updated_at'>>
     ) => {
       try {
-        const chat = dbService.createChat(chatData)
+        const parsedChatData = createChatSchema.parse(chatData)
+        const chat = dbService.createChat(parsedChatData)
         if (chat) {
           return { success: true, data: chat }
         } else {
@@ -28,7 +64,8 @@ export function registerDbIpcHandlers(
 
   ipcMain.handle(IpcChannels.dbGetChatById, async (_event, id: string) => {
     try {
-      const chat = dbService.getChatById(id)
+      const parsedId = idSchema.parse(id)
+      const chat = dbService.getChatById(parsedId)
       return { success: true, data: chat } // chat can be null if not found, which is a valid success case
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -39,7 +76,9 @@ export function registerDbIpcHandlers(
     IpcChannels.dbGetAllChats,
     async (_event, orderBy?: 'created_at' | 'updated_at', order?: 'ASC' | 'DESC') => {
       try {
-        const chats = dbService.getAllChats(orderBy, order)
+        const parsedOrderBy = orderBySchema.parse(orderBy)
+        const parsedOrder = orderSchema.parse(order)
+        const chats = dbService.getAllChats(parsedOrderBy, parsedOrder)
         return { success: true, data: chats }
       } catch (error) {
         return { success: false, error: (error as Error).message }
@@ -55,7 +94,9 @@ export function registerDbIpcHandlers(
       updates: Partial<Omit<Chat, 'id' | 'created_at' | 'updated_at'>>
     ) => {
       try {
-        const chat = dbService.updateChat(id, updates)
+        const parsedId = idSchema.parse(id)
+        const parsedUpdates = updateChatSchema.parse(updates)
+        const chat = dbService.updateChat(parsedId, parsedUpdates)
         if (chat) {
           return { success: true, data: chat }
         }
@@ -71,7 +112,8 @@ export function registerDbIpcHandlers(
 
   ipcMain.handle(IpcChannels.dbDeleteChat, async (_event, id: string) => {
     try {
-      const deleted = dbService.deleteChat(id)
+      const parsedId = idSchema.parse(id)
+      const deleted = dbService.deleteChat(parsedId)
       return { success: deleted }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -86,7 +128,8 @@ export function registerDbIpcHandlers(
         Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content' | 'created_at'>>
     ) => {
       try {
-        const message = dbService.addMessage(messageData)
+        const parsedMessage = addMessageSchema.parse(messageData)
+        const message = dbService.addMessage(parsedMessage)
         if (message) {
           return { success: true, data: message }
         }
@@ -99,7 +142,8 @@ export function registerDbIpcHandlers(
 
   ipcMain.handle(IpcChannels.dbGetMessageById, async (_event, id: string) => {
     try {
-      const message = dbService.getMessageById(id)
+      const parsedId = idSchema.parse(id)
+      const message = dbService.getMessageById(parsedId)
       return { success: true, data: message }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -110,7 +154,10 @@ export function registerDbIpcHandlers(
     IpcChannels.dbGetMessagesByChatId,
     async (_event, chat_id: string, orderBy?: 'created_at', order?: 'ASC' | 'DESC') => {
       try {
-        const messages = dbService.getMessagesByChatId(chat_id, orderBy, order)
+        const parsedChatId = idSchema.parse(chat_id)
+        const parsedOrderBy = messageOrderBySchema.parse(orderBy)
+        const parsedOrder = orderSchema.parse(order)
+        const messages = dbService.getMessagesByChatId(parsedChatId, parsedOrderBy, parsedOrder)
         return { success: true, data: messages }
       } catch (error) {
         return { success: false, error: (error as Error).message }
@@ -120,7 +167,8 @@ export function registerDbIpcHandlers(
 
   ipcMain.handle(IpcChannels.dbDeleteMessage, async (_event, id: string) => {
     try {
-      const deleted = dbService.deleteMessage(id)
+      const parsedId = idSchema.parse(id)
+      const deleted = dbService.deleteMessage(parsedId)
       return { success: deleted }
     } catch (error) {
       return { success: false, error: (error as Error).message }
