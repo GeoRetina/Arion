@@ -336,17 +336,13 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="custom"
+                    variant="ghost"
                     size="icon"
                     onClick={onToggleMapSidebar}
                     type="button"
-                    className={`
-                      h-8 w-8 flex items-center justify-center ml-1 border rounded-md
-                      border-border hover:border-border/80
-                      ${isMapSidebarExpanded ? 'text-blue-500 bg-blue-500/20 hover:bg-blue-500/30' : ''}
-                    `}
+                    className={`transition-colors ${isMapSidebarExpanded ? 'text-blue-500 hover:text-blue-400' : 'text-foreground/60 hover:text-foreground/80'}`}
                   >
-                    <MapIcon className="h-4 w-4" />
+                    <MapIcon className="size-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
