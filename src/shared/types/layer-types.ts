@@ -35,7 +35,7 @@ export interface LayerContext {
   chatId?: string | null // Associated chat session ID
   userId?: string // User who initiated the action
   source?: string // Source component/service name
-  metadata?: Record<string, unknown> // Additional context metadata
+  metadata?: Record<string, unknown> // Additional metadata stored under layer.metadata.context
 }
 
 // Source configuration for different layer types
@@ -161,6 +161,7 @@ export interface LayerMetadata {
   statistics?: LayerStatistics // Data statistics
   temporalExtent?: TemporalExtent // Time range (if applicable)
   quality?: DataQuality // Data quality metrics
+  context?: Record<string, unknown> // App-specific metadata (import/session provenance, file info)
 }
 
 export type GeometryType =

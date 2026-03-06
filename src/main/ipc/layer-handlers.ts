@@ -221,7 +221,8 @@ const layerMetadataSchema = z
     attributes: z.record(z.unknown()).optional(),
     statistics: z.record(z.unknown()).optional(),
     temporalExtent: z.record(z.unknown()).optional(),
-    quality: z.record(z.unknown()).optional()
+    quality: z.record(z.unknown()).optional(),
+    context: z.record(z.unknown()).optional()
   })
   .strict()
 

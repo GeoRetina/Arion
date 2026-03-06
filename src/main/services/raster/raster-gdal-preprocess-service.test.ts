@@ -156,7 +156,63 @@ describe('raster-gdal-preprocess-service', () => {
     })
 
     expect(result.success).toBe(false)
-    expect(result.warning).toContain('cannot be prepared in place')
+    expect(result.warning).toContain('requires reprojection')
     expect(calls.map((call) => call.tool)).toEqual(['gdalinfo'])
+  })
+
+  it('skips import-time reprojection for EPSG:4326 sources and does not compute stats', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'arion-raster-preprocess-test-'))
+    cleanupPaths.push(root)
+    const inputPath = join(root, 'source.tif')
+    const outputPath = join(root, 'normalized.tif')
+    await fs.writeFile(inputPath, 'dummy')
+
+    const calls: Array<{ tool: string; args: string[] }> = []
+    const fakeRunner = {
+      getAvailability: async () => ({
+        available: true,
+        runtimePaths: {
+          binDirectory: '/mock/bin',
+          gdalDataDirectory: '/mock/share/gdal',
+          projDirectory: '/mock/share/proj',
+          gdalPluginsDirectory: null
+        }
+      }),
+      run: async (tool: string, args: string[]) => {
+        calls.push({ tool, args })
+        if (tool === 'gdalinfo' && args[0] === '-json') {
+          return {
+            command: tool,
+            args,
+            stdout: JSON.stringify({ size: [200, 200], stac: { 'proj:epsg': 4326 } }),
+            stderr: '',
+            durationMs: 1
+          }
+        }
+
+        return {
+          command: tool,
+          args,
+          stdout: '',
+          stderr: '',
+          durationMs: 1
+        }
+      }
+    } as unknown as GdalRunnerService
+
+    const service = new RasterGdalPreprocessService(fakeRunner)
+    const result = await service.preprocessGeoTiff({
+      assetId: 'asset-3',
+      inputPath,
+      outputPath
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.reprojected).toBe(false)
+    expect(calls.some((call) => call.tool === 'gdalwarp')).toBe(false)
+    expect(calls.some((call) => call.tool === 'gdal_translate')).toBe(true)
+    expect(calls.some((call) => call.tool === 'gdalinfo' && call.args.includes('-stats'))).toBe(
+      false
+    )
   })
 })

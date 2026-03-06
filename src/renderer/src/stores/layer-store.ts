@@ -427,6 +427,13 @@ export const useLayerStore = create<LayerStore>()(
       // Prepare metadata with context-based tagging
       const metadata = { ...definition.metadata }
       let tags = [...(metadata.tags || [])]
+      const mergedContextMetadata =
+        context?.metadata && Object.keys(context.metadata).length > 0
+          ? {
+              ...(metadata.context || {}),
+              ...context.metadata
+            }
+          : metadata.context
 
       // Add context-based tags for imported layers
       if (definition.createdBy === 'import' && context?.chatId) {
@@ -446,9 +453,8 @@ export const useLayerStore = create<LayerStore>()(
         style: { ...DEFAULT_LAYER_STYLE, ...definition.style },
         metadata: {
           ...metadata,
-          tags,
-          // Add additional context metadata if provided
-          ...(context?.metadata || {})
+          tags: Array.from(new Set(tags)),
+          ...(mergedContextMetadata ? { context: mergedContextMetadata } : {})
         }
       }
 

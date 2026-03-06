@@ -6,8 +6,7 @@ const GDAL_INFO_TIMEOUT_MS = 30 * 1000
 const GDAL_WARP_TIMEOUT_MS = 30 * 60 * 1000
 const GDAL_ADDO_TIMEOUT_MS = 20 * 60 * 1000
 const GDAL_TRANSLATE_TIMEOUT_MS = 30 * 60 * 1000
-const GDAL_STATS_TIMEOUT_MS = 10 * 60 * 1000
-const WEB_MERCATOR_EPSG_CODES = new Set([3857, 3785, 900913])
+const DIRECT_RENDER_EPSG_CODES = new Set([4326, 4979, 3857, 3785, 900913])
 const OVERVIEW_MIN_DIMENSION = 256
 const OVERVIEW_MAX_FACTOR = 512
 const DEFAULT_GDAL_THREAD_COUNT = Math.max(1, Math.min(4, cpus().length - 1))
@@ -91,7 +90,7 @@ export class RasterGdalPreprocessService {
 
       const sourceInfo = await this.readGdalInfo(request.inputPath)
       sourceEpsg = extractEpsgCode(sourceInfo)
-      const shouldReproject = sourceEpsg === null || !WEB_MERCATOR_EPSG_CODES.has(sourceEpsg)
+      const shouldReproject = sourceEpsg === null || !DIRECT_RENDER_EPSG_CODES.has(sourceEpsg)
 
       if (inPlaceOutput && shouldReproject) {
         return {
@@ -101,7 +100,7 @@ export class RasterGdalPreprocessService {
           reprojected: false,
           usedCogDriver,
           warning:
-            'Source raster is not EPSG:4326 or EPSG:3857, so auxiliary files cannot be prepared in place'
+            'Source raster requires reprojection, so auxiliary files cannot be prepared in place'
         }
       }
 
@@ -213,29 +212,6 @@ export class RasterGdalPreprocessService {
             error instanceof Error
               ? `Failed to build overviews: ${error.message}`
               : 'Failed to build overviews'
-          )
-        }
-      }
-
-      request.onProgress?.({
-        stage: 'translate',
-        progress: 82,
-        message: 'Computing raster statistics metadata'
-      })
-
-      if (!(await hasNonEmptyFile(outputAuxMetadataPath))) {
-        try {
-          await this.gdalRunner.run(
-            'gdalinfo',
-            ['--config', 'GDAL_PAM_ENABLED', 'YES', '-stats', request.outputPath],
-            { timeoutMs: GDAL_STATS_TIMEOUT_MS }
-          )
-        } catch (error) {
-          warning = appendWarning(
-            warning,
-            error instanceof Error
-              ? `Failed to compute auxiliary statistics metadata: ${error.message}`
-              : 'Failed to compute auxiliary statistics metadata'
           )
         }
       }
