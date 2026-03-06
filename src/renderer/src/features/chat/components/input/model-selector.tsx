@@ -54,7 +54,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         >
           {activeProvider ? (
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-4 h-4 rounded-sm flex items-center justify-center flex-shrink-0">
+              <div className="w-4 h-4 rounded-sm flex items-center justify-center shrink-0">
                 <img
                   src={PROVIDER_LOGOS[activeProvider]}
                   alt=""
@@ -102,16 +102,16 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                       : 'hover:bg-secondary/30 text-foreground'
                   }`}
                 >
-                  <div className="flex-shrink-0 w-4 h-4 rounded-sm overflow-hidden flex items-center justify-center shadow-sm bg-background/80">
+                  <div className="shrink-0 w-4 h-4 rounded-sm overflow-hidden flex items-center justify-center shadow-sm bg-background/80">
                     <img
                       src={PROVIDER_LOGOS[provider.id]}
                       alt=""
                       className="w-full h-full object-contain"
                     />
                   </div>
-                  <span className="flex-grow truncate text-xs">{provider.name}</span>
+                  <span className="grow truncate text-xs">{provider.name}</span>
                   {provider.isActive && (
-                    <Check size={14} className="flex-shrink-0 ml-auto" strokeWidth={2.5} />
+                    <Check size={14} className="shrink-0 ml-auto" strokeWidth={2.5} />
                   )}
                 </button>
               ))}
