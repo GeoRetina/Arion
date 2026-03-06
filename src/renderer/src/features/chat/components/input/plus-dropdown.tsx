@@ -242,7 +242,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
             onClick={handleFileImport}
             disabled={disabled || uploadState === 'uploading'}
             className={cn(
-              'text-foreground/60 hover:text-foreground/80 transition-colors',
+              'size-8 text-foreground/60 hover:text-foreground/80 transition-colors',
               uploadState === 'uploading' && 'cursor-not-allowed opacity-75',
               uploadState === 'success' && 'text-green-600 hover:text-green-700',
               uploadState === 'error' && 'text-red-600 hover:text-red-700',
