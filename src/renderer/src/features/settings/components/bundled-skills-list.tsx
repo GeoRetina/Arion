@@ -200,7 +200,7 @@ const BundledCard: React.FC<{
                 variant="outline"
                 className="shrink-0 text-xs bg-green-500/10 text-green-600 border-green-500/20"
               >
-                bundled
+                official
               </Badge>
             )}
           </div>

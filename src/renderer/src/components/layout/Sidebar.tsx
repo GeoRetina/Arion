@@ -47,7 +47,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       }`,
       isExpanded ? 'text-base' : 'text-[0px]',
       isActive
-        ? 'font-semibold bg-primary/15 text-primary hover:bg-primary/20'
+        ? 'font-semibold bg-primary/15 text-foreground hover:bg-primary/15!'
         : 'text-foreground/80 font-medium hover:bg-muted hover:text-foreground'
     )
   }
