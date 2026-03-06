@@ -275,11 +275,11 @@ code {
   --border-width: 1px;
   /* VS Code-inspired Dark Theme - neutral grays with gold accents */
   --background: oklch(0.24 0.005 250); /* Dark neutral gray */
-  --foreground: oklch(0.95 0 0); /* Pure white text */
+  --foreground: oklch(1 0 0); /* Pure white text */
   --card: oklch(0.3 0.005 250); /* Lighter gray for cards/chat area */
-  --card-foreground: oklch(0.95 0 0);
+  --card-foreground: oklch(1 0 0);
   --popover: oklch(0.31 0.005 250); /* Matches card */
-  --popover-foreground: oklch(0.95 0 0);
+  --popover-foreground: oklch(1 0 0);
   --primary: oklch(0.9 0.01 250); /* Light/whitish button */
   --primary-foreground: oklch(0.15 0.01 250); /* Dark text on light button */
   --secondary: oklch(0.28 0.005 250); /* Muted gray */

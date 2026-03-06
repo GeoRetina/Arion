@@ -204,13 +204,13 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
   const getButtonIcon = (): React.JSX.Element => {
     switch (uploadState) {
       case 'uploading':
-        return <Loader2 className="h-5 w-5 animate-spin" />
+        return <Loader2 className="size-5 animate-spin" />
       case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="size-5 text-green-500" />
       case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />
+        return <AlertCircle className="size-5 text-red-500" />
       default:
-        return <Plus className="h-5 w-5" />
+        return <Plus className="size-5" />
     }
   }
 
@@ -242,7 +242,7 @@ export const PlusDropdown: React.FC<PlusDropdownProps> = ({
             onClick={handleFileImport}
             disabled={disabled || uploadState === 'uploading'}
             className={cn(
-              'text-foreground hover:text-foreground/80 transition-colors h-8 w-8',
+              'text-foreground/60 hover:text-foreground/80 transition-colors',
               uploadState === 'uploading' && 'cursor-not-allowed opacity-75',
               uploadState === 'success' && 'text-green-600 hover:text-green-700',
               uploadState === 'error' && 'text-red-600 hover:text-red-700',
