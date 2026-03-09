@@ -85,7 +85,7 @@ const AgentsPage: React.FC = () => {
           <div className="w-full">
             <h1 className="text-3xl font-semibold mb-2">AI Agents</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Manage your worker agents and external analysis integrations from one place.
+              Manage your specialist agents and external analysis integrations from one place.
             </p>
           </div>
 
@@ -95,7 +95,7 @@ const AgentsPage: React.FC = () => {
             className="w-full space-y-6"
           >
             <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="workers">Worker Agents</TabsTrigger>
+              <TabsTrigger value="workers">Specialist Agents</TabsTrigger>
               <TabsTrigger value="integrations">Integrations</TabsTrigger>
             </TabsList>
 

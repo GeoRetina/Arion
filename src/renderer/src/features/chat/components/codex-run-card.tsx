@@ -43,11 +43,23 @@ function inferProvider(model: string | undefined | null): NonNullable<LLMProvide
   if (lower.includes('claude') || lower.includes('anthropic')) return 'anthropic'
   if (lower.includes('gemini') || lower.includes('palm')) return 'google'
   if (lower.includes('vertex')) return 'vertex'
-  if (lower.includes('ollama') || lower.includes('llama') || lower.includes('mistral') || lower.includes('deepseek')) return 'ollama'
+  if (
+    lower.includes('ollama') ||
+    lower.includes('llama') ||
+    lower.includes('mistral') ||
+    lower.includes('deepseek')
+  )
+    return 'ollama'
   return 'openai'
 }
 
-function RuntimeIcon({ model, className }: { model: string | undefined | null; className?: string }): React.JSX.Element {
+function RuntimeIcon({
+  model,
+  className
+}: {
+  model: string | undefined | null
+  className?: string
+}): React.JSX.Element {
   const provider = inferProvider(model)
   return (
     <img
@@ -462,13 +474,7 @@ export function ActiveCodexRunPanel({
   )
 }
 
-// ─── Completed Run Card (result display) ────────────────────────────────────
-
-export default function CodexRunCard({
-  result
-}: {
-  result: unknown
-}): React.JSX.Element | null {
+export default function CodexRunCard({ result }: { result: unknown }): React.JSX.Element | null {
   const refreshRun = useCodexStore((state) => state.refreshRun)
   const runs = useCodexStore((state) => state.runs)
   const normalizedResult = normalizeCodexRun(result)
@@ -500,7 +506,10 @@ export default function CodexRunCard({
     >
       {/* Collapsed header */}
       <div
-        className="flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+        className={cn(
+          'flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+          expanded ? 'rounded-t-lg' : 'rounded-lg'
+        )}
         onClick={() => setExpanded(!expanded)}
       >
         <RuntimeIcon model={displayRun.model} />
@@ -619,11 +628,13 @@ export default function CodexRunCard({
           )}
 
           {/* Empty state */}
-          {displayRun.artifacts.length === 0 && displayRun.stagedInputs.length === 0 && !displayRun.error && (
-            <div className="text-muted-foreground px-2 py-1">
-              No artifacts or staged inputs for this run.
-            </div>
-          )}
+          {displayRun.artifacts.length === 0 &&
+            displayRun.stagedInputs.length === 0 &&
+            !displayRun.error && (
+              <div className="text-muted-foreground px-2 py-1">
+                No artifacts or staged inputs for this run.
+              </div>
+            )}
         </div>
       )}
     </div>

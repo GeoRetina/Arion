@@ -7,6 +7,7 @@ import { createStreamingFetch } from '../utils/streaming-fetch'
 import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat-history-store'
 import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
 import { useMessagePersistence, getTextFromParts } from './use-message-persistence'
+import { serializeMessageParts } from '../utils/stored-message-hydration'
 
 export type ChatMessage = UIMessage<unknown, UIDataTypes, UITools>
 
@@ -82,12 +83,20 @@ export function useChatController({
 
         const existingMsg = currentMessagesFromStore.find((m) => m.id === assistantMessage.id)
         const text = getTextFromParts(assistantMessage)
-        if (!existingMsg && text && text.trim().length > 0) {
+        const serializedParts = serializeMessageParts(
+          (assistantMessage as { parts?: unknown[] }).parts
+        )
+        const shouldPersistAssistantMessage = Boolean(
+          text.trim().length > 0 || serializedParts || assistantMessage.orchestration
+        )
+
+        if (!existingMsg && shouldPersistAssistantMessage) {
           await addMessageToCurrentChat({
             id: assistantMessage.id,
             chat_id: currentChatId,
             role: assistantMessage.role,
             content: text,
+            tool_calls: serializedParts,
             orchestration: assistantMessage.orchestration
               ? JSON.stringify(assistantMessage.orchestration)
               : undefined

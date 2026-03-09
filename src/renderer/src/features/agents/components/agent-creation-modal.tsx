@@ -288,7 +288,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
           </DialogHeader>
 
           <ScrollArea className="max-h-[calc(80vh-200px)] mt-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full pr-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full px-1 pr-4">
               <TabsList className="grid grid-cols-4 mb-4">
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger value="prompts">Prompts</TabsTrigger>
@@ -344,38 +344,42 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
                   <CardContent className="pb-2">
                     <div>
                       <Label>Select Tools</Label>
-                      <div className="mt-2 flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                        {isLoadingTools ? (
-                          <div className="w-full text-center py-4 text-muted-foreground">
-                            <p className="text-sm">Loading available tools...</p>
+                      <div className="mt-2 h-48 rounded-md border">
+                        <ScrollArea className="h-full p-2">
+                          <div className="flex flex-wrap gap-2">
+                          {isLoadingTools ? (
+                            <div className="w-full text-center py-4 text-muted-foreground">
+                              <p className="text-sm">Loading available tools...</p>
+                            </div>
+                          ) : toolsError ? (
+                            <div className="w-full text-center py-4 text-muted-foreground">
+                              <p className="text-sm text-red-500">Failed to load tools</p>
+                              <p className="text-xs mt-1">{toolsError}</p>
+                            </div>
+                          ) : availableTools.length === 0 ? (
+                            <div className="w-full text-center py-4 text-muted-foreground">
+                              <p className="text-sm">No tools available for assignment.</p>
+                              <p className="text-xs mt-1">
+                                All tools are currently assigned to other agents.
+                              </p>
+                            </div>
+                          ) : (
+                            availableTools.map((tool) => {
+                              const isSelected = selectedTools.includes(tool)
+                              return (
+                                <Badge
+                                  key={tool}
+                                  variant={isSelected ? 'default' : 'outline'}
+                                  className="cursor-pointer"
+                                  onClick={() => toggleToolSelection(tool)}
+                                >
+                                  {tool}
+                                </Badge>
+                              )
+                            })
+                          )}
                           </div>
-                        ) : toolsError ? (
-                          <div className="w-full text-center py-4 text-muted-foreground">
-                            <p className="text-sm text-red-500">Failed to load tools</p>
-                            <p className="text-xs mt-1">{toolsError}</p>
-                          </div>
-                        ) : availableTools.length === 0 ? (
-                          <div className="w-full text-center py-4 text-muted-foreground">
-                            <p className="text-sm">No tools available for assignment.</p>
-                            <p className="text-xs mt-1">
-                              All tools are currently assigned to other agents.
-                            </p>
-                          </div>
-                        ) : (
-                          availableTools.map((tool) => {
-                            const isSelected = selectedTools.includes(tool)
-                            return (
-                              <Badge
-                                key={tool}
-                                variant={isSelected ? 'default' : 'outline'}
-                                className="cursor-pointer"
-                                onClick={() => toggleToolSelection(tool)}
-                              >
-                                {tool}
-                              </Badge>
-                            )
-                          })
-                        )}
+                        </ScrollArea>
                       </div>
                     </div>
                   </CardContent>

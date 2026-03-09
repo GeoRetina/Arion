@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import { type UIMessage } from 'ai'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import type { Message } from '@/stores/chat-history-store'
+import {
+  hydrateStoredMessage,
+  serializeMessageParts,
+  type HydratedStoredMessage
+} from '../utils/stored-message-hydration'
 
 /**
  * Helper to read text from UIMessage parts
@@ -17,9 +22,8 @@ export function getTextFromParts(message: UIMessage): string {
     .join('')
 }
 
-type HydratedMessage = UIMessage & { content?: string; createdAt?: Date; hydrated?: boolean }
 type ChatControllerLike = {
-  setMessages?: (messages: HydratedMessage[]) => void
+  setMessages?: (messages: HydratedStoredMessage[]) => void
 }
 
 interface UseMessagePersistenceProps {
@@ -68,7 +72,8 @@ export function useMessagePersistence({
           id: message.id,
           chat_id: chatId,
           role: message.role as Message['role'],
-          content: text
+          content: text,
+          tool_calls: serializeMessageParts((message as { parts?: unknown[] }).parts)
         })
         persistedIds.add(message.id)
       }
@@ -101,24 +106,9 @@ export function useMessagePersistence({
     const setMessages = chat?.setMessages
     if (typeof setMessages !== 'function') return
 
-    // Map DB messages to UIMessage shape (parts-based)
-    const normalizeRole = (role: string): UIMessage['role'] => {
-      if (role === 'data' || role === 'function' || role === 'tool') return 'assistant'
-      return role as UIMessage['role']
-    }
-
-    const normalizedMessages: HydratedMessage[] = storeMessages.map((m) => {
-      const textContent = m.content ?? ''
-      const normalizedMessage: HydratedMessage = {
-        id: m.id,
-        role: normalizeRole(m.role),
-        content: textContent,
-        createdAt: m.created_at ? new Date(m.created_at) : undefined,
-        parts: textContent ? [{ type: 'text', text: textContent }] : []
-      }
-      normalizedMessage.hydrated = true
-      return normalizedMessage
-    })
+    const normalizedMessages = storeMessages.map((message) =>
+      hydrateStoredMessage(message, { hydrated: true })
+    )
 
     setMessages(normalizedMessages)
     lastHydrationRef.current = {

@@ -19,7 +19,7 @@ export interface Message {
   role: 'system' | 'user' | 'assistant' | 'function' | 'data' | 'tool'
   content: string
   name?: string | null
-  tool_calls?: string | null // JSON string
+  tool_calls?: string | null // JSON string storing serialized UI parts/tool results
   tool_call_id?: string | null
   orchestration?: string | null // JSON string containing orchestration data
   created_at: string
