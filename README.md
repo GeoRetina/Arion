@@ -4,9 +4,9 @@
   <table>
     <tr>
       <td align="center" style="background-color: #E8F5E9; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; margin: 20px 0;">
-        <h3 style="color: #2E7D32; margin: 0 0 10px 0;">🎉 v0.4.0 Released!</h3>
+        <h3 style="color: #2E7D32; margin: 0 0 10px 0;">🎉 v0.5.0 Released!</h3>
         <p style="color: #424242; font-size: 16px; margin: 0;">
-          Arion v0.3.9 is now available with Vercel AI SDK v6, improved streaming indicators, and code cleanup.<br/>
+          Arion v0.5.0 is now available with Codex integration, connector tabs, and UI improvements.<br/>
           Check out the <a href="./changelogs/v0.3.9-2025-12-29.md" style="color: #2E7D32; font-weight: bold;">release notes</a> for full details!
         </p>
       </td>
