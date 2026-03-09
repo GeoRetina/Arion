@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   type IntegrationConfigForRendererMap,
   type IntegrationConfigMap,
@@ -100,6 +101,101 @@ const toPostgreSQLConfig = (value: unknown): PostgreSQLConfig => {
   }
 }
 
+const ConnectorCard: React.FC<{
+  definition: IntegrationDefinition
+  isPending: boolean
+  onConfigure: () => void
+  onDisconnect: () => void
+}> = ({ definition, isPending, onConfigure, onDisconnect }) => {
+  const integration = definition.integration
+  const statusText = integration.status.replace('-', ' ')
+
+  return (
+    <Card className="overflow-hidden surface-elevated">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <div className="flex gap-3 items-start">
+          {getIntegrationIcon(integration.type)}
+          <div>
+            <CardTitle className="text-base">{integration.name}</CardTitle>
+            <CardDescription className="line-clamp-2">
+              {integration.description}
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="px-5 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          {integration.status === 'connected' ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3 w-3" />
+              Connected
+            </span>
+          ) : (
+            <>
+              <div
+                className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
+              ></div>
+              <span className="text-sm capitalize">{statusText}</span>
+              {integration.status === 'error' && (
+                <AlertCircle className="h-3 w-3 text-red-500" />
+              )}
+            </>
+          )}
+        </div>
+        {integration.message && integration.status === 'error' && (
+          <div className="text-xs text-red-500 mb-2 line-clamp-2">
+            {integration.message}
+          </div>
+        )}
+        <div className="text-sm text-muted-foreground">
+          Last used: {integration.lastUsed}
+        </div>
+      </CardContent>
+      <div className="px-5 py-3 border-t border-border/40 flex justify-end items-center gap-2">
+        {integration.status === 'connected' && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20 hover:text-red-600"
+            onClick={onDisconnect}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                Disconnecting...
+              </>
+            ) : (
+              'Disconnect'
+            )}
+          </Button>
+        )}
+        <Button
+          variant="default"
+          size="sm"
+          className="flex items-center gap-1 text-xs"
+          onClick={onConfigure}
+          disabled={isPending}
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <span>{integration.status === 'connected' ? 'Edit' : 'Configure'}</span>
+              {integration.status === 'connected' && (
+                <Pencil className="h-2.5 w-2.5" />
+              )}
+            </>
+          )}
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
 const ConnectorsPage: React.FC = () => {
   const [integrationConfigs, setIntegrationConfigs] =
     useState<IntegrationDefinition[]>(integrationRegistry)
@@ -110,9 +206,25 @@ const ConnectorsPage: React.FC = () => {
   const [isGenericConfigOpen, setIsGenericConfigOpen] = useState(false)
   const [genericInitialConfig, setGenericInitialConfig] = useState<Record<string, unknown>>({})
   const [pendingIntegrationId, setPendingIntegrationId] = useState<IntegrationId | null>(null)
+  const [activeTab, setActiveTab] = useState<'data-sources' | 'platforms'>('data-sources')
   const { runLogs, isRunLogsLoading, refreshRunLogs, clearRunLogs } = useConnectorRunLogs({
     limit: 30
   })
+
+  const platformIds = useMemo<Set<IntegrationId>>(
+    () => new Set(['google-earth-engine']),
+    []
+  )
+
+  const dataSourceConfigs = useMemo(
+    () => integrationConfigs.filter((d) => !platformIds.has(d.integration.id)),
+    [integrationConfigs, platformIds]
+  )
+
+  const platformConfigs = useMemo(
+    () => integrationConfigs.filter((d) => platformIds.has(d.integration.id)),
+    [integrationConfigs, platformIds]
+  )
 
   const selectedIntegration = useMemo(
     () =>
@@ -451,98 +563,44 @@ const ConnectorsPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {integrationConfigs.map((definition) => {
-                const integration = definition.integration
-                const isPending = pendingIntegrationId === integration.id
-                const statusText = integration.status.replace('-', ' ')
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as typeof activeTab)}
+              className="w-full space-y-4"
+            >
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="data-sources">Data Sources</TabsTrigger>
+                <TabsTrigger value="platforms">Platforms</TabsTrigger>
+              </TabsList>
 
-                return (
-                  <Card key={integration.id} className="overflow-hidden surface-elevated">
-                    <CardHeader className="pb-2 pt-4 px-5">
-                      <div className="flex gap-3 items-start">
-                        {getIntegrationIcon(integration.type)}
-                        <div>
-                          <CardTitle className="text-base">{integration.name}</CardTitle>
-                          <CardDescription className="line-clamp-2">
-                            {integration.description}
-                          </CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="px-5 py-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        {integration.status === 'connected' ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Connected
-                          </span>
-                        ) : (
-                          <>
-                            <div
-                              className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
-                            ></div>
-                            <span className="text-sm capitalize">{statusText}</span>
-                            {integration.status === 'error' && (
-                              <AlertCircle className="h-3 w-3 text-red-500" />
-                            )}
-                          </>
-                        )}
-                      </div>
-                      {integration.message && integration.status === 'error' && (
-                        <div className="text-xs text-red-500 mb-2 line-clamp-2">
-                          {integration.message}
-                        </div>
-                      )}
-                      <div className="text-sm text-muted-foreground">
-                        Last used: {integration.lastUsed}
-                      </div>
-                    </CardContent>
-                    <div className="px-5 py-3 border-t border-border/40 flex justify-end items-center gap-2">
-                      {integration.status === 'connected' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-xs bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20 hover:text-red-600"
-                          onClick={() => void handleDisconnect(integration.id)}
-                          disabled={isPending}
-                        >
-                          {isPending ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                              Disconnecting...
-                            </>
-                          ) : (
-                            'Disconnect'
-                          )}
-                        </Button>
-                      )}
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="flex items-center gap-1 text-xs"
-                        onClick={() => void openConfigureDialog(definition)}
-                        disabled={isPending}
-                      >
-                        {isPending ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <span>{integration.status === 'connected' ? 'Edit' : 'Configure'}</span>
-                            {integration.status === 'connected' && (
-                              <Pencil className="h-2.5 w-2.5" />
-                            )}
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
+              <TabsContent value="data-sources" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {dataSourceConfigs.map((definition) => (
+                    <ConnectorCard
+                      key={definition.integration.id}
+                      definition={definition}
+                      isPending={pendingIntegrationId === definition.integration.id}
+                      onConfigure={() => void openConfigureDialog(definition)}
+                      onDisconnect={() => void handleDisconnect(definition.integration.id)}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="platforms" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {platformConfigs.map((definition) => (
+                    <ConnectorCard
+                      key={definition.integration.id}
+                      definition={definition}
+                      isPending={pendingIntegrationId === definition.integration.id}
+                      onConfigure={() => void openConfigureDialog(definition)}
+                      onDisconnect={() => void handleDisconnect(definition.integration.id)}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>

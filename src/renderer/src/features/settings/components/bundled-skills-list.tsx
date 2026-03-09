@@ -191,7 +191,7 @@ const BundledCard: React.FC<{
             {isInstalled ? (
               <Badge
                 variant="outline"
-                className="shrink-0 text-xs bg-purple-500/10 text-purple-600 border-purple-500/20"
+                className="shrink-0 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20"
               >
                 installed
               </Badge>
