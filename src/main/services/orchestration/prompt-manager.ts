@@ -2,12 +2,16 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 import { IPromptManager } from './types/orchestration-interfaces'
+import { resolvePromptsBasePath } from '../../lib/prompt-paths'
 
 export class PromptManager implements IPromptManager {
   private promptsBasePath: string
 
   constructor() {
-    this.promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
+    this.promptsBasePath = resolvePromptsBasePath({
+      appPath: app.getAppPath(),
+      resourcesPath: process.resourcesPath
+    })
   }
 
   public getPromptsBasePath(): string {

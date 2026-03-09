@@ -4,30 +4,52 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { copyFileSync, mkdirSync, existsSync, readdirSync } from 'fs'
 
+type CopyTarget = {
+  sourceDir: string
+  outputDir: string
+  extension: string
+  label: string
+}
+
+function copyBuildAssets(targets: CopyTarget[]): void {
+  targets.forEach(({ sourceDir, outputDir, extension, label }) => {
+    mkdirSync(outputDir, { recursive: true })
+
+    if (!existsSync(sourceDir)) {
+      console.warn(`${label} source directory not found: ${sourceDir}`)
+      return
+    }
+
+    const files = readdirSync(sourceDir).filter((file: string) => file.endsWith(extension))
+    files.forEach((file: string) => {
+      copyFileSync(resolve(sourceDir, file), resolve(outputDir, file))
+      console.log(`Copied ${label} file: ${file} to ${outputDir}`)
+    })
+  })
+}
+
 export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin(),
-      // Custom plugin to copy migration files
+      // Copy runtime assets that the main process loads from disk.
       {
-        name: 'copy-migrations',
+        name: 'copy-main-assets',
         writeBundle() {
-          const srcDir = resolve('src/main/database/migrations')
-          const outDir = resolve('out/database/migrations')
-
-          // Create output directory
-          mkdirSync(outDir, { recursive: true })
-
-          // Copy all .sql files if source directory exists
-          if (existsSync(srcDir)) {
-            const files = readdirSync(srcDir).filter((file: string) => file.endsWith('.sql'))
-            files.forEach((file: string) => {
-              copyFileSync(resolve(srcDir, file), resolve(outDir, file))
-              console.log(`Copied migration file: ${file} to ${outDir}`)
-            })
-          } else {
-            console.warn(`Migration source directory not found: ${srcDir}`)
-          }
+          copyBuildAssets([
+            {
+              sourceDir: resolve('src/main/database/migrations'),
+              outputDir: resolve('out/database/migrations'),
+              extension: '.sql',
+              label: 'migration'
+            },
+            {
+              sourceDir: resolve('src/main/prompts'),
+              outputDir: resolve('out/main/prompts'),
+              extension: '.xml',
+              label: 'prompt'
+            }
+          ])
         }
       }
     ]

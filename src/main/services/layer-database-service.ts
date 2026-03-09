@@ -9,6 +9,7 @@ import Database from 'better-sqlite3'
 import fs from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
+import { resolveMigrationPath } from '../lib/migration-paths'
 import type {
   LayerDefinition,
   LayerGroup,
@@ -175,23 +176,12 @@ export class LayerDatabaseService implements LayerDatabase {
   }
 
   private getMigrationPath(migrationFile: string): string {
-    // In production builds, migration files are copied to out/database/migrations/
-    // In development, they're in src/main/database/migrations/
-    const possiblePaths = [
-      join(process.cwd(), 'out/database/migrations', migrationFile),
-      join(__dirname, '../../database/migrations', migrationFile),
-      join(__dirname, '../database/migrations', migrationFile)
-    ]
-
-    for (const path of possiblePaths) {
-      if (fs.existsSync(path)) {
-        return path
-      }
-    }
-
-    throw new Error(
-      `Migration file not found: ${migrationFile}. Searched paths: ${possiblePaths.join(', ')}`
-    )
+    return resolveMigrationPath(migrationFile, {
+      appPath: app.getAppPath(),
+      currentDir: __dirname,
+      cwd: process.cwd(),
+      resourcesPath: process.resourcesPath
+    })
   }
 
   private prepareStatements(): void {

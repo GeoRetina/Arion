@@ -2,6 +2,7 @@ import type { ElementType } from 'react'
 import ChartDisplay from '../../visualization/components/chart-display'
 import type { ChartDisplayProps } from '../../visualization/components/chart-display'
 import AgentCallDisplay from '../components/agent-call-display'
+import CodexRunCard from '../components/codex-run-card'
 import { useAgentStore } from '@/stores/agent-store'
 
 export interface ToolUIComponent {
@@ -54,6 +55,16 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
         props: { chartData: chartDisplayData },
         key: toolCallId
       }
+    }
+  }
+
+  if (toolName === 'run_custom_analysis_with_codex' && state === 'result' && resultRecord) {
+    return {
+      component: CodexRunCard,
+      props: {
+        result
+      },
+      key: toolCallId
     }
   }
 

@@ -1,4 +1,5 @@
 import type {
+  CodexConfig,
   ConnectorPolicyConfig,
   EmbeddingConfig,
   EmbeddingProviderType,
@@ -19,6 +20,7 @@ import {
 export const SERVICE_NAME = 'ArionLLMCredentials'
 export const DB_FILENAME = 'arion-settings.db'
 export const EMBEDDING_CONFIG_KEY = 'embeddingConfig'
+export const CODEX_CONFIG_KEY = 'codexConfig'
 
 export const DEFAULT_SYSTEM_PROMPT_CONFIG: SystemPromptConfig = {
   userSystemPrompt: ''
@@ -54,6 +56,14 @@ export const DEFAULT_PLUGIN_PLATFORM_CONFIG: PluginPlatformConfig = {
 export const DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG = normalizeConnectorPolicyConfig(
   DEFAULT_CONNECTOR_POLICY_CONFIG
 )
+
+export const DEFAULT_CODEX_CONFIG: CodexConfig = {
+  binaryPath: null,
+  homePath: null,
+  defaultModel: 'gpt-5.3-codex',
+  reasoningEffort: 'medium',
+  defaultMode: 'workspace-approval'
+}
 
 export const normalizeEmbeddingConfig = (
   config: Partial<EmbeddingConfig> | null | undefined
@@ -134,6 +144,36 @@ export const normalizeSkillPackConfig = (
         ? config.workspaceRoot.trim()
         : null,
     disabledSkillIds: normalizeSkillIdList(config?.disabledSkillIds)
+  }
+}
+
+export const normalizeCodexConfig = (
+  config: Partial<CodexConfig> | null | undefined
+): CodexConfig => {
+  const defaultModel =
+    typeof config?.defaultModel === 'string' && config.defaultModel.trim().length > 0
+      ? config.defaultModel.trim()
+      : DEFAULT_CODEX_CONFIG.defaultModel
+
+  const reasoningEffort =
+    config?.reasoningEffort === 'low' ||
+    config?.reasoningEffort === 'medium' ||
+    config?.reasoningEffort === 'high'
+      ? config.reasoningEffort
+      : DEFAULT_CODEX_CONFIG.reasoningEffort
+
+  return {
+    binaryPath:
+      typeof config?.binaryPath === 'string' && config.binaryPath.trim().length > 0
+        ? config.binaryPath.trim()
+        : null,
+    homePath:
+      typeof config?.homePath === 'string' && config.homePath.trim().length > 0
+        ? config.homePath.trim()
+        : null,
+    defaultModel,
+    reasoningEffort,
+    defaultMode: 'workspace-approval'
   }
 }
 
@@ -221,4 +261,12 @@ export const cloneConnectorPolicyConfig = (
       }
     ])
   )
+})
+
+export const cloneCodexConfig = (config: CodexConfig): CodexConfig => ({
+  binaryPath: config.binaryPath,
+  homePath: config.homePath,
+  defaultModel: config.defaultModel,
+  reasoningEffort: config.reasoningEffort,
+  defaultMode: config.defaultMode
 })

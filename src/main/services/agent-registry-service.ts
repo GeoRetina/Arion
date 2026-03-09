@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
 import fs from 'fs'
-import path from 'path'
 import { app } from 'electron'
 import { dbService } from './db-service'
 import { PromptModuleService } from './prompt-module-service'
@@ -14,6 +13,7 @@ import type {
   CreateAgentParams,
   UpdateAgentParams
 } from '../../shared/types/agent-types'
+import { resolveMigrationPath } from '../lib/migration-paths'
 
 interface AgentRow {
   id: string
@@ -92,25 +92,16 @@ export class AgentRegistryService {
    */
   private async runMigrations(): Promise<void> {
     {
-      // Load migration SQL
-      // Get the app path (works in development and production)
-      const appPath = app.getAppPath()
-
       const db = this.getDb()
 
       const loadMigrationSql = (migrationFileName: string): string => {
-        const possiblePaths = [
-          path.join(appPath, 'out/main/database/migrations', migrationFileName),
-          path.join(appPath, 'src/main/database/migrations', migrationFileName)
-        ]
-
-        for (const migrationPath of possiblePaths) {
-          if (fs.existsSync(migrationPath)) {
-            return fs.readFileSync(migrationPath, 'utf8')
-          }
-        }
-
-        throw new Error(`Migration file not found: ${migrationFileName}`)
+        const migrationPath = resolveMigrationPath(migrationFileName, {
+          appPath: app.getAppPath(),
+          currentDir: __dirname,
+          cwd: process.cwd(),
+          resourcesPath: process.resourcesPath
+        })
+        return fs.readFileSync(migrationPath, 'utf8')
       }
 
       // Ensure base agent tables exist

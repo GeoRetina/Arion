@@ -20,6 +20,9 @@ import { AlertTriangle } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
 import { toast } from 'sonner'
+import CodexApprovalDialog from './codex-approval-dialog'
+import { ActiveCodexRunPanel } from './codex-run-card'
+import { useCodexStore } from '@/stores/codex-store'
 
 // Imported extracted components and hooks
 import { MessageBubble } from './message/message-bubble'
@@ -39,6 +42,11 @@ export default function ChatInterface(): React.JSX.Element {
   const { isMapSidebarExpanded, toggleMapSidebar } = useMapSidebar()
   const { pendingPermission, resolvePendingPermission, getServerPath } = useMcpPermissionHandler()
   const { isDatabaseModalOpen, setIsDatabaseModalOpen, handleOpenDatabase } = useDatabaseModal()
+  const initializeCodex = useCodexStore((state) => state.initialize)
+  const loadCodexRuns = useCodexStore((state) => state.loadRuns)
+  const approveCodexRequest = useCodexStore((state) => state.approveRequest)
+  const denyCodexRequest = useCodexStore((state) => state.denyRequest)
+  const isResolvingCodexApproval = useCodexStore((state) => state.isResolvingApproval)
 
   const {
     stableChatIdForUseChat,
@@ -49,6 +57,19 @@ export default function ChatInterface(): React.JSX.Element {
 
   const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } =
     useProviderConfiguration(stableChatIdForUseChat || null)
+
+  const pendingCodexApproval = useCodexStore((state) => {
+    if (stableChatIdForUseChat) {
+      const scopedRequest = state.approvalRequests.find(
+        (request) => request.chatId === stableChatIdForUseChat
+      )
+      if (scopedRequest) {
+        return scopedRequest
+      }
+    }
+
+    return state.approvalRequests[0] || null
+  })
 
   // Local input state (v5 removed managed input)
   const [input, setInput] = useState('')
@@ -89,6 +110,18 @@ export default function ChatInterface(): React.JSX.Element {
       // Focus logic can remain
     }
   }, [isStreamingUi, sdkMessages.length, stableChatIdForUseChat])
+
+  useEffect(() => {
+    void initializeCodex()
+  }, [initializeCodex])
+
+  useEffect(() => {
+    if (!stableChatIdForUseChat) {
+      return
+    }
+
+    void loadCodexRuns(stableChatIdForUseChat)
+  }, [stableChatIdForUseChat, loadCodexRuns])
 
   const displayMessages = useMemo(() => sdkMessages, [sdkMessages])
 
@@ -165,6 +198,8 @@ export default function ChatInterface(): React.JSX.Element {
                 )
               })}
 
+              <ActiveCodexRunPanel chatId={stableChatIdForUseChat || currentChatIdFromStore} />
+
               {shouldShowLoadingIndicator && <LoadingIndicator />}
 
               {/* Add a spacer div with screen height to ensure enough scroll space */}
@@ -177,20 +212,22 @@ export default function ChatInterface(): React.JSX.Element {
 
         {/* Input area */}
         <div className="px-4 pb-4 backdrop-blur-sm sticky bottom-0 flex justify-center">
-          <ChatInputBox
-            inputValue={input}
-            onValueChange={setInput}
-            handleSubmit={handleSubmit}
-            isStreaming={isStreamingUi}
-            onStopStreaming={stop}
-            chatId={stableChatIdForUseChat}
-            availableProviders={availableProvidersForInput}
-            activeProvider={activeProvider}
-            onSelectProvider={setActiveProvider}
-            isMapSidebarExpanded={isMapSidebarExpanded}
-            onToggleMapSidebar={toggleMapSidebar}
-            onOpenDatabase={handleOpenDatabase}
-          />
+          <div className="w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl">
+            <ChatInputBox
+              inputValue={input}
+              onValueChange={setInput}
+              handleSubmit={handleSubmit}
+              isStreaming={isStreamingUi}
+              onStopStreaming={stop}
+              chatId={stableChatIdForUseChat}
+              availableProviders={availableProvidersForInput}
+              activeProvider={activeProvider}
+              onSelectProvider={setActiveProvider}
+              isMapSidebarExpanded={isMapSidebarExpanded}
+              onToggleMapSidebar={toggleMapSidebar}
+              onOpenDatabase={handleOpenDatabase}
+            />
+          </div>
         </div>
       </div>
 
@@ -236,6 +273,28 @@ export default function ChatInterface(): React.JSX.Element {
           toolName={pendingPermission.toolName}
           serverPath={getServerPath(pendingPermission.serverId)}
           onPermissionResponse={resolvePendingPermission}
+        />
+      )}
+
+      {pendingCodexApproval && (
+        <CodexApprovalDialog
+          isOpen={true}
+          request={pendingCodexApproval}
+          isResolving={isResolvingCodexApproval}
+          onApprove={(scope) => {
+            void approveCodexRequest(pendingCodexApproval.approvalId, scope).catch((error) => {
+              toast.error('Failed to approve Codex request', {
+                description: error instanceof Error ? error.message : 'Unknown error'
+              })
+            })
+          }}
+          onDeny={() => {
+            void denyCodexRequest(pendingCodexApproval.approvalId).catch((error) => {
+              toast.error('Failed to deny Codex request', {
+                description: error instanceof Error ? error.message : 'Unknown error'
+              })
+            })
+          }}
         />
       )}
 

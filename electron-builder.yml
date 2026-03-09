@@ -1,7 +1,8 @@
-appId: com.electron.app
-productName: arion
+appId: com.arion
+productName: Arion
 directories:
   buildResources: build
+afterPack: build/after-pack.js
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -19,11 +20,19 @@ asarUnpack:
 win:
   executableName: arion
   icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
 nsis:
+  include: build/installer.nsh
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
 mac:
   icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist

@@ -5,6 +5,7 @@ import * as keytar from 'keytar'
 import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import {
+  CodexConfig,
   OpenAIConfig,
   OpenAIConfigForRenderer,
   GoogleConfig,
@@ -33,10 +34,14 @@ import {
   DEFAULT_SKILL_PACK_CONFIG,
   DEFAULT_SYSTEM_PROMPT_CONFIG,
   DB_FILENAME,
+  CODEX_CONFIG_KEY,
+  DEFAULT_CODEX_CONFIG,
   EMBEDDING_CONFIG_KEY,
   SERVICE_NAME,
+  cloneCodexConfig,
   cloneConnectorPolicyConfig,
   clonePluginPlatformConfig,
+  normalizeCodexConfig,
   normalizeEmbeddingConfig,
   normalizePluginPlatformConfig,
   normalizeSkillPackConfig
@@ -583,6 +588,30 @@ export class SettingsService {
       return normalizeConnectorPolicyConfig(parsed)
     } catch {
       return cloneConnectorPolicyConfig(DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG)
+    }
+  }
+
+  async setCodexConfig(config: CodexConfig): Promise<void> {
+    const safeConfig = normalizeCodexConfig(config)
+    this.db
+      .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+      .run(CODEX_CONFIG_KEY, JSON.stringify(safeConfig))
+  }
+
+  async getCodexConfig(): Promise<CodexConfig> {
+    try {
+      const row = this.db
+        .prepare('SELECT value FROM app_settings WHERE key = ?')
+        .get(CODEX_CONFIG_KEY) as { value: string } | undefined
+
+      if (!row) {
+        return cloneCodexConfig(DEFAULT_CODEX_CONFIG)
+      }
+
+      const parsed = JSON.parse(row.value) as Partial<CodexConfig>
+      return normalizeCodexConfig(parsed)
+    } catch {
+      return cloneCodexConfig(DEFAULT_CODEX_CONFIG)
     }
   }
 }

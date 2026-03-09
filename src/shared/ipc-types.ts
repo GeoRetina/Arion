@@ -24,6 +24,16 @@ import type {
   CreatePromptModuleParams,
   UpdatePromptModuleParams
 } from './types/prompt-types'
+import type {
+  CodexApprovalDecision,
+  CodexApprovalRequest,
+  CodexConfig,
+  CodexHealthStatus,
+  CodexRunRecord,
+  CodexRunRequest,
+  CodexRunResult,
+  CodexRuntimeEvent
+} from './types/codex-types'
 export type {
   PromptModule,
   PromptModuleInfo,
@@ -32,6 +42,26 @@ export type {
   CreatePromptModuleParams,
   UpdatePromptModuleParams
 } from './types/prompt-types'
+export type {
+  CodexApprovalScope,
+  CodexApprovalDecision,
+  CodexApprovalRequest,
+  CodexAuthState,
+  CodexConfig,
+  CodexDefaultMode,
+  CodexHealthStatus,
+  CodexInstallState,
+  CodexReasoningEffort,
+  CodexRunStatus,
+  CodexArtifactImportKind,
+  CodexArtifactType,
+  CodexRunArtifact,
+  CodexRunRecord,
+  CodexRunRequest,
+  CodexRunResult,
+  CodexRuntimeEvent,
+  CodexStagedInput
+} from './types/codex-types'
 
 export type LLMProviderType = 'openai' | 'google' | 'azure' | 'anthropic' | 'vertex' | 'ollama'
 export type EmbeddingProviderType =
@@ -425,6 +455,9 @@ export const IpcChannels = {
   setPluginPlatformConfig: 'settings:set-plugin-platform-config',
   getPluginDiagnostics: 'settings:get-plugin-diagnostics',
   reloadPluginRuntime: 'settings:reload-plugin-runtime',
+  getCodexConfig: 'settings:get-codex-config',
+  setCodexConfig: 'settings:set-codex-config',
+  getCodexHealth: 'settings:get-codex-health',
 
   // Database IPC Channels
   dbCreateChat: 'ctg:db:createChat',
@@ -525,7 +558,18 @@ export const IpcChannels = {
   layersRecordMetrics: 'layers:recordMetrics',
 
   // Tool Management IPC Channels
-  toolsGetAllAvailable: 'tools:getAllAvailable'
+  toolsGetAllAvailable: 'tools:getAllAvailable',
+
+  // Codex Runtime IPC Channels
+  codexStartRun: 'codex:start-run',
+  codexCancelRun: 'codex:cancel-run',
+  codexGetRun: 'codex:get-run',
+  codexListRuns: 'codex:list-runs',
+  codexApproveRequest: 'codex:approve-request',
+  codexDenyRequest: 'codex:deny-request',
+  codexRunEvent: 'ctg:codex:run-event',
+  codexApprovalRequestEvent: 'ctg:codex:approval-request',
+  codexHealthUpdatedEvent: 'ctg:codex:health-updated'
 } as const
 
 // Generic IPC Response wrapper
@@ -601,6 +645,9 @@ export interface SettingsApi {
   reloadPluginRuntime: () => Promise<PluginDiagnosticsSnapshot>
   getConnectorPolicyConfig: () => Promise<ConnectorPolicyConfig>
   setConnectorPolicyConfig: (config: ConnectorPolicyConfig) => Promise<void>
+  getCodexConfig: () => Promise<CodexConfig>
+  setCodexConfig: (config: CodexConfig) => Promise<void>
+  getCodexHealth: () => Promise<CodexHealthStatus>
 }
 
 // Type for the Chat API arguments and return type
@@ -855,6 +902,7 @@ declare global {
       mcp: McpPermissionApi // Added MCP permission API
       postgresql: PostgreSQLApi // Added PostgreSQL API
       integrations: IntegrationsApi // Integration Hub API
+      codex: CodexApi
       layers: LayerApi // Added Layer Management API
       agents: AgentApi // Added Agent System API
       promptModules: PromptModuleApi // Added Prompt Module API
@@ -1341,6 +1389,18 @@ export interface IntegrationsApi {
   clearRunLogs: () => Promise<{ success: boolean }>
   grantApproval: (request: ConnectorApprovalGrantRequest) => Promise<ConnectorApprovalGrantResult>
   clearApprovals: (chatId?: string) => Promise<{ success: boolean }>
+}
+
+export interface CodexApi {
+  startRun: (request: CodexRunRequest) => Promise<CodexRunResult>
+  cancelRun: (runId: string) => Promise<boolean>
+  getRun: (runId: string) => Promise<CodexRunResult | null>
+  listRuns: (chatId?: string) => Promise<CodexRunRecord[]>
+  approveRequest: (decision: CodexApprovalDecision) => Promise<void>
+  denyRequest: (approvalId: string) => Promise<void>
+  onRunEvent: (callback: (event: CodexRuntimeEvent) => void) => () => void
+  onApprovalRequest: (callback: (request: CodexApprovalRequest) => void) => () => void
+  onHealthUpdated: (callback: (status: CodexHealthStatus) => void) => () => void
 }
 
 // Tools API for preload script
