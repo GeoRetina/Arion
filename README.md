@@ -103,17 +103,62 @@ npm run dev
 
 ### Build for Production
 
-Build the application for packaging:
+Arion uses native Node modules (`better-sqlite3`, `keytar`) that require platform-specific build tools.
+
+#### Windows
+
+Requires Visual Studio Build Tools (C++ workload) or `windows-build-tools`:
 
 ```bash
-# For Windows
 npm run build:win
+```
 
-# For macOS
+Produces an NSIS installer (`arion-<version>-setup.exe`) for x64.
+
+To build without code signing:
+
+```bash
+npm run build:win:unsigned
+```
+
+#### macOS
+
+Requires Xcode Command Line Tools:
+
+```bash
+xcode-select --install
 npm run build:mac
+```
 
-# For Linux
+Produces a `.dmg` disk image.
+
+#### Linux
+
+Requires `build-essential`, `python3`, and packaging dependencies:
+
+```bash
+# Ubuntu / Debian
+sudo apt install -y build-essential python3 libsecret-1-dev
+
 npm run build:linux
+```
+
+Produces AppImage, Snap, and `.deb` packages.
+
+#### Build without Packaging
+
+To compile without creating distributable installers (useful for testing):
+
+```bash
+npm run build:unpack
+```
+
+#### Rebuild Native Modules
+
+After updating dependencies, rebuild native modules for your Electron version:
+
+```bash
+npm run rebuild
 ```
 
 ### Raster GDAL Runtime

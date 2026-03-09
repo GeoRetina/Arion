@@ -289,7 +289,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
         </DialogHeader>
 
         <ScrollArea className="max-h-[calc(80vh-200px)] mt-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full pr-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full px-1 pr-4">
             <TabsList className="grid grid-cols-4 mb-4">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="prompts">Prompts</TabsTrigger>
