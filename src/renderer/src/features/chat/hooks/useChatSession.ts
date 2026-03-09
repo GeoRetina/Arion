@@ -4,6 +4,7 @@ import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat
 import { resetChatStores, prepareChatSwitch } from '@/lib/chat-store-reset'
 import { v4 as uuidv4 } from 'uuid'
 import type { UIMessage } from 'ai'
+import { hydrateStoredMessage } from '../utils/stored-message-hydration'
 
 type SDKMessage = UIMessage & { content?: string; createdAt?: Date }
 
@@ -80,23 +81,7 @@ export function useChatSession(): UseChatSessionReturn {
       stableChatIdForUseChat === currentChatIdFromStore ? currentMessagesFromStore : []
 
     return messagesToConsider
-      .map((storeMsg) => {
-        const textContent = storeMsg.content ?? ''
-        const sdkMessageCandidate: Partial<SDKMessage> & {
-          role?: 'system' | 'user' | 'assistant' // Explicitly list allowed roles
-        } = {
-          id: storeMsg.id,
-          content: textContent,
-          parts: textContent ? [{ type: 'text', text: textContent }] : [],
-          createdAt: storeMsg.created_at ? new Date(storeMsg.created_at) : undefined
-        }
-        if (['system', 'user', 'assistant'].includes(storeMsg.role)) {
-          sdkMessageCandidate.role = storeMsg.role as 'system' | 'user' | 'assistant'
-        } else {
-          sdkMessageCandidate.role = 'assistant'
-        }
-        return sdkMessageCandidate
-      })
+      .map((storeMsg) => hydrateStoredMessage(storeMsg))
       .filter(
         (msg): msg is SDKMessage =>
           msg.role !== undefined && typeof msg.id === 'string' && Array.isArray(msg.parts)
