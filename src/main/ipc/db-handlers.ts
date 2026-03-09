@@ -30,7 +30,7 @@ const addMessageSchema = z
     id: idSchema,
     chat_id: idSchema,
     role: chatRoleSchema,
-    content: z.string().min(1).max(1_000_000),
+    content: z.string().max(1_000_000),
     name: z.string().max(256).nullable().optional(),
     tool_calls: z.string().max(2_000_000).nullable().optional(),
     tool_call_id: z.string().max(256).nullable().optional(),

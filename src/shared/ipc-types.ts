@@ -686,7 +686,7 @@ export interface Message {
   role: 'system' | 'user' | 'assistant' | 'function' | 'tool' | 'data'
   content: string
   name?: string | null
-  tool_calls?: string | null
+  tool_calls?: string | null // JSON string storing serialized UI parts/tool results for hydration
   tool_call_id?: string | null
   created_at: string // ISO8601 date string
   orchestration?: string | null // JSON string containing orchestration data

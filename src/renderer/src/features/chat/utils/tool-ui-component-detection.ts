@@ -4,6 +4,10 @@ import type { ChartDisplayProps } from '../../visualization/components/chart-dis
 import AgentCallDisplay from '../components/agent-call-display'
 import CodexRunCard from '../components/codex-run-card'
 import { useAgentStore } from '@/stores/agent-store'
+import {
+  CALL_AGENT_TOOL_NAME,
+  CODEX_RUN_CUSTOM_ANALYSIS_TOOL_NAME
+} from '../constants/message-constants'
 
 export interface ToolUIComponent {
   component: ElementType
@@ -58,7 +62,7 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
     }
   }
 
-  if (toolName === 'run_custom_analysis_with_codex' && state === 'result' && resultRecord) {
+  if (toolName === CODEX_RUN_CUSTOM_ANALYSIS_TOOL_NAME && state === 'result' && resultRecord) {
     return {
       component: CodexRunCard,
       props: {
@@ -69,7 +73,7 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
   }
 
   // Agent call detection
-  if (toolName === 'call_agent') {
+  if (toolName === CALL_AGENT_TOOL_NAME) {
     const { message, agent_id, agent_name } = toolInvocation.args || {}
 
     // Extract agent name with priority: result > args > store lookup > formatted ID
