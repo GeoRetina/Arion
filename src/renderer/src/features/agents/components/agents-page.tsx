@@ -6,6 +6,7 @@ import { useAgentStore } from '@/stores/agent-store'
 import AgentCard from './agent-card'
 import AgentCreationModal from './agent-creation-modal'
 import AgentEditorModal from './agent-editor-modal'
+import AgentIntegrationsTab from './agent-integrations-tab'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import {
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const AgentsPage: React.FC = () => {
   // State for search and filters
@@ -23,6 +25,7 @@ const AgentsPage: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false)
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'workers' | 'integrations'>('workers')
 
   // Get agents and actions from store
   const { agents, isLoading, error, loadAgents, deleteAgent, resetError } = useAgentStore()
@@ -79,70 +82,83 @@ const AgentsPage: React.FC = () => {
     <ScrollArea className="h-full">
       <div className="py-8 px-4 md:px-6">
         <div className="flex flex-col items-start gap-6">
-          {/* Header */}
           <div className="w-full">
             <h1 className="text-3xl font-semibold mb-2">AI Agents</h1>
             <p className="text-muted-foreground max-w-2xl">
-              Manage your AI agents and their capabilities. Create specialized agents for different
-              tasks.
+              Manage your worker agents and external analysis integrations from one place.
             </p>
           </div>
 
-          {/* Filters and Actions */}
-          <div className="flex flex-col md:flex-row gap-4 w-full md:items-center">
-            <div className="md:w-1/3 lg:w-1/4">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search agents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-            </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="system">System</SelectItem>
-                <SelectItem value="user-defined">User-defined</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button className="flex items-center gap-2 md:ml-8" onClick={handleCreateAgent}>
-              <PlusCircle className="h-4 w-4" />
-              New Agent
-            </Button>
-          </div>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as typeof activeTab)}
+            className="w-full space-y-6"
+          >
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="workers">Worker Agents</TabsTrigger>
+              <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            </TabsList>
 
-          {/* Agent Cards */}
-          {isLoading ? (
-            <div className="w-full flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : filteredAgents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
-              {filteredAgents.map((agent) => (
-                <AgentCard
-                  key={agent.id}
-                  agent={agent}
-                  onEdit={handleEditAgent}
-                  onDelete={handleDeleteAgent}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="w-full text-center py-12 border border-dashed rounded-lg">
-              <p className="text-muted-foreground mb-2">No agents found</p>
-              <p className="text-sm text-muted-foreground">
-                {searchQuery || typeFilter !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Create your first agent to get started'}
-              </p>
-            </div>
-          )}
+            <TabsContent value="workers" className="space-y-6">
+              <div className="flex flex-col md:flex-row gap-4 w-full md:items-center">
+                <div className="md:w-1/3 lg:w-1/4">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search agents..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8"
+                    />
+                  </div>
+                </div>
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="system">System</SelectItem>
+                    <SelectItem value="user-defined">User-defined</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button className="flex items-center gap-2 md:ml-8" onClick={handleCreateAgent}>
+                  <PlusCircle className="h-4 w-4" />
+                  New Agent
+                </Button>
+              </div>
+
+              {isLoading ? (
+                <div className="w-full flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : filteredAgents.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
+                  {filteredAgents.map((agent) => (
+                    <AgentCard
+                      key={agent.id}
+                      agent={agent}
+                      onEdit={handleEditAgent}
+                      onDelete={handleDeleteAgent}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="w-full text-center py-12 border border-dashed rounded-lg">
+                  <p className="text-muted-foreground mb-2">No agents found</p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery || typeFilter !== 'all'
+                      ? 'Try adjusting your search or filters'
+                      : 'Create your first agent to get started'}
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="integrations">
+              <AgentIntegrationsTab />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
       {/* Modals */}

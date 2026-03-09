@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({
   registerDatabaseTools: vi.fn(),
   registerKnowledgeBaseTools: vi.fn(),
   registerAgentTools: vi.fn(),
-  registerIntegrationTools: vi.fn()
+  registerIntegrationTools: vi.fn(),
+  registerCodexTools: vi.fn()
 }))
 
 vi.mock('./tool-packs/visualization-tool-pack', () => ({
@@ -31,6 +32,9 @@ vi.mock('./tool-packs/agent-tool-pack', () => ({ registerAgentTools: mocks.regis
 vi.mock('./tool-packs/integration-tool-pack', () => ({
   registerIntegrationTools: mocks.registerIntegrationTools
 }))
+vi.mock('./tool-packs/codex-tool-pack', () => ({
+  registerCodexTools: mocks.registerCodexTools
+}))
 
 import { registerBuiltInTools } from './register-built-in-tools'
 
@@ -44,7 +48,8 @@ describe('registerBuiltInTools', () => {
       getPostgresqlService: vi.fn(() => null),
       getAgentRegistryService: vi.fn(() => null),
       getOrchestrationService: vi.fn(() => null),
-      getConnectorExecutionService: vi.fn(() => null)
+      getConnectorExecutionService: vi.fn(() => null),
+      getCodexRuntimeService: vi.fn(() => null)
     }
 
     registerBuiltInTools(deps)
@@ -73,6 +78,9 @@ describe('registerBuiltInTools', () => {
     })
     expect(mocks.registerIntegrationTools).toHaveBeenCalledWith(deps.registry, {
       getConnectorExecutionService: deps.getConnectorExecutionService
+    })
+    expect(mocks.registerCodexTools).toHaveBeenCalledWith(deps.registry, {
+      getCodexRuntimeService: deps.getCodexRuntimeService
     })
   })
 })

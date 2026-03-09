@@ -2,9 +2,9 @@
  * System prompts for Arion AI assistant.
  */
 import * as fs from 'fs'
-import * as path from 'path'
 import { app } from 'electron'
 import { generateToolDescriptions, type ToolDescription } from './tool-constants'
+import { resolvePromptPath } from '../lib/prompt-paths'
 
 // Function to load the system prompt from XML file
 function loadSystemPromptFromFile(
@@ -12,12 +12,10 @@ function loadSystemPromptFromFile(
   mcpTools: ToolDescription[] = [],
   agentToolAccess?: string[]
 ): string {
-  const promptsBasePath = path.join(app.getAppPath(), 'src', 'main', 'prompts')
-  const promptPath = path.join(promptsBasePath, fileName)
-
-  if (!fs.existsSync(promptPath)) {
-    throw new Error(`System prompt file not found: ${promptPath}`)
-  }
+  const promptPath = resolvePromptPath(fileName, {
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath
+  })
 
   const templateContent = fs.readFileSync(promptPath, 'utf8')
   // Replace the placeholder with dynamic tool descriptions

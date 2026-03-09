@@ -6,7 +6,7 @@ import {
   Brain,
   History as HistoryIcon,
   Settings as SettingsIcon,
-  Boxes,
+  LayoutGrid,
   Server,
   Link2,
   Database,
@@ -47,8 +47,8 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       }`,
       isExpanded ? 'text-base' : 'text-[0px]',
       isActive
-        ? 'font-semibold bg-primary/15 text-foreground hover:bg-primary/15!'
-        : 'text-foreground/80 font-medium hover:bg-muted hover:text-foreground'
+        ? 'font-normal bg-primary/15 text-foreground hover:bg-primary/15!'
+        : 'text-foreground/80 font-normal hover:bg-muted hover:text-foreground'
     )
   }
 
@@ -67,7 +67,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
       title={title}
       onClick={() => navigate(path)}
     >
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon className="h-5 w-5 shrink-0" strokeWidth={1.5} />
       {isExpanded && <span className="ml-3">{title}</span>}
     </Button>
   )
@@ -121,15 +121,15 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
         <Button
           variant="ghost"
           className={cn(
-            'w-full flex items-center rounded-lg border border-border/60 text-foreground/80 font-medium hover:text-foreground transition-all duration-200',
+            'w-full flex items-center rounded-lg text-foreground/80 font-medium hover:text-foreground transition-all duration-200',
             isExpanded ? 'justify-start px-3 py-2.5' : 'justify-center p-2.5'
           )}
           title="New Chat"
           onClick={() => navigate('/chat/new')}
         >
-          <PlusCircle className="h-4.5 w-4.5 shrink-0 text-muted-foreground" />
+          <PlusCircle className="h-4.5 w-4.5 shrink-0" strokeWidth={1.5} />
           {isExpanded && (
-            <span className="ml-2.5 text-sm font-medium text-foreground/90">New Chat</span>
+            <span className="ml-2.5 text-sm font-normal">New Chat</span>
           )}
         </Button>
       </div>
@@ -144,7 +144,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
         <NavGroup title="System">
           <NavButton path="/models" title="Models" icon={Brain} />
           <NavButton path="/agents" title="Agents" icon={Bot} />
-          <NavButton path="/skills" title="Skills" icon={Boxes} />
+          <NavButton path="/skills" title="Skills" icon={LayoutGrid} />
           <NavButton path="/mcp-servers" title="MCP Servers" icon={Server} />
           <NavButton path="/connectors" title="Connectors" icon={Link2} />
         </NavGroup>

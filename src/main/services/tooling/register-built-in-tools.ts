@@ -6,6 +6,7 @@ import type { PostgreSQLService } from '../postgresql-service'
 import type { AgentRegistryService } from '../agent-registry-service'
 import type { OrchestrationService } from '../orchestration-service'
 import type { ConnectorExecutionService } from '../connectors/connector-execution-service'
+import type { CodexRuntimeService } from '../codex/codex-runtime-service'
 import { registerVisualizationTools } from './tool-packs/visualization-tool-pack'
 import { registerMapLayerManagementTools } from './tool-packs/map-layer-management-tool-pack'
 import { registerMapViewTools } from './tool-packs/map-view-tool-pack'
@@ -14,6 +15,7 @@ import { registerDatabaseTools } from './tool-packs/database-tool-pack'
 import { registerKnowledgeBaseTools } from './tool-packs/knowledge-base-tool-pack'
 import { registerAgentTools } from './tool-packs/agent-tool-pack'
 import { registerIntegrationTools } from './tool-packs/integration-tool-pack'
+import { registerCodexTools } from './tool-packs/codex-tool-pack'
 
 export interface BuiltInRegistrationDeps {
   registry: ToolRegistry
@@ -24,6 +26,7 @@ export interface BuiltInRegistrationDeps {
   getAgentRegistryService: () => AgentRegistryService | null
   getOrchestrationService: () => OrchestrationService | null
   getConnectorExecutionService: () => ConnectorExecutionService | null
+  getCodexRuntimeService: () => CodexRuntimeService | null
 }
 
 export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
@@ -49,6 +52,10 @@ export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
 
   registerIntegrationTools(deps.registry, {
     getConnectorExecutionService: deps.getConnectorExecutionService
+  })
+
+  registerCodexTools(deps.registry, {
+    getCodexRuntimeService: deps.getCodexRuntimeService
   })
 
   registerKnowledgeBaseTools(deps.registry, {

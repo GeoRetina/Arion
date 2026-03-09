@@ -295,7 +295,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           )}
           {/* ContentEditable Div with Highlighting Overlay */}
           <ScrollArea
-            className="grow w-full" // Ensure it takes available width and can grow
+            className="grow w-full *:data-[slot=scroll-area-viewport]:overflow-x-hidden!" // Ensure it takes available width and can grow
             style={{ maxHeight: `${maxInputHeight}px` }}
             ref={scrollAreaRef} // Add ref to ScrollArea if we need to access its viewport directly
           >
@@ -310,7 +310,9 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               style={{
                 caretColor: 'auto',
                 minHeight: editorMinHeight,
-                color: 'var(--foreground)' // Normal text color
+                color: 'var(--foreground)', // Normal text color
+                overflowWrap: 'break-word',
+                wordBreak: 'break-word'
               }}
               suppressContentEditableWarning={true}
             />

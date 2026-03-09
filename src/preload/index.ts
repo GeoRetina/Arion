@@ -85,7 +85,16 @@ import {
   type PromptAssemblyResult,
   type OrchestrationResult,
   type OrchestrationStatus,
-  type AgentCapabilitiesResult
+  type AgentCapabilitiesResult,
+  type CodexApi,
+  type CodexApprovalDecision,
+  type CodexApprovalRequest,
+  type CodexConfig,
+  type CodexHealthStatus,
+  type CodexRunRecord,
+  type CodexRunRequest,
+  type CodexRunResult,
+  type CodexRuntimeEvent
 } from '../shared/ipc-types' // Corrected relative path
 import type {
   LayerDefinition,
@@ -271,8 +280,50 @@ const ctgApi = {
       if (!response?.success) {
         throw new Error(response?.error || 'Failed to save connector policy config')
       }
-    }
+    },
+    getCodexConfig: (): Promise<CodexConfig> => ipcRenderer.invoke(IpcChannels.getCodexConfig),
+    setCodexConfig: (config: CodexConfig): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.setCodexConfig, config),
+    getCodexHealth: (): Promise<CodexHealthStatus> => ipcRenderer.invoke(IpcChannels.getCodexHealth)
   } as SettingsApi,
+  codex: {
+    startRun: (request: CodexRunRequest): Promise<CodexRunResult> =>
+      ipcRenderer.invoke(IpcChannels.codexStartRun, request),
+    cancelRun: (runId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.codexCancelRun, runId),
+    getRun: (runId: string): Promise<CodexRunResult | null> =>
+      ipcRenderer.invoke(IpcChannels.codexGetRun, runId),
+    listRuns: (chatId?: string): Promise<CodexRunRecord[]> =>
+      ipcRenderer.invoke(IpcChannels.codexListRuns, chatId),
+    approveRequest: (decision: CodexApprovalDecision): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.codexApproveRequest, decision),
+    denyRequest: (approvalId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.codexDenyRequest, approvalId),
+    onRunEvent: (callback: (event: CodexRuntimeEvent) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: CodexRuntimeEvent): void =>
+        callback(payload)
+      ipcRenderer.on(IpcChannels.codexRunEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.codexRunEvent, handler)
+      }
+    },
+    onApprovalRequest: (callback: (request: CodexApprovalRequest) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: CodexApprovalRequest): void =>
+        callback(payload)
+      ipcRenderer.on(IpcChannels.codexApprovalRequestEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.codexApprovalRequestEvent, handler)
+      }
+    },
+    onHealthUpdated: (callback: (status: CodexHealthStatus) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: CodexHealthStatus): void =>
+        callback(payload)
+      ipcRenderer.on(IpcChannels.codexHealthUpdatedEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.codexHealthUpdatedEvent, handler)
+      }
+    }
+  } as CodexApi,
   chat: {
     sendMessageStream: async (body: PreloadChatRequestBody | undefined): Promise<Uint8Array[]> => {
       if (!body) {

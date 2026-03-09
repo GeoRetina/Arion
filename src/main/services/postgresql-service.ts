@@ -7,7 +7,7 @@ import {
   PostgreSQLQueryResult
 } from '../../shared/ipc-types'
 
-const SERVICE_NAME = 'ArionPostgreSQLCredentials'
+const POSTGRESQL_CREDENTIAL_SERVICE_NAME = 'ArionPostgreSQLCredentials'
 
 export class PostgreSQLService {
   private pools: Map<string, Pool> = new Map()
@@ -281,7 +281,7 @@ export class PostgreSQLService {
 
   private async storeCredentials(id: string, config: PostgreSQLConfig): Promise<void> {
     {
-      const credentialsKey = `${SERVICE_NAME}_${id}`
+      const credentialsKey = `${POSTGRESQL_CREDENTIAL_SERVICE_NAME}_${id}`
       const credentials = JSON.stringify({
         host: config.host,
         port: config.port,
@@ -291,14 +291,17 @@ export class PostgreSQLService {
         ssl: config.ssl
       })
 
-      await keytar.setPassword(SERVICE_NAME, credentialsKey, credentials)
+      await keytar.setPassword(POSTGRESQL_CREDENTIAL_SERVICE_NAME, credentialsKey, credentials)
     }
   }
 
   private async readStoredCredentials(id: string): Promise<PostgreSQLConfig | null> {
     try {
-      const credentialsKey = `${SERVICE_NAME}_${id}`
-      const credentials = await keytar.getPassword(SERVICE_NAME, credentialsKey)
+      const credentialsKey = `${POSTGRESQL_CREDENTIAL_SERVICE_NAME}_${id}`
+      const credentials = await keytar.getPassword(
+        POSTGRESQL_CREDENTIAL_SERVICE_NAME,
+        credentialsKey
+      )
 
       if (!credentials) {
         return null
@@ -312,8 +315,8 @@ export class PostgreSQLService {
 
   private async removeCredentials(id: string): Promise<void> {
     try {
-      const credentialsKey = `${SERVICE_NAME}_${id}`
-      await keytar.deletePassword(SERVICE_NAME, credentialsKey)
+      const credentialsKey = `${POSTGRESQL_CREDENTIAL_SERVICE_NAME}_${id}`
+      await keytar.deletePassword(POSTGRESQL_CREDENTIAL_SERVICE_NAME, credentialsKey)
     } catch {
       void 0
     }

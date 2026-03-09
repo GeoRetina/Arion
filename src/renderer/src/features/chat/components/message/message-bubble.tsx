@@ -104,7 +104,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           )}
         >
           {isUser ? (
-            <div className="whitespace-pre-wrap">{primaryText}</div>
+            <div className="whitespace-pre-wrap wrap-break-word">{primaryText}</div>
           ) : message.parts.length > 0 ? (
             <>
               {anchoredParts ||

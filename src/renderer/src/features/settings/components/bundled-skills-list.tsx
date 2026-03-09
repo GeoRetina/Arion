@@ -198,7 +198,7 @@ const BundledCard: React.FC<{
             ) : (
               <Badge
                 variant="outline"
-                className="shrink-0 text-xs bg-green-500/10 text-green-600 border-green-500/20"
+                className="shrink-0 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-background"
               >
                 official
               </Badge>

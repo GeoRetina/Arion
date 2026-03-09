@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, session, dialog } from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -19,6 +19,8 @@ import { ModularPromptManager } from './services/modular-prompt-manager'
 import { AgentRoutingService } from './services/agent-routing-service'
 import { SkillPackService } from './services/skill-pack-service'
 import { PluginLoaderService } from './services/plugin/plugin-loader-service'
+import { CodexRuntimeService } from './services/codex/codex-runtime-service'
+import { CodexRunWorkspaceService } from './services/codex/codex-run-workspace-service'
 import { createConnectorExecutionRuntime } from './services/connectors/create-connector-execution-service'
 import type { ConnectorExecutionService } from './services/connectors/connector-execution-service'
 import {
@@ -27,6 +29,7 @@ import {
 } from './services/raster/raster-protocol-service'
 import { getRasterTileService } from './services/raster/raster-tile-service'
 import { parseHttpsUrl } from './security/path-security'
+import { buildStartupErrorDetail } from './lib/startup-error'
 
 // Import IPC handler registration functions
 import { registerDbIpcHandlers } from './ipc/db-handlers'
@@ -37,9 +40,14 @@ import { registerShellHandlers } from './ipc/shell-handlers'
 import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
 import { registerPostgreSQLIpcHandlers } from './ipc/postgresql-handlers'
 import { registerConnectorIpcHandlers } from './ipc/connector-handlers'
-import { registerLayerHandlers, getLayerDbManager } from './ipc/layer-handlers'
+import {
+  registerLayerHandlers,
+  getLayerDbManager,
+  getRuntimeLayerSnapshot
+} from './ipc/layer-handlers'
 import { registerAgentIpcHandlers } from './ipc/agent-handlers'
 import { registerToolIpcHandlers } from './ipc/tool-handlers'
+import { registerCodexIpcHandlers } from './ipc/codex-handlers'
 
 // Keep a reference to the service instance
 let settingsServiceInstance: SettingsService
@@ -58,8 +66,33 @@ let agentRoutingServiceInstance: AgentRoutingService
 let skillPackServiceInstance: SkillPackService
 let pluginLoaderServiceInstance: PluginLoaderService
 let connectorExecutionServiceInstance: ConnectorExecutionService
+let codexRuntimeServiceInstance: CodexRuntimeService
+let hasShownStartupErrorDialog = false
 
 registerRasterProtocolPrivileges()
+
+const safeGetAppValue = (getter: () => string): string | null => {
+  try {
+    return getter()
+  } catch {
+    return null
+  }
+}
+
+const showStartupErrorDialog = (error: unknown): void => {
+  if (hasShownStartupErrorDialog) {
+    return
+  }
+
+  hasShownStartupErrorDialog = true
+
+  const detail = buildStartupErrorDetail(error, {
+    appPath: safeGetAppValue(() => app.getAppPath()),
+    userDataPath: safeGetAppValue(() => app.getPath('userData'))
+  })
+
+  dialog.showErrorBox('Arion could not start', detail)
+}
 
 const resolveAllowedDevOrigin = (): string | null => {
   if (!is.dev || !process.env['ELECTRON_RENDERER_URL']) {
@@ -169,7 +202,7 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(async () => {
+async function initializeApplication(): Promise<void> {
   app.setName('Arion')
   electronApp.setAppUserModelId('com.arion')
 
@@ -216,6 +249,12 @@ app.whenReady().then(async () => {
     postgresqlService: postgresqlServiceInstance,
     mcpClientService: mcpClientServiceInstance
   }).executionService
+  codexRuntimeServiceInstance = new CodexRuntimeService(settingsServiceInstance, {
+    workspaceService: new CodexRunWorkspaceService(
+      () => getRuntimeLayerSnapshot(),
+      () => app.getPath('userData')
+    )
+  })
 
   // Instantiate agent system services
   promptModuleServiceInstance = new PromptModuleService()
@@ -246,7 +285,8 @@ app.whenReady().then(async () => {
     postgresqlServiceInstance,
     pluginLoaderServiceInstance,
     connectorExecutionServiceInstance,
-    settingsServiceInstance
+    settingsServiceInstance,
+    codexRuntimeServiceInstance
   )
 
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
@@ -257,26 +297,17 @@ app.whenReady().then(async () => {
   )
 
   // ChatService depends on a fully initialized LlmToolService, so it's instantiated after LlmToolService.initialize()
+  await mcpClientServiceInstance.ensureInitialized()
 
-  // Initialize services that require async setup
-  try {
-    await mcpClientServiceInstance.ensureInitialized()
+  await knowledgeBaseServiceInstance.initialize()
 
-    await knowledgeBaseServiceInstance.initialize()
+  await llmToolServiceInstance.initialize() // This will now wait for MCPClientService
 
-    await llmToolServiceInstance.initialize() // This will now wait for MCPClientService
+  await promptModuleServiceInstance.initialize()
 
-    await promptModuleServiceInstance.initialize()
+  await agentRegistryServiceInstance.initialize()
 
-    await agentRegistryServiceInstance.initialize()
-
-    await modularPromptManagerInstance.initialize()
-  } catch (error) {
-    // Consider quitting the app or showing an error dialog if critical services fail
-    console.error('Failed to initialize services:', error)
-    app.quit()
-    return // Exit if services fail to initialize
-  }
+  await modularPromptManagerInstance.initialize()
 
   // Now that all services are initialized, instantiate ChatService
   chatServiceInstance = new ChatService(
@@ -315,6 +346,7 @@ app.whenReady().then(async () => {
     pluginLoaderServiceInstance,
     llmToolServiceInstance
   )
+  registerCodexIpcHandlers(ipcMain, settingsServiceInstance, codexRuntimeServiceInstance)
   registerChatIpcHandlers(
     ipcMain,
     chatServiceInstance,
@@ -381,9 +413,21 @@ app.whenReady().then(async () => {
     if (connectorHubServiceInstance) {
       connectorHubServiceInstance.cleanup()
     }
+    if (codexRuntimeServiceInstance) {
+      codexRuntimeServiceInstance.shutdown()
+    }
     await getRasterTileService().shutdown()
   })
-})
+}
+
+void app
+  .whenReady()
+  .then(() => initializeApplication())
+  .catch((error) => {
+    console.error('Failed to start application:', error)
+    showStartupErrorDialog(error)
+    app.quit()
+  })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

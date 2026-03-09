@@ -1,17 +1,21 @@
 import type Database from 'better-sqlite3'
 import type {
+  CodexConfig,
   ConnectorPolicyConfig,
   EmbeddingConfig,
   PluginPlatformConfig,
   SkillPackConfig
 } from '../../../shared/ipc-types'
 import {
+  CODEX_CONFIG_KEY,
+  DEFAULT_CODEX_CONFIG,
   DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG,
   DEFAULT_PLUGIN_PLATFORM_CONFIG,
   DEFAULT_SKILL_PACK_CONFIG,
   DEFAULT_SYSTEM_PROMPT_CONFIG,
   EMBEDDING_CONFIG_KEY,
+  normalizeCodexConfig,
   normalizeEmbeddingConfig,
   normalizePluginPlatformConfig,
   normalizeSkillPackConfig
@@ -150,5 +154,11 @@ export const initializeSettingsDatabase = (db: Database.Database): void => {
     'connectorPolicyConfig',
     DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG,
     normalizeConnectorPolicyConfig
+  )
+  ensureNormalizedJsonSetting<Partial<CodexConfig>, CodexConfig>(
+    db,
+    CODEX_CONFIG_KEY,
+    DEFAULT_CODEX_CONFIG,
+    normalizeCodexConfig
   )
 }
