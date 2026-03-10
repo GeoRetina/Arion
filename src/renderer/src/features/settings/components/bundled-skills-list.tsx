@@ -1,8 +1,9 @@
 import React from 'react'
-import { Boxes, Download, Edit, Loader2, Power, PowerOff, Trash2 } from 'lucide-react'
+import { Boxes, Download, Edit, Loader2, Trash2 } from 'lucide-react'
 import type { SkillPackBundledCatalogSkill, SkillPackInfo } from '@/../../shared/ipc-types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
   Card,
   CardContent,
@@ -183,10 +184,13 @@ const BundledCard: React.FC<{
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-xl leading-snug">{bundled.name}</CardTitle>
           <div className="flex items-center gap-2">
-            {disabled && (
-              <Badge variant="outline" className="shrink-0 text-xs">
-                disabled
-              </Badge>
+            {isInstalled && installed && (
+              <Switch
+                checked={!disabled}
+                onCheckedChange={() => onToggleSkillDisabled(installed)}
+                disabled={skillDisableTogglingId === installed.id || actionDisabled}
+                aria-label={disabled ? 'Enable skill' : 'Disable skill'}
+              />
             )}
             {isInstalled ? (
               <Badge
@@ -215,34 +219,17 @@ const BundledCard: React.FC<{
       </CardContent>
       <CardFooter className="pt-2 pb-4 px-5 mt-auto flex flex-col space-y-2">
         {isInstalled && installed && (
-          <div className="flex w-full gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => onToggleSkillDisabled(installed)}
-              disabled={skillDisableTogglingId === installed.id || actionDisabled}
-              title={disabled ? 'Enable' : 'Disable'}
-              aria-label={disabled ? 'Enable skill' : 'Disable skill'}
-            >
-              {disabled ? (
-                <Power className="h-4 w-4 mr-2" />
-              ) : (
-                <PowerOff className="h-4 w-4 mr-2" />
-              )}
-              {disabled ? 'Enable' : 'Disable'}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => onEditSkill(installed)}
-              disabled={actionDisabled || skillDisableTogglingId === installed.id}
-              title="Edit"
-              aria-label="Edit skill"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => onEditSkill(installed)}
+            disabled={actionDisabled || skillDisableTogglingId === installed.id}
+            title="Edit"
+            aria-label="Edit skill"
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
         )}
         <Button
           className="w-full"
@@ -307,11 +294,12 @@ const InstalledOnlyCard: React.FC<{
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-xl leading-snug">{skill.name}</CardTitle>
           <div className="flex items-center gap-2">
-            {disabled && (
-              <Badge variant="outline" className="shrink-0 text-xs">
-                disabled
-              </Badge>
-            )}
+            <Switch
+              checked={!disabled}
+              onCheckedChange={() => onToggleSkillDisabled(skill)}
+              disabled={skillDisableTogglingId === skill.id || busy}
+              aria-label={disabled ? 'Enable skill' : 'Disable skill'}
+            />
             <Badge
               variant="outline"
               className={`shrink-0 text-xs ${sourceColorMap[skill.source] || ''}`}
@@ -327,34 +315,17 @@ const InstalledOnlyCard: React.FC<{
         <p className="text-xs text-muted-foreground/70 mt-3 break-all">{skill.sourcePath}</p>
       </CardContent>
       <CardFooter className="pt-2 pb-4 px-5 mt-auto flex flex-col space-y-2">
-        <div className="flex w-full gap-2">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => onToggleSkillDisabled(skill)}
-            disabled={skillDisableTogglingId === skill.id || busy}
-            title={disabled ? 'Enable' : 'Disable'}
-            aria-label={disabled ? 'Enable skill' : 'Disable skill'}
-          >
-            {disabled ? (
-              <Power className="h-4 w-4 mr-2" />
-            ) : (
-              <PowerOff className="h-4 w-4 mr-2" />
-            )}
-            {disabled ? 'Enable' : 'Disable'}
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => onEditSkill(skill)}
-            disabled={busy || skillDisableTogglingId === skill.id}
-            title="Edit"
-            aria-label="Edit skill"
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => onEditSkill(skill)}
+          disabled={busy || skillDisableTogglingId === skill.id}
+          title="Edit"
+          aria-label="Edit skill"
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
         <Button
           variant="destructive"
           className="w-full"
