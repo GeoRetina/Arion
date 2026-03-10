@@ -180,7 +180,7 @@ function KnowledgeBase(): React.JSX.Element {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 md:px-6 py-8 shrink-0">
         <div className="flex items-center space-x-2">
-          <h1 className="text-3xl font-semibold">Knowledge Base</h1>
+          <h1 className="text-3xl font-semibold mb-2">Knowledge Base</h1>
         </div>
       </div>
 
@@ -218,7 +218,7 @@ function KnowledgeBase(): React.JSX.Element {
                 </div>
               )}
               {hasDocumentsOrFolders ? (
-                <div className="relative min-h-[420px]">
+                <div className="relative min-h-105">
                   <DocumentsTable
                     documents={documents}
                     folders={folderNameMap}

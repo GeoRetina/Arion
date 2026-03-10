@@ -83,7 +83,7 @@ export default function EmbeddingConfigModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="sm:max-w-140">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
@@ -129,7 +129,7 @@ export default function EmbeddingConfigModal({
             </div>
 
             <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-              <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <p>
                 Arion enforces 1536-dimension embeddings for schema compatibility. Configure
                 provider credentials in the Providers section for the selected embedding provider.

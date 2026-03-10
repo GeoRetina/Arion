@@ -100,7 +100,7 @@ export const ChatHistoryList: React.FC = () => {
     <div className="pt-8 pb-2 px-4 md:px-6 flex flex-col h-[calc(100vh-1rem)] overflow-hidden relative">
       <div className="flex flex-col mb-4 shrink-0">
         <h1 className="text-3xl font-semibold mb-2">Chat History</h1>
-        <p className="text-sm text-muted-foreground mb-3">
+        <p className="text-muted-foreground max-w-2xl">
           A list of your recent chat sessions. Click a row to open.
         </p>
         <div className="relative max-w-sm">

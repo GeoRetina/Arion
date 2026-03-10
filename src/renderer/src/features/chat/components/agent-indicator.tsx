@@ -134,7 +134,7 @@ const AgentIndicator: React.FC<AgentIndicatorProps> = ({
           {showName && <span className="font-medium">{agent.name}</span>}
 
           {agent.isActive && (
-            <span className="flex-shrink-0 relative">
+            <span className="shrink-0 relative">
               <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-green-400 dark:bg-green-500"></span>
               <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
             </span>

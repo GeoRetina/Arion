@@ -114,7 +114,7 @@ const ConnectorCard: React.FC<{
   const statusText = integration.status.replace('-', ' ')
 
   return (
-    <Card className="h-full min-h-[176px] overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
+    <Card className="h-full min-h-44 overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
       <div className="flex items-start gap-3 px-4 py-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60">
           {getIntegrationIcon(integration.type)}

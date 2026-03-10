@@ -77,7 +77,7 @@ export default function OllamaConfigModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-2">
             <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center">
@@ -128,7 +128,7 @@ export default function OllamaConfigModal({
                 />
               </div>
               <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 <p>
                   The name of the Ollama model you want to use. Ensure the model is pulled in Ollama
                   first. See available models on the
