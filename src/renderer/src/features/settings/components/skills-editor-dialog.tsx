@@ -50,10 +50,10 @@ const SkillsEditorDialog: React.FC<SkillsEditorDialogProps> = ({
           </div>
         ) : (
           <div className="space-y-3">
-            <Tabs defaultValue="edit">
+            <Tabs defaultValue="preview">
               <TabsList>
-                <TabsTrigger value="edit">Edit</TabsTrigger>
                 <TabsTrigger value="preview">Preview</TabsTrigger>
+                <TabsTrigger value="edit">Edit</TabsTrigger>
               </TabsList>
               <TabsContent value="edit">
                 <ScrollArea className="h-105 rounded-md border">

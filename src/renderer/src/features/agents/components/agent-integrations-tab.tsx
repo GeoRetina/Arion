@@ -183,7 +183,7 @@ export default function AgentIntegrationsTab(): React.JSX.Element {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {descriptors.map((descriptor) => {
           const health = healthByRuntime[descriptor.id]
           const statusPresentation = getStatusPresentation(health)

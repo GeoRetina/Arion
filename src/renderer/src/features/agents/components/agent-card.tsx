@@ -1,18 +1,14 @@
 import React, { useState } from 'react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { type AgentRegistryEntry } from '@/../../shared/types/agent-types'
-import { Edit, Trash2, Brain, Server, Settings } from 'lucide-react'
+import { ChevronDown, Settings2, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { PROVIDER_LOGOS, PROVIDER_BACKGROUNDS } from '@/constants/llm-providers'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  PROVIDER_LOGOS,
+  PROVIDER_BACKGROUNDS,
+  getFormattedProviderName
+} from '@/constants/llm-providers'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 
 interface AgentCardProps {
@@ -21,15 +17,21 @@ interface AgentCardProps {
   onDelete: (agentId: string) => void
 }
 
+function formatCapabilityLabel(capabilityId: string): string {
+  return capabilityId.replace(/[-_]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isCapabilitiesOpen, setIsCapabilitiesOpen] = useState(false)
+  const hasAssignedTools = Array.isArray(agent.toolAccess) && agent.toolAccess.length > 0
+  const expandableItems = hasAssignedTools ? (agent.toolAccess ?? []) : agent.capabilities
+  const expandableLabel = hasAssignedTools ? 'tool' : 'capability'
 
-  // Handle edit button click
   const handleEditClick = (): void => {
     onEdit(agent.id)
   }
 
-  // Handle delete button click with confirmation
   const handleDeleteClick = (): void => {
     setIsDeleteDialogOpen(true)
   }
@@ -39,79 +41,84 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
   }
 
   return (
-    <TooltipProvider>
-      <Card className="overflow-hidden surface-elevated transition-all hover:shadow-md">
-        <CardHeader className="pb-2">
-          <div className="space-y-1">
-            <CardTitle className="text-lg flex items-start flex-col sm:flex-row sm:items-center gap-2">
-              <span className="break-words">{agent.name}</span>
+    <>
+      <Card className="overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div
+            className={`h-8 w-8 shrink-0 rounded-lg ${PROVIDER_BACKGROUNDS[agent.provider]} flex items-center justify-center p-1.5`}
+          >
+            <img
+              src={PROVIDER_LOGOS[agent.provider]}
+              alt={`${agent.provider} logo`}
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium truncate">{agent.name}</span>
               {agent.type === 'system' && (
-                <Badge variant="outline" className="flex-shrink-0">
+                <Badge variant="outline" className="text-xs shrink-0">
                   System
                 </Badge>
               )}
-            </CardTitle>
-            <CardDescription className="text-sm line-clamp-2">{agent.description}</CardDescription>
-          </div>
-        </CardHeader>
-
-        <CardContent className="text-sm space-y-3">
-          <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="truncate">Model: {agent.model}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Server className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="flex-shrink-0">Provider:</span>
-            <div className="flex items-center gap-1 min-w-0">
-              <div
-                className={`h-4 w-4 rounded-md ${PROVIDER_BACKGROUNDS[agent.provider]} flex items-center justify-center p-0.5 flex-shrink-0`}
-              >
-                <img
-                  src={PROVIDER_LOGOS[agent.provider]}
-                  alt={`${agent.provider} logo`}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              <span className="truncate">
-                {agent.provider.charAt(0).toUpperCase() + agent.provider.slice(1)}
-              </span>
             </div>
+            <p className="text-xs text-muted-foreground truncate">
+              {getFormattedProviderName(agent.provider, undefined, false)}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Settings className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            <span className="truncate">Capabilities: {agent.capabilities.length}</span>
-          </div>
-        </CardContent>
+        </div>
 
-        <CardFooter className="flex justify-end gap-2 pt-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={handleEditClick}>
-                <Edit className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Edit agent</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleDeleteClick}
-                className="text-destructive border-destructive/50 hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+        <div className="px-4 pb-3">
+          <p className="text-xs text-muted-foreground line-clamp-2">{agent.description}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <Badge variant="secondary" className="font-mono text-xs">
+              {agent.model}
+            </Badge>
+            {expandableItems.length > 0 && (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setIsCapabilitiesOpen(!isCapabilitiesOpen)}
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Delete agent</p>
-            </TooltipContent>
-          </Tooltip>
-        </CardFooter>
+                {expandableItems.length}{' '}
+                {expandableItems.length === 1 ? expandableLabel : `${expandableLabel}s`}
+                <ChevronDown
+                  className={`h-3 w-3 transition-transform ${isCapabilitiesOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+            )}
+          </div>
+          {isCapabilitiesOpen && expandableItems.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {expandableItems.map((item) => (
+                <Badge key={item} variant="outline" className="text-xs font-normal">
+                  {hasAssignedTools ? item : formatCapabilityLabel(item)}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs gap-1.5"
+            onClick={handleEditClick}
+          >
+            <Settings2 className="h-3 w-3" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+            onClick={handleDeleteClick}
+          >
+            <Trash2 className="h-3 w-3" />
+            Delete
+          </Button>
+        </div>
       </Card>
 
       <ConfirmationDialog
@@ -124,7 +131,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agent, onEdit, onDelete }) => {
         onConfirm={handleConfirmDelete}
         variant="destructive"
       />
-    </TooltipProvider>
+    </>
   )
 }
 
