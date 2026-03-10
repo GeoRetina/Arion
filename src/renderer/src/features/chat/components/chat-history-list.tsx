@@ -14,7 +14,8 @@ import {
   TableCell
 } from '../../../components/ui/table'
 import { Checkbox } from '../../../components/ui/checkbox'
-import { Trash2 } from 'lucide-react'
+import { Search, Trash2, X } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
@@ -31,6 +32,16 @@ export const ChatHistoryList: React.FC = () => {
 
   const [selectedChatIds, setSelectedChatIds] = useState<string[]>([])
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const filteredChats = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return chats
+    return chats.filter((chat) => {
+      const title = (chat.title || chat.id).toLowerCase()
+      return title.includes(q)
+    })
+  }, [chats, searchQuery])
 
   const handleSelectChat = (chatId: string): void => {
     navigate(`/chat/${chatId}`)
@@ -48,7 +59,7 @@ export const ChatHistoryList: React.FC = () => {
 
   const handleSelectAll = (checked: boolean | 'indeterminate'): void => {
     if (checked === true) {
-      setSelectedChatIds(chats.map((chat) => chat.id))
+      setSelectedChatIds(filteredChats.map((chat) => chat.id))
     } else {
       setSelectedChatIds([])
     }
@@ -73,12 +84,12 @@ export const ChatHistoryList: React.FC = () => {
   }
 
   const isAllSelected = useMemo(
-    () => chats.length > 0 && selectedChatIds.length === chats.length,
-    [chats, selectedChatIds]
+    () => filteredChats.length > 0 && selectedChatIds.length === filteredChats.length,
+    [filteredChats, selectedChatIds]
   )
   const isIndeterminate = useMemo(
-    () => selectedChatIds.length > 0 && selectedChatIds.length < chats.length,
-    [selectedChatIds, chats]
+    () => selectedChatIds.length > 0 && selectedChatIds.length < filteredChats.length,
+    [selectedChatIds, filteredChats]
   )
 
   if (isLoadingChats) {
@@ -87,17 +98,37 @@ export const ChatHistoryList: React.FC = () => {
 
   return (
     <div className="pt-8 pb-2 px-4 md:px-6 flex flex-col h-[calc(100vh-1rem)] overflow-hidden relative">
-      <div className="flex flex-col mb-4 flex-shrink-0">
+      <div className="flex flex-col mb-4 shrink-0">
         <h1 className="text-3xl font-semibold mb-2">Chat History</h1>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground mb-3">
           A list of your recent chat sessions. Click a row to open.
         </p>
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-8 h-9"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {chats.length === 0 ? (
         <p className="text-center text-gray-500 dark:text-gray-400 py-10">No chat history found.</p>
+      ) : filteredChats.length === 0 ? (
+        <p className="text-center text-muted-foreground py-10">No chats matching &ldquo;{searchQuery}&rdquo;</p>
       ) : (
-        <div className="rounded-lg overflow-hidden flex-grow relative surface-elevated">
+        <div className="rounded-lg overflow-hidden grow relative surface-elevated">
           <ScrollArea className="h-full">
             <div className="sticky top-0 z-10 bg-background">
               <Table>
@@ -121,7 +152,7 @@ export const ChatHistoryList: React.FC = () => {
             </div>
             <Table>
               <TableBody>
-                {chats.map((chat) => (
+                {filteredChats.map((chat) => (
                   <TableRow
                     key={chat.id}
                     data-state={selectedChatIds.includes(chat.id) ? 'selected' : undefined}
