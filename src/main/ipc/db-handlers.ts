@@ -34,7 +34,8 @@ const addMessageSchema = z
     name: z.string().max(256).nullable().optional(),
     tool_calls: z.string().max(2_000_000).nullable().optional(),
     tool_call_id: z.string().max(256).nullable().optional(),
-    orchestration: z.string().max(2_000_000).nullable().optional()
+    orchestration: z.string().max(2_000_000).nullable().optional(),
+    created_at: z.string().max(64).optional()
   })
   .strict()
 
@@ -125,7 +126,7 @@ export function registerDbIpcHandlers(
     async (
       _event,
       messageData: Pick<Message, 'id' | 'chat_id' | 'role' | 'content'> &
-        Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content' | 'created_at'>>
+        Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content'>>
     ) => {
       try {
         const parsedMessage = addMessageSchema.parse(messageData)

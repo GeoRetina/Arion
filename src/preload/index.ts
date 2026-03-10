@@ -86,6 +86,16 @@ import {
   type OrchestrationResult,
   type OrchestrationStatus,
   type AgentCapabilitiesResult,
+  type ExternalRuntimeApi,
+  type ExternalRuntimeApprovalDecision,
+  type ExternalRuntimeApprovalRequest,
+  type ExternalRuntimeConfig,
+  type ExternalRuntimeDescriptor,
+  type ExternalRuntimeHealthStatus,
+  type ExternalRuntimeRunRecord,
+  type ExternalRuntimeRunRequest,
+  type ExternalRuntimeRunResult,
+  type ExternalRuntimeEvent,
   type CodexApi,
   type CodexApprovalDecision,
   type CodexApprovalRequest,
@@ -286,41 +296,118 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.setCodexConfig, config),
     getCodexHealth: (): Promise<CodexHealthStatus> => ipcRenderer.invoke(IpcChannels.getCodexHealth)
   } as SettingsApi,
+  externalRuntimes: {
+    listRuntimes: (): Promise<ExternalRuntimeDescriptor[]> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimesList),
+    getConfig: (runtimeId: string): Promise<ExternalRuntimeConfig> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeGetConfig, runtimeId),
+    setConfig: (runtimeId: string, config: ExternalRuntimeConfig): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeSetConfig, runtimeId, config),
+    getHealth: (runtimeId: string): Promise<ExternalRuntimeHealthStatus> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeGetHealth, runtimeId),
+    startRun: (request: ExternalRuntimeRunRequest): Promise<ExternalRuntimeRunResult> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeStartRun, request),
+    cancelRun: (runtimeId: string, runId: string): Promise<boolean> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeCancelRun, { runtimeId, runId }),
+    getRun: (runtimeId: string, runId: string): Promise<ExternalRuntimeRunResult | null> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeGetRun, { runtimeId, runId }),
+    listRuns: (options?: {
+      chatId?: string
+      runtimeId?: string
+    }): Promise<ExternalRuntimeRunRecord[]> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeListRuns, options),
+    approveRequest: (decision: ExternalRuntimeApprovalDecision): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeApproveRequest, decision),
+    denyRequest: (runtimeId: string, approvalId: string): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.externalRuntimeDenyRequest, { runtimeId, approvalId }),
+    onRunEvent: (callback: (event: ExternalRuntimeEvent) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: ExternalRuntimeEvent): void =>
+        callback(payload)
+      ipcRenderer.on(IpcChannels.externalRuntimeRunEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.externalRuntimeRunEvent, handler)
+      }
+    },
+    onApprovalRequest: (callback: (request: ExternalRuntimeApprovalRequest) => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: ExternalRuntimeApprovalRequest
+      ): void => callback(payload)
+      ipcRenderer.on(IpcChannels.externalRuntimeApprovalRequestEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.externalRuntimeApprovalRequestEvent, handler)
+      }
+    },
+    onHealthUpdated: (callback: (status: ExternalRuntimeHealthStatus) => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: ExternalRuntimeHealthStatus
+      ): void => callback(payload)
+      ipcRenderer.on(IpcChannels.externalRuntimeHealthUpdatedEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.externalRuntimeHealthUpdatedEvent, handler)
+      }
+    }
+  } as ExternalRuntimeApi,
   codex: {
     startRun: (request: CodexRunRequest): Promise<CodexRunResult> =>
-      ipcRenderer.invoke(IpcChannels.codexStartRun, request),
+      ipcRenderer.invoke(IpcChannels.externalRuntimeStartRun, {
+        ...request,
+        runtimeId: 'codex'
+      }),
     cancelRun: (runId: string): Promise<boolean> =>
-      ipcRenderer.invoke(IpcChannels.codexCancelRun, runId),
+      ipcRenderer.invoke(IpcChannels.externalRuntimeCancelRun, { runtimeId: 'codex', runId }),
     getRun: (runId: string): Promise<CodexRunResult | null> =>
-      ipcRenderer.invoke(IpcChannels.codexGetRun, runId),
+      ipcRenderer.invoke(IpcChannels.externalRuntimeGetRun, { runtimeId: 'codex', runId }),
     listRuns: (chatId?: string): Promise<CodexRunRecord[]> =>
-      ipcRenderer.invoke(IpcChannels.codexListRuns, chatId),
+      ipcRenderer.invoke(IpcChannels.externalRuntimeListRuns, { chatId, runtimeId: 'codex' }),
     approveRequest: (decision: CodexApprovalDecision): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.codexApproveRequest, decision),
+      ipcRenderer.invoke(IpcChannels.externalRuntimeApproveRequest, {
+        ...decision,
+        runtimeId: 'codex'
+      }),
     denyRequest: (approvalId: string): Promise<void> =>
-      ipcRenderer.invoke(IpcChannels.codexDenyRequest, approvalId),
+      ipcRenderer.invoke(IpcChannels.externalRuntimeDenyRequest, {
+        runtimeId: 'codex',
+        approvalId
+      }),
     onRunEvent: (callback: (event: CodexRuntimeEvent) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: CodexRuntimeEvent): void =>
-        callback(payload)
-      ipcRenderer.on(IpcChannels.codexRunEvent, handler)
+      const handler = (_event: Electron.IpcRendererEvent, payload: ExternalRuntimeEvent): void => {
+        if (payload.runtimeId === 'codex') {
+          callback(payload)
+        }
+      }
+      ipcRenderer.on(IpcChannels.externalRuntimeRunEvent, handler)
       return () => {
-        ipcRenderer.removeListener(IpcChannels.codexRunEvent, handler)
+        ipcRenderer.removeListener(IpcChannels.externalRuntimeRunEvent, handler)
       }
     },
     onApprovalRequest: (callback: (request: CodexApprovalRequest) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: CodexApprovalRequest): void =>
-        callback(payload)
-      ipcRenderer.on(IpcChannels.codexApprovalRequestEvent, handler)
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: ExternalRuntimeApprovalRequest
+      ): void => {
+        if (payload.runtimeId === 'codex') {
+          callback(payload)
+        }
+      }
+      ipcRenderer.on(IpcChannels.externalRuntimeApprovalRequestEvent, handler)
       return () => {
-        ipcRenderer.removeListener(IpcChannels.codexApprovalRequestEvent, handler)
+        ipcRenderer.removeListener(IpcChannels.externalRuntimeApprovalRequestEvent, handler)
       }
     },
     onHealthUpdated: (callback: (status: CodexHealthStatus) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: CodexHealthStatus): void =>
-        callback(payload)
-      ipcRenderer.on(IpcChannels.codexHealthUpdatedEvent, handler)
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: ExternalRuntimeHealthStatus
+      ): void => {
+        if (payload.runtimeId === 'codex') {
+          callback(payload)
+        }
+      }
+      ipcRenderer.on(IpcChannels.externalRuntimeHealthUpdatedEvent, handler)
       return () => {
-        ipcRenderer.removeListener(IpcChannels.codexHealthUpdatedEvent, handler)
+        ipcRenderer.removeListener(IpcChannels.externalRuntimeHealthUpdatedEvent, handler)
       }
     }
   } as CodexApi,
@@ -483,7 +570,7 @@ const ctgApi = {
     },
     addMessage: async (
       messageData: Pick<DbMessage, 'id' | 'chat_id' | 'role' | 'content'> &
-        Partial<Omit<DbMessage, 'id' | 'chat_id' | 'role' | 'content' | 'created_at'>>
+        Partial<Omit<DbMessage, 'id' | 'chat_id' | 'role' | 'content'>>
     ): Promise<{ success: boolean; data?: DbMessage; error?: string }> => {
       return ipcRenderer.invoke(IpcChannels.dbAddMessage, messageData)
     },

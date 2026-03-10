@@ -25,6 +25,17 @@ import type {
   UpdatePromptModuleParams
 } from './types/prompt-types'
 import type {
+  ExternalRuntimeApprovalDecision,
+  ExternalRuntimeApprovalRequest,
+  ExternalRuntimeConfig,
+  ExternalRuntimeDescriptor,
+  ExternalRuntimeHealthStatus,
+  ExternalRuntimeRunRecord,
+  ExternalRuntimeRunRequest,
+  ExternalRuntimeRunResult,
+  ExternalRuntimeEvent
+} from './types/external-runtime-types'
+import type {
   CodexApprovalDecision,
   CodexApprovalRequest,
   CodexConfig,
@@ -42,6 +53,35 @@ export type {
   CreatePromptModuleParams,
   UpdatePromptModuleParams
 } from './types/prompt-types'
+export type {
+  ExternalRuntimeApprovalKind,
+  ExternalRuntimeApprovalScope,
+  ExternalRuntimeApprovalDecision,
+  ExternalRuntimeApprovalRequest,
+  ExternalRuntimeArtifactImportKind,
+  ExternalRuntimeArtifactType,
+  ExternalRuntimeAuthState,
+  ExternalRuntimeConfig,
+  ExternalRuntimeConfigField,
+  ExternalRuntimeConfigFieldOption,
+  ExternalRuntimeConfigFieldType,
+  ExternalRuntimeConfigValue,
+  ExternalRuntimeDefaultMode,
+  ExternalRuntimeDescriptor,
+  ExternalRuntimeEventType,
+  ExternalRuntimeEvent,
+  ExternalRuntimeHealthStatus,
+  ExternalRuntimeInstallState,
+  ExternalRuntimeInstallStatus,
+  ExternalRuntimeProviderHint,
+  ExternalRuntimeReasoningEffort,
+  ExternalRuntimeRunArtifact,
+  ExternalRuntimeRunRecord,
+  ExternalRuntimeRunRequest,
+  ExternalRuntimeRunResult,
+  ExternalRuntimeRunStatus,
+  ExternalRuntimeStagedInput
+} from './types/external-runtime-types'
 export type {
   CodexApprovalScope,
   CodexApprovalDecision,
@@ -560,16 +600,20 @@ export const IpcChannels = {
   // Tool Management IPC Channels
   toolsGetAllAvailable: 'tools:getAllAvailable',
 
-  // Codex Runtime IPC Channels
-  codexStartRun: 'codex:start-run',
-  codexCancelRun: 'codex:cancel-run',
-  codexGetRun: 'codex:get-run',
-  codexListRuns: 'codex:list-runs',
-  codexApproveRequest: 'codex:approve-request',
-  codexDenyRequest: 'codex:deny-request',
-  codexRunEvent: 'ctg:codex:run-event',
-  codexApprovalRequestEvent: 'ctg:codex:approval-request',
-  codexHealthUpdatedEvent: 'ctg:codex:health-updated'
+  // External Runtime IPC Channels
+  externalRuntimesList: 'external-runtimes:list',
+  externalRuntimeGetConfig: 'external-runtimes:get-config',
+  externalRuntimeSetConfig: 'external-runtimes:set-config',
+  externalRuntimeGetHealth: 'external-runtimes:get-health',
+  externalRuntimeStartRun: 'external-runtimes:start-run',
+  externalRuntimeCancelRun: 'external-runtimes:cancel-run',
+  externalRuntimeGetRun: 'external-runtimes:get-run',
+  externalRuntimeListRuns: 'external-runtimes:list-runs',
+  externalRuntimeApproveRequest: 'external-runtimes:approve-request',
+  externalRuntimeDenyRequest: 'external-runtimes:deny-request',
+  externalRuntimeRunEvent: 'ctg:external-runtimes:run-event',
+  externalRuntimeApprovalRequestEvent: 'ctg:external-runtimes:approval-request',
+  externalRuntimeHealthUpdatedEvent: 'ctg:external-runtimes:health-updated'
 } as const
 
 // Generic IPC Response wrapper
@@ -711,7 +755,7 @@ export interface DbApi {
   deleteChat: (id: string) => Promise<{ success: boolean; error?: string }>
   addMessage: (
     messageData: Pick<Message, 'id' | 'chat_id' | 'role' | 'content'> &
-      Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content' | 'created_at'>>
+      Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content'>>
   ) => Promise<{ success: boolean; data?: Message; error?: string }>
   getMessageById: (
     id: string
@@ -902,6 +946,7 @@ declare global {
       mcp: McpPermissionApi // Added MCP permission API
       postgresql: PostgreSQLApi // Added PostgreSQL API
       integrations: IntegrationsApi // Integration Hub API
+      externalRuntimes: ExternalRuntimeApi
       codex: CodexApi
       layers: LayerApi // Added Layer Management API
       agents: AgentApi // Added Agent System API
@@ -1389,6 +1434,25 @@ export interface IntegrationsApi {
   clearRunLogs: () => Promise<{ success: boolean }>
   grantApproval: (request: ConnectorApprovalGrantRequest) => Promise<ConnectorApprovalGrantResult>
   clearApprovals: (chatId?: string) => Promise<{ success: boolean }>
+}
+
+export interface ExternalRuntimeApi {
+  listRuntimes: () => Promise<ExternalRuntimeDescriptor[]>
+  getConfig: (runtimeId: string) => Promise<ExternalRuntimeConfig>
+  setConfig: (runtimeId: string, config: ExternalRuntimeConfig) => Promise<void>
+  getHealth: (runtimeId: string) => Promise<ExternalRuntimeHealthStatus>
+  startRun: (request: ExternalRuntimeRunRequest) => Promise<ExternalRuntimeRunResult>
+  cancelRun: (runtimeId: string, runId: string) => Promise<boolean>
+  getRun: (runtimeId: string, runId: string) => Promise<ExternalRuntimeRunResult | null>
+  listRuns: (options?: {
+    chatId?: string
+    runtimeId?: string
+  }) => Promise<ExternalRuntimeRunRecord[]>
+  approveRequest: (decision: ExternalRuntimeApprovalDecision) => Promise<void>
+  denyRequest: (runtimeId: string, approvalId: string) => Promise<void>
+  onRunEvent: (callback: (event: ExternalRuntimeEvent) => void) => () => void
+  onApprovalRequest: (callback: (request: ExternalRuntimeApprovalRequest) => void) => () => void
+  onHealthUpdated: (callback: (status: ExternalRuntimeHealthStatus) => void) => () => void
 }
 
 export interface CodexApi {

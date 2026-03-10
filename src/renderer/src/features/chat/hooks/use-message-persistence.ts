@@ -22,6 +22,11 @@ export function getTextFromParts(message: UIMessage): string {
     .join('')
 }
 
+function getMessageCreatedAt(message: UIMessage): string | undefined {
+  const createdAt = (message as { createdAt?: unknown }).createdAt
+  return createdAt instanceof Date ? createdAt.toISOString() : undefined
+}
+
 type ChatControllerLike = {
   setMessages?: (messages: HydratedStoredMessage[]) => void
 }
@@ -73,7 +78,8 @@ export function useMessagePersistence({
           chat_id: chatId,
           role: message.role as Message['role'],
           content: text,
-          tool_calls: serializeMessageParts((message as { parts?: unknown[] }).parts)
+          tool_calls: serializeMessageParts((message as { parts?: unknown[] }).parts),
+          created_at: getMessageCreatedAt(message)
         })
         persistedIds.add(message.id)
       }

@@ -1,5 +1,26 @@
-export type CodexReasoningEffort = 'low' | 'medium' | 'high'
-export type CodexDefaultMode = 'workspace-approval'
+import type {
+  ExternalRuntimeApprovalDecision,
+  ExternalRuntimeApprovalKind,
+  ExternalRuntimeApprovalRequest,
+  ExternalRuntimeApprovalScope,
+  ExternalRuntimeArtifactImportKind,
+  ExternalRuntimeArtifactType,
+  ExternalRuntimeAuthState,
+  ExternalRuntimeDefaultMode,
+  ExternalRuntimeHealthStatus,
+  ExternalRuntimeInstallState,
+  ExternalRuntimeReasoningEffort,
+  ExternalRuntimeRunArtifact,
+  ExternalRuntimeRunRecord,
+  ExternalRuntimeRunRequest,
+  ExternalRuntimeRunResult,
+  ExternalRuntimeRunStatus,
+  ExternalRuntimeEvent,
+  ExternalRuntimeStagedInput
+} from './external-runtime-types'
+
+export type CodexReasoningEffort = ExternalRuntimeReasoningEffort
+export type CodexDefaultMode = ExternalRuntimeDefaultMode
 
 export interface CodexConfig {
   binaryPath: string | null
@@ -9,161 +30,43 @@ export interface CodexConfig {
   defaultMode: CodexDefaultMode
 }
 
-export type CodexInstallState = 'installed' | 'missing' | 'unsupported-version' | 'error'
-export type CodexAuthState = 'authenticated' | 'unauthenticated' | 'unknown'
+export type CodexInstallState = ExternalRuntimeInstallState
+export type CodexAuthState = ExternalRuntimeAuthState
+export type CodexRunStatus = ExternalRuntimeRunStatus
+export type CodexArtifactType = ExternalRuntimeArtifactType
+export type CodexArtifactImportKind = ExternalRuntimeArtifactImportKind
+export type CodexApprovalKind = ExternalRuntimeApprovalKind
+export type CodexApprovalScope = ExternalRuntimeApprovalScope
 
-export interface CodexInstallStatus {
-  state: CodexInstallState
-  version: string | null
-  minimumSupportedVersion: string
-  message: string
-}
+export interface CodexHealthStatus extends Omit<
+  ExternalRuntimeHealthStatus,
+  'runtimeId' | 'runtimeName'
+> {}
 
-export interface CodexHealthStatus {
-  checkedAt: string
-  install: CodexInstallStatus
-  authState: CodexAuthState
-  authMessage: string
-  isReady: boolean
-}
+export interface CodexRunArtifact extends ExternalRuntimeRunArtifact {}
 
-export type CodexRunStatus =
-  | 'queued'
-  | 'starting'
-  | 'running'
-  | 'awaiting-approval'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
+export interface CodexStagedInput extends ExternalRuntimeStagedInput {}
 
-export type CodexArtifactType =
-  | 'markdown'
-  | 'text'
-  | 'python'
-  | 'geojson'
-  | 'csv'
-  | 'image'
-  | 'sql'
-  | 'json'
-  | 'unknown'
+export interface CodexRunRequest extends Omit<ExternalRuntimeRunRequest, 'runtimeId'> {}
 
-export type CodexArtifactImportKind = 'map-layer' | 'table' | 'attachment' | 'script' | 'none'
+export interface CodexRunRecord extends Omit<
+  ExternalRuntimeRunRecord,
+  'runtimeId' | 'runtimeName'
+> {}
 
-export interface CodexRunArtifact {
-  id: string
-  name: string
-  path: string
-  relativePath: string
-  type: CodexArtifactType
-  sizeBytes: number
-  importKind: CodexArtifactImportKind
-  mimeType: string | null
-}
+export interface CodexRunResult extends Omit<
+  ExternalRuntimeRunResult,
+  'runtimeId' | 'runtimeName'
+> {}
 
-export interface CodexStagedInput {
-  id: string
-  label: string
-  kind: 'prompt' | 'file' | 'layer' | 'metadata'
-  sourcePath: string | null
-  stagedPath: string
-  status: 'staged' | 'skipped'
-  note?: string
-}
+export interface CodexRuntimeEvent extends Omit<
+  ExternalRuntimeEvent,
+  'runtimeId' | 'runtimeName'
+> {}
 
-export interface CodexRunRequest {
-  chatId: string
-  goal: string
-  filePaths?: string[]
-  layerIds?: string[]
-  expectedOutputs?: string[]
-  importPreference?: 'none' | 'suggest'
-  model?: string | null
-  reasoningEffort?: CodexReasoningEffort
-}
+export interface CodexApprovalRequest extends Omit<
+  ExternalRuntimeApprovalRequest,
+  'runtimeId' | 'runtimeName'
+> {}
 
-export interface CodexRunRecord {
-  runId: string
-  chatId: string
-  status: CodexRunStatus
-  goal: string
-  model: string
-  reasoningEffort: CodexReasoningEffort
-  workspacePath: string
-  inputsPath: string
-  outputsPath: string
-  logsPath: string
-  manifestPath: string
-  startedAt: string
-  updatedAt: string
-  completedAt?: string | null
-  summary?: string | null
-  error?: string | null
-  artifacts: CodexRunArtifact[]
-}
-
-export interface CodexRunResult extends CodexRunRecord {
-  stagedInputs: CodexStagedInput[]
-}
-
-export type CodexRuntimeEventType =
-  | 'status'
-  | 'message-delta'
-  | 'message'
-  | 'command-started'
-  | 'command-completed'
-  | 'turn-completed'
-  | 'artifact-scan-completed'
-  | 'error'
-
-export interface CodexRuntimeEvent {
-  eventId: string
-  runId: string
-  chatId: string
-  type: CodexRuntimeEventType
-  createdAt: string
-  status?: CodexRunStatus
-  phase?: 'commentary' | 'final_answer' | 'unknown'
-  text?: string
-  message?: string
-  itemId?: string
-  turnId?: string
-  command?: string
-  cwd?: string | null
-  exitCode?: number | null
-}
-
-export type CodexApprovalKind =
-  | 'command'
-  | 'file-change'
-  | 'file-read'
-  | 'tool-user-input'
-  | 'unknown'
-
-export interface CodexApprovalRequest {
-  approvalId: string
-  runId: string
-  chatId: string
-  kind: CodexApprovalKind
-  createdAt: string
-  requestId: string
-  turnId?: string
-  itemId?: string
-  command?: string | null
-  cwd?: string | null
-  reason?: string | null
-  grantRoot?: string | null
-  commandActions?: Array<{
-    type: string
-    command: string
-    path?: string | null
-    name?: string | null
-    query?: string | null
-  }>
-}
-
-export type CodexApprovalScope = 'once' | 'run'
-
-export interface CodexApprovalDecision {
-  approvalId: string
-  scope: CodexApprovalScope
-}
+export interface CodexApprovalDecision extends Omit<ExternalRuntimeApprovalDecision, 'runtimeId'> {}

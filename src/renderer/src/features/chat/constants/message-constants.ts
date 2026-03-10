@@ -32,6 +32,7 @@ export const TOOL_STATUS = {
  * Note: This must match CALL_AGENT_TOOL_NAME in main process constants
  */
 export const CALL_AGENT_TOOL_NAME = 'call_agent'
+export const RUN_EXTERNAL_ANALYSIS_TOOL_NAME = 'run_external_analysis'
 export const CODEX_RUN_CUSTOM_ANALYSIS_TOOL_NAME = 'run_custom_analysis_with_codex'
 
 export type ComponentType = (typeof COMPONENT_TYPES)[keyof typeof COMPONENT_TYPES]

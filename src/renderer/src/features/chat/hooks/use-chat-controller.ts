@@ -12,11 +12,17 @@ import { serializeMessageParts } from '../utils/stored-message-hydration'
 export type ChatMessage = UIMessage<unknown, UIDataTypes, UITools>
 
 type ExtendedMessage = ChatMessage & {
+  createdAt?: Date
   orchestration?: {
     subtasks?: Subtask[]
     agentsInvolved?: string[]
     completionTime?: number
   }
+}
+
+function getMessageCreatedAt(message: ChatMessage): string | undefined {
+  const createdAt = (message as { createdAt?: unknown }).createdAt
+  return createdAt instanceof Date ? createdAt.toISOString() : undefined
 }
 
 interface UseChatControllerOptions {
@@ -39,6 +45,7 @@ export function useChatController({
 } {
   const { createChatAndSelect, addMessageToCurrentChat } = useChatHistoryStore()
   const persistRef = useRef<(chatId: string) => Promise<void>>(async () => {})
+  const latestSdkMessagesRef = useRef<ChatMessage[]>([])
 
   const streamingFetch = useMemo(() => createStreamingFetch(), [])
   const transport = useMemo(
@@ -80,27 +87,45 @@ export function useChatController({
 
       if (currentChatId) {
         await persistRef.current(currentChatId)
-
-        const existingMsg = currentMessagesFromStore.find((m) => m.id === assistantMessage.id)
-        const text = getTextFromParts(assistantMessage)
-        const serializedParts = serializeMessageParts(
-          (assistantMessage as { parts?: unknown[] }).parts
-        )
-        const shouldPersistAssistantMessage = Boolean(
-          text.trim().length > 0 || serializedParts || assistantMessage.orchestration
+        const storeMessages = useChatHistoryStore.getState().currentMessages
+        const persistedIds = new Set(storeMessages.map((storedMessage) => storedMessage.id))
+        const assistantMessagesToPersist = latestSdkMessagesRef.current.filter(
+          (sdkMessage) => sdkMessage.role === 'assistant' && typeof sdkMessage.id === 'string'
         )
 
-        if (!existingMsg && shouldPersistAssistantMessage) {
+        if (
+          !assistantMessagesToPersist.some((sdkMessage) => sdkMessage.id === assistantMessage.id)
+        ) {
+          assistantMessagesToPersist.push(assistantMessage)
+        }
+
+        for (const sdkMessage of assistantMessagesToPersist) {
+          if (!sdkMessage.id || persistedIds.has(sdkMessage.id)) {
+            continue
+          }
+
+          const orchestrationPayload =
+            sdkMessage.id === assistantMessage.id ? assistantMessage.orchestration : undefined
+          const text = getTextFromParts(sdkMessage)
+          const serializedParts = serializeMessageParts((sdkMessage as { parts?: unknown[] }).parts)
+          const shouldPersistAssistantMessage = Boolean(
+            text.trim().length > 0 || serializedParts || orchestrationPayload
+          )
+
+          if (!shouldPersistAssistantMessage) {
+            continue
+          }
+
           await addMessageToCurrentChat({
-            id: assistantMessage.id,
+            id: sdkMessage.id,
             chat_id: currentChatId,
-            role: assistantMessage.role,
+            role: sdkMessage.role,
             content: text,
             tool_calls: serializedParts,
-            orchestration: assistantMessage.orchestration
-              ? JSON.stringify(assistantMessage.orchestration)
-              : undefined
+            orchestration: orchestrationPayload ? JSON.stringify(orchestrationPayload) : undefined,
+            created_at: getMessageCreatedAt(sdkMessage)
           })
+          persistedIds.add(sdkMessage.id)
         }
       }
     }
@@ -118,6 +143,10 @@ export function useChatController({
   useEffect(() => {
     persistRef.current = persistPendingUserMessages
   }, [persistPendingUserMessages])
+
+  useEffect(() => {
+    latestSdkMessagesRef.current = chat.messages
+  }, [chat.messages])
 
   return {
     chat,

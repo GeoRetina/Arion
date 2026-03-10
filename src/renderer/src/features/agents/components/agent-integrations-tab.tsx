@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Loader2, RefreshCw, TerminalSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -21,24 +21,25 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import ExternalAgentIntegrationCard from './external-agent-integration-card'
-import { useCodexStore } from '@/stores/codex-store'
+import { useExternalRuntimeStore } from '@/stores/external-runtime-store'
 import { PROVIDER_LOGOS, PROVIDER_LOGO_CLASSES } from '@/constants/llm-providers'
-import type { CodexConfig, CodexHealthStatus } from '../../../../../shared/ipc-types'
+import type {
+  ExternalRuntimeConfig,
+  ExternalRuntimeDescriptor,
+  ExternalRuntimeHealthStatus
+} from '../../../../../shared/ipc-types'
 
-const defaultDraftConfig: CodexConfig = {
-  binaryPath: null,
-  homePath: null,
-  defaultModel: 'gpt-5.3-codex',
-  reasoningEffort: 'medium',
-  defaultMode: 'workspace-approval'
+function buildDraftConfig(
+  descriptor: ExternalRuntimeDescriptor,
+  config: ExternalRuntimeConfig | undefined
+): ExternalRuntimeConfig {
+  return {
+    ...descriptor.defaultConfig,
+    ...(config || {})
+  }
 }
 
-function normalizeOptionalPath(value: string): string | null {
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
-function getStatusPresentation(health: CodexHealthStatus | null): {
+function getStatusPresentation(health: ExternalRuntimeHealthStatus | null | undefined): {
   label: string
   className: string
 } {
@@ -83,232 +84,286 @@ function getStatusPresentation(health: CodexHealthStatus | null): {
   }
 }
 
-export default function AgentIntegrationsTab(): React.JSX.Element {
-  const initialize = useCodexStore((state) => state.initialize)
-  const saveConfig = useCodexStore((state) => state.saveConfig)
-  const refreshHealth = useCodexStore((state) => state.refreshHealth)
-  const config = useCodexStore((state) => state.config)
-  const health = useCodexStore((state) => state.health)
-  const error = useCodexStore((state) => state.error)
-  const clearError = useCodexStore((state) => state.clearError)
-  const isLoadingConfig = useCodexStore((state) => state.isLoadingConfig)
-  const isLoadingHealth = useCodexStore((state) => state.isLoadingHealth)
+function getRuntimeSummary(
+  descriptor: ExternalRuntimeDescriptor,
+  config: ExternalRuntimeConfig | undefined,
+  health: ExternalRuntimeHealthStatus | null | undefined
+): string {
+  if (!health?.isReady) {
+    return descriptor.description
+  }
 
-  const [draft, setDraft] = useState<CodexConfig>(defaultDraftConfig)
-  const [isConfigOpen, setIsConfigOpen] = useState(false)
+  const mergedConfig = buildDraftConfig(descriptor, config)
+  const summaryParts = descriptor.configFields
+    .filter((field) => field.showInSummary)
+    .map((field) => {
+      const value = mergedConfig[field.key]
+      return typeof value === 'string' && value.trim().length > 0
+        ? `${field.label}: ${value.trim()}`
+        : null
+    })
+    .filter((value): value is string => Boolean(value))
+
+  return summaryParts.length > 0 ? summaryParts.join(' | ') : descriptor.description
+}
+
+export default function AgentIntegrationsTab(): React.JSX.Element {
+  const initialize = useExternalRuntimeStore((state) => state.initialize)
+  const saveConfig = useExternalRuntimeStore((state) => state.saveConfig)
+  const refreshHealth = useExternalRuntimeStore((state) => state.refreshHealth)
+  const descriptors = useExternalRuntimeStore((state) => state.descriptors)
+  const configs = useExternalRuntimeStore((state) => state.configs)
+  const healthByRuntime = useExternalRuntimeStore((state) => state.healthByRuntime)
+  const loadingConfigByRuntime = useExternalRuntimeStore((state) => state.loadingConfigByRuntime)
+  const loadingHealthByRuntime = useExternalRuntimeStore((state) => state.loadingHealthByRuntime)
+  const error = useExternalRuntimeStore((state) => state.error)
+  const clearError = useExternalRuntimeStore((state) => state.clearError)
+
+  const [draftByRuntime, setDraftByRuntime] = useState<Record<string, ExternalRuntimeConfig>>({})
+  const [selectedRuntimeId, setSelectedRuntimeId] = useState<string | null>(null)
 
   useEffect(() => {
     void initialize()
   }, [initialize])
 
   useEffect(() => {
-    if (config) {
-      setDraft(config)
-    }
-  }, [config])
+    setDraftByRuntime((current) => {
+      const next = { ...current }
+      descriptors.forEach((descriptor) => {
+        next[descriptor.id] = buildDraftConfig(descriptor, configs[descriptor.id])
+      })
+      return next
+    })
+  }, [configs, descriptors])
 
   useEffect(() => {
     if (!error) {
       return
     }
 
-    toast.error('Codex integration error', {
+    toast.error('External runtime error', {
       description: error
     })
     clearError()
   }, [error, clearError])
 
-  const statusPresentation = getStatusPresentation(health)
+  const selectedDescriptor = useMemo(
+    () => descriptors.find((descriptor) => descriptor.id === selectedRuntimeId) || null,
+    [descriptors, selectedRuntimeId]
+  )
+
+  const selectedDraft =
+    (selectedRuntimeId ? draftByRuntime[selectedRuntimeId] : undefined) ||
+    (selectedDescriptor
+      ? buildDraftConfig(selectedDescriptor, configs[selectedDescriptor.id])
+      : undefined)
+
+  const selectedHealth = selectedRuntimeId ? healthByRuntime[selectedRuntimeId] : null
 
   const handleSave = async (): Promise<void> => {
+    if (!selectedRuntimeId || !selectedDraft) {
+      return
+    }
+
     try {
-      await saveConfig({
-        binaryPath: normalizeOptionalPath(draft.binaryPath || ''),
-        homePath: normalizeOptionalPath(draft.homePath || ''),
-        defaultModel: draft.defaultModel.trim() || defaultDraftConfig.defaultModel,
-        reasoningEffort: draft.reasoningEffort,
-        defaultMode: 'workspace-approval'
-      })
-      toast.success('Codex integration updated')
-      setIsConfigOpen(false)
+      await saveConfig(selectedRuntimeId, selectedDraft)
+      toast.success('Integration updated')
+      setSelectedRuntimeId(null)
     } catch {
       // Store error state drives the toast.
     }
   }
 
-  const handleRefresh = async (): Promise<void> => {
-    const refreshed = await refreshHealth()
+  const handleRefresh = async (runtimeId: string): Promise<void> => {
+    const refreshed = await refreshHealth(runtimeId)
     if (refreshed?.isReady) {
-      toast.success('Codex is ready')
+      toast.success(`${refreshed.runtimeName} is ready`)
     }
   }
 
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <ExternalAgentIntegrationCard
-          title="Codex"
-          description="Local Codex CLI runtime"
-          summary={
-            health?.isReady
-              ? `Model: ${draft.defaultModel} · Effort: ${draft.reasoningEffort}`
-              : 'Managed runtime for custom analysis, scripts, and reproducible geospatial workspaces.'
-          }
-          iconSrc={PROVIDER_LOGOS.openai}
-          iconClassName={PROVIDER_LOGO_CLASSES.openai}
-          statusLabel={statusPresentation.label}
-          statusClassName={statusPresentation.className}
-          onConfigure={() => setIsConfigOpen(true)}
-          action={
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => void handleRefresh()}
-              disabled={isLoadingHealth}
-            >
-              {isLoadingHealth ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          }
-        />
+        {descriptors.map((descriptor) => {
+          const health = healthByRuntime[descriptor.id]
+          const statusPresentation = getStatusPresentation(health)
+
+          return (
+            <ExternalAgentIntegrationCard
+              key={descriptor.id}
+              title={descriptor.name}
+              description={descriptor.description}
+              summary={getRuntimeSummary(descriptor, configs[descriptor.id], health)}
+              iconSrc={PROVIDER_LOGOS[descriptor.providerHint]}
+              iconClassName={PROVIDER_LOGO_CLASSES[descriptor.providerHint]}
+              statusLabel={statusPresentation.label}
+              statusClassName={statusPresentation.className}
+              onConfigure={() => setSelectedRuntimeId(descriptor.id)}
+              action={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => void handleRefresh(descriptor.id)}
+                  disabled={loadingHealthByRuntime[descriptor.id]}
+                >
+                  {loadingHealthByRuntime[descriptor.id] ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+              }
+            />
+          )
+        })}
       </div>
 
-      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+      <Dialog
+        open={Boolean(selectedDescriptor)}
+        onOpenChange={(open) => !open && setSelectedRuntimeId(null)}
+      >
         <DialogContent className="sm:max-w-125">
-          <DialogHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center p-1">
-                <img
-                  src={PROVIDER_LOGOS.openai}
-                  alt="Codex logo"
-                  className={`h-full w-full object-contain ${PROVIDER_LOGO_CLASSES.openai}`}
-                />
-              </div>
-              <DialogTitle className="text-xl">Configure Codex</DialogTitle>
-            </div>
-            <DialogDescription>
-              Configure the local Codex CLI for analysis, scripts, and geospatial workspaces.
-            </DialogDescription>
-          </DialogHeader>
+          {selectedDescriptor && selectedDraft ? (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center p-1">
+                    <img
+                      src={PROVIDER_LOGOS[selectedDescriptor.providerHint]}
+                      alt={`${selectedDescriptor.name} logo`}
+                      className={`h-full w-full object-contain ${PROVIDER_LOGO_CLASSES[selectedDescriptor.providerHint]}`}
+                    />
+                  </div>
+                  <DialogTitle className="text-xl">Configure {selectedDescriptor.name}</DialogTitle>
+                </div>
+                <DialogDescription>{selectedDescriptor.description}</DialogDescription>
+              </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="codex-binary-path" className="font-medium">
-                  Codex binary path
-                </Label>
-                <Input
-                  id="codex-binary-path"
-                  placeholder="codex"
-                  value={draft.binaryPath || ''}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      binaryPath: event.target.value || null
-                    }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave blank to use `codex` from your system PATH.
-                </p>
+              <div className="space-y-6 py-4">
+                <div className="space-y-4">
+                  {selectedDescriptor.configFields.map((field) => {
+                    const value = selectedDraft[field.key]
+                    const stringValue = typeof value === 'string' ? value : ''
+
+                    return (
+                      <div key={field.key} className="grid gap-2">
+                        <Label
+                          htmlFor={`${selectedDescriptor.id}-${field.key}`}
+                          className="font-medium"
+                        >
+                          {field.label}
+                        </Label>
+                        {field.type === 'select' ? (
+                          <Select
+                            value={stringValue}
+                            onValueChange={(nextValue) =>
+                              setDraftByRuntime((current) => ({
+                                ...current,
+                                [selectedDescriptor.id]: {
+                                  ...(current[selectedDescriptor.id] ||
+                                    buildDraftConfig(
+                                      selectedDescriptor,
+                                      configs[selectedDescriptor.id]
+                                    )),
+                                  [field.key]: nextValue
+                                }
+                              }))
+                            }
+                            disabled={field.readOnly}
+                          >
+                            <SelectTrigger id={`${selectedDescriptor.id}-${field.key}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(field.options || []).map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`${selectedDescriptor.id}-${field.key}`}
+                            placeholder={field.placeholder}
+                            value={stringValue}
+                            onChange={(event) =>
+                              setDraftByRuntime((current) => ({
+                                ...current,
+                                [selectedDescriptor.id]: {
+                                  ...(current[selectedDescriptor.id] ||
+                                    buildDraftConfig(
+                                      selectedDescriptor,
+                                      configs[selectedDescriptor.id]
+                                    )),
+                                  [field.key]: event.target.value || null
+                                }
+                              }))
+                            }
+                            disabled={field.readOnly}
+                          />
+                        )}
+                        {field.description ? (
+                          <p className="text-xs text-muted-foreground">{field.description}</p>
+                        ) : null}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <TerminalSquare className="h-4 w-4 text-muted-foreground" />
+                    Health
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <p>
+                      <span className="font-medium">Install:</span>{' '}
+                      {selectedHealth?.install.message || 'Checking runtime installation...'}
+                    </p>
+                    <p>
+                      <span className="font-medium">Authentication:</span>{' '}
+                      {selectedHealth?.authMessage || 'Checking login status...'}
+                    </p>
+                    {(selectedDescriptor.setupNotes || []).map((note) => (
+                      <p key={note} className="text-muted-foreground">
+                        {note}
+                      </p>
+                    ))}
+                    {selectedDescriptor.loginCommand ? (
+                      <p className="text-muted-foreground">
+                        If authentication is missing, run{' '}
+                        <code className="rounded bg-background px-1.5 py-0.5">
+                          {selectedDescriptor.loginCommand}
+                        </code>{' '}
+                        in a terminal, then refresh.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
-              <div className="grid gap-2">
-                <Label htmlFor="codex-home-path" className="font-medium">
-                  CODEX_HOME override
-                </Label>
-                <Input
-                  id="codex-home-path"
-                  placeholder="Optional custom Codex home directory"
-                  value={draft.homePath || ''}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, homePath: event.target.value || null }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Optional. Use this only if you keep Codex state in a non-default location.
-                </p>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="codex-default-model" className="font-medium">
-                  Default model
-                </Label>
-                <Input
-                  id="codex-default-model"
-                  value={draft.defaultModel}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, defaultModel: event.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label className="font-medium">Reasoning effort</Label>
-                <Select
-                  value={draft.reasoningEffort}
-                  onValueChange={(value: CodexConfig['reasoningEffort']) =>
-                    setDraft((current) => ({ ...current, reasoningEffort: value }))
-                  }
+              <DialogFooter className="flex gap-2 justify-end">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button
+                  type="button"
+                  className="px-6 gap-2"
+                  onClick={() => void handleSave()}
+                  disabled={Boolean(selectedRuntimeId && loadingConfigByRuntime[selectedRuntimeId])}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border/70 bg-muted/30 p-4">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <TerminalSquare className="h-4 w-4 text-muted-foreground" />
-                Health
-              </div>
-              <div className="mt-3 space-y-2 text-sm">
-                <p>
-                  <span className="font-medium">Install:</span>{' '}
-                  {health?.install.message || 'Checking Codex CLI...'}
-                </p>
-                <p>
-                  <span className="font-medium">Authentication:</span>{' '}
-                  {health?.authMessage || 'Checking login status...'}
-                </p>
-                <p>
-                  <span className="font-medium">Execution mode:</span> Workspace approval only
-                </p>
-                <p className="text-muted-foreground">
-                  If authentication is missing, run{' '}
-                  <code className="rounded bg-background px-1.5 py-0.5">codex login</code> in a
-                  terminal, then refresh.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="flex gap-2 justify-end">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              className="px-6 gap-2"
-              onClick={() => void handleSave()}
-              disabled={isLoadingConfig}
-            >
-              {isLoadingConfig ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save Configuration
-            </Button>
-          </DialogFooter>
+                  {selectedRuntimeId && loadingConfigByRuntime[selectedRuntimeId] ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
+                  Save Configuration
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

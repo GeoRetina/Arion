@@ -8,22 +8,25 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import type { CodexApprovalRequest, CodexApprovalScope } from '../../../../../shared/ipc-types'
+import type {
+  ExternalRuntimeApprovalRequest,
+  ExternalRuntimeApprovalScope
+} from '../../../../../shared/ipc-types'
 
-function describeRequest(request: CodexApprovalRequest): string {
+function describeRequest(request: ExternalRuntimeApprovalRequest): string {
   switch (request.kind) {
     case 'command':
-      return 'Codex wants to run a command inside the managed workspace.'
+      return `${request.runtimeName} wants to run a command inside the managed workspace.`
     case 'file-change':
-      return 'Codex wants to apply file changes and needs your approval.'
+      return `${request.runtimeName} wants to apply file changes and needs your approval.`
     case 'file-read':
-      return 'Codex wants to read a file outside the staged workspace.'
+      return `${request.runtimeName} wants to read a file outside the staged workspace.`
     default:
-      return 'Codex needs your approval before it can continue.'
+      return `${request.runtimeName} needs your approval before it can continue.`
   }
 }
 
-export default function CodexApprovalDialog({
+export default function ExternalRuntimeApprovalDialog({
   isOpen,
   request,
   isResolving,
@@ -31,9 +34,9 @@ export default function CodexApprovalDialog({
   onDeny
 }: {
   isOpen: boolean
-  request: CodexApprovalRequest
+  request: ExternalRuntimeApprovalRequest
   isResolving: boolean
-  onApprove: (scope: CodexApprovalScope) => void
+  onApprove: (scope: ExternalRuntimeApprovalScope) => void
   onDeny: () => void
 }): React.JSX.Element {
   return (
@@ -42,7 +45,7 @@ export default function CodexApprovalDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
-            Codex Approval Required
+            {request.runtimeName} Approval Required
           </DialogTitle>
           <DialogDescription className="space-y-3 pt-3">
             <div className="rounded-md border border-amber-300/60 bg-amber-50/60 p-3 text-sm text-foreground dark:border-amber-800/40 dark:bg-amber-950/20">

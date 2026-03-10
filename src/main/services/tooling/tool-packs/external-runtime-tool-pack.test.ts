@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runCustomAnalysisWithCodexToolName } from '../../../llm-tools/codex-tools'
-import { registerCodexTools } from './codex-tool-pack'
+import { runExternalAnalysisToolName } from '../../../llm-tools/external-runtime-tools/run-external-analysis-tool'
+import { registerExternalRuntimeTools } from './external-runtime-tool-pack'
 
 function createRegistry(): {
   registry: never
@@ -27,14 +28,14 @@ function createRegistry(): {
   }
 }
 
-describe('registerCodexTools', () => {
-  it('returns a stable error shape when the runtime is unavailable', async () => {
+describe('registerExternalRuntimeTools', () => {
+  it('returns a stable error shape when the runtime registry is unavailable', async () => {
     const { registry, entries } = createRegistry()
-    registerCodexTools(registry, {
-      getCodexRuntimeService: () => null
+    registerExternalRuntimeTools(registry, {
+      getExternalRuntimeRegistry: () => null
     })
 
-    const tool = entries.get(runCustomAnalysisWithCodexToolName)
+    const tool = entries.get(runExternalAnalysisToolName)
     const result = (await tool?.execute({
       args: { goal: 'Summarize this dataset.' },
       chatId: 'chat-123'
@@ -44,9 +45,11 @@ describe('registerCodexTools', () => {
     expect(result.message).toContain('not configured')
   })
 
-  it('delegates to the Codex runtime and returns the normalized run payload', async () => {
+  it('delegates generic analysis runs through the external runtime registry', async () => {
     const { registry, entries } = createRegistry()
     const startRun = vi.fn(async () => ({
+      runtimeId: 'codex',
+      runtimeName: 'Codex',
       runId: 'run-1',
       chatId: 'chat-123',
       status: 'completed',
@@ -67,23 +70,27 @@ describe('registerCodexTools', () => {
       stagedInputs: [{ id: 'prompt', stagedPath: 'inputs/prompt.md' }]
     }))
 
-    registerCodexTools(registry, {
-      getCodexRuntimeService: () =>
+    registerExternalRuntimeTools(registry, {
+      getExternalRuntimeRegistry: () =>
         ({
+          listRuntimes: () => [{ id: 'codex', name: 'Codex' }],
           startRun
         }) as never
     })
 
-    const tool = entries.get(runCustomAnalysisWithCodexToolName)
+    const tool = entries.get(runExternalAnalysisToolName)
     const result = (await tool?.execute({
       args: {
         goal: 'Join parcels to permits.',
+        preferredRuntime: 'codex',
         layerIds: ['layer-1'],
-        expectedOutputs: ['GeoJSON output', 'Summary markdown']
+        expectedOutputs: ['GeoJSON output', 'Summary markdown'],
+        reasoningEffort: 'xhigh'
       },
       chatId: 'chat-123'
     })) as {
       status: string
+      runtime_id: string
       run_id: string
       outputs_path: string
       artifacts: unknown[]
@@ -91,6 +98,7 @@ describe('registerCodexTools', () => {
     }
 
     expect(startRun).toHaveBeenCalledWith({
+      runtimeId: 'codex',
       chatId: 'chat-123',
       goal: 'Join parcels to permits.',
       filePaths: undefined,
@@ -98,10 +106,12 @@ describe('registerCodexTools', () => {
       expectedOutputs: ['GeoJSON output', 'Summary markdown'],
       importPreference: undefined,
       model: undefined,
-      reasoningEffort: undefined
+      reasoningEffort: 'xhigh'
     })
     expect(result).toEqual({
       status: 'completed',
+      runtime_id: 'codex',
+      runtime_name: 'Codex',
       run_id: 'run-1',
       summary: 'Created a joined GeoJSON layer.',
       error: null,
@@ -113,5 +123,52 @@ describe('registerCodexTools', () => {
       artifacts: [{ id: 'artifact-1', relativePath: 'summary.md' }],
       staged_inputs: [{ id: 'prompt', stagedPath: 'inputs/prompt.md' }]
     })
+  })
+
+  it('keeps the Codex-specific alias routed through the generic runtime tool path', async () => {
+    const { registry, entries } = createRegistry()
+    const startRun = vi.fn(async () => ({
+      runtimeId: 'codex',
+      runtimeName: 'Codex',
+      runId: 'run-2',
+      chatId: 'chat-123',
+      status: 'completed',
+      goal: 'Inspect a CRS issue.',
+      model: 'gpt-5.3-codex',
+      reasoningEffort: 'medium',
+      workspacePath: 'C:/runs/chat-123/run-2',
+      inputsPath: 'C:/runs/chat-123/run-2/inputs',
+      outputsPath: 'C:/runs/chat-123/run-2/outputs',
+      logsPath: 'C:/runs/chat-123/run-2/logs',
+      manifestPath: 'C:/runs/chat-123/run-2/manifest.json',
+      startedAt: '2026-03-09T12:00:00.000Z',
+      updatedAt: '2026-03-09T12:01:00.000Z',
+      completedAt: '2026-03-09T12:01:00.000Z',
+      summary: 'Inspected the CRS mismatch.',
+      error: null,
+      artifacts: [],
+      stagedInputs: []
+    }))
+
+    registerExternalRuntimeTools(registry, {
+      getExternalRuntimeRegistry: () =>
+        ({
+          listRuntimes: () => [{ id: 'codex', name: 'Codex' }],
+          startRun
+        }) as never
+    })
+
+    const tool = entries.get(runCustomAnalysisWithCodexToolName)
+    await tool?.execute({
+      args: { goal: 'Inspect a CRS issue.' },
+      chatId: 'chat-123'
+    })
+
+    expect(startRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeId: 'codex',
+        goal: 'Inspect a CRS issue.'
+      })
+    )
   })
 })

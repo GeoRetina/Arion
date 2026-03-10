@@ -21,6 +21,8 @@ import { SkillPackService } from './services/skill-pack-service'
 import { PluginLoaderService } from './services/plugin/plugin-loader-service'
 import { CodexRuntimeService } from './services/codex/codex-runtime-service'
 import { CodexRunWorkspaceService } from './services/codex/codex-run-workspace-service'
+import { ExternalRuntimeRegistry } from './services/external-runtimes/external-runtime-registry'
+import { CodexExternalRuntimeAdapter } from './services/external-runtimes/adapters/codex-external-runtime-adapter'
 import { createConnectorExecutionRuntime } from './services/connectors/create-connector-execution-service'
 import type { ConnectorExecutionService } from './services/connectors/connector-execution-service'
 import {
@@ -47,7 +49,7 @@ import {
 } from './ipc/layer-handlers'
 import { registerAgentIpcHandlers } from './ipc/agent-handlers'
 import { registerToolIpcHandlers } from './ipc/tool-handlers'
-import { registerCodexIpcHandlers } from './ipc/codex-handlers'
+import { registerExternalRuntimeIpcHandlers } from './ipc/external-runtime-handlers'
 
 // Keep a reference to the service instance
 let settingsServiceInstance: SettingsService
@@ -67,6 +69,7 @@ let skillPackServiceInstance: SkillPackService
 let pluginLoaderServiceInstance: PluginLoaderService
 let connectorExecutionServiceInstance: ConnectorExecutionService
 let codexRuntimeServiceInstance: CodexRuntimeService
+let externalRuntimeRegistryInstance: ExternalRuntimeRegistry
 let hasShownStartupErrorDialog = false
 
 registerRasterProtocolPrivileges()
@@ -255,6 +258,10 @@ async function initializeApplication(): Promise<void> {
       () => app.getPath('userData')
     )
   })
+  externalRuntimeRegistryInstance = new ExternalRuntimeRegistry()
+  externalRuntimeRegistryInstance.register(
+    new CodexExternalRuntimeAdapter(settingsServiceInstance, codexRuntimeServiceInstance)
+  )
 
   // Instantiate agent system services
   promptModuleServiceInstance = new PromptModuleService()
@@ -286,7 +293,7 @@ async function initializeApplication(): Promise<void> {
     pluginLoaderServiceInstance,
     connectorExecutionServiceInstance,
     settingsServiceInstance,
-    codexRuntimeServiceInstance
+    externalRuntimeRegistryInstance
   )
 
   agentRunnerServiceInstance = new AgentRunnerService(mcpClientServiceInstance)
@@ -346,7 +353,7 @@ async function initializeApplication(): Promise<void> {
     pluginLoaderServiceInstance,
     llmToolServiceInstance
   )
-  registerCodexIpcHandlers(ipcMain, settingsServiceInstance, codexRuntimeServiceInstance)
+  registerExternalRuntimeIpcHandlers(ipcMain, externalRuntimeRegistryInstance)
   registerChatIpcHandlers(
     ipcMain,
     chatServiceInstance,

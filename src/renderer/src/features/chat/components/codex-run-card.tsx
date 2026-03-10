@@ -17,24 +17,26 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { useCodexStore } from '@/stores/codex-store'
+import { useExternalRuntimeStore } from '@/stores/external-runtime-store'
 import { PROVIDER_LOGOS, PROVIDER_LOGO_CLASSES } from '@/constants/llm-providers'
 import type { LLMProvider } from '@/stores/llm-store'
 import type {
-  CodexRunArtifact,
-  CodexRunRecord,
-  CodexRunResult,
-  CodexRunStatus,
-  CodexRuntimeEvent,
-  CodexStagedInput
+  ExternalRuntimeRunArtifact,
+  ExternalRuntimeRunRecord,
+  ExternalRuntimeRunResult,
+  ExternalRuntimeRunStatus,
+  ExternalRuntimeEvent,
+  ExternalRuntimeStagedInput
 } from '../../../../../shared/ipc-types'
 
-type CodexDisplayRun = Partial<CodexRunRecord> &
-  Partial<CodexRunResult> & {
+type ExternalRuntimeDisplayRun = Partial<ExternalRuntimeRunRecord> &
+  Partial<ExternalRuntimeRunResult> & {
+    runtimeId: string
+    runtimeName: string
     runId: string
-    status: CodexRunStatus
-    artifacts: CodexRunArtifact[]
-    stagedInputs: CodexStagedInput[]
+    status: ExternalRuntimeRunStatus
+    artifacts: ExternalRuntimeRunArtifact[]
+    stagedInputs: ExternalRuntimeStagedInput[]
   }
 
 function inferProvider(model: string | undefined | null): NonNullable<LLMProvider> {
@@ -48,8 +50,9 @@ function inferProvider(model: string | undefined | null): NonNullable<LLMProvide
     lower.includes('llama') ||
     lower.includes('mistral') ||
     lower.includes('deepseek')
-  )
+  ) {
     return 'ollama'
+  }
   return 'openai'
 }
 
@@ -70,9 +73,9 @@ function RuntimeIcon({
   )
 }
 
-type CodexStoredRun = CodexRunRecord | CodexRunResult
+type ExternalRuntimeStoredRun = ExternalRuntimeRunRecord | ExternalRuntimeRunResult
 
-const EMPTY_EVENTS: CodexRuntimeEvent[] = []
+const EMPTY_EVENTS: ExternalRuntimeEvent[] = []
 const MAX_PROGRESS_TEXT_LENGTH = 180
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -96,7 +99,7 @@ function compactText(value: string | undefined, maxLength = MAX_PROGRESS_TEXT_LE
   return `${normalized.slice(0, maxLength - 3)}...`
 }
 
-function isRunStatus(value: string): value is CodexRunStatus {
+function isRunStatus(value: string): value is ExternalRuntimeRunStatus {
   return [
     'queued',
     'starting',
@@ -108,7 +111,7 @@ function isRunStatus(value: string): value is CodexRunStatus {
   ].includes(value)
 }
 
-function normalizeArtifacts(value: unknown): CodexRunArtifact[] {
+function normalizeArtifacts(value: unknown): ExternalRuntimeRunArtifact[] {
   if (!Array.isArray(value)) {
     return []
   }
@@ -120,23 +123,24 @@ function normalizeArtifacts(value: unknown): CodexRunArtifact[] {
         return null
       }
 
-      const normalized: CodexRunArtifact = {
+      const normalized: ExternalRuntimeRunArtifact = {
         id: asString(record.id) || '',
         name: asString(record.name) || 'artifact',
         path: asString(record.path) || '',
         relativePath: asString(record.relativePath) || asString(record.relative_path) || '',
-        type: (asString(record.type) as CodexRunArtifact['type']) || 'unknown',
+        type: (asString(record.type) as ExternalRuntimeRunArtifact['type']) || 'unknown',
         sizeBytes: typeof record.sizeBytes === 'number' ? record.sizeBytes : 0,
-        importKind: (asString(record.importKind) as CodexRunArtifact['importKind']) || 'none',
+        importKind:
+          (asString(record.importKind) as ExternalRuntimeRunArtifact['importKind']) || 'none',
         mimeType: asString(record.mimeType) || null
       }
 
       return normalized
     })
-    .filter((entry): entry is CodexRunArtifact => Boolean(entry))
+    .filter((entry): entry is ExternalRuntimeRunArtifact => Boolean(entry))
 }
 
-function normalizeStagedInputs(value: unknown): CodexStagedInput[] {
+function normalizeStagedInputs(value: unknown): ExternalRuntimeStagedInput[] {
   if (!Array.isArray(value)) {
     return []
   }
@@ -148,13 +152,13 @@ function normalizeStagedInputs(value: unknown): CodexStagedInput[] {
         return null
       }
 
-      const normalized: CodexStagedInput = {
+      const normalized: ExternalRuntimeStagedInput = {
         id: asString(record.id) || '',
         label: asString(record.label) || 'input',
-        kind: (asString(record.kind) as CodexStagedInput['kind']) || 'metadata',
+        kind: (asString(record.kind) as ExternalRuntimeStagedInput['kind']) || 'metadata',
         sourcePath: asString(record.sourcePath) || asString(record.source_path) || null,
         stagedPath: asString(record.stagedPath) || asString(record.staged_path) || '',
-        status: (asString(record.status) as CodexStagedInput['status']) || 'skipped'
+        status: (asString(record.status) as ExternalRuntimeStagedInput['status']) || 'skipped'
       }
 
       const note = asString(record.note)
@@ -164,15 +168,17 @@ function normalizeStagedInputs(value: unknown): CodexStagedInput[] {
 
       return normalized
     })
-    .filter((entry): entry is CodexStagedInput => Boolean(entry))
+    .filter((entry): entry is ExternalRuntimeStagedInput => Boolean(entry))
 }
 
-function normalizeCodexRun(value: unknown): CodexDisplayRun | null {
+function normalizeExternalRuntimeRun(value: unknown): ExternalRuntimeDisplayRun | null {
   const record = asRecord(value)
   if (!record) {
     return null
   }
 
+  const runtimeId = asString(record.runtimeId) || asString(record.runtime_id) || 'codex'
+  const runtimeName = asString(record.runtimeName) || asString(record.runtime_name) || 'Runtime'
   const runId = asString(record.runId) || asString(record.run_id)
   const statusValue = asString(record.status)
   if (!runId || !statusValue || !isRunStatus(statusValue)) {
@@ -180,6 +186,8 @@ function normalizeCodexRun(value: unknown): CodexDisplayRun | null {
   }
 
   return {
+    runtimeId,
+    runtimeName,
     runId,
     status: statusValue,
     goal: asString(record.goal),
@@ -200,7 +208,7 @@ function normalizeCodexRun(value: unknown): CodexDisplayRun | null {
 
 type RunStatusCategory = 'active' | 'completed' | 'failed' | 'waiting'
 
-function categorizeStatus(status: CodexRunStatus): RunStatusCategory {
+function categorizeStatus(status: ExternalRuntimeRunStatus): RunStatusCategory {
   switch (status) {
     case 'completed':
       return 'completed'
@@ -244,7 +252,7 @@ const statusStyles: Record<
   }
 }
 
-function getStatusLabel(status: CodexRunStatus): string {
+function getStatusLabel(status: ExternalRuntimeRunStatus): string {
   switch (status) {
     case 'completed':
       return 'Completed'
@@ -284,14 +292,14 @@ function StatusIcon({
   }
 }
 
-function isActiveStatus(status: CodexRunStatus): boolean {
+function isActiveStatus(status: ExternalRuntimeRunStatus): boolean {
   return status === 'starting' || status === 'running' || status === 'awaiting-approval'
 }
 
 function selectActiveRun(
-  runs: Record<string, CodexStoredRun>,
+  runs: Record<string, ExternalRuntimeStoredRun>,
   chatId: string | null
-): CodexStoredRun | null {
+): ExternalRuntimeStoredRun | null {
   if (!chatId) {
     return null
   }
@@ -317,7 +325,7 @@ async function openManagedPath(targetPath: string | undefined): Promise<void> {
   }
 }
 
-function describeEvent(event: CodexRuntimeEvent): string {
+function describeEvent(event: ExternalRuntimeEvent): string {
   switch (event.type) {
     case 'status':
       return compactText(event.message || `Status changed to ${event.status || 'unknown'}`)
@@ -332,9 +340,9 @@ function describeEvent(event: CodexRuntimeEvent): string {
     case 'artifact-scan-completed':
       return compactText(event.message || 'Artifacts scanned')
     case 'error':
-      return compactText(event.message || 'Codex reported an error')
+      return compactText(event.message || `${event.runtimeName} reported an error`)
     default:
-      return compactText(event.message || 'Codex activity')
+      return compactText(event.message || `${event.runtimeName} activity`)
   }
 }
 
@@ -362,19 +370,18 @@ function PathLink({
   )
 }
 
-// ─── Active Run Panel (live events while running) ───────────────────────────
-
-export function ActiveCodexRunPanel({
+export function ActiveExternalRuntimeRunPanel({
   chatId
 }: {
   chatId: string | null
 }): React.JSX.Element | null {
-  const runs = useCodexStore((state) => state.runs)
-  const runEventsById = useCodexStore((state) => state.runEvents)
+  const runs = useExternalRuntimeStore((state) => state.runs)
+  const runEventsById = useExternalRuntimeStore((state) => state.runEvents)
   const timelineScrollHostRef = useRef<HTMLDivElement | null>(null)
 
   const activeRun = useMemo(() => selectActiveRun(runs, chatId), [chatId, runs])
-  const runEvents = activeRun ? (runEventsById[activeRun.runId] ?? EMPTY_EVENTS) : EMPTY_EVENTS
+  const runKey = activeRun ? `${activeRun.runtimeId}:${activeRun.runId}` : null
+  const runEvents = runKey ? (runEventsById[runKey] ?? EMPTY_EVENTS) : EMPTY_EVENTS
 
   const timeline = useMemo(
     () =>
@@ -422,12 +429,11 @@ export function ActiveCodexRunPanel({
 
   return (
     <div className="mt-2 mb-2 w-full max-w-100 rounded-md border border-border/40 bg-background">
-      {/* Header */}
       <div className="flex items-center gap-2.5 p-3">
         <RuntimeIcon model={activeRun.model} />
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-xs text-foreground truncate">
-            Codex &mdash; Analysis in progress
+            {activeRun.runtimeName} - Analysis in progress
           </div>
           <div className="text-xs text-muted-foreground truncate mt-0.5">
             {compactText(activeRun.goal || 'Running analysis...', 80)}
@@ -436,7 +442,6 @@ export function ActiveCodexRunPanel({
         <StatusIcon category={category} />
       </div>
 
-      {/* Timeline */}
       <div className="border-t border-border/40 px-3 pb-3 pt-2 space-y-1.5">
         {timeline.length > 0 ? (
           <div ref={timelineScrollHostRef}>
@@ -474,27 +479,33 @@ export function ActiveCodexRunPanel({
   )
 }
 
-export default function CodexRunCard({ result }: { result: unknown }): React.JSX.Element | null {
-  const refreshRun = useCodexStore((state) => state.refreshRun)
-  const runs = useCodexStore((state) => state.runs)
-  const normalizedResult = normalizeCodexRun(result)
-  const storedRun = normalizedResult ? runs[normalizedResult.runId] : undefined
+export default function ExternalRuntimeRunCard({
+  result
+}: {
+  result: unknown
+}): React.JSX.Element | null {
+  const refreshRun = useExternalRuntimeStore((state) => state.refreshRun)
+  const getRun = useExternalRuntimeStore((state) => state.getRun)
+  const normalizedResult = normalizeExternalRuntimeRun(result)
+  const storedRun = normalizedResult
+    ? getRun(normalizedResult.runtimeId, normalizedResult.runId)
+    : undefined
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     if (normalizedResult?.runId) {
-      void refreshRun(normalizedResult.runId)
+      void refreshRun(normalizedResult.runtimeId, normalizedResult.runId)
     }
-  }, [normalizedResult?.runId, refreshRun])
+  }, [normalizedResult?.runId, normalizedResult?.runtimeId, refreshRun])
 
-  const displayRun = normalizeCodexRun(storedRun) || normalizedResult
+  const displayRun = normalizeExternalRuntimeRun(storedRun) || normalizedResult
   if (!displayRun) {
     return null
   }
 
   const category = categorizeStatus(displayRun.status)
   const styles = statusStyles[category]
-  const stagedCount = displayRun.stagedInputs.filter((i) => i.status === 'staged').length
+  const stagedCount = displayRun.stagedInputs.filter((input) => input.status === 'staged').length
 
   return (
     <div
@@ -504,7 +515,6 @@ export default function CodexRunCard({ result }: { result: unknown }): React.JSX
         styles.bg
       )}
     >
-      {/* Collapsed header */}
       <div
         className={cn(
           'flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5',
@@ -516,7 +526,7 @@ export default function CodexRunCard({ result }: { result: unknown }): React.JSX
 
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-xs text-foreground truncate">
-            <span className="text-muted-foreground">Codex:</span>{' '}
+            <span className="text-muted-foreground">{displayRun.runtimeName}:</span>{' '}
             {getStatusLabel(displayRun.status)}
           </div>
           {displayRun.summary || displayRun.goal ? (
@@ -536,24 +546,20 @@ export default function CodexRunCard({ result }: { result: unknown }): React.JSX
         </div>
       </div>
 
-      {/* Expanded details */}
       {expanded && (
         <div className="border-t border-border/20 px-2.5 pt-2.5 pb-4 space-y-2.5 text-xs">
-          {/* Error */}
           {displayRun.error && (
             <div className="rounded border border-red-200/60 bg-red-50/60 p-2 text-red-700 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-300 wrap-break-word">
               {displayRun.error}
             </div>
           )}
 
-          {/* Quick links */}
           <div className="flex flex-wrap gap-1.5 pb-1.5">
             <PathLink label="Outputs" icon={FolderOpen} path={displayRun.outputsPath} />
             <PathLink label="Manifest" icon={FileText} path={displayRun.manifestPath} />
             <PathLink label="Workspace" icon={PlayCircle} path={displayRun.workspacePath} />
           </div>
 
-          {/* Artifacts */}
           {displayRun.artifacts.length > 0 && (
             <div>
               <div className="font-medium text-muted-foreground mb-1 flex items-center gap-1">
@@ -579,8 +585,8 @@ export default function CodexRunCard({ result }: { result: unknown }): React.JSX
                       size="sm"
                       variant="ghost"
                       className="h-6 w-6 p-0 shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
+                      onClick={(event) => {
+                        event.stopPropagation()
                         void openManagedPath(artifact.path)
                       }}
                     >
@@ -592,7 +598,6 @@ export default function CodexRunCard({ result }: { result: unknown }): React.JSX
             </div>
           )}
 
-          {/* Staged Inputs */}
           {displayRun.stagedInputs.length > 0 && (
             <div>
               <div className="font-medium text-muted-foreground mb-1 flex items-center gap-1">
@@ -627,7 +632,6 @@ export default function CodexRunCard({ result }: { result: unknown }): React.JSX
             </div>
           )}
 
-          {/* Empty state */}
           {displayRun.artifacts.length === 0 &&
             displayRun.stagedInputs.length === 0 &&
             !displayRun.error && (

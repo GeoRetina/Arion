@@ -1,17 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CodexConfig, CodexHealthStatus, CodexRunRecord, CodexRuntimeEvent } from '../../../shared/ipc-types'
+import type {
+  ExternalRuntimeConfig,
+  ExternalRuntimeDescriptor,
+  ExternalRuntimeHealthStatus,
+  ExternalRuntimeRunRecord,
+  ExternalRuntimeEvent
+} from '../../../shared/ipc-types'
 
-const codexApiMocks = vi.hoisted(() => {
-  let onRunEventHandler: ((event: CodexRuntimeEvent) => void) | null = null
+const externalRuntimeApiMocks = vi.hoisted(() => {
+  let onRunEventHandler: ((event: ExternalRuntimeEvent) => void) | null = null
 
   return {
+    listRuntimes: vi.fn<() => Promise<ExternalRuntimeDescriptor[]>>(),
+    getConfig: vi.fn<() => Promise<ExternalRuntimeConfig>>(),
+    setConfig: vi.fn(),
+    getHealth: vi.fn<() => Promise<ExternalRuntimeHealthStatus>>(),
     startRun: vi.fn(),
     cancelRun: vi.fn(),
     getRun: vi.fn(),
     listRuns: vi.fn(),
     approveRequest: vi.fn(),
     denyRequest: vi.fn(),
-    onRunEvent: vi.fn((handler: (event: CodexRuntimeEvent) => void) => {
+    onRunEvent: vi.fn((handler: (event: ExternalRuntimeEvent) => void) => {
       onRunEventHandler = handler
       return () => {
         onRunEventHandler = null
@@ -19,7 +29,7 @@ const codexApiMocks = vi.hoisted(() => {
     }),
     onApprovalRequest: vi.fn(() => () => void 0),
     onHealthUpdated: vi.fn(() => () => void 0),
-    emitRunEvent: (event: CodexRuntimeEvent) => {
+    emitRunEvent: (event: ExternalRuntimeEvent) => {
       onRunEventHandler?.(event)
     },
     resetHandlers: () => {
@@ -28,43 +38,44 @@ const codexApiMocks = vi.hoisted(() => {
   }
 })
 
-const settingsApiMocks = vi.hoisted(() => ({
-  getCodexConfig: vi.fn<() => Promise<CodexConfig>>(),
-  setCodexConfig: vi.fn(),
-  getCodexHealth: vi.fn<() => Promise<CodexHealthStatus>>()
-}))
-
 Object.defineProperty(globalThis, 'window', {
   value: {
     ctg: {
-      codex: codexApiMocks,
-      settings: settingsApiMocks
+      externalRuntimes: externalRuntimeApiMocks
     }
   },
   configurable: true
 })
 
-import { disposeCodexStoreListeners, useCodexStore } from './codex-store'
+import {
+  disposeExternalRuntimeStoreListeners,
+  getExternalRuntimeRunKey,
+  useExternalRuntimeStore
+} from './external-runtime-store'
 
 function resetStoreState(): void {
-  useCodexStore.setState((state) => ({
+  useExternalRuntimeStore.setState((state) => ({
     ...state,
-    config: null,
-    health: null,
+    descriptors: [],
+    configs: {},
+    healthByRuntime: {},
     runs: {},
     runEvents: {},
     approvalRequests: [],
+    loadingConfigByRuntime: {},
+    loadingHealthByRuntime: {},
     isInitialized: false,
-    isLoadingConfig: false,
-    isLoadingHealth: false,
+    isLoadingRuntimes: false,
     isLoadingRuns: false,
     isResolvingApproval: false,
     error: null
   }))
 }
 
-function createRun(overrides?: Partial<CodexRunRecord>): CodexRunRecord {
+function createRun(overrides?: Partial<ExternalRuntimeRunRecord>): ExternalRuntimeRunRecord {
   return {
+    runtimeId: 'codex',
+    runtimeName: 'Codex',
     runId: 'run-1',
     chatId: 'chat-1',
     status: 'running',
@@ -86,21 +97,40 @@ function createRun(overrides?: Partial<CodexRunRecord>): CodexRunRecord {
   }
 }
 
-describe('codex-store', () => {
+describe('external-runtime-store', () => {
   beforeEach(async () => {
-    disposeCodexStoreListeners()
-    codexApiMocks.resetHandlers()
+    disposeExternalRuntimeStoreListeners()
+    externalRuntimeApiMocks.resetHandlers()
     vi.clearAllMocks()
     resetStoreState()
 
-    settingsApiMocks.getCodexConfig.mockResolvedValue({
+    externalRuntimeApiMocks.listRuntimes.mockResolvedValue([
+      {
+        id: 'codex',
+        name: 'Codex',
+        description: 'Local Codex CLI runtime',
+        runtimeKind: 'coding-runtime',
+        providerHint: 'openai',
+        defaultConfig: {
+          binaryPath: null,
+          homePath: null,
+          defaultModel: 'gpt-5.3-codex',
+          reasoningEffort: 'medium',
+          defaultMode: 'workspace-approval'
+        },
+        configFields: []
+      }
+    ])
+    externalRuntimeApiMocks.getConfig.mockResolvedValue({
       binaryPath: null,
       homePath: null,
       defaultModel: 'gpt-5.3-codex',
       reasoningEffort: 'medium',
       defaultMode: 'workspace-approval'
     })
-    settingsApiMocks.getCodexHealth.mockResolvedValue({
+    externalRuntimeApiMocks.getHealth.mockResolvedValue({
+      runtimeId: 'codex',
+      runtimeName: 'Codex',
       checkedAt: '2026-03-09T12:00:00.000Z',
       install: {
         state: 'installed',
@@ -113,18 +143,21 @@ describe('codex-store', () => {
       isReady: true
     })
 
-    await useCodexStore.getState().initialize()
+    await useExternalRuntimeStore.getState().initialize()
   })
 
   it('does not surface non-terminal error events as run failures', () => {
-    useCodexStore.setState((state) => ({
+    const runKey = getExternalRuntimeRunKey('codex', 'run-1')
+    useExternalRuntimeStore.setState((state) => ({
       ...state,
       runs: {
-        'run-1': createRun()
+        [runKey]: createRun()
       }
     }))
 
-    codexApiMocks.emitRunEvent({
+    externalRuntimeApiMocks.emitRunEvent({
+      runtimeId: 'codex',
+      runtimeName: 'Codex',
       eventId: 'event-1',
       runId: 'run-1',
       chatId: 'chat-1',
@@ -133,17 +166,20 @@ describe('codex-store', () => {
       message: 'process/stderr'
     })
 
-    expect(useCodexStore.getState().runs['run-1']?.error).toBeNull()
+    expect(useExternalRuntimeStore.getState().runs[runKey]?.error).toBeNull()
   })
 
   it('clears stale approval requests once a run reaches a terminal status', () => {
-    useCodexStore.setState((state) => ({
+    const runKey = getExternalRuntimeRunKey('codex', 'run-1')
+    useExternalRuntimeStore.setState((state) => ({
       ...state,
       runs: {
-        'run-1': createRun()
+        [runKey]: createRun()
       },
       approvalRequests: [
         {
+          runtimeId: 'codex',
+          runtimeName: 'Codex',
           approvalId: 'approval-1',
           runId: 'run-1',
           chatId: 'chat-1',
@@ -152,6 +188,8 @@ describe('codex-store', () => {
           requestId: 'rpc-1'
         },
         {
+          runtimeId: 'codex',
+          runtimeName: 'Codex',
           approvalId: 'approval-2',
           runId: 'run-2',
           chatId: 'chat-2',
@@ -162,7 +200,9 @@ describe('codex-store', () => {
       ]
     }))
 
-    codexApiMocks.emitRunEvent({
+    externalRuntimeApiMocks.emitRunEvent({
+      runtimeId: 'codex',
+      runtimeName: 'Codex',
       eventId: 'event-2',
       runId: 'run-1',
       chatId: 'chat-1',
@@ -171,7 +211,7 @@ describe('codex-store', () => {
       status: 'completed'
     })
 
-    expect(useCodexStore.getState().approvalRequests).toEqual([
+    expect(useExternalRuntimeStore.getState().approvalRequests).toEqual([
       expect.objectContaining({ approvalId: 'approval-2', runId: 'run-2' })
     ])
   })
