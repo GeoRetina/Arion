@@ -78,7 +78,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   // Use the agent tools hook to manage available tools
   // Pass other agents (excluding current) so current agent's tools are shown as available
   const {
-    allTools,
+    availableTools,
     isLoading: isLoadingTools,
     error: toolsError
   } = useAgentTools(otherAgents, isOpen)
@@ -110,9 +110,15 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     onClose()
   }
 
+  const getNormalizedToolAccess = (capabilities: AgentDefinition['capabilities']): string[] => {
+    return Array.from(new Set(capabilities.flatMap((capability) => capability.tools)))
+  }
+
   // Handle saving agent changes
   const handleSave = async (): Promise<void> => {
     if (!agent || !agentId) return
+
+    const normalizedToolAccess = getNormalizedToolAccess(agent.capabilities)
 
     // Validate all required fields regardless of active tab
     if (!agent.name.trim()) {
@@ -158,7 +164,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
         capabilities: agent.capabilities,
         promptConfig: agent.promptConfig,
         modelConfig: agent.modelConfig,
-        toolAccess: agent.toolAccess,
+        toolAccess: normalizedToolAccess,
         memoryConfig: agent.memoryConfig,
         relationships: agent.relationships
       })
@@ -204,6 +210,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
     }
 
     updateAgentField('capabilities', [updatedCapability])
+    updateAgentField('toolAccess', getNormalizedToolAccess([updatedCapability]))
   }
 
   // Update model config parameter
@@ -355,34 +362,35 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
                     <div className="mt-2 h-48 rounded-md border">
                       <ScrollArea className="h-full p-2">
                         <div className="flex flex-wrap gap-2">
-                        {isLoadingTools ? (
-                          <div className="w-full text-center py-4 text-muted-foreground">
-                            <p className="text-sm">Loading available tools...</p>
-                          </div>
-                        ) : toolsError ? (
-                          <div className="w-full text-center py-4 text-muted-foreground">
-                            <p className="text-sm text-red-500">Failed to load tools</p>
-                            <p className="text-xs mt-1">{toolsError}</p>
-                          </div>
-                        ) : allTools.length === 0 ? (
-                          <div className="w-full text-center py-4 text-muted-foreground">
-                            <p className="text-sm">No tools available.</p>
-                          </div>
-                        ) : (
-                          allTools.map((tool) => {
-                            const isSelected = agent.capabilities[0]?.tools.includes(tool) || false
-                            return (
-                              <Badge
-                                key={tool}
-                                variant={isSelected ? 'default' : 'outline'}
-                                className="cursor-pointer"
-                                onClick={() => toggleToolSelection(tool)}
-                              >
-                                {tool}
-                              </Badge>
-                            )
-                          })
-                        )}
+                          {isLoadingTools ? (
+                            <div className="w-full text-center py-4 text-muted-foreground">
+                              <p className="text-sm">Loading available tools...</p>
+                            </div>
+                          ) : toolsError ? (
+                            <div className="w-full text-center py-4 text-muted-foreground">
+                              <p className="text-sm text-red-500">Failed to load tools</p>
+                              <p className="text-xs mt-1">{toolsError}</p>
+                            </div>
+                          ) : availableTools.length === 0 ? (
+                            <div className="w-full text-center py-4 text-muted-foreground">
+                              <p className="text-sm">No tools available.</p>
+                            </div>
+                          ) : (
+                            availableTools.map((tool) => {
+                              const isSelected =
+                                agent.capabilities[0]?.tools.includes(tool) || false
+                              return (
+                                <Badge
+                                  key={tool}
+                                  variant={isSelected ? 'default' : 'outline'}
+                                  className="cursor-pointer"
+                                  onClick={() => toggleToolSelection(tool)}
+                                >
+                                  {tool}
+                                </Badge>
+                              )
+                            })
+                          )}
                         </div>
                       </ScrollArea>
                     </div>

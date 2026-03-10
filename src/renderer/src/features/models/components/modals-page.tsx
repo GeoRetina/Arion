@@ -19,16 +19,10 @@ import VertexConfigModal from './vertex-config-modal'
 import OllamaConfigModal from './ollama-config-modal'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
-import { CheckCircle, Info } from 'lucide-react'
+import { CheckCircle, Info, Settings2, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { useLLMStore, LLMProvider } from '@/stores/llm-store'
 import AzureConfigModal from './azure-config-modal'
 import {
@@ -163,88 +157,76 @@ export default function ModelsPage(): React.JSX.Element {
     openModalHandler: () => void
   ): React.JSX.Element => {
     const configured = isConfigured(providerName)
+    const modelName = config.model || config.deploymentName
 
     return (
-      <Card
-        className={`overflow-hidden transition-all hover:shadow-md flex flex-col surface-elevated ${
-          configured ? 'border-primary ring-1 ring-primary' : ''
-        }`}
-      >
-        <CardHeader className="pb-2 pt-4 px-5">
-          <div className="flex items-center gap-3">
-            <div
-              className={`h-10 w-10 rounded-md ${PROVIDER_BACKGROUNDS[providerName]} flex items-center justify-center p-1.5`}
-            >
-              <img
-                src={PROVIDER_LOGOS[providerName]}
-                alt={`${title} logo`}
-                className={`h-full w-full object-contain ${PROVIDER_LOGO_CLASSES[providerName]}`}
-              />
-            </div>
-            <div>
-              <CardTitle className="text-xl">{title}</CardTitle>
-              <CardDescription className="text-sm">{description}</CardDescription>
-            </div>
+      <Card className="overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div
+            className={`h-8 w-8 shrink-0 rounded-lg ${PROVIDER_BACKGROUNDS[providerName]} flex items-center justify-center p-1.5`}
+          >
+            <img
+              src={PROVIDER_LOGOS[providerName]}
+              alt={`${title} logo`}
+              className={`h-full w-full object-contain ${PROVIDER_LOGO_CLASSES[providerName]}`}
+            />
           </div>
-        </CardHeader>
-
-        <CardContent className="grow px-5 py-3">
-          {configured && (config.model || config.deploymentName) ? (
-            <div className="text-sm">
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Model:</span>
-                  <span className="font-medium truncate max-w-40">
-                    {config.model || config.deploymentName}
-                  </span>
-                </div>
-                {providerName === 'azure' && config.endpoint && (
-                  <p className="text-sm text-muted-foreground truncate" title={config.endpoint}>
-                    Endpoint: {config.endpoint.substring(0, 25)}...
-                  </p>
-                )}
-                <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full mt-1">
-                  <div className="h-full bg-primary w-full" />
-                </div>
-              </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{title}</span>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {`Connect to ${title}'s API to use their models.`}
-            </p>
-          )}
-        </CardContent>
+            <p className="text-xs text-muted-foreground truncate">{description}</p>
+          </div>
+        </div>
 
-        <CardFooter className="pt-2 pb-4 px-5 mt-auto flex flex-col space-y-2">
-          {!configured && (
-            <Button onClick={openModalHandler} className="w-full" size="default" variant="default">
+        {configured && modelName ? (
+          <div className="px-4 pb-3">
+            <Badge variant="secondary" className="font-mono text-xs truncate max-w-full">
+              {modelName}
+            </Badge>
+            {providerName === 'azure' && config.endpoint && (
+              <p
+                className="text-xs text-muted-foreground truncate mt-1"
+                title={config.endpoint}
+              >
+                {config.endpoint}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="px-4 pb-3">
+            <p className="text-xs text-muted-foreground">Not configured</p>
+          </div>
+        )}
+
+        <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
+          {!configured ? (
+            <Button onClick={openModalHandler} size="sm" variant="default" className="h-7 text-xs">
               Configure
             </Button>
-          )}
-
-          {configured && (
+          ) : (
             <>
-              <div className="flex w-full gap-2">
-                <Button
-                  onClick={openModalHandler}
-                  className="flex-1"
-                  size="default"
-                  variant="outline"
-                >
-                  Update
-                </Button>
-              </div>
+              <Button
+                onClick={openModalHandler}
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs gap-1.5"
+              >
+                <Settings2 className="h-3 w-3" />
+                Edit
+              </Button>
               <Button
                 onClick={() => handleClearConfiguration(providerName)}
-                className="w-full"
-                size="default"
-                variant="destructive"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
               >
-                Clear Configuration
+                <Trash2 className="h-3 w-3" />
+                Remove
               </Button>
             </>
           )}
-        </CardFooter>
+        </div>
       </Card>
     )
   }
@@ -307,7 +289,7 @@ export default function ModelsPage(): React.JSX.Element {
             </TabsList>
 
             <TabsContent value="chat-models">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
                 {createProviderCard(
                   'openai',
                   'OpenAI',
@@ -354,35 +336,35 @@ export default function ModelsPage(): React.JSX.Element {
             </TabsContent>
 
             <TabsContent value="embedding">
-              <div className="max-w-lg mt-4">
-                <h2 className="text-xl font-semibold mb-1">Embedding Model</h2>
-                <p className="text-sm text-muted-foreground mb-4">
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground mb-3">
                   Select the provider and model used for Knowledge Base indexing and retrieval.
                 </p>
               </div>
-              <Card
-                className={`max-w-lg surface-elevated ${isEmbeddingSaved && hasEmbeddingCredentials ? 'border-primary ring-1 ring-primary' : ''}`}
-              >
+              <Card className="max-w-sm surface-elevated gap-0 py-0 overflow-hidden border-border/60">
                 {isEmbeddingSaved && (
-                  <CardHeader className="pb-0">
-                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground bg-primary/10 rounded-md px-2.5 py-1.5">
-                      <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                      Currently using{' '}
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border-b border-border/40">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      Active:{' '}
                       <span className="font-medium text-foreground">
                         {EMBEDDING_PROVIDER_LABELS[embeddingConfig.provider]}
-                      </span>{' '}
-                      / <span className="font-medium text-foreground">{embeddingConfig.model}</span>
+                      </span>
+                      {' / '}
+                      <Badge variant="secondary" className="font-mono text-xs ml-0.5">
+                        {embeddingConfig.model}
+                      </Badge>
                     </p>
-                  </CardHeader>
+                  </div>
                 )}
 
-                <CardContent className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="embedding-provider" className="font-medium">
+                <div className="px-4 py-4 space-y-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="embedding-provider" className="text-xs font-medium">
                       Provider <span className="text-destructive">*</span>
                     </Label>
                     <Select value={embeddingProvider} onValueChange={handleEmbeddingProviderChange}>
-                      <SelectTrigger id="embedding-provider">
+                      <SelectTrigger id="embedding-provider" className="h-8 text-sm">
                         <SelectValue placeholder="Select embedding provider" />
                       </SelectTrigger>
                       <SelectContent>
@@ -395,12 +377,13 @@ export default function ModelsPage(): React.JSX.Element {
                     </Select>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="embedding-model" className="font-medium">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="embedding-model" className="text-xs font-medium">
                       Model <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="embedding-model"
+                      className="h-8 text-sm"
                       value={embeddingModel}
                       onChange={(e) => setEmbeddingModel(e.target.value)}
                       placeholder="Enter embedding model or deployment name"
@@ -408,7 +391,7 @@ export default function ModelsPage(): React.JSX.Element {
                   </div>
 
                   {!hasEmbeddingCredentials && (
-                    <p className="text-sm text-amber-600">
+                    <p className="text-xs text-amber-600">
                       {embeddingProviderLabel} credentials are not configured. Go to the{' '}
                       <span className="font-medium">Chat Models</span> tab to set up{' '}
                       {embeddingProviderLabel} first.
@@ -416,22 +399,24 @@ export default function ModelsPage(): React.JSX.Element {
                   )}
 
                   <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <Info className="h-3 w-3 mt-0.5 shrink-0" />
                     <p>
                       Arion enforces 1536-dimension embeddings for schema compatibility. Make sure
                       the selected model outputs 1536-dimension vectors.
                     </p>
                   </div>
-                </CardContent>
+                </div>
 
-                <CardFooter>
+                <div className="border-t border-border/40 px-4 py-2">
                   <Button
                     onClick={handleSaveEmbeddingConfig}
                     disabled={!embeddingModel.trim() || !hasEmbeddingChanges}
+                    size="sm"
+                    className="h-7 text-xs"
                   >
                     Save Configuration
                   </Button>
-                </CardFooter>
+                </div>
               </Card>
             </TabsContent>
           </Tabs>

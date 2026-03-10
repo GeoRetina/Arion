@@ -1,17 +1,10 @@
 import React from 'react'
-import { Boxes, Download, Edit, Loader2, Trash2 } from 'lucide-react'
+import { Boxes, Download, Loader2, Settings2, Trash2 } from 'lucide-react'
 import type { SkillPackBundledCatalogSkill, SkillPackInfo } from '@/../../shared/ipc-types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 
 const sourceColorMap: Record<string, string> = {
   workspace: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
@@ -100,7 +93,7 @@ const BundledSkillsList: React.FC<BundledSkillsListProps> = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
       {unified.map((item) => {
         if (item.kind === 'bundled') {
           return (
@@ -176,85 +169,90 @@ const BundledCard: React.FC<{
 
   return (
     <Card
-      className={`overflow-hidden transition-all hover:shadow-md flex flex-col surface-elevated ${
-        isInstalled ? 'border-primary ring-1 ring-primary' : ''
-      } ${disabled ? 'opacity-70' : ''}`}
+      className={`overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
+        disabled ? 'opacity-60' : ''
+      }`}
     >
-      <CardHeader className="pb-2 pt-4 px-5">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-xl leading-snug">{bundled.name}</CardTitle>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            {isInstalled && installed && (
-              <Switch
-                checked={!disabled}
-                onCheckedChange={() => onToggleSkillDisabled(installed)}
-                disabled={skillDisableTogglingId === installed.id || actionDisabled}
-                aria-label={disabled ? 'Enable skill' : 'Disable skill'}
-              />
-            )}
-            {isInstalled ? (
-              <Badge
-                variant="outline"
-                className="shrink-0 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20"
-              >
-                installed
-              </Badge>
-            ) : (
-              <Badge
-                variant="outline"
-                className="shrink-0 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-background"
-              >
-                official
-              </Badge>
+            <span className="text-sm font-medium truncate">{bundled.name}</span>
+            {isInstalled && (
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
             )}
           </div>
+          <p className="text-xs font-mono text-muted-foreground">{`$${bundled.id}`}</p>
         </div>
-        <CardDescription className="text-xs font-mono">{`$${bundled.id}`}</CardDescription>
-      </CardHeader>
-      <CardContent className="grow px-5 py-3">
-        <p className="text-sm text-muted-foreground">{bundled.description}</p>
-        <p className="text-xs text-muted-foreground/70 mt-3 break-all">
-          {installed?.sourcePath || bundled.repositoryPath}
-        </p>
-      </CardContent>
-      <CardFooter className="pt-2 pb-4 px-5 mt-auto flex flex-col space-y-2">
+        <div className="flex items-center gap-2 shrink-0">
+          {isInstalled && installed && (
+            <Switch
+              checked={!disabled}
+              onCheckedChange={() => onToggleSkillDisabled(installed)}
+              disabled={skillDisableTogglingId === installed.id || actionDisabled}
+              aria-label={disabled ? 'Enable skill' : 'Disable skill'}
+            />
+          )}
+          {isInstalled ? (
+            <Badge
+              variant="outline"
+              className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20"
+            >
+              installed
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-background"
+            >
+              official
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="px-4 pb-3">
+        <p className="text-xs text-muted-foreground line-clamp-2">{bundled.description}</p>
+      </div>
+
+      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
         {isInstalled && installed && (
           <Button
-            variant="outline"
-            className="w-full"
+            size="sm"
+            variant="ghost"
+            className="h-7 text-xs gap-1.5"
             onClick={() => onEditSkill(installed)}
             disabled={actionDisabled || skillDisableTogglingId === installed.id}
-            title="Edit"
             aria-label="Edit skill"
           >
-            <Edit className="h-4 w-4 mr-2" />
+            <Settings2 className="h-3 w-3" />
             Edit
           </Button>
         )}
         <Button
-          className="w-full"
-          variant={isInstalled ? 'outline' : 'default'}
+          size="sm"
+          variant={isInstalled ? 'ghost' : 'default'}
+          className={`h-7 text-xs gap-1.5 ${isInstalled ? 'text-destructive hover:text-destructive hover:bg-destructive/10' : ''}`}
           onClick={() => onToggleBundledSkillInstalled(bundled)}
           disabled={actionDisabled}
         >
           {isBusy ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
               {isInstalled ? 'Uninstalling...' : 'Installing...'}
             </>
           ) : isInstalled ? (
             <>
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-3 w-3" />
               Uninstall
             </>
           ) : (
             <>
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-3 w-3" />
               Install
             </>
           )}
         </Button>
-      </CardFooter>
+      </div>
     </Card>
   )
 }
@@ -286,58 +284,62 @@ const InstalledOnlyCard: React.FC<{
 
   return (
     <Card
-      className={`overflow-hidden transition-all hover:shadow-md flex flex-col surface-elevated ${
-        disabled ? 'opacity-70' : ''
+      className={`overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
+        disabled ? 'opacity-60' : ''
       }`}
     >
-      <CardHeader className="pb-2 pt-4 px-5">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-xl leading-snug">{skill.name}</CardTitle>
+      <div className="flex items-start gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <Switch
-              checked={!disabled}
-              onCheckedChange={() => onToggleSkillDisabled(skill)}
-              disabled={skillDisableTogglingId === skill.id || busy}
-              aria-label={disabled ? 'Enable skill' : 'Disable skill'}
-            />
-            <Badge
-              variant="outline"
-              className={`shrink-0 text-xs ${sourceColorMap[skill.source] || ''}`}
-            >
-              {skill.source}
-            </Badge>
+            <span className="text-sm font-medium truncate">{skill.name}</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
           </div>
+          <p className="text-xs font-mono text-muted-foreground">{`$${skill.id}`}</p>
         </div>
-        <CardDescription className="text-xs font-mono">{`$${skill.id}`}</CardDescription>
-      </CardHeader>
-      <CardContent className="grow px-5 py-3">
-        <p className="text-sm text-muted-foreground">{skill.description}</p>
-        <p className="text-xs text-muted-foreground/70 mt-3 break-all">{skill.sourcePath}</p>
-      </CardContent>
-      <CardFooter className="pt-2 pb-4 px-5 mt-auto flex flex-col space-y-2">
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            checked={!disabled}
+            onCheckedChange={() => onToggleSkillDisabled(skill)}
+            disabled={skillDisableTogglingId === skill.id || busy}
+            aria-label={disabled ? 'Enable skill' : 'Disable skill'}
+          />
+          <Badge
+            variant="outline"
+            className={`text-xs ${sourceColorMap[skill.source] || ''}`}
+          >
+            {skill.source}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="px-4 pb-3">
+        <p className="text-xs text-muted-foreground line-clamp-2">{skill.description}</p>
+      </div>
+
+      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
         <Button
-          variant="outline"
-          className="w-full"
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs gap-1.5"
           onClick={() => onEditSkill(skill)}
           disabled={busy || skillDisableTogglingId === skill.id}
-          title="Edit"
           aria-label="Edit skill"
         >
-          <Edit className="h-4 w-4 mr-2" />
+          <Settings2 className="h-3 w-3" />
           Edit
         </Button>
         <Button
-          variant="destructive"
-          className="w-full"
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
           onClick={() => onDeleteSkill(skill)}
           disabled={busy || skillDisableTogglingId === skill.id}
-          title={deleteLabel}
           aria-label={`${deleteLabel} skill`}
         >
-          <Trash2 className="h-4 w-4 mr-2" />
+          <Trash2 className="h-3 w-3" />
           {deleteLabel}
         </Button>
-      </CardFooter>
+      </div>
     </Card>
   )
 }

@@ -147,6 +147,7 @@ export interface AgentRegistryEntry {
   type: AgentType
   icon?: string
   capabilities: string[] // Just capability IDs for lightweight representation
+  toolAccess?: string[] // Tool IDs available to the agent for list/card views
   provider: LLMProviderType
   model: string
   createdAt: string

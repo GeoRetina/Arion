@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Cloud,
   Database,
@@ -9,8 +10,8 @@ import {
   Layers,
   Link2,
   Loader2,
-  Pencil,
   RefreshCw,
+  Settings2,
   ShieldX,
   Timer,
   Trash2,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -108,89 +109,106 @@ const ConnectorCard: React.FC<{
   onDisconnect: () => void
 }> = ({ definition, isPending, onConfigure, onDisconnect }) => {
   const integration = definition.integration
+  const isConnected = integration.status === 'connected'
+  const isError = integration.status === 'error'
   const statusText = integration.status.replace('-', ' ')
 
   return (
-    <Card className="overflow-hidden surface-elevated">
-      <CardHeader className="pb-2 pt-4 px-5">
-        <div className="flex gap-3 items-start">
+    <Card className="h-full min-h-[176px] overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
+      <div className="flex items-start gap-3 px-4 py-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60">
           {getIntegrationIcon(integration.type)}
-          <div>
-            <CardTitle className="text-base">{integration.name}</CardTitle>
-            <CardDescription className="line-clamp-2">
-              {integration.description}
-            </CardDescription>
-          </div>
         </div>
-      </CardHeader>
-      <CardContent className="px-5 py-3">
-        <div className="flex items-center gap-2 mb-2">
-          {integration.status === 'connected' ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{integration.name}</span>
+          </div>
+          <p className="text-xs text-muted-foreground line-clamp-2">{integration.description}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 px-4 pb-3">
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
               <CheckCircle2 className="h-3 w-3" />
               Connected
             </span>
           ) : (
             <>
               <div
-                className={`h-2 w-2 rounded-full ${getStatusStyles(integration.status)}`}
-              ></div>
-              <span className="text-sm capitalize">{statusText}</span>
-              {integration.status === 'error' && (
-                <AlertCircle className="h-3 w-3 text-red-500" />
-              )}
+                className={`h-2 w-2 shrink-0 rounded-full ${getStatusStyles(integration.status)}`}
+              />
+              <span className="text-xs font-medium capitalize">{statusText}</span>
+              {isError && <AlertCircle className="h-3 w-3 text-red-500" />}
             </>
           )}
         </div>
-        {integration.message && integration.status === 'error' && (
-          <div className="text-xs text-red-500 mb-2 line-clamp-2">
-            {integration.message}
-          </div>
+        {integration.message && isError && (
+          <div className="mt-1 text-xs text-red-500 line-clamp-2">{integration.message}</div>
         )}
-        <div className="text-sm text-muted-foreground">
+        <div className="mt-2 text-xs text-muted-foreground truncate">
           Last used: {integration.lastUsed}
         </div>
-      </CardContent>
-      <div className="px-5 py-3 border-t border-border/40 flex justify-end items-center gap-2">
-        {integration.status === 'connected' && (
+      </div>
+
+      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
+        {isConnected ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={onConfigure}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <Settings2 className="h-3 w-3" />
+                  Edit
+                </>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={onDisconnect}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Working...
+                </>
+              ) : (
+                'Disconnect'
+              )}
+            </Button>
+          </>
+        ) : (
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
-            className="text-xs bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500/20 hover:text-red-600"
-            onClick={onDisconnect}
+            className="h-7 text-xs"
+            onClick={onConfigure}
             disabled={isPending}
           >
             {isPending ? (
               <>
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                Disconnecting...
+                Loading...
               </>
             ) : (
-              'Disconnect'
+              'Configure'
             )}
           </Button>
         )}
-        <Button
-          variant="default"
-          size="sm"
-          className="flex items-center gap-1 text-xs"
-          onClick={onConfigure}
-          disabled={isPending}
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <span>{integration.status === 'connected' ? 'Edit' : 'Configure'}</span>
-              {integration.status === 'connected' && (
-                <Pencil className="h-2.5 w-2.5" />
-              )}
-            </>
-          )}
-        </Button>
       </div>
     </Card>
   )
@@ -207,14 +225,12 @@ const ConnectorsPage: React.FC = () => {
   const [genericInitialConfig, setGenericInitialConfig] = useState<Record<string, unknown>>({})
   const [pendingIntegrationId, setPendingIntegrationId] = useState<IntegrationId | null>(null)
   const [activeTab, setActiveTab] = useState<'data-sources' | 'platforms'>('data-sources')
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const { runLogs, isRunLogsLoading, refreshRunLogs, clearRunLogs } = useConnectorRunLogs({
     limit: 30
   })
 
-  const platformIds = useMemo<Set<IntegrationId>>(
-    () => new Set(['google-earth-engine']),
-    []
-  )
+  const platformIds = useMemo<Set<IntegrationId>>(() => new Set(['google-earth-engine']), [])
 
   const dataSourceConfigs = useMemo(
     () => integrationConfigs.filter((d) => !platformIds.has(d.integration.id)),
@@ -456,20 +472,33 @@ const ConnectorsPage: React.FC = () => {
               </div>
             )}
 
-            <Card className="surface-elevated">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-base">Connector Diagnostics</CardTitle>
-                    <CardDescription>
-                      Recent connector tests, connection events, and capability runs.
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
+            <div className="rounded-lg border border-border/60">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors rounded-lg"
+                onClick={() => setDiagnosticsOpen((prev) => !prev)}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium">Diagnostics</span>
+                  {!isRunLogsLoading && runLogs.length > 0 && (
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground tabular-nums">
+                      {runLogs.length}
+                    </span>
+                  )}
+                  {isRunLogsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${diagnosticsOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {diagnosticsOpen && (
+                <div className="border-t border-border/40 px-4 py-2">
+                  <div className="flex items-center justify-end gap-1 mb-1">
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="gap-1.5"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs gap-1"
                       onClick={() => void refreshRunLogs()}
                     >
                       <RefreshCw className="h-3 w-3" />
@@ -477,91 +506,66 @@ const ConnectorsPage: React.FC = () => {
                     </Button>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="gap-1.5"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs gap-1"
                       onClick={() => void clearRunLogs()}
                     >
                       <Trash2 className="h-3 w-3" />
                       Clear
                     </Button>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 py-3">
-                {isRunLogsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading diagnostics...
-                  </div>
-                ) : runLogs.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-4 text-center">
-                    No connector runs yet. Events will appear here as you test and use connectors.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border/40">
-                    {runLogs.slice(0, 8).map((log) => {
-                      const isSuccess = log.outcome === 'success'
-                      const isError = log.outcome === 'error'
-                      const isDenied = log.outcome === 'policy_denied'
 
-                      const OutcomeIcon = isSuccess
-                        ? CheckCircle2
-                        : isError
-                          ? XCircle
-                          : isDenied
-                            ? ShieldX
-                            : Timer
+                  {runLogs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">
+                      No events yet.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-border/40">
+                      {runLogs.slice(0, 8).map((log) => {
+                        const isSuccess = log.outcome === 'success'
+                        const isError = log.outcome === 'error'
+                        const isDenied = log.outcome === 'policy_denied'
 
-                      const outcomeColor = isSuccess
-                        ? 'text-green-500'
-                        : isError
-                          ? 'text-red-500'
-                          : isDenied
-                            ? 'text-yellow-500'
-                            : 'text-orange-500'
+                        const OutcomeIcon = isSuccess
+                          ? CheckCircle2
+                          : isError
+                            ? XCircle
+                            : isDenied
+                              ? ShieldX
+                              : Timer
 
-                      return (
-                        <div key={log.runId} className="flex items-start gap-3 py-2.5">
-                          <div className={`mt-0.5 ${outcomeColor}`}>
-                            <OutcomeIcon className="h-4 w-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="text-sm font-medium truncate">
-                                {log.integrationId}
-                                <span className="text-muted-foreground font-normal">
-                                  {' / '}
-                                  {log.capability}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0 text-xs text-muted-foreground">
-                                {log.backend && (
-                                  <span className="rounded-full bg-muted px-2 py-0.5">
-                                    {log.backend}
-                                  </span>
-                                )}
-                                <span className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {log.durationMs}ms
-                                </span>
-                              </div>
+                        const outcomeColor = isSuccess
+                          ? 'text-green-500'
+                          : isError
+                            ? 'text-red-500'
+                            : isDenied
+                              ? 'text-yellow-500'
+                              : 'text-orange-500'
+
+                        return (
+                          <div key={log.runId} className="flex items-center gap-2 py-1.5">
+                            <div className={outcomeColor}>
+                              <OutcomeIcon className="h-3.5 w-3.5" />
                             </div>
-                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                              {log.message}
-                            </p>
-                            {log.errorCode && (
-                              <span className="text-xs text-red-500 mt-0.5 inline-block">
-                                Error: {log.errorCode}
+                            <span className="text-xs font-medium truncate">
+                              {log.integrationId}
+                              <span className="text-muted-foreground font-normal">
+                                {' / '}
+                                {log.capability}
                               </span>
-                            )}
+                            </span>
+                            <span className="ml-auto flex items-center gap-1 shrink-0 text-xs text-muted-foreground tabular-nums">
+                              <Clock className="h-3 w-3" />
+                              {log.durationMs}ms
+                            </span>
                           </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <Tabs
               value={activeTab}
@@ -574,7 +578,7 @@ const ConnectorsPage: React.FC = () => {
               </TabsList>
 
               <TabsContent value="data-sources" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                   {dataSourceConfigs.map((definition) => (
                     <ConnectorCard
                       key={definition.integration.id}
@@ -588,7 +592,7 @@ const ConnectorsPage: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="platforms" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                   {platformConfigs.map((definition) => (
                     <ConnectorCard
                       key={definition.integration.id}

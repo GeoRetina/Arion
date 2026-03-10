@@ -53,6 +53,17 @@ export class AgentRegistryService {
   private promptModuleService: PromptModuleService
   private initialized = false
 
+  private normalizeToolAccess(
+    toolAccess: string[] | undefined,
+    capabilities: AgentCapability[]
+  ): string[] {
+    if (Array.isArray(toolAccess) && toolAccess.length > 0) {
+      return Array.from(new Set(toolAccess))
+    }
+
+    return Array.from(new Set(capabilities.flatMap((capability) => capability.tools)))
+  }
+
   // Helper to get the database
   private getDb(): better_sqlite3.Database {
     // Access the db object directly using type assertion
@@ -167,6 +178,8 @@ export class AgentRegistryService {
           exampleTasks: cap.example_tasks ? JSON.parse(cap.example_tasks) : undefined
         }))
 
+        const normalizedToolAccess = this.normalizeToolAccess(toolAccess, parsedCapabilities)
+
         const promptConfig: AgentPromptConfig = {
           coreModules: JSON.parse(promptConfigRow.core_modules),
           taskModules: promptConfigRow.task_modules
@@ -189,7 +202,7 @@ export class AgentRegistryService {
           capabilities: parsedCapabilities,
           promptConfig,
           modelConfig,
-          toolAccess,
+          toolAccess: normalizedToolAccess,
           memoryConfig,
           relationships,
           createdAt: agentRow.created_at,
@@ -216,6 +229,7 @@ export class AgentRegistryService {
       type: agent.type,
       icon: agent.icon,
       capabilities: agent.capabilities.map((cap) => cap.id),
+      toolAccess: [...agent.toolAccess],
       provider: agent.modelConfig.provider,
       model: agent.modelConfig.model,
       createdAt: agent.createdAt,
@@ -240,6 +254,8 @@ export class AgentRegistryService {
     const agentId = uuidv4()
     const now = new Date().toISOString()
 
+    const normalizedToolAccess = this.normalizeToolAccess(params.toolAccess, params.capabilities)
+
     // Validate prompt modules exist
     await this.validatePromptModules([
       ...params.promptConfig.coreModules,
@@ -250,6 +266,7 @@ export class AgentRegistryService {
 
     const newAgent: AgentDefinition = {
       ...params,
+      toolAccess: normalizedToolAccess,
       id: agentId,
       createdAt: now,
       updatedAt: now
@@ -357,10 +374,18 @@ export class AgentRegistryService {
 
     // Create updated agent
     const now = new Date().toISOString()
+    const normalizedToolAccess =
+      updates.toolAccess !== undefined || updates.capabilities !== undefined
+        ? this.normalizeToolAccess(
+            updates.toolAccess ?? existingAgent.toolAccess,
+            updates.capabilities ?? existingAgent.capabilities
+          )
+        : existingAgent.toolAccess
 
     const updatedAgent: AgentDefinition = {
       ...existingAgent,
       ...updates,
+      toolAccess: normalizedToolAccess,
       id, // Ensure ID doesn't change
       updatedAt: now
     }
@@ -417,7 +442,7 @@ export class AgentRegistryService {
           agentUpdates.push(JSON.stringify(updatedAgent.modelConfig))
         }
 
-        if (updates.toolAccess !== undefined) {
+        if (updates.toolAccess !== undefined || updates.capabilities !== undefined) {
           agentUpdateFields.push('tool_access = ?')
           agentUpdates.push(JSON.stringify(updatedAgent.toolAccess))
         }
