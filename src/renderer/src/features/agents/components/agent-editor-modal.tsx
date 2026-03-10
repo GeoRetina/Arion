@@ -265,7 +265,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
   if (isLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="sm:max-w-[700px]">
+        <DialogContent className="sm:max-w-175">
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -280,7 +280,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-175 max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Edit Agent: {agent.name}</DialogTitle>
           <DialogDescription>
@@ -447,7 +447,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
                   <div className="space-y-4">
                     <div>
                       <Label>Core Modules</Label>
-                      <div className="mt-1 p-2 border rounded-md min-h-[60px] bg-muted/30">
+                      <div className="mt-1 p-2 border rounded-md min-h-15 bg-muted/30">
                         {agent.promptConfig.coreModules.length === 0 ? (
                           <p className="text-sm text-muted-foreground">No core modules assigned</p>
                         ) : (
@@ -464,7 +464,7 @@ const AgentEditorModal: React.FC<AgentEditorModalProps> = ({ agentId, isOpen, on
 
                     <div>
                       <Label>Agent Modules</Label>
-                      <div className="mt-1 p-2 border rounded-md min-h-[60px] bg-muted/30">
+                      <div className="mt-1 p-2 border rounded-md min-h-15 bg-muted/30">
                         {agent.promptConfig.agentModules.length === 0 ? (
                           <p className="text-sm text-muted-foreground">No agent modules assigned</p>
                         ) : (

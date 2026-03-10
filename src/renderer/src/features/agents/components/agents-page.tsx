@@ -113,7 +113,7 @@ const AgentsPage: React.FC = () => {
                   </div>
                 </div>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-45">
                     <SelectValue placeholder="Filter by type" />
                   </SelectTrigger>
                   <SelectContent>

@@ -92,7 +92,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
   return (
     <div
       className={cn(
-        'mt-4 mb-4 w-full max-w-[350px] rounded-lg border shadow-sm transition-all duration-150',
+        'mt-4 mb-4 w-full max-w-87.5 rounded-lg border shadow-sm transition-all duration-150',
         currentStyles.border,
         currentStyles.bg,
         className
@@ -136,7 +136,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
           <div>
             <div className="font-medium text-muted-foreground mb-1">Task</div>
             <div className="rounded border border-border/40 bg-muted/20 p-2">
-              <div className="whitespace-pre-wrap break-words text-foreground">{message}</div>
+              <div className="whitespace-pre-wrap wrap-break-word text-foreground">{message}</div>
             </div>
           </div>
 
@@ -158,7 +158,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
                 Error
               </div>
               <div className="rounded border border-red-200/60 bg-red-50/60 dark:border-red-800/40 dark:bg-red-950/20 p-2">
-                <div className="text-red-700 dark:text-red-300 whitespace-pre-wrap break-words">
+                <div className="text-red-700 dark:text-red-300 whitespace-pre-wrap wrap-break-word">
                   {errorMessage}
                 </div>
               </div>
@@ -175,7 +175,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
               <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
                 <ScrollArea className="h-24 max-h-32 w-full">
                   <div className="p-2">
-                    <div className="whitespace-pre-wrap break-words text-emerald-800 dark:text-emerald-200">
+                    <div className="whitespace-pre-wrap wrap-break-word text-emerald-800 dark:text-emerald-200">
                       {formattedResult}
                     </div>
                   </div>

@@ -273,7 +273,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-175 max-h-[80vh]">
         <form
           onSubmit={(event) => {
             // Prevent accidental submits when navigating between tabs
