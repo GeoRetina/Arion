@@ -20,9 +20,9 @@ import { AlertTriangle } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
 import { toast } from 'sonner'
-import CodexApprovalDialog from './codex-approval-dialog'
-import { ActiveCodexRunPanel } from './codex-run-card'
-import { useCodexStore } from '@/stores/codex-store'
+import ExternalRuntimeApprovalDialog from './codex-approval-dialog'
+import { ActiveExternalRuntimeRunPanel } from './codex-run-card'
+import { useExternalRuntimeStore } from '@/stores/external-runtime-store'
 
 // Imported extracted components and hooks
 import { MessageBubble } from './message/message-bubble'
@@ -42,11 +42,13 @@ export default function ChatInterface(): React.JSX.Element {
   const { isMapSidebarExpanded, toggleMapSidebar } = useMapSidebar()
   const { pendingPermission, resolvePendingPermission, getServerPath } = useMcpPermissionHandler()
   const { isDatabaseModalOpen, setIsDatabaseModalOpen, handleOpenDatabase } = useDatabaseModal()
-  const initializeCodex = useCodexStore((state) => state.initialize)
-  const loadCodexRuns = useCodexStore((state) => state.loadRuns)
-  const approveCodexRequest = useCodexStore((state) => state.approveRequest)
-  const denyCodexRequest = useCodexStore((state) => state.denyRequest)
-  const isResolvingCodexApproval = useCodexStore((state) => state.isResolvingApproval)
+  const initializeExternalRuntimes = useExternalRuntimeStore((state) => state.initialize)
+  const loadExternalRuntimeRuns = useExternalRuntimeStore((state) => state.loadRuns)
+  const approveExternalRuntimeRequest = useExternalRuntimeStore((state) => state.approveRequest)
+  const denyExternalRuntimeRequest = useExternalRuntimeStore((state) => state.denyRequest)
+  const isResolvingExternalRuntimeApproval = useExternalRuntimeStore(
+    (state) => state.isResolvingApproval
+  )
 
   const {
     stableChatIdForUseChat,
@@ -58,7 +60,7 @@ export default function ChatInterface(): React.JSX.Element {
   const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } =
     useProviderConfiguration(stableChatIdForUseChat || null)
 
-  const pendingCodexApproval = useCodexStore((state) => {
+  const pendingExternalRuntimeApproval = useExternalRuntimeStore((state) => {
     if (stableChatIdForUseChat) {
       const scopedRequest = state.approvalRequests.find(
         (request) => request.chatId === stableChatIdForUseChat
@@ -112,16 +114,16 @@ export default function ChatInterface(): React.JSX.Element {
   }, [isStreamingUi, sdkMessages.length, stableChatIdForUseChat])
 
   useEffect(() => {
-    void initializeCodex()
-  }, [initializeCodex])
+    void initializeExternalRuntimes()
+  }, [initializeExternalRuntimes])
 
   useEffect(() => {
     if (!stableChatIdForUseChat) {
       return
     }
 
-    void loadCodexRuns(stableChatIdForUseChat)
-  }, [stableChatIdForUseChat, loadCodexRuns])
+    void loadExternalRuntimeRuns(stableChatIdForUseChat)
+  }, [stableChatIdForUseChat, loadExternalRuntimeRuns])
 
   const displayMessages = useMemo(() => sdkMessages, [sdkMessages])
 
@@ -198,7 +200,9 @@ export default function ChatInterface(): React.JSX.Element {
                 )
               })}
 
-              <ActiveCodexRunPanel chatId={stableChatIdForUseChat || currentChatIdFromStore} />
+              <ActiveExternalRuntimeRunPanel
+                chatId={stableChatIdForUseChat || currentChatIdFromStore}
+              />
 
               {shouldShowLoadingIndicator && <LoadingIndicator />}
 
@@ -276,21 +280,28 @@ export default function ChatInterface(): React.JSX.Element {
         />
       )}
 
-      {pendingCodexApproval && (
-        <CodexApprovalDialog
+      {pendingExternalRuntimeApproval && (
+        <ExternalRuntimeApprovalDialog
           isOpen={true}
-          request={pendingCodexApproval}
-          isResolving={isResolvingCodexApproval}
+          request={pendingExternalRuntimeApproval}
+          isResolving={isResolvingExternalRuntimeApproval}
           onApprove={(scope) => {
-            void approveCodexRequest(pendingCodexApproval.approvalId, scope).catch((error) => {
-              toast.error('Failed to approve Codex request', {
+            void approveExternalRuntimeRequest(
+              pendingExternalRuntimeApproval.runtimeId,
+              pendingExternalRuntimeApproval.approvalId,
+              scope
+            ).catch((error) => {
+              toast.error('Failed to approve runtime request', {
                 description: error instanceof Error ? error.message : 'Unknown error'
               })
             })
           }}
           onDeny={() => {
-            void denyCodexRequest(pendingCodexApproval.approvalId).catch((error) => {
-              toast.error('Failed to deny Codex request', {
+            void denyExternalRuntimeRequest(
+              pendingExternalRuntimeApproval.runtimeId,
+              pendingExternalRuntimeApproval.approvalId
+            ).catch((error) => {
+              toast.error('Failed to deny runtime request', {
                 description: error instanceof Error ? error.message : 'Unknown error'
               })
             })

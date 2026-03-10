@@ -61,7 +61,7 @@ export const DEFAULT_CODEX_CONFIG: CodexConfig = {
   binaryPath: null,
   homePath: null,
   defaultModel: 'gpt-5.3-codex',
-  reasoningEffort: 'medium',
+  reasoningEffort: 'high',
   defaultMode: 'workspace-approval'
 }
 
@@ -158,7 +158,8 @@ export const normalizeCodexConfig = (
   const reasoningEffort =
     config?.reasoningEffort === 'low' ||
     config?.reasoningEffort === 'medium' ||
-    config?.reasoningEffort === 'high'
+    config?.reasoningEffort === 'high' ||
+    config?.reasoningEffort === 'xhigh'
       ? config.reasoningEffort
       : DEFAULT_CODEX_CONFIG.reasoningEffort
 

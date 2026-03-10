@@ -28,6 +28,20 @@ export interface Message {
 const DB_SUBFOLDER = 'database'
 const DB_FILENAME = 'arion-app.db'
 
+function normalizeMessageTimestamp(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return null
+  }
+
+  const parsed = new Date(trimmed)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
 export class DBService {
   private static instance: DBService
   private db: DB
@@ -231,7 +245,7 @@ export class DBService {
 
   public addMessage(
     messageData: Pick<Message, 'id' | 'chat_id' | 'role' | 'content'> &
-      Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content' | 'created_at'>>
+      Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content'>>
   ): Message | null {
     const {
       id,
@@ -241,10 +255,12 @@ export class DBService {
       name = null,
       tool_calls = null,
       tool_call_id = null,
-      orchestration = null
+      orchestration = null,
+      created_at = null
     } = messageData
+    const normalizedCreatedAt = normalizeMessageTimestamp(created_at)
     const stmt = this.db.prepare(
-      'INSERT INTO messages (id, chat_id, role, content, name, tool_calls, tool_call_id, orchestration) VALUES (@id, @chat_id, @role, @content, @name, @tool_calls, @tool_call_id, @orchestration)'
+      "INSERT INTO messages (id, chat_id, role, content, name, tool_calls, tool_call_id, orchestration, created_at) VALUES (@id, @chat_id, @role, @content, @name, @tool_calls, @tool_call_id, @orchestration, COALESCE(@created_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))"
     )
     try {
       const result = stmt.run({
@@ -255,7 +271,8 @@ export class DBService {
         name,
         tool_calls,
         tool_call_id,
-        orchestration
+        orchestration,
+        created_at: normalizedCreatedAt
       })
       if (result.changes > 0) {
         const newMessage = this.getMessageById(id)
@@ -282,7 +299,7 @@ export class DBService {
     const validOrder = ['ASC', 'DESC'].includes(order) ? order : 'ASC' // Ensure valid order
 
     const stmt = this.db.prepare(
-      `SELECT * FROM messages WHERE chat_id = ? ORDER BY ${validOrderBy} ${validOrder}`
+      `SELECT * FROM messages WHERE chat_id = ? ORDER BY julianday(${validOrderBy}) ${validOrder}, ${validOrderBy} ${validOrder}`
     )
     return stmt.all(chat_id) as Message[]
   }

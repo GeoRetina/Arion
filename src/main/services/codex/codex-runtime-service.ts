@@ -153,7 +153,7 @@ export class CodexRuntimeService extends EventEmitter {
     const preparedWorkspace = await this.workspaceService.prepareRun(runId, request)
     const now = new Date().toISOString()
     const model = request.model || config.defaultModel || CODEX_DEFAULT_MODEL
-    const reasoningEffort = request.reasoningEffort || config.reasoningEffort || 'medium'
+    const reasoningEffort = request.reasoningEffort || config.reasoningEffort || 'high'
 
     const run: CodexRunResult = {
       runId,

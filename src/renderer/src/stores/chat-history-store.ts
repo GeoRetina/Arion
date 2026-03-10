@@ -24,7 +24,7 @@ export interface ChatHistoryActions {
   ) => Promise<string | null>
   addMessageToCurrentChat: (
     messageData: Pick<Message, 'id' | 'chat_id' | 'role' | 'content'> &
-      Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content' | 'created_at'>>
+      Partial<Omit<Message, 'id' | 'chat_id' | 'role' | 'content'>>
   ) => Promise<void>
   deleteChatAndUpdateList: (chatId: string) => Promise<void>
   updateChatTitleInList: (chatId: string, title: string) => Promise<void>

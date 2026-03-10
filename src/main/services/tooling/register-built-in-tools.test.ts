@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   registerKnowledgeBaseTools: vi.fn(),
   registerAgentTools: vi.fn(),
   registerIntegrationTools: vi.fn(),
-  registerCodexTools: vi.fn()
+  registerExternalRuntimeTools: vi.fn()
 }))
 
 vi.mock('./tool-packs/visualization-tool-pack', () => ({
@@ -32,8 +32,8 @@ vi.mock('./tool-packs/agent-tool-pack', () => ({ registerAgentTools: mocks.regis
 vi.mock('./tool-packs/integration-tool-pack', () => ({
   registerIntegrationTools: mocks.registerIntegrationTools
 }))
-vi.mock('./tool-packs/codex-tool-pack', () => ({
-  registerCodexTools: mocks.registerCodexTools
+vi.mock('./tool-packs/external-runtime-tool-pack', () => ({
+  registerExternalRuntimeTools: mocks.registerExternalRuntimeTools
 }))
 
 import { registerBuiltInTools } from './register-built-in-tools'
@@ -49,7 +49,7 @@ describe('registerBuiltInTools', () => {
       getAgentRegistryService: vi.fn(() => null),
       getOrchestrationService: vi.fn(() => null),
       getConnectorExecutionService: vi.fn(() => null),
-      getCodexRuntimeService: vi.fn(() => null)
+      getExternalRuntimeRegistry: vi.fn(() => null)
     }
 
     registerBuiltInTools(deps)
@@ -79,8 +79,8 @@ describe('registerBuiltInTools', () => {
     expect(mocks.registerIntegrationTools).toHaveBeenCalledWith(deps.registry, {
       getConnectorExecutionService: deps.getConnectorExecutionService
     })
-    expect(mocks.registerCodexTools).toHaveBeenCalledWith(deps.registry, {
-      getCodexRuntimeService: deps.getCodexRuntimeService
+    expect(mocks.registerExternalRuntimeTools).toHaveBeenCalledWith(deps.registry, {
+      getExternalRuntimeRegistry: deps.getExternalRuntimeRegistry
     })
   })
 })

@@ -7,6 +7,7 @@ type AnchoredMessage = {
   role: string
   content?: string
   parts?: unknown[]
+  hydrated?: boolean
 }
 
 interface UseAnchoredToolPartsOptions {
@@ -77,8 +78,8 @@ export function useAnchoredToolParts({
   )
 
   const hasAnchoredToolFlow = useMemo(
-    () => Boolean(textParts.length > 0 && toolParts.length > 0 && !isUser),
-    [textParts, toolParts, isUser]
+    () => Boolean(textParts.length > 0 && toolParts.length > 0 && !isUser && !message.hydrated),
+    [textParts, toolParts, isUser, message.hydrated]
   )
 
   const resolveAnchor = useCallback(

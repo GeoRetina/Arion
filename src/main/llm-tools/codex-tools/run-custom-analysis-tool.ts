@@ -27,7 +27,7 @@ export const RunCustomAnalysisWithCodexParamsSchema = z.object({
     .describe('Whether Arion should avoid import hints or suggest useful outputs to import.'),
   model: z.string().nullable().optional().describe('Optional Codex model override for this run.'),
   reasoningEffort: z
-    .enum(['low', 'medium', 'high'])
+    .enum(['low', 'medium', 'high', 'xhigh'])
     .optional()
     .describe('Optional Codex reasoning effort override for this run.')
 })

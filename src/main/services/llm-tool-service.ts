@@ -17,7 +17,7 @@ import type { PluginHookEvent } from './plugin/plugin-types'
 import { validateAgainstJsonSchema } from './plugin/json-schema-validator'
 import type { ConnectorExecutionService } from './connectors/connector-execution-service'
 import type { SettingsService } from './settings-service'
-import type { CodexRuntimeService } from './codex/codex-runtime-service'
+import type { ExternalRuntimeRegistry } from './external-runtimes/external-runtime-registry'
 import { normalizeConnectorPolicyConfig } from './connectors/policy/connector-policy-config'
 
 const MCP_DYNAMIC_TOOL_CATEGORY_PREFIX = 'mcp_server_'
@@ -38,7 +38,7 @@ export class LlmToolService {
   private pluginLoaderService: PluginLoaderService | null = null
   private connectorExecutionService: ConnectorExecutionService | null = null
   private settingsService: SettingsService | null = null
-  private codexRuntimeService: CodexRuntimeService | null = null
+  private externalRuntimeRegistry: ExternalRuntimeRegistry | null = null
 
   constructor(
     knowledgeBaseService?: KnowledgeBaseService,
@@ -50,7 +50,7 @@ export class LlmToolService {
     pluginLoaderService?: PluginLoaderService,
     connectorExecutionService?: ConnectorExecutionService,
     settingsService?: SettingsService,
-    codexRuntimeService?: CodexRuntimeService
+    externalRuntimeRegistry?: ExternalRuntimeRegistry
   ) {
     this.knowledgeBaseService = knowledgeBaseService || null
     this.mcpClientService = mcpClientService || null
@@ -61,7 +61,7 @@ export class LlmToolService {
     this.pluginLoaderService = pluginLoaderService || null
     this.connectorExecutionService = connectorExecutionService || null
     this.settingsService = settingsService || null
-    this.codexRuntimeService = codexRuntimeService || null
+    this.externalRuntimeRegistry = externalRuntimeRegistry || null
     this.credentialInjector.setPostgresqlService(this.postgresqlService)
 
     registerBuiltInTools({
@@ -73,7 +73,7 @@ export class LlmToolService {
       getAgentRegistryService: () => this.agentRegistryService,
       getOrchestrationService: () => this.orchestrationService,
       getConnectorExecutionService: () => this.connectorExecutionService,
-      getCodexRuntimeService: () => this.codexRuntimeService
+      getExternalRuntimeRegistry: () => this.externalRuntimeRegistry
     })
     // Actual assimilation of MCP tools will happen in initialize()
   }
