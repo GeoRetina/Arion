@@ -169,7 +169,7 @@ const BundledCard: React.FC<{
 
   return (
     <Card
-      className={`overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
+      className={`flex flex-col overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
         disabled ? 'opacity-60' : ''
       }`}
     >
@@ -210,11 +210,11 @@ const BundledCard: React.FC<{
         </div>
       </div>
 
-      <div className="px-4 pb-3">
+      <div className="flex-1 px-4 pb-3">
         <p className="text-xs text-muted-foreground line-clamp-2">{bundled.description}</p>
       </div>
 
-      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
+      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1 mt-auto">
         {isInstalled && installed && (
           <Button
             size="sm"
@@ -284,7 +284,7 @@ const InstalledOnlyCard: React.FC<{
 
   return (
     <Card
-      className={`overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
+      className={`flex flex-col overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
         disabled ? 'opacity-60' : ''
       }`}
     >
@@ -312,11 +312,11 @@ const InstalledOnlyCard: React.FC<{
         </div>
       </div>
 
-      <div className="px-4 pb-3">
+      <div className="flex-1 px-4 pb-3">
         <p className="text-xs text-muted-foreground line-clamp-2">{skill.description}</p>
       </div>
 
-      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
+      <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1 mt-auto">
         <Button
           size="sm"
           variant="ghost"
