@@ -42,28 +42,18 @@ const SkillsPage: React.FC = () => {
 
   return (
     <ScrollArea className="h-full">
-      <div className="py-8 px-4 md:px-6">
+      <div className="pt-14 pb-8 px-10 md:px-20">
         <div className="flex flex-col items-start gap-6">
           {/* Header */}
-          <div>
-            <h1 className="text-3xl font-semibold mb-2">Skills</h1>
-            <p className="text-muted-foreground max-w-2xl">
-              Manage your skills from the bundled catalog and other sources. Install bundled skills
-              or upload your own.
-            </p>
-          </div>
-
-          {/* Actions toolbar */}
-          <div className="flex items-center gap-3 w-full">
-            <h2 className="text-xl font-semibold">
-              All Skills{' '}
-              {!isSkillsLoading && (
-                <span className="text-muted-foreground font-normal">
-                  ({bundledCatalogSkills.length + availableSkills.filter((s) => !bundledCatalogSkills.some((b) => b.id === s.id)).length})
-                </span>
-              )}
-            </h2>
-            <div className="ml-auto flex gap-2">
+          <div className="flex items-start justify-between gap-4 w-full">
+            <div>
+              <h1 className="text-3xl font-semibold mb-2">Skills</h1>
+              <p className="text-muted-foreground max-w-2xl">
+                Manage your skills from the bundled catalog and other sources. Install bundled skills
+                or upload your own.
+              </p>
+            </div>
+            <div className="flex gap-2 shrink-0">
               <Button variant="outline" onClick={handleUploadClick} disabled={isUploadingSkill}>
                 <Plus className="h-4 w-4 mr-2" />
                 {isUploadingSkill ? 'Adding...' : 'Add Skill'}

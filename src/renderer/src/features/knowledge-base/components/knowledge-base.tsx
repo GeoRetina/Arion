@@ -178,14 +178,17 @@ function KnowledgeBase(): React.JSX.Element {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-4 md:px-6 py-8 shrink-0">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between px-10 md:px-20 pt-14 pb-4 shrink-0">
+        <div>
           <h1 className="text-3xl font-semibold mb-2">Knowledge Base</h1>
+          <p className="text-muted-foreground max-w-2xl">
+            Manage documents and workspace memories for RAG-powered AI assistance.
+          </p>
         </div>
       </div>
 
       <Tabs defaultValue="documents" className="flex-1 overflow-hidden">
-        <div className="px-4 md:px-6 pt-4">
+        <div className="px-10 md:px-20">
           <TabsList>
             <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="workspace-memories">Workspace Memories</TabsTrigger>
@@ -193,9 +196,9 @@ function KnowledgeBase(): React.JSX.Element {
         </div>
 
         <TabsContent value="documents" className="overflow-hidden h-full">
-          <div className="flex h-full overflow-hidden">
+          <div className="flex h-full overflow-hidden px-10 md:px-20">
             {/* Folder sidebar */}
-            <div className="w-64 p-4 shrink-0">
+            <div className="w-64 pt-6 pb-4 pr-4 shrink-0">
               <FolderManager
                 folders={folders}
                 currentFolderId={currentFolderId}
@@ -259,7 +262,7 @@ function KnowledgeBase(): React.JSX.Element {
         </TabsContent>
 
         <TabsContent value="workspace-memories" className="overflow-hidden h-full">
-          <div className="flex-1 p-6 flex flex-col overflow-auto h-full">
+          <div className="flex-1 p-6 px-10 md:px-20 flex flex-col overflow-auto h-full">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Workspace Memories</h2>
               <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">

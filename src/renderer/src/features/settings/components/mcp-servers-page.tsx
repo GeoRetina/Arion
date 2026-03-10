@@ -8,7 +8,7 @@ export default function McpServersPage(): React.JSX.Element {
       {/* ScrollAreaViewport is implicitly created by ScrollArea but we manage its direct child for width */}
       {/* This div allows its children to define its minimum width, enabling horizontal scroll. */}
       {/* Padding is applied here to be part of the scrollable content. */}
-      <div style={{ minWidth: 'max-content' }} className="py-8 px-4 md:px-6">
+      <div style={{ minWidth: 'max-content' }} className="pt-14 pb-8 px-10 md:px-20">
         <div className="flex flex-col items-start gap-8">
           <div>
             <h1 className="text-3xl font-semibold mb-2">MCP Servers</h1>

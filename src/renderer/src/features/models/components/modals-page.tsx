@@ -273,7 +273,7 @@ export default function ModelsPage(): React.JSX.Element {
 
   return (
     <ScrollArea className="h-full">
-      <div className="py-8 px-4 md:px-6">
+      <div className="pt-14 pb-8 px-10 md:px-20">
         <div className="flex flex-col items-start gap-6">
           <div>
             <h1 className="text-3xl font-semibold mb-2">AI Models</h1>

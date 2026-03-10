@@ -53,11 +53,11 @@ export function WorkspaceMemoriesTable({
   const sortedMemories = [...memories].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
   return (
-    <ScrollArea className="max-h-[320px] rounded-md border">
+    <ScrollArea className="max-h-80 rounded-md border">
       <Table>
         <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
-            <TableHead className="w-[120px]">Scope</TableHead>
+            <TableHead className="w-[120px] pl-6">Scope</TableHead>
             <TableHead className="w-[140px]">Type</TableHead>
             <TableHead>Summary</TableHead>
             <TableHead className="w-[180px]">Source</TableHead>
@@ -76,7 +76,7 @@ export function WorkspaceMemoriesTable({
           ) : (
             sortedMemories.map((memory) => (
               <TableRow key={memory.id}>
-                <TableCell>
+                <TableCell className="pl-6">
                   <Badge variant={memory.scope === 'global' ? 'default' : 'secondary'}>
                     {memory.scope === 'global' ? 'Global' : 'Chat'}
                   </Badge>

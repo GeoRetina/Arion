@@ -455,7 +455,7 @@ const ConnectorsPage: React.FC = () => {
 
   return (
     <ScrollArea className="h-full">
-      <div className="py-8 px-4 md:px-6">
+      <div className="pt-14 pb-8 px-10 md:px-20">
         <div className="flex flex-col items-start gap-6 pb-8">
           <div>
             <h1 className="text-3xl font-semibold mb-2">Connectors</h1>
@@ -572,7 +572,7 @@ const ConnectorsPage: React.FC = () => {
               onValueChange={(value) => setActiveTab(value as typeof activeTab)}
               className="w-full space-y-4"
             >
-              <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsList>
                 <TabsTrigger value="data-sources">Data Sources</TabsTrigger>
                 <TabsTrigger value="platforms">Platforms</TabsTrigger>
               </TabsList>
