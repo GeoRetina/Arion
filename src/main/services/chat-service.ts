@@ -12,11 +12,12 @@ import {
   type StreamingCallbacks,
   type StructuredExecutionResult
 } from './streaming-handler-service'
+import type { ChatReasoningConfig } from '../../shared/ipc-types'
 
 // Interface for the request body from the renderer
 interface ChatRequestBody {
   messages: ModelMessage[] // Using ModelMessage from 'ai' SDK
-  // Potentially other properties like model, id, etc. depending on useChat configuration
+  reasoningConfig?: ChatReasoningConfig
 }
 
 interface ToolOutcomeCapture {
@@ -284,7 +285,9 @@ export class ChatService {
         messages: processedMessages,
         system: finalSystemPrompt || '',
         tools: combinedTools,
-        providerId: llmConfig.provider
+        providerId: llmConfig.provider,
+        modelId: llmConfig.model,
+        reasoningCapabilityOverride: llmConfig.reasoningCapabilityOverride
       })
 
       await this.llmToolService.emitLifecycleHook('llm_output', {
@@ -348,7 +351,7 @@ export class ChatService {
   async handleSendMessageStream(
     body: ChatRequestBody & { id?: string; agentId?: string }
   ): Promise<Uint8Array[]> {
-    const { messages: rendererMessages, agentId } = body
+    const { messages: rendererMessages, agentId, reasoningConfig } = body
     const chatId = body.id
 
     // Set the chat ID in the LlmToolService for permission tracking
@@ -480,7 +483,10 @@ export class ChatService {
         system: finalSystemPrompt || '',
         tools: combinedTools,
         providerId: llmConfig.provider,
-        modelId: llmConfig.model
+        modelId: llmConfig.model,
+        reasoningEffort: reasoningConfig?.effort,
+        reasoningBudgetPreset: reasoningConfig?.budgetPreset,
+        reasoningCapabilityOverride: llmConfig.reasoningCapabilityOverride
       })
       await this.llmToolService.emitLifecycleHook('llm_output', {
         chatId: chatId || null,
@@ -531,7 +537,7 @@ export class ChatService {
     callbacks: StreamingCallbacks,
     abortSignal?: AbortSignal
   ): Promise<void> {
-    const { messages: rendererMessages, agentId } = body
+    const { messages: rendererMessages, agentId, reasoningConfig } = body
     const chatId = body.id
 
     // Set the chat ID in the LlmToolService for permission tracking
@@ -653,6 +659,9 @@ export class ChatService {
           tools: combinedTools,
           providerId: llmConfig.provider,
           modelId: llmConfig.model,
+          reasoningEffort: reasoningConfig?.effort,
+          reasoningBudgetPreset: reasoningConfig?.budgetPreset,
+          reasoningCapabilityOverride: llmConfig.reasoningCapabilityOverride,
           abortSignal
         },
         wrappedCallbacks

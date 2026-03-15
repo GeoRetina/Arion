@@ -3,6 +3,10 @@
  */
 
 export { extractReasoningFromText } from '../../shared/utils/reasoning-text'
+import {
+  getModelReasoningCapabilities,
+  type ReasoningCapabilityOverride
+} from '../../shared/utils/model-capabilities'
 
 export interface ReasoningModelInfo {
   isReasoningModel: boolean
@@ -14,20 +18,13 @@ export interface ReasoningModelInfo {
 /**
  * Detects if a model is likely a reasoning model based on its ID
  */
-export function detectReasoningModel(modelId: string | undefined): boolean {
-  if (!modelId) return false
-
-  const modelLower = modelId.toLowerCase()
-  const reasoningModelPatterns = [
-    'reasoning',
-    'think',
-    'thought',
-    'chain-of-thought',
-    'cot',
-    'reflection'
-  ]
-
-  return reasoningModelPatterns.some((pattern) => modelLower.includes(pattern))
+export function detectReasoningModel(
+  modelId: string | undefined,
+  providerId?: string | undefined,
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
+): boolean {
+  return getModelReasoningCapabilities(providerId, modelId, reasoningCapabilityOverride)
+    .isReasoningModel
 }
 
 /**
@@ -35,9 +32,10 @@ export function detectReasoningModel(modelId: string | undefined): boolean {
  */
 export function shouldDisableToolsForReasoningModel(
   modelId: string | undefined,
-  providerId: string | undefined
+  providerId: string | undefined,
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
 ): ReasoningModelInfo {
-  const isReasoningModel = detectReasoningModel(modelId)
+  const isReasoningModel = detectReasoningModel(modelId, providerId, reasoningCapabilityOverride)
 
   // Tools are enabled for all providers including Ollama
   // User confirmed their model supports tool calling

@@ -6,24 +6,25 @@ import {
 } from './reasoning-model-detector'
 
 describe('detectReasoningModel', () => {
-  it('detects reasoning-like model names', () => {
-    expect(detectReasoningModel('deep-think-model')).toBe(true)
-    expect(detectReasoningModel('reflection-v2')).toBe(true)
-    expect(detectReasoningModel('chain-of-thought-pro')).toBe(true)
+  it('detects provider-specific reasoning models', () => {
+    expect(detectReasoningModel('o3', 'openai')).toBe(true)
+    expect(detectReasoningModel('gemini-3-pro-preview', 'google')).toBe(true)
+    expect(detectReasoningModel('claude-3-7-sonnet-latest', 'anthropic')).toBe(true)
+    expect(detectReasoningModel('prod-eastus', 'azure', 'reasoning')).toBe(true)
   })
 
   it('returns false for undefined or unrelated models', () => {
     expect(detectReasoningModel(undefined)).toBe(false)
-    expect(detectReasoningModel('gpt-4o-mini')).toBe(false)
+    expect(detectReasoningModel('gpt-4o-mini', 'openai')).toBe(false)
   })
 })
 
 describe('shouldDisableToolsForReasoningModel', () => {
   it('returns structured reasoning metadata without disabling tools', () => {
-    expect(shouldDisableToolsForReasoningModel('thinker-1', 'openai')).toEqual({
+    expect(shouldDisableToolsForReasoningModel('o3', 'openai')).toEqual({
       isReasoningModel: true,
       shouldDisableTools: false,
-      modelId: 'thinker-1',
+      modelId: 'o3',
       providerId: 'openai'
     })
   })

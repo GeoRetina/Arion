@@ -13,6 +13,11 @@ import {
   extractReasoningFromText,
   isToolSchemaError
 } from './reasoning-model-detector'
+import type {
+  ReasoningCapabilityOverride,
+  ReasoningBudgetPreset,
+  ReasoningEffort
+} from '../../shared/utils/model-capabilities'
 
 export interface StreamingCallbacks {
   onChunk: (chunk: Uint8Array) => void
@@ -28,6 +33,9 @@ export interface StreamingOptions {
   maxSteps?: number
   providerId?: string // Add provider ID for reasoning detection
   modelId?: string // V5: LanguageModel no longer guarantees a modelId property
+  reasoningEffort?: ReasoningEffort
+  reasoningBudgetPreset?: ReasoningBudgetPreset
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
   abortSignal?: AbortSignal
 }
 
@@ -159,7 +167,11 @@ export class StreamingHandlerService {
   ): Promise<void> {
     try {
       // Detect reasoning model and determine tool compatibility
-      const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
+      const reasoningInfo = shouldDisableToolsForReasoningModel(
+        options.modelId,
+        options.providerId,
+        options.reasoningCapabilityOverride
+      )
 
       let streamTextOptions: Parameters<typeof streamText>[0] = {
         model: options.model,
@@ -194,7 +206,16 @@ export class StreamingHandlerService {
       }
 
       // Centralized provider-specific reasoning options
-      streamTextOptions = applyReasoningProviderOptions(options.providerId, streamTextOptions)
+      streamTextOptions = applyReasoningProviderOptions(
+        {
+          providerId: options.providerId,
+          modelId: options.modelId,
+          reasoningEffort: options.reasoningEffort,
+          reasoningBudgetPreset: options.reasoningBudgetPreset,
+          reasoningCapabilityOverride: options.reasoningCapabilityOverride
+        },
+        streamTextOptions
+      )
 
       // Execute the streamText call and handle stream events in real-time
       let result
@@ -249,7 +270,11 @@ export class StreamingHandlerService {
    */
   private buildStreamTextOptions(options: StreamingOptions): Parameters<typeof streamText>[0] {
     // Detect reasoning model and determine tool compatibility
-    const reasoningInfo = shouldDisableToolsForReasoningModel(options.modelId, options.providerId)
+    const reasoningInfo = shouldDisableToolsForReasoningModel(
+      options.modelId,
+      options.providerId,
+      options.reasoningCapabilityOverride
+    )
 
     let streamTextOptions: Parameters<typeof streamText>[0] = {
       model: options.model,
@@ -267,7 +292,16 @@ export class StreamingHandlerService {
     }
 
     // Centralized provider-specific reasoning options
-    streamTextOptions = applyReasoningProviderOptions(options.providerId, streamTextOptions)
+    streamTextOptions = applyReasoningProviderOptions(
+      {
+        providerId: options.providerId,
+        modelId: options.modelId,
+        reasoningEffort: options.reasoningEffort,
+        reasoningBudgetPreset: options.reasoningBudgetPreset,
+        reasoningCapabilityOverride: options.reasoningCapabilityOverride
+      },
+      streamTextOptions
+    )
 
     return streamTextOptions
   }

@@ -85,6 +85,7 @@ export const initializeSettingsDatabase = (db: Database.Database): void => {
         model TEXT,
         endpoint TEXT, 
         deploymentName TEXT,
+        reasoningCapabilityOverride TEXT,
         project TEXT,
         location TEXT,
         baseURL TEXT
@@ -123,6 +124,14 @@ export const initializeSettingsDatabase = (db: Database.Database): void => {
 
   try {
     db.exec('ALTER TABLE llm_configs ADD COLUMN baseURL TEXT;')
+  } catch (error: unknown) {
+    if (!isDuplicateColumnError(error)) {
+      void 0
+    }
+  }
+
+  try {
+    db.exec('ALTER TABLE llm_configs ADD COLUMN reasoningCapabilityOverride TEXT;')
   } catch (error: unknown) {
     if (!isDuplicateColumnError(error)) {
       void 0

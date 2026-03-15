@@ -6,6 +6,11 @@ import {
   FormattableProviderConfig
 } from '@/constants/llm-providers'
 import type { LLMProviderType } from '../../../../../shared/ipc-types'
+import {
+  getModelReasoningCapabilities,
+  type ModelReasoningCapabilities,
+  type ReasoningCapabilityOverride
+} from '../../../../../shared/utils/model-capabilities'
 
 export const useProviderConfiguration = (
   stableChatIdForUseChat: string | null
@@ -15,6 +20,8 @@ export const useProviderConfiguration = (
     name: string
     isConfigured: boolean
     isActive: boolean
+    modelId: string | null
+    reasoningCapabilities: ModelReasoningCapabilities
   }[]
   activeProvider: LLMProviderType | null
   setActiveProvider: (provider: LLMProviderType | null) => void
@@ -47,6 +54,7 @@ export const useProviderConfiguration = (
       const configured = isConfigured(providerId)
       const active = activeProvider === providerId
       let providerConfig: FormattableProviderConfig | undefined = undefined
+      let reasoningCapabilityOverride: ReasoningCapabilityOverride | undefined
 
       // Get the correct config for the provider
       switch (providerId) {
@@ -58,6 +66,7 @@ export const useProviderConfiguration = (
           break
         case 'azure':
           providerConfig = azureConfig
+          reasoningCapabilityOverride = azureConfig.reasoningCapabilityOverride ?? undefined
           break
         case 'anthropic':
           providerConfig = anthropicConfig
@@ -71,12 +80,22 @@ export const useProviderConfiguration = (
       }
 
       const name = getFormattedProviderName(providerId, providerConfig, configured)
+      const modelId =
+        providerId === 'azure'
+          ? (providerConfig?.deploymentName ?? null)
+          : (providerConfig?.model ?? null)
 
       return {
         id: providerId,
         name,
         isConfigured: configured,
-        isActive: active
+        isActive: active,
+        modelId,
+        reasoningCapabilities: getModelReasoningCapabilities(
+          providerId,
+          modelId ?? undefined,
+          reasoningCapabilityOverride
+        )
       }
     })
   }, [

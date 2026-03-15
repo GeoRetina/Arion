@@ -3,14 +3,18 @@ import { Check, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Arrow as PopoverArrow } from '@radix-ui/react-popover'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LLMProvider } from '@/stores/llm-store'
 import { PROVIDER_LOGOS } from '@/constants/llm-providers'
+import type { ModelReasoningCapabilities } from '../../../../../../shared/utils/model-capabilities'
 
 export interface ProviderOption {
   id: NonNullable<LLMProvider>
   name: string
   isConfigured: boolean
   isActive: boolean
+  modelId: string | null
+  reasoningCapabilities: ModelReasoningCapabilities
 }
 
 interface ModelSelectorProps {
@@ -43,37 +47,48 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`group h-8 px-2.5 rounded-md bg-transparent hover:bg-secondary/50 flex items-center gap-2 transition-colors
-            border-0 shadow-none
-            max-w-42
-            ${activeProvider ? 'text-foreground' : 'text-muted-foreground'}`}
-        >
-          {activeProvider ? (
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-4 h-4 rounded-sm flex items-center justify-center shrink-0">
-                <img
-                  src={PROVIDER_LOGOS[activeProvider]}
-                  alt=""
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <span className="font-medium text-xs truncate">{displayActiveModelName}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-sm flex items-center justify-center opacity-70">
-                <img src={PROVIDER_LOGOS.openai} alt="" className="w-full h-full object-contain" />
-              </div>
-              <span className="text-xs">Select Model</span>
-            </div>
-          )}
-          <ChevronDown className="h-3 w-3 text-foreground/50 ml-1" />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`group h-8 px-2.5 rounded-md bg-transparent hover:bg-secondary/50 flex items-center gap-2 transition-colors
+                border-0 shadow-none
+                max-w-42
+                ${activeProvider ? 'text-foreground' : 'text-muted-foreground'}`}
+            >
+              {activeProvider ? (
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center shrink-0">
+                    <img
+                      src={PROVIDER_LOGOS[activeProvider]}
+                      alt=""
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span className="font-medium text-xs truncate">{displayActiveModelName}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-sm flex items-center justify-center opacity-70">
+                    <img
+                      src={PROVIDER_LOGOS.openai}
+                      alt=""
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <span className="text-xs">Select Model</span>
+                </div>
+              )}
+              <ChevronDown className="h-3 w-3 text-foreground/50 ml-1" />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>{activeProvider ? 'Change model' : 'Select model'}</p>
+        </TooltipContent>
+      </Tooltip>
 
       <PopoverContent
         className="w-64 min-h-32 overflow-hidden rounded-lg border border-border bg-popover p-0 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"

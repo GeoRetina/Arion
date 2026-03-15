@@ -1,4 +1,5 @@
 import { LLMProvider } from '@/stores/llm-store'
+import type { ReasoningCapabilityOverride } from '../../../shared/utils/model-capabilities'
 
 // Define the list of LLM providers supported by the UI
 export const SUPPORTED_LLM_PROVIDERS: NonNullable<LLMProvider>[] = [
@@ -51,6 +52,7 @@ export const PROVIDER_BACKGROUNDS: Record<NonNullable<LLMProvider>, string> = {
 export type FormattableProviderConfig = {
   model?: string | null
   deploymentName?: string | null // Specifically for Azure
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
   // Add any other properties used in name formatting here
 }
 

@@ -9,10 +9,12 @@ import { createOllama } from '../providers/ollama'
 import { SettingsService } from './settings-service'
 import { AgentRegistryService } from './agent-registry-service'
 import { detectReasoningModel } from './reasoning-model-detector'
+import type { ReasoningCapabilityOverride } from '../../shared/utils/model-capabilities'
 
 export interface LLMProviderConfig {
   provider: string
   model: string
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
 }
 
 export class LLMProviderFactory {
@@ -97,7 +99,16 @@ export class LLMProviderFactory {
       )
     }
 
-    return { provider, model }
+    let reasoningCapabilityOverride: ReasoningCapabilityOverride | null | undefined = undefined
+
+    if (provider === 'azure') {
+      const azureConfig = await this.settingsService.getAzureConfig()
+      if (azureConfig?.deploymentName === model) {
+        reasoningCapabilityOverride = azureConfig.reasoningCapabilityOverride ?? 'auto'
+      }
+    }
+
+    return { provider, model, reasoningCapabilityOverride }
   }
 
   /**
@@ -258,7 +269,7 @@ export class LLMProviderFactory {
     const ollamaProvider = createOllama({ baseURL })
 
     // Keep behavior: wrap simulate streaming for non-reasoning models only
-    const isReasoningModel = detectReasoningModel(model)
+    const isReasoningModel = detectReasoningModel(model, 'ollama')
     if (!isReasoningModel) {
       return wrapLanguageModel({
         model: ollamaProvider(model as Parameters<typeof ollamaProvider>[0]),

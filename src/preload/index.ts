@@ -51,6 +51,7 @@ import {
   type SetMapSidebarVisibilityPayload,
   type AddGeoreferencedImageLayerPayload,
   type KnowledgeBaseApi,
+  type ChatRequestBodyForPreload,
   type KBAddDocumentPayload,
   type KBAddDocumentResult,
   type UpdateWorkspaceMemoryPayload,
@@ -119,9 +120,8 @@ import type {
 
 // This ChatRequestBody is specific to preload, using @ai-sdk/react UIMessage
 import type { UIMessage } from '@ai-sdk/react'
-interface PreloadChatRequestBody {
+type PreloadChatRequestBody = ChatRequestBodyForPreload & {
   messages: UIMessage[]
-  // other potential fields from useChat body
 }
 
 // Add EventEmitter for streaming support
