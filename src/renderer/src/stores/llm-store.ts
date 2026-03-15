@@ -5,6 +5,7 @@ import type {
   OllamaConfig,
   EmbeddingConfig
 } from '../../../shared/ipc-types'
+import type { ReasoningCapabilityOverride } from '../../../shared/utils/model-capabilities'
 import {
   DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
   DEFAULT_EMBEDDING_PROVIDER
@@ -18,6 +19,7 @@ export interface LLMConfig {
   model?: string | null
   endpoint?: string | null
   deploymentName?: string | null
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
   project?: string | null
   location?: string | null
   baseURL?: string | null
@@ -39,7 +41,12 @@ interface LLMStoreState {
   setActiveProvider: (provider: LLMProvider | null) => void
   setOpenAIConfig: (config: { apiKey: string; model: string }) => void
   setGoogleConfig: (config: { apiKey: string; model: string }) => void
-  setAzureConfig: (config: { apiKey: string; endpoint: string; deploymentName: string }) => void
+  setAzureConfig: (config: {
+    apiKey: string
+    endpoint: string
+    deploymentName: string
+    reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
+  }) => void
   setAnthropicConfig: (config: { apiKey: string; model: string }) => void
   setVertexConfig: (config: VertexConfig) => void
   setOllamaConfig: (config: OllamaConfig) => void
@@ -53,6 +60,7 @@ const initialConfig: LLMConfig = {
   model: null,
   endpoint: null,
   deploymentName: null,
+  reasoningCapabilityOverride: null,
   project: null,
   location: null,
   baseURL: null
@@ -124,7 +132,8 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
               ...initialConfig,
               endpoint: allConfigs.azure.endpoint,
               deploymentName: allConfigs.azure.deploymentName,
-              hasApiKey: allConfigs.azure.hasApiKey
+              hasApiKey: allConfigs.azure.hasApiKey,
+              reasoningCapabilityOverride: allConfigs.azure.reasoningCapabilityOverride ?? 'auto'
             }
           : { ...initialConfig }
         const anthropicConfig: LLMConfig = allConfigs.anthropic
@@ -264,6 +273,7 @@ export const useLLMStore = create<LLMStoreState>((set, get) => ({
         ...state.azureConfig,
         endpoint: config.endpoint,
         deploymentName: config.deploymentName,
+        reasoningCapabilityOverride: config.reasoningCapabilityOverride ?? 'auto',
         apiKey: null,
         hasApiKey: true
       }

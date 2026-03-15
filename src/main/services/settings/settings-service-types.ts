@@ -1,9 +1,11 @@
+import type { ReasoningCapabilityOverride } from '../../../shared/utils/model-capabilities'
 import type { McpServerConfig } from '../../../shared/ipc-types'
 
 export interface StoredLLMConfig {
   model?: string | null
   endpoint?: string | null
   deploymentName?: string | null
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
   project?: string | null
   location?: string | null
   baseURL?: string | null

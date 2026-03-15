@@ -6,6 +6,7 @@ import { MentionService, type MessageContent } from '../services/mention-service
 import { ProductionDataSourceResolver } from '../services/data-source-resolver'
 import type { KnowledgeBaseService } from '../services/knowledge-base-service'
 import type { LayerDbManagerLike } from '../services/data-source-resolver'
+import type { ChatReasoningConfig } from '../../shared/ipc-types'
 
 // Initialize mention processing services
 const mentionService = MentionService.getInstance()
@@ -121,6 +122,7 @@ export function registerChatIpcHandlers(
       messages?: RendererMessageLike[]
       model?: string
       agentId?: string
+      reasoningConfig?: ChatReasoningConfig
     }
     try {
       parsedBody = JSON.parse(jsonBodyString)
@@ -231,6 +233,7 @@ export function registerChatIpcHandlers(
       messages?: RendererMessageLike[]
       model?: string
       agentId?: string
+      reasoningConfig?: ChatReasoningConfig
     }
     try {
       parsedBody = JSON.parse(jsonBodyString)

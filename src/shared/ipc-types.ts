@@ -6,6 +6,11 @@ import type {
   UpdateAgentParams,
   AgentCapability
 } from './types/agent-types'
+import type {
+  ReasoningCapabilityOverride,
+  ReasoningBudgetPreset,
+  ReasoningEffort
+} from './utils/model-capabilities'
 export type {
   AgentDefinition,
   AgentRegistryEntry,
@@ -136,12 +141,14 @@ export interface AzureConfig {
   apiKey: string
   endpoint: string
   deploymentName: string
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
 }
 
 export interface AzureConfigForRenderer {
   endpoint: string
   deploymentName: string
   hasApiKey: boolean
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
 }
 
 export interface AnthropicConfig {
@@ -695,9 +702,14 @@ export interface SettingsApi {
 }
 
 // Type for the Chat API arguments and return type
+export interface ChatReasoningConfig {
+  effort?: ReasoningEffort
+  budgetPreset?: ReasoningBudgetPreset
+}
+
 export interface ChatRequestBodyForPreload {
   messages: unknown[] // Can be refined to @ai-sdk/react UIMessage[] if needed
-  // other potential fields from useChat body
+  reasoningConfig?: ChatReasoningConfig
 }
 
 export interface ChatApi {

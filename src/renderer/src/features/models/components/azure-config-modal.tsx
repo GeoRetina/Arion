@@ -4,6 +4,13 @@ import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -15,6 +22,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { KeyRound, Server, Globe, Info } from 'lucide-react'
 import { useLLMStore } from '@/stores/llm-store'
+import type { ReasoningCapabilityOverride } from '../../../../../shared/utils/model-capabilities'
 
 interface AzureConfigModalProps {
   isOpen: boolean
@@ -31,26 +39,29 @@ export default function AzureConfigModal({
   const [apiKey, setApiKey] = useState('')
   const [endpoint, setEndpoint] = useState('')
   const [deploymentName, setDeploymentName] = useState('')
+  const [reasoningCapabilityOverride, setReasoningCapabilityOverride] =
+    useState<ReasoningCapabilityOverride>('auto')
 
   useEffect(() => {
     if (isOpen) {
       setApiKey(azureConfig.apiKey || '')
       setEndpoint(azureConfig.endpoint || '')
       setDeploymentName(azureConfig.deploymentName || '')
+      setReasoningCapabilityOverride(azureConfig.reasoningCapabilityOverride ?? 'auto')
     }
     return () => {
       if (!isOpen) {
         setApiKey('')
         setEndpoint('')
         setDeploymentName('')
+        setReasoningCapabilityOverride('auto')
       }
     }
   }, [azureConfig, isOpen])
 
   const handleSave = (): void => {
     if (apiKey.trim() && endpoint.trim() && deploymentName.trim()) {
-      setAzureConfig({ apiKey, endpoint, deploymentName })
-      // TODO: Persist to main process via IPC
+      setAzureConfig({ apiKey, endpoint, deploymentName, reasoningCapabilityOverride })
       onClose()
     }
   }
@@ -145,6 +156,36 @@ export default function AzureConfigModal({
                     Azure Documentation
                   </a>
                   .
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="azureReasoningOverride" className="font-medium">
+                Reasoning Detection
+              </Label>
+              <Select
+                value={reasoningCapabilityOverride}
+                onValueChange={(value) =>
+                  setReasoningCapabilityOverride(value as ReasoningCapabilityOverride)
+                }
+              >
+                <SelectTrigger id="azureReasoningOverride">
+                  <SelectValue placeholder="Select reasoning detection mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto detect (recommended)</SelectItem>
+                  <SelectItem value="reasoning">Reasoning deployment</SelectItem>
+                  <SelectItem value="standard">Standard deployment</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                <p>
+                  Auto detect uses the deployment name. If your Azure deployment is an alias like
+                  <span className="font-mono mx-1">prod-eastus</span>
+                  instead of the base model family, switch to a manual override so the chat input
+                  can show the correct reasoning controls.
                 </p>
               </div>
             </div>

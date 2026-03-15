@@ -36,6 +36,12 @@ import { useScrollReset } from '../hooks/use-scroll-reset'
 import { useReasoningNotification } from '../hooks/use-reasoning-notification'
 import { useChatController } from '../hooks/use-chat-controller'
 import { hasRenderableAssistantContent } from '../utils/message-part-utils'
+import {
+  resolveReasoningBudgetPreset,
+  resolveReasoningEffort,
+  type ReasoningBudgetPreset,
+  type ReasoningEffort
+} from '../../../../../shared/utils/model-capabilities'
 
 export default function ChatInterface(): React.JSX.Element {
   // Use extracted custom hooks
@@ -59,6 +65,12 @@ export default function ChatInterface(): React.JSX.Element {
 
   const { availableProvidersForInput, activeProvider, setActiveProvider, isConfigured } =
     useProviderConfiguration(stableChatIdForUseChat || null)
+  const [reasoningEffortByModel, setReasoningEffortByModel] = useState<
+    Record<string, ReasoningEffort>
+  >({})
+  const [reasoningBudgetPresetByModel, setReasoningBudgetPresetByModel] = useState<
+    Record<string, ReasoningBudgetPreset>
+  >({})
 
   const pendingExternalRuntimeApproval = useExternalRuntimeStore((state) => {
     if (stableChatIdForUseChat) {
@@ -126,6 +138,74 @@ export default function ChatInterface(): React.JSX.Element {
   }, [stableChatIdForUseChat, loadExternalRuntimeRuns])
 
   const displayMessages = useMemo(() => sdkMessages, [sdkMessages])
+  const activeProviderOption = useMemo(
+    () =>
+      activeProvider
+        ? availableProvidersForInput.find((provider) => provider.id === activeProvider) || null
+        : null,
+    [activeProvider, availableProvidersForInput]
+  )
+  const activeReasoningPreferenceKey = useMemo(() => {
+    if (!activeProviderOption?.modelId) {
+      return null
+    }
+
+    return `${activeProviderOption.id}:${activeProviderOption.modelId}`
+  }, [activeProviderOption])
+  const availableReasoningEfforts = useMemo(() => {
+    if (!activeProviderOption?.reasoningCapabilities.supportsReasoningEffort) {
+      return []
+    }
+
+    return activeProviderOption.reasoningCapabilities.reasoningEffortValues ?? []
+  }, [activeProviderOption])
+  const availableReasoningBudgetPresets = useMemo(() => {
+    if (!activeProviderOption?.reasoningCapabilities.supportsReasoningBudgetPresets) {
+      return []
+    }
+
+    return activeProviderOption.reasoningCapabilities.reasoningBudgetPresetValues ?? []
+  }, [activeProviderOption])
+  const selectedReasoningEffort = useMemo(() => {
+    if (
+      !activeProviderOption?.reasoningCapabilities.supportsReasoningEffort ||
+      !activeReasoningPreferenceKey ||
+      availableReasoningEfforts.length === 0
+    ) {
+      return null
+    }
+
+    const preferredEffort = reasoningEffortByModel[activeReasoningPreferenceKey]
+    return (
+      resolveReasoningEffort(activeProviderOption.reasoningCapabilities, preferredEffort) ?? null
+    )
+  }, [
+    activeProviderOption,
+    activeReasoningPreferenceKey,
+    availableReasoningEfforts,
+    reasoningEffortByModel
+  ])
+  const selectedReasoningBudgetPreset = useMemo(() => {
+    if (
+      !activeProviderOption?.reasoningCapabilities.supportsReasoningBudgetPresets ||
+      !activeReasoningPreferenceKey ||
+      availableReasoningBudgetPresets.length === 0
+    ) {
+      return null
+    }
+
+    const preferredPreset = reasoningBudgetPresetByModel[activeReasoningPreferenceKey]
+
+    return (
+      resolveReasoningBudgetPreset(activeProviderOption.reasoningCapabilities, preferredPreset) ??
+      null
+    )
+  }, [
+    activeProviderOption,
+    activeReasoningPreferenceKey,
+    availableReasoningBudgetPresets,
+    reasoningBudgetPresetByModel
+  ])
 
   const displayIsLoading = isStreamingUi
   const lastDisplayMessage = displayMessages.at(-1) ?? null
@@ -163,7 +243,21 @@ export default function ChatInterface(): React.JSX.Element {
     // If an active provider is configured, send the message using v5 sendMessage
     if (input && input.trim()) {
       setIsStreamingUi(true)
-      chat.sendMessage({ text: input })
+      void chat.sendMessage(
+        { text: input },
+        selectedReasoningEffort || selectedReasoningBudgetPreset
+          ? {
+              body: {
+                reasoningConfig: {
+                  ...(selectedReasoningEffort ? { effort: selectedReasoningEffort } : {}),
+                  ...(selectedReasoningBudgetPreset
+                    ? { budgetPreset: selectedReasoningBudgetPreset }
+                    : {})
+                }
+              }
+            }
+          : undefined
+      )
       setInput('')
     }
   }
@@ -227,6 +321,30 @@ export default function ChatInterface(): React.JSX.Element {
               availableProviders={availableProvidersForInput}
               activeProvider={activeProvider}
               onSelectProvider={setActiveProvider}
+              selectedReasoningEffort={selectedReasoningEffort}
+              availableReasoningBudgetPresets={availableReasoningBudgetPresets}
+              selectedReasoningBudgetPreset={selectedReasoningBudgetPreset}
+              availableReasoningEfforts={availableReasoningEfforts}
+              onReasoningEffortChange={(effort) => {
+                if (!activeReasoningPreferenceKey) {
+                  return
+                }
+
+                setReasoningEffortByModel((prev) => ({
+                  ...prev,
+                  [activeReasoningPreferenceKey]: effort
+                }))
+              }}
+              onReasoningBudgetPresetChange={(preset) => {
+                if (!activeReasoningPreferenceKey) {
+                  return
+                }
+
+                setReasoningBudgetPresetByModel((prev) => ({
+                  ...prev,
+                  [activeReasoningPreferenceKey]: preset
+                }))
+              }}
               isMapSidebarExpanded={isMapSidebarExpanded}
               onToggleMapSidebar={toggleMapSidebar}
               onOpenDatabase={handleOpenDatabase}

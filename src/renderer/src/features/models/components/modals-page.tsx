@@ -36,6 +36,10 @@ import {
   DEFAULT_EMBEDDING_MODEL_BY_PROVIDER
 } from '../../../../../shared/embedding-constants'
 import type { EmbeddingProviderType } from '../../../../../shared/ipc-types'
+import {
+  getModelReasoningCapabilities,
+  type ReasoningCapabilityOverride
+} from '../../../../../shared/utils/model-capabilities'
 
 export default function ModelsPage(): React.JSX.Element {
   // Modal open states
@@ -158,6 +162,7 @@ export default function ModelsPage(): React.JSX.Element {
   ): React.JSX.Element => {
     const configured = isConfigured(providerName)
     const modelName = config.model || config.deploymentName
+    const azureReasoningStatus = providerName === 'azure' ? getAzureReasoningStatus(config) : null
 
     return (
       <Card className="overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
@@ -185,12 +190,12 @@ export default function ModelsPage(): React.JSX.Element {
               {modelName}
             </Badge>
             {providerName === 'azure' && config.endpoint && (
-              <p
-                className="text-xs text-muted-foreground truncate mt-1"
-                title={config.endpoint}
-              >
+              <p className="text-xs text-muted-foreground truncate mt-1" title={config.endpoint}>
                 {config.endpoint}
               </p>
+            )}
+            {azureReasoningStatus && (
+              <p className="text-xs text-muted-foreground mt-1">{azureReasoningStatus}</p>
             )}
           </div>
         ) : (
@@ -454,4 +459,24 @@ type ProviderCardConfig = {
   model?: string | null
   deploymentName?: string | null
   endpoint?: string | null
+  reasoningCapabilityOverride?: ReasoningCapabilityOverride | null
+}
+
+function getAzureReasoningStatus(config: ProviderCardConfig): string | null {
+  if (!config.deploymentName) {
+    return null
+  }
+
+  const capabilities = getModelReasoningCapabilities(
+    'azure',
+    config.deploymentName,
+    config.reasoningCapabilityOverride
+  )
+
+  const sourceLabel = capabilities.source === 'manual' ? 'Manual override' : 'Automatic'
+  const modelTypeLabel = capabilities.isReasoningModel
+    ? 'reasoning deployment'
+    : 'standard deployment'
+
+  return `Reasoning detection: ${sourceLabel} (${modelTypeLabel})`
 }

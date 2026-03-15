@@ -13,6 +13,12 @@ import { MentionMenu } from './mention-menu'
 import { useMentionTrigger } from './use-mention-trigger'
 import { useMentionData, type MentionItem } from './use-mention-data'
 import { useAgentOrchestrationStore } from '@/stores/agent-orchestration-store'
+import { ReasoningEffortSelector } from './reasoning-effort-selector'
+import { ReasoningBudgetPresetSelector } from './reasoning-budget-preset-selector'
+import type {
+  ReasoningBudgetPreset,
+  ReasoningEffort
+} from '../../../../../../shared/utils/model-capabilities'
 
 interface ChatInputBoxProps {
   inputValue: string // Controlled input value from useChat
@@ -31,6 +37,12 @@ interface ChatInputBoxProps {
   availableProviders: ProviderOption[]
   activeProvider: LLMProvider | null // LLMProvider can be null if none is active
   onSelectProvider: (providerId: NonNullable<LLMProvider>) => void
+  selectedReasoningEffort?: ReasoningEffort | null
+  selectedReasoningBudgetPreset?: ReasoningBudgetPreset | null
+  availableReasoningEfforts?: readonly ReasoningEffort[]
+  availableReasoningBudgetPresets?: readonly ReasoningBudgetPreset[]
+  onReasoningEffortChange?: (effort: ReasoningEffort) => void
+  onReasoningBudgetPresetChange?: (preset: ReasoningBudgetPreset) => void
 
   // New props for map sidebar control
   isMapSidebarExpanded?: boolean
@@ -54,6 +66,12 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   availableProviders,
   activeProvider,
   onSelectProvider,
+  selectedReasoningEffort = null,
+  selectedReasoningBudgetPreset = null,
+  availableReasoningEfforts = [],
+  availableReasoningBudgetPresets = [],
+  onReasoningEffortChange,
+  onReasoningBudgetPresetChange,
   // New props for map sidebar control
   isMapSidebarExpanded = false,
   onToggleMapSidebar,
@@ -332,6 +350,28 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
               activeProvider={activeProvider}
               onSelectProvider={onSelectProvider}
             />
+
+            {selectedReasoningEffort &&
+              onReasoningEffortChange &&
+              availableReasoningEfforts.length > 0 && (
+                <ReasoningEffortSelector
+                  value={selectedReasoningEffort}
+                  availableValues={availableReasoningEfforts}
+                  onValueChange={onReasoningEffortChange}
+                  disabled={isStreaming}
+                />
+              )}
+
+            {selectedReasoningBudgetPreset &&
+              onReasoningBudgetPresetChange &&
+              availableReasoningBudgetPresets.length > 0 && (
+                <ReasoningBudgetPresetSelector
+                  value={selectedReasoningBudgetPreset}
+                  availableValues={availableReasoningBudgetPresets}
+                  onValueChange={onReasoningBudgetPresetChange}
+                  disabled={isStreaming}
+                />
+              )}
 
             {/* Map toggle button */}
             {onToggleMapSidebar && (

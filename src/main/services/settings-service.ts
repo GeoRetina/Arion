@@ -53,6 +53,7 @@ import {
   type McpServerConfigRow,
   type StoredLLMConfig
 } from './settings/settings-service-types'
+import { normalizeReasoningCapabilityOverride } from '../../shared/utils/model-capabilities'
 
 export class SettingsService {
   private db: Database.Database
@@ -108,11 +109,14 @@ export class SettingsService {
 
   async setAzureConfig(config: AzureConfig): Promise<void> {
     await this.setApiKey('azure', config.apiKey)
+    const reasoningCapabilityOverride = normalizeReasoningCapabilityOverride(
+      config.reasoningCapabilityOverride
+    )
     this.db
       .prepare(
-        'INSERT OR REPLACE INTO llm_configs (provider, model, endpoint, deploymentName) VALUES (?, ?, ?, ?)'
+        'INSERT OR REPLACE INTO llm_configs (provider, model, endpoint, deploymentName, reasoningCapabilityOverride) VALUES (?, ?, ?, ?, ?)'
       )
-      .run('azure', null, config.endpoint, config.deploymentName) // model is part of deployment for azure typically
+      .run('azure', null, config.endpoint, config.deploymentName, reasoningCapabilityOverride) // model is part of deployment for azure typically
   }
 
   async setAnthropicConfig(config: AnthropicConfig): Promise<void> {
@@ -149,7 +153,7 @@ export class SettingsService {
   private async getStoredConfig(provider: LLMProviderType): Promise<StoredLLMConfig | null> {
     const row = this.db
       .prepare(
-        'SELECT model, endpoint, deploymentName, project, location, baseURL FROM llm_configs WHERE provider = ?'
+        'SELECT model, endpoint, deploymentName, reasoningCapabilityOverride, project, location, baseURL FROM llm_configs WHERE provider = ?'
       )
       .get(provider) as StoredLLMConfig | undefined
     return row || null
@@ -180,7 +184,10 @@ export class SettingsService {
       return {
         apiKey,
         endpoint: storedConfig.endpoint,
-        deploymentName: storedConfig.deploymentName
+        deploymentName: storedConfig.deploymentName,
+        reasoningCapabilityOverride: normalizeReasoningCapabilityOverride(
+          storedConfig.reasoningCapabilityOverride
+        )
       }
     }
     return null
@@ -315,7 +322,10 @@ export class SettingsService {
     return {
       endpoint: storedConfig.endpoint,
       deploymentName: storedConfig.deploymentName,
-      hasApiKey: await this.hasApiKey('azure')
+      hasApiKey: await this.hasApiKey('azure'),
+      reasoningCapabilityOverride: normalizeReasoningCapabilityOverride(
+        storedConfig.reasoningCapabilityOverride
+      )
     }
   }
 
