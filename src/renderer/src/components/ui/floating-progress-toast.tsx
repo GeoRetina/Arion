@@ -15,7 +15,7 @@ export const FloatingProgressToast: React.FC<FloatingProgressToastProps> = ({ st
   const progress = clampProgress(state.progress)
 
   return (
-    <div className="w-[300px] rounded-md border border-border bg-background/95 p-3 shadow-lg backdrop-blur">
+    <div className="w-75 rounded-md border border-border bg-background/95 p-3 shadow-lg backdrop-blur">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-primary" />
