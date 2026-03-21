@@ -28,6 +28,7 @@ import {
   ConnectorPolicyConfig
 } from '../../shared/ipc-types'
 import {
+  ACTIVE_EXTERNAL_RUNTIME_ID_KEY,
   DEFAULT_EMBEDDING_CONFIG,
   DEFAULT_NORMALIZED_CONNECTOR_POLICY_CONFIG,
   DEFAULT_PLUGIN_PLATFORM_CONFIG,
@@ -623,5 +624,40 @@ export class SettingsService {
     } catch {
       return cloneCodexConfig(DEFAULT_CODEX_CONFIG)
     }
+  }
+
+  async getSetting(key: string): Promise<unknown> {
+    const normalizedKey = key.trim()
+    if (!normalizedKey) {
+      return undefined
+    }
+
+    const row = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get(normalizedKey) as { value: string } | undefined
+
+    if (!row) {
+      if (normalizedKey === ACTIVE_EXTERNAL_RUNTIME_ID_KEY) {
+        return null
+      }
+      return undefined
+    }
+
+    try {
+      return JSON.parse(row.value)
+    } catch {
+      return undefined
+    }
+  }
+
+  async setSetting(key: string, value: unknown): Promise<void> {
+    const normalizedKey = key.trim()
+    if (!normalizedKey) {
+      throw new Error('Setting key is required.')
+    }
+
+    this.db
+      .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+      .run(normalizedKey, JSON.stringify(value))
   }
 }

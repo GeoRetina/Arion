@@ -49,7 +49,8 @@ describe('registerBuiltInTools', () => {
       getAgentRegistryService: vi.fn(() => null),
       getOrchestrationService: vi.fn(() => null),
       getConnectorExecutionService: vi.fn(() => null),
-      getExternalRuntimeRegistry: vi.fn(() => null)
+      getExternalRuntimeRegistry: vi.fn(() => null),
+      getActiveExternalRuntimeId: vi.fn(async () => null)
     }
 
     registerBuiltInTools(deps)
@@ -80,7 +81,8 @@ describe('registerBuiltInTools', () => {
       getConnectorExecutionService: deps.getConnectorExecutionService
     })
     expect(mocks.registerExternalRuntimeTools).toHaveBeenCalledWith(deps.registry, {
-      getExternalRuntimeRegistry: deps.getExternalRuntimeRegistry
+      getExternalRuntimeRegistry: deps.getExternalRuntimeRegistry,
+      getActiveExternalRuntimeId: deps.getActiveExternalRuntimeId
     })
   })
 })

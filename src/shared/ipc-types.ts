@@ -642,6 +642,8 @@ export interface McpPermissionRequest {
 
 // Type for the API exposed by preload script
 export interface SettingsApi {
+  getSetting: (key: string) => Promise<unknown>
+  setSetting: (key: string, value: unknown) => Promise<{ success: boolean; error?: string }>
   setOpenAIConfig: (config: OpenAIConfig) => Promise<void>
   getOpenAIConfig: () => Promise<OpenAIConfigForRenderer | null>
   setGoogleConfig: (config: GoogleConfig) => Promise<void>

@@ -4,6 +4,8 @@
  * without hardcoding them in the system prompt.
  */
 
+import { escapeXmlAttribute, escapeXmlText } from '../lib/xml-escape'
+
 export interface ToolDescription {
   name: string
   description: string
@@ -107,6 +109,16 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
         description: 'Call specialized agents for domain-specific tasks'
       }
     ]
+  },
+  {
+    name: 'Integrations',
+    tools: [
+      {
+        name: 'run_external_analysis',
+        description:
+          'Run a custom analysis with an external coding runtime inside an Arion-managed workspace, staging files and layers, and returning generated artifacts'
+      }
+    ]
   }
 ]
 
@@ -120,7 +132,26 @@ export function generateToolDescriptions(
   mcpTools: ToolDescription[] = [],
   agentToolAccess?: string[]
 ): string {
-  let toolDescriptions = ''
+  const sections: string[] = []
+
+  const pushToolCategory = (
+    categoryName: string,
+    tools: ToolDescription[],
+    label = 'tool'
+  ): void => {
+    if (tools.length === 0) {
+      return
+    }
+
+    const lines = [`    <tool_category name="${escapeXmlAttribute(categoryName)}">`]
+    for (const tool of tools) {
+      lines.push(
+        `      <tool_description>${escapeXmlText(tool.description)} (${label}: ${escapeXmlText(tool.name)}).</tool_description>`
+      )
+    }
+    lines.push('    </tool_category>')
+    sections.push(lines.join('\n'))
+  }
 
   // Add built-in tool categories
   for (const category of BUILTIN_TOOL_CATEGORIES) {
@@ -130,16 +161,7 @@ export function generateToolDescriptions(
         ? category.tools.filter((tool) => agentToolAccess.includes(tool.name))
         : category.tools
 
-    // Only add the category if it has tools after filtering
-    if (categoryTools.length > 0) {
-      toolDescriptions += `    <tool_category name="${category.name}">\n`
-
-      for (const tool of categoryTools) {
-        toolDescriptions += `      <tool_description>${tool.description} (tool: ${tool.name}).</tool_description>\n`
-      }
-
-      toolDescriptions += `    </tool_category>\n\n`
-    }
+    pushToolCategory(category.name, categoryTools)
   }
 
   // Add MCP tools if any are available
@@ -167,33 +189,23 @@ export function generateToolDescriptions(
 
     // Add MCP tools grouped by server
     for (const [serverName, serverTools] of Object.entries(mcpByServer)) {
-      toolDescriptions += `    <tool_category name="MCP Tools - ${serverName}">\n`
-
-      for (const tool of serverTools) {
-        toolDescriptions += `      <tool_description>${tool.description} (MCP tool: ${tool.name}).</tool_description>\n`
-      }
-
-      toolDescriptions += `    </tool_category>\n\n`
+      pushToolCategory(`MCP Tools - ${serverName}`, serverTools, 'MCP tool')
     }
 
     // Add ungrouped MCP tools
-    if (ungroupedMcp.length > 0) {
-      toolDescriptions += `    <tool_category name="MCP Tools - Additional">\n`
-
-      for (const tool of ungroupedMcp) {
-        toolDescriptions += `      <tool_description>${tool.description} (MCP tool: ${tool.name}).</tool_description>\n`
-      }
-
-      toolDescriptions += `    </tool_category>\n\n`
-    }
+    pushToolCategory('MCP Tools - Additional', ungroupedMcp, 'MCP tool')
   } else {
     // Add note about potential MCP tools when none are available
-    toolDescriptions += `    <tool_category name="Dynamic MCP Tools">\n`
-    toolDescriptions += `      <tool_description>Additional tools may become available through the Model Context Protocol (MCP) when servers are connected. These may include file operations, web scraping, data processing, and specialized geospatial analysis capabilities.</tool_description>\n`
-    toolDescriptions += `    </tool_category>\n`
+    sections.push(
+      [
+        '    <tool_category name="Dynamic MCP Tools">',
+        '      <tool_description>Additional tools may become available through the Model Context Protocol (MCP) when servers are connected. These may include file operations, web scraping, data processing, and specialized geospatial analysis capabilities.</tool_description>',
+        '    </tool_category>'
+      ].join('\n')
+    )
   }
 
-  return toolDescriptions.trim()
+  return sections.join('\n\n').trim()
 }
 
 /**

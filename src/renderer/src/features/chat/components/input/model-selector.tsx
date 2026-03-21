@@ -56,7 +56,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
               className={`group h-8 px-2.5 rounded-md bg-transparent hover:bg-secondary/50 flex items-center gap-2 transition-colors
                 border-0 shadow-none
                 max-w-42
-                ${activeProvider ? 'text-foreground' : 'text-muted-foreground'}`}
+                text-foreground/60 hover:text-foreground/80`}
             >
               {activeProvider ? (
                 <div className="flex items-center gap-2 overflow-hidden">
@@ -81,7 +81,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                   <span className="text-xs">Select Model</span>
                 </div>
               )}
-              <ChevronDown className="h-3 w-3 text-foreground/50 ml-1" />
+              <ChevronDown className="h-3 w-3 ml-1" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>

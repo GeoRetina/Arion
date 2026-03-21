@@ -8,6 +8,7 @@ import type {
   AddGeoreferencedImageLayerPayload
 } from '../../../shared/ipc-types'
 import { useLayerStore } from './layer-store'
+import { createStyleUpdateFromPaintProperties } from '../lib/map-style-paint'
 
 interface MapState {
   mapInstance: Map | null
@@ -113,6 +114,23 @@ export const useMapStore = create<MapState>((set, get) => ({
     }
   },
   setLayerPaintProperties: (payload) => {
+    const layerStore = useLayerStore.getState()
+    const matchingLayers = Array.from(layerStore.layers.values()).filter(
+      (layer) => layer.sourceId === payload.sourceId
+    )
+
+    if (matchingLayers.length > 0) {
+      void Promise.all(
+        matchingLayers.map((layer) =>
+          layerStore.updateLayerStyle(
+            layer.id,
+            createStyleUpdateFromPaintProperties(payload.paintProperties, layer.style)
+          )
+        )
+      ).catch(() => {})
+      return
+    }
+
     const map = get().mapInstance
     const isMapReady = get().isMapReadyForOperations
     if (!map || !isMapReady) {
@@ -160,6 +178,18 @@ export const useMapStore = create<MapState>((set, get) => ({
     }
   },
   removeSourceAndAssociatedLayers: (sourceIdToRemove) => {
+    const layerStore = useLayerStore.getState()
+    const matchingLayers = Array.from(layerStore.layers.values()).filter(
+      (layer) => layer.sourceId === sourceIdToRemove
+    )
+
+    if (matchingLayers.length > 0) {
+      void Promise.all(matchingLayers.map((layer) => layerStore.removeLayer(layer.id))).catch(
+        () => {}
+      )
+      return
+    }
+
     const map = get().mapInstance
     const isMapReady = get().isMapReadyForOperations
     if (!map || !isMapReady) {

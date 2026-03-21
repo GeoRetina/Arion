@@ -22,7 +22,7 @@ describe('stored-message-hydration', () => {
       { type: 'text', text: 'Summary' },
       {
         type: 'dynamic-tool',
-        toolName: 'run_custom_analysis_with_codex',
+        toolName: 'run_external_analysis',
         toolCallId: 'tool-1',
         state: 'output-available',
         output: { run_id: 'run-1', status: 'completed' }

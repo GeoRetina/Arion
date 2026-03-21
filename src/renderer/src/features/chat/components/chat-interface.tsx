@@ -20,8 +20,8 @@ import { AlertTriangle, Files } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
 import { toast } from 'sonner'
-import ExternalRuntimeApprovalDialog from './codex-approval-dialog'
-import { ActiveExternalRuntimeRunPanel } from './codex-run-card'
+import ExternalRuntimeApprovalDialog from './external-runtime-approval-dialog'
+import { ActiveExternalRuntimeRunPanel } from './external-runtime-run-card'
 import { useExternalRuntimeStore } from '@/stores/external-runtime-store'
 
 // Imported extracted components and hooks

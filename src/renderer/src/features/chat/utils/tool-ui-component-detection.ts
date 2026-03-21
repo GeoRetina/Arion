@@ -2,12 +2,11 @@ import type { ElementType } from 'react'
 import ChartDisplay from '../../visualization/components/chart-display'
 import type { ChartDisplayProps } from '../../visualization/components/chart-display'
 import AgentCallDisplay from '../components/agent-call-display'
-import ExternalRuntimeRunCard from '../components/codex-run-card'
+import ExternalRuntimeRunCard from '../components/external-runtime-run-card'
 import { useAgentStore } from '@/stores/agent-store'
 import {
   CALL_AGENT_TOOL_NAME,
-  RUN_EXTERNAL_ANALYSIS_TOOL_NAME,
-  CODEX_RUN_CUSTOM_ANALYSIS_TOOL_NAME
+  RUN_EXTERNAL_ANALYSIS_TOOL_NAME
 } from '../constants/message-constants'
 
 export interface ToolUIComponent {
@@ -63,12 +62,7 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
     }
   }
 
-  if (
-    (toolName === RUN_EXTERNAL_ANALYSIS_TOOL_NAME ||
-      toolName === CODEX_RUN_CUSTOM_ANALYSIS_TOOL_NAME) &&
-    state === 'result' &&
-    resultRecord
-  ) {
+  if (toolName === RUN_EXTERNAL_ANALYSIS_TOOL_NAME && state === 'result' && resultRecord) {
     return {
       component: ExternalRuntimeRunCard,
       props: {

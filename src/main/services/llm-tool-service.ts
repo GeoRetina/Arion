@@ -18,6 +18,7 @@ import { validateAgainstJsonSchema } from './plugin/json-schema-validator'
 import type { ConnectorExecutionService } from './connectors/connector-execution-service'
 import type { SettingsService } from './settings-service'
 import type { ExternalRuntimeRegistry } from './external-runtimes/external-runtime-registry'
+import { ACTIVE_EXTERNAL_RUNTIME_ID_KEY } from './settings/settings-service-config'
 import { normalizeConnectorPolicyConfig } from './connectors/policy/connector-policy-config'
 
 const MCP_DYNAMIC_TOOL_CATEGORY_PREFIX = 'mcp_server_'
@@ -73,7 +74,15 @@ export class LlmToolService {
       getAgentRegistryService: () => this.agentRegistryService,
       getOrchestrationService: () => this.orchestrationService,
       getConnectorExecutionService: () => this.connectorExecutionService,
-      getExternalRuntimeRegistry: () => this.externalRuntimeRegistry
+      getExternalRuntimeRegistry: () => this.externalRuntimeRegistry,
+      getActiveExternalRuntimeId: async () => {
+        if (!this.settingsService) {
+          return null
+        }
+
+        const value = await this.settingsService.getSetting(ACTIVE_EXTERNAL_RUNTIME_ID_KEY)
+        return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+      }
     })
     // Actual assimilation of MCP tools will happen in initialize()
   }

@@ -27,6 +27,7 @@ export interface BuiltInRegistrationDeps {
   getOrchestrationService: () => OrchestrationService | null
   getConnectorExecutionService: () => ConnectorExecutionService | null
   getExternalRuntimeRegistry: () => ExternalRuntimeRegistry | null
+  getActiveExternalRuntimeId: () => Promise<string | null>
 }
 
 export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
@@ -55,7 +56,8 @@ export function registerBuiltInTools(deps: BuiltInRegistrationDeps): void {
   })
 
   registerExternalRuntimeTools(deps.registry, {
-    getExternalRuntimeRegistry: deps.getExternalRuntimeRegistry
+    getExternalRuntimeRegistry: deps.getExternalRuntimeRegistry,
+    getActiveExternalRuntimeId: deps.getActiveExternalRuntimeId
   })
 
   registerKnowledgeBaseTools(deps.registry, {

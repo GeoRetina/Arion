@@ -111,8 +111,8 @@ export default function AgentIntegrationsTab(): React.JSX.Element {
   const initialize = useExternalRuntimeStore((state) => state.initialize)
   const saveConfig = useExternalRuntimeStore((state) => state.saveConfig)
   const refreshHealth = useExternalRuntimeStore((state) => state.refreshHealth)
-  const toggleRuntimeEnabled = useExternalRuntimeStore((state) => state.toggleRuntimeEnabled)
-  const enabledRuntimeIds = useExternalRuntimeStore((state) => state.enabledRuntimeIds)
+  const setActiveRuntime = useExternalRuntimeStore((state) => state.setActiveRuntime)
+  const activeRuntimeId = useExternalRuntimeStore((state) => state.activeRuntimeId)
   const descriptors = useExternalRuntimeStore((state) => state.descriptors)
   const configs = useExternalRuntimeStore((state) => state.configs)
   const healthByRuntime = useExternalRuntimeStore((state) => state.healthByRuntime)
@@ -200,8 +200,12 @@ export default function AgentIntegrationsTab(): React.JSX.Element {
               iconClassName={PROVIDER_LOGO_CLASSES[descriptor.providerHint]}
               statusLabel={statusPresentation.label}
               statusClassName={statusPresentation.className}
-              enabled={enabledRuntimeIds.includes(descriptor.id)}
-              onToggleEnabled={() => toggleRuntimeEnabled(descriptor.id)}
+              enabled={activeRuntimeId === descriptor.id}
+              onToggleEnabled={() =>
+                void setActiveRuntime(
+                  activeRuntimeId === descriptor.id ? null : descriptor.id
+                ).catch(() => {})
+              }
               onConfigure={() => setSelectedRuntimeId(descriptor.id)}
               action={
                 <Button

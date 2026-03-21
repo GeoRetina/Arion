@@ -6,6 +6,7 @@ import { AgentRegistryService } from './agent-registry-service'
 import { LLMProviderFactory, type LLMProviderConfig } from './llm-provider-factory'
 import { AgentToolManager } from './agent-tool-manager'
 import { MessagePreparationService } from './message-preparation-service'
+import type { RuntimeDescriptorLike } from '../constants/system-prompts'
 import type { KnowledgeBaseService } from './knowledge-base-service'
 import {
   StreamingHandlerService,
@@ -190,7 +191,8 @@ export class ChatService {
     llmToolService: LlmToolService,
     modularPromptManager: ModularPromptManager,
     agentRegistryService?: AgentRegistryService,
-    knowledgeBaseService?: KnowledgeBaseService
+    knowledgeBaseService?: KnowledgeBaseService,
+    getRuntimeDescriptors?: () => RuntimeDescriptorLike[]
   ) {
     this.llmToolService = llmToolService
     this.knowledgeBaseService = knowledgeBaseService
@@ -203,7 +205,8 @@ export class ChatService {
       modularPromptManager,
       agentRegistryService,
       llmToolService,
-      this.agentToolManager // Pass the agentToolManager to enable tool filtering
+      this.agentToolManager, // Pass the agentToolManager to enable tool filtering
+      getRuntimeDescriptors
     )
     this.streamingHandlerService = new StreamingHandlerService()
   }

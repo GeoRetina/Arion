@@ -12,6 +12,7 @@ import {
   Package,
   PlayCircle,
   ShieldAlert,
+  TerminalSquare,
   XCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ import { useExternalRuntimeStore } from '@/stores/external-runtime-store'
 import { PROVIDER_LOGOS, PROVIDER_LOGO_CLASSES } from '@/constants/llm-providers'
 import type { LLMProvider } from '@/stores/llm-store'
 import type {
+  ExternalRuntimeDescriptor,
   ExternalRuntimeRunArtifact,
   ExternalRuntimeRunRecord,
   ExternalRuntimeRunResult,
@@ -39,35 +41,41 @@ type ExternalRuntimeDisplayRun = Partial<ExternalRuntimeRunRecord> &
     stagedInputs: ExternalRuntimeStagedInput[]
   }
 
-function inferProvider(model: string | undefined | null): NonNullable<LLMProvider> {
-  if (!model) return 'openai'
-  const lower = model.toLowerCase()
-  if (lower.includes('claude') || lower.includes('anthropic')) return 'anthropic'
-  if (lower.includes('gemini') || lower.includes('palm')) return 'google'
-  if (lower.includes('vertex')) return 'vertex'
-  if (
-    lower.includes('ollama') ||
-    lower.includes('llama') ||
-    lower.includes('mistral') ||
-    lower.includes('deepseek')
-  ) {
-    return 'ollama'
-  }
-  return 'openai'
+function getRuntimeProvider(
+  runtimeId: string,
+  descriptors: ExternalRuntimeDescriptor[]
+): NonNullable<LLMProvider> | null {
+  const descriptor = descriptors.find((entry) => entry.id === runtimeId)
+  return descriptor?.providerHint ?? null
 }
 
 function RuntimeIcon({
-  model,
+  provider,
+  runtimeName,
   className
 }: {
-  model: string | undefined | null
+  provider: NonNullable<LLMProvider> | null
+  runtimeName: string
   className?: string
 }): React.JSX.Element {
-  const provider = inferProvider(model)
+  if (!provider) {
+    return (
+      <div
+        aria-label={`${runtimeName} runtime`}
+        className={cn(
+          'flex h-4 w-4 items-center justify-center rounded-sm bg-muted text-muted-foreground',
+          className
+        )}
+      >
+        <TerminalSquare className="h-3 w-3" />
+      </div>
+    )
+  }
+
   return (
     <img
       src={PROVIDER_LOGOS[provider]}
-      alt={provider}
+      alt={`${runtimeName} provider`}
       className={cn('h-4 w-4 object-contain', PROVIDER_LOGO_CLASSES[provider], className)}
     />
   )
@@ -177,7 +185,7 @@ function normalizeExternalRuntimeRun(value: unknown): ExternalRuntimeDisplayRun 
     return null
   }
 
-  const runtimeId = asString(record.runtimeId) || asString(record.runtime_id) || 'codex'
+  const runtimeId = asString(record.runtimeId) || asString(record.runtime_id) || 'runtime'
   const runtimeName = asString(record.runtimeName) || asString(record.runtime_name) || 'Runtime'
   const runId = asString(record.runId) || asString(record.run_id)
   const statusValue = asString(record.status)
@@ -375,6 +383,7 @@ export function ActiveExternalRuntimeRunPanel({
 }: {
   chatId: string | null
 }): React.JSX.Element | null {
+  const descriptors = useExternalRuntimeStore((state) => state.descriptors)
   const runs = useExternalRuntimeStore((state) => state.runs)
   const runEventsById = useExternalRuntimeStore((state) => state.runEvents)
   const timelineScrollHostRef = useRef<HTMLDivElement | null>(null)
@@ -426,11 +435,12 @@ export function ActiveExternalRuntimeRunPanel({
   }
 
   const category = categorizeStatus(activeRun.status)
+  const provider = getRuntimeProvider(activeRun.runtimeId, descriptors)
 
   return (
     <div className="mt-2 mb-2 w-full max-w-100 rounded-md border border-border/40 bg-background">
       <div className="flex items-center gap-2.5 p-3">
-        <RuntimeIcon model={activeRun.model} />
+        <RuntimeIcon provider={provider} runtimeName={activeRun.runtimeName} />
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-xs text-foreground truncate">
             {activeRun.runtimeName} - Analysis in progress
@@ -484,6 +494,7 @@ export default function ExternalRuntimeRunCard({
 }: {
   result: unknown
 }): React.JSX.Element | null {
+  const descriptors = useExternalRuntimeStore((state) => state.descriptors)
   const refreshRun = useExternalRuntimeStore((state) => state.refreshRun)
   const getRun = useExternalRuntimeStore((state) => state.getRun)
   const normalizedResult = normalizeExternalRuntimeRun(result)
@@ -506,6 +517,7 @@ export default function ExternalRuntimeRunCard({
   const category = categorizeStatus(displayRun.status)
   const styles = statusStyles[category]
   const stagedCount = displayRun.stagedInputs.filter((input) => input.status === 'staged').length
+  const provider = getRuntimeProvider(displayRun.runtimeId, descriptors)
 
   return (
     <div
@@ -522,7 +534,7 @@ export default function ExternalRuntimeRunCard({
         )}
         onClick={() => setExpanded(!expanded)}
       >
-        <RuntimeIcon model={displayRun.model} />
+        <RuntimeIcon provider={provider} runtimeName={displayRun.runtimeName} />
 
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-xs text-foreground truncate">
