@@ -22,6 +22,21 @@ function isTerminalStatus(
   return status === 'completed' || status === 'failed' || status === 'cancelled'
 }
 
+const ENABLED_RUNTIMES_KEY = 'arion:enabled-runtime-ids'
+
+function loadEnabledRuntimeIds(): string[] {
+  try {
+    const raw = localStorage.getItem(ENABLED_RUNTIMES_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function persistEnabledRuntimeIds(ids: string[]): void {
+  localStorage.setItem(ENABLED_RUNTIMES_KEY, JSON.stringify(ids))
+}
+
 interface ExternalRuntimeState {
   descriptors: ExternalRuntimeDescriptor[]
   configs: Record<string, ExternalRuntimeConfig>
@@ -29,6 +44,7 @@ interface ExternalRuntimeState {
   runs: Record<string, ExternalRuntimeStoredRun>
   runEvents: Record<string, ExternalRuntimeEvent[]>
   approvalRequests: ExternalRuntimeApprovalRequest[]
+  enabledRuntimeIds: string[]
   loadingConfigByRuntime: Record<string, boolean>
   loadingHealthByRuntime: Record<string, boolean>
   isInitialized: boolean
@@ -49,6 +65,8 @@ interface ExternalRuntimeState {
     scope: ExternalRuntimeApprovalScope
   ) => Promise<void>
   denyRequest: (runtimeId: string, approvalId: string) => Promise<void>
+  toggleRuntimeEnabled: (runtimeId: string) => void
+  isRuntimeDisabled: (runtimeId: string) => boolean
   clearError: () => void
   getRun: (runtimeId: string, runId: string) => ExternalRuntimeStoredRun | undefined
 }
@@ -119,6 +137,7 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
   runs: {},
   runEvents: {},
   approvalRequests: [],
+  enabledRuntimeIds: loadEnabledRuntimeIds(),
   loadingConfigByRuntime: {},
   loadingHealthByRuntime: {},
   isInitialized: false,
@@ -428,6 +447,19 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
       })
       throw error
     }
+  },
+
+  toggleRuntimeEnabled: (runtimeId) => {
+    const current = get().enabledRuntimeIds
+    const next = current.includes(runtimeId)
+      ? current.filter((id) => id !== runtimeId)
+      : [...current, runtimeId]
+    persistEnabledRuntimeIds(next)
+    set({ enabledRuntimeIds: next })
+  },
+
+  isRuntimeDisabled: (runtimeId) => {
+    return !get().enabledRuntimeIds.includes(runtimeId)
   },
 
   clearError: () => {

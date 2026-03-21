@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 interface ExternalAgentIntegrationCardProps {
@@ -12,6 +13,8 @@ interface ExternalAgentIntegrationCardProps {
   iconClassName?: string
   statusLabel: string
   statusClassName?: string
+  enabled: boolean
+  onToggleEnabled: () => void
   onConfigure: () => void
   action?: ReactNode
 }
@@ -24,11 +27,18 @@ export default function ExternalAgentIntegrationCard({
   iconClassName,
   statusLabel,
   statusClassName,
+  enabled,
+  onToggleEnabled,
   onConfigure,
   action
 }: ExternalAgentIntegrationCardProps): React.JSX.Element {
   return (
-    <Card className="overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
+    <Card
+      className={cn(
+        'overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border',
+        !enabled && 'opacity-60'
+      )}
+    >
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="h-8 w-8 shrink-0 rounded-lg bg-muted flex items-center justify-center p-1.5">
           <img
@@ -41,7 +51,12 @@ export default function ExternalAgentIntegrationCard({
           <span className="text-sm font-medium">{title}</span>
           <p className="text-xs text-muted-foreground truncate">{description}</p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Switch
+            checked={enabled}
+            onCheckedChange={onToggleEnabled}
+            aria-label={enabled ? 'Disable integration' : 'Enable integration'}
+          />
           {action}
           <Badge
             variant="outline"

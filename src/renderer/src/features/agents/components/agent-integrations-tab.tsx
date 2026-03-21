@@ -111,6 +111,8 @@ export default function AgentIntegrationsTab(): React.JSX.Element {
   const initialize = useExternalRuntimeStore((state) => state.initialize)
   const saveConfig = useExternalRuntimeStore((state) => state.saveConfig)
   const refreshHealth = useExternalRuntimeStore((state) => state.refreshHealth)
+  const toggleRuntimeEnabled = useExternalRuntimeStore((state) => state.toggleRuntimeEnabled)
+  const enabledRuntimeIds = useExternalRuntimeStore((state) => state.enabledRuntimeIds)
   const descriptors = useExternalRuntimeStore((state) => state.descriptors)
   const configs = useExternalRuntimeStore((state) => state.configs)
   const healthByRuntime = useExternalRuntimeStore((state) => state.healthByRuntime)
@@ -198,6 +200,8 @@ export default function AgentIntegrationsTab(): React.JSX.Element {
               iconClassName={PROVIDER_LOGO_CLASSES[descriptor.providerHint]}
               statusLabel={statusPresentation.label}
               statusClassName={statusPresentation.className}
+              enabled={enabledRuntimeIds.includes(descriptor.id)}
+              onToggleEnabled={() => toggleRuntimeEnabled(descriptor.id)}
               onConfigure={() => setSelectedRuntimeId(descriptor.id)}
               action={
                 <Button
