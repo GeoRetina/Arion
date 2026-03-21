@@ -36,7 +36,7 @@ export const ChatInputBanner: React.FC<ChatInputBannerProps> = ({
     progress != null ? Math.max(0, Math.min(100, Math.round(progress))) : undefined
 
   return (
-    <div className="px-3 py-2 text-sm">
+    <div className="rounded-t-lg bg-accent/15 px-3 py-2 text-sm">
       <div className="flex items-center gap-2">
         {icon && <span className="shrink-0">{icon}</span>}
 
