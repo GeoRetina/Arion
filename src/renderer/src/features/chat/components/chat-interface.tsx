@@ -16,7 +16,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Files } from 'lucide-react'
 import { McpPermissionDialog } from '@/components/mcp-permission-dialog'
 import { LayersDatabaseModal } from './layers-database-modal'
 import { toast } from 'sonner'
@@ -326,12 +326,13 @@ export default function ChatInterface(): React.JSX.Element {
       >
         {isFileDragActive && (
           <div
-            className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center justify-center border-2 border-dashed border-primary bg-background/88 px-6 text-center backdrop-blur-sm"
+            className="pointer-events-none absolute inset-4 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/88 px-6 text-center backdrop-blur-sm"
             style={{
-              right: isMapSidebarExpanded ? 'max(45%, 500px)' : '0'
+              right: isMapSidebarExpanded ? 'calc(max(45%, 500px) + 1rem)' : undefined
             }}
           >
-            <div>
+            <div className="flex flex-col items-center">
+              <Files className="h-14 w-14 text-primary mb-3" />
               <p className="text-base font-medium text-foreground">Drop layer file to import</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Supports GeoJSON, zipped Shapefiles, and GeoTIFF
