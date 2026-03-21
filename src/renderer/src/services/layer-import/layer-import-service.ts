@@ -9,6 +9,10 @@ import type { LayerDefinition, ImportFormat } from '../../../../shared/types/lay
 import type { GeoTiffAssetProcessingStatus } from '../../../../shared/ipc-types'
 import { LayerImportValidator, type ValidationResult } from './layer-import-validator'
 import { GeoJSONProcessor } from './processors/geojson-processor'
+import {
+  GeopackageProcessor,
+  type GeoPackageImportProgressStatus
+} from './processors/geopackage-processor'
 import { ShapefileProcessor } from './processors/shapefile-processor'
 import { RasterProcessor } from './processors/raster-processor'
 
@@ -21,6 +25,7 @@ export interface ImportResult {
 
 export interface LayerProcessOptions {
   onRasterProgress?: (status: GeoTiffAssetProcessingStatus) => void
+  onGeoPackageProgress?: (status: GeoPackageImportProgressStatus) => void
 }
 
 export class LayerImportService {
@@ -48,6 +53,13 @@ export class LayerImportService {
 
         case 'shapefile':
           return await ShapefileProcessor.processFile(file, fileName)
+
+        case 'geopackage':
+          return await GeopackageProcessor.processFile(
+            file,
+            fileName,
+            options?.onGeoPackageProgress
+          )
 
         case 'geotiff':
           return await RasterProcessor.processFile(file, fileName, options?.onRasterProgress)
@@ -118,6 +130,10 @@ export class LayerImportService {
         // Add shapefile-specific warnings if needed
         break
 
+      case 'geopackage':
+        // Add GeoPackage-specific warnings if needed
+        break
+
       case 'geojson':
         // Add GeoJSON-specific warnings if needed
         break
@@ -166,6 +182,10 @@ export class LayerImportService {
 
         case 'shapefile':
           details = await ShapefileProcessor.analyzeShapefileContents(file)
+          break
+
+        case 'geopackage':
+          details = await GeopackageProcessor.analyzeFile(file)
           break
 
         case 'geotiff':
@@ -218,7 +238,9 @@ export class LayerImportService {
 
 // Re-export commonly used types and constants
 export {
+  LAYER_IMPORT_ACCEPT_ATTRIBUTE,
   SUPPORTED_FORMATS,
+  SUPPORTED_LAYER_IMPORT_DESCRIPTION,
   type SupportedMimeType,
   type SupportedFormat
 } from './layer-import-validator'

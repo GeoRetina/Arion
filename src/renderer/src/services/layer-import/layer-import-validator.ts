@@ -13,6 +13,7 @@ export const SUPPORTED_FORMATS = {
   'application/json': 'geojson',
   'application/geo+json': 'geojson',
   'text/json': 'geojson',
+  'application/geopackage+sqlite3': 'geopackage',
 
   // Shapefile (as ZIP archive)
   'application/zip': 'shapefile',
@@ -22,6 +23,21 @@ export const SUPPORTED_FORMATS = {
   'image/tiff': 'geotiff',
   'image/tif': 'geotiff'
 } as const
+
+const SUPPORTED_FILE_EXTENSIONS = ['.json', '.geojson', '.gpkg', '.zip', '.tif', '.tiff'] as const
+
+const SUPPORTED_LAYER_IMPORT_LABELS = [
+  'GeoJSON',
+  'zipped Shapefiles',
+  'GeoPackage',
+  'GeoTIFF'
+] as const
+
+export const LAYER_IMPORT_ACCEPT_ATTRIBUTE = Array.from(
+  new Set<string>([...Object.keys(SUPPORTED_FORMATS), ...SUPPORTED_FILE_EXTENSIONS])
+).join(',')
+
+export const SUPPORTED_LAYER_IMPORT_DESCRIPTION = formatReadableList(SUPPORTED_LAYER_IMPORT_LABELS)
 
 export type SupportedMimeType = keyof typeof SUPPORTED_FORMATS
 export type SupportedFormat = (typeof SUPPORTED_FORMATS)[SupportedMimeType]
@@ -36,6 +52,8 @@ export class LayerImportValidator {
   private static readonly EXTENSION_MAP: Record<string, ImportFormat> = {
     json: 'geojson',
     geojson: 'geojson',
+    gpkg: 'geopackage',
+    geopackage: 'geopackage',
     zip: 'shapefile',
     tif: 'geotiff',
     tiff: 'geotiff'
@@ -67,7 +85,7 @@ export class LayerImportValidator {
       if (!formatFromExt) {
         return {
           valid: false,
-          error: `Unsupported file format: ${file.type || 'unknown'}. Supported formats: GeoJSON, Shapefile (ZIP), GeoTIFF`
+          error: `Unsupported file format: ${file.type || 'unknown'}. Supported formats: ${SUPPORTED_LAYER_IMPORT_DESCRIPTION}`
         }
       }
       format = formatFromExt
@@ -102,4 +120,20 @@ export class LayerImportValidator {
     if (!extension) return null
     return this.EXTENSION_MAP[extension] || null
   }
+}
+
+function formatReadableList(items: readonly string[]): string {
+  if (items.length === 0) {
+    return ''
+  }
+
+  if (items.length === 1) {
+    return items[0]
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`
+  }
+
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
 }

@@ -277,7 +277,7 @@ export interface LayerImportConfig {
   stylePreset?: string // Default styling preset
 }
 
-export type ImportFormat = 'geojson' | 'shapefile' | 'geotiff'
+export type ImportFormat = 'geojson' | 'shapefile' | 'geopackage' | 'geotiff'
 
 export interface ImportOptions {
   encoding?: string // Text encoding for files
