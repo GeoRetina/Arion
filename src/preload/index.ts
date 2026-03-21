@@ -109,6 +109,7 @@ import {
 } from '../shared/ipc-types' // Corrected relative path
 import type {
   LayerDefinition,
+  LayerCreateInput,
   LayerGroup,
   LayerSearchCriteria,
   LayerSearchResult,
@@ -749,9 +750,8 @@ const ctgApi = {
     getAll: (): Promise<LayerDefinition[]> => ipcRenderer.invoke('layers:getAll'),
     getById: (id: string): Promise<LayerDefinition | null> =>
       ipcRenderer.invoke('layers:getById', id),
-    create: (
-      layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
-    ): Promise<LayerDefinition> => ipcRenderer.invoke('layers:create', layer),
+    create: (layer: LayerCreateInput): Promise<LayerDefinition> =>
+      ipcRenderer.invoke('layers:create', layer),
     update: (id: string, updates: Partial<LayerDefinition>): Promise<LayerDefinition> =>
       ipcRenderer.invoke('layers:update', id, updates),
     delete: (id: string): Promise<boolean> => ipcRenderer.invoke('layers:delete', id),

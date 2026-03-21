@@ -58,7 +58,8 @@ export class RasterProcessor {
             minZoom: geotiffAsset.minZoom,
             maxZoom: geotiffAsset.maxZoom,
             bounds: geotiffAsset.bounds,
-            rasterAssetId: geotiffAsset.assetId
+            rasterAssetId: geotiffAsset.assetId,
+            rasterBandCount: geotiffAsset.bandCount
           }
         } as LayerSourceConfig
       } else {

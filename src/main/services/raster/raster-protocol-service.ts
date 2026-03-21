@@ -1,14 +1,24 @@
 import { protocol, type Session } from 'electron'
 import { z } from 'zod'
 import { getRasterTileService, type RasterTileService } from './raster-tile-service'
+import { parseRasterRgbBandSelectionFromTileUrl } from '../../../shared/lib/raster-band-urls'
 
 export const RASTER_PROTOCOL_SCHEME = 'arion-raster'
+
+const rasterRgbBandSelectionSchema = z
+  .object({
+    red: z.number().int().min(1),
+    green: z.number().int().min(1),
+    blue: z.number().int().min(1)
+  })
+  .strict()
 
 const tilePathSchema = z.object({
   assetId: z.string().uuid(),
   z: z.coerce.number().int().min(0).max(30),
   x: z.coerce.number().int().min(0),
-  y: z.coerce.number().int().min(0)
+  y: z.coerce.number().int().min(0),
+  rgbBands: rasterRgbBandSelectionSchema.optional()
 })
 
 let protocolRegistered = false
@@ -80,11 +90,13 @@ function parseTileRequest(request: { url: string }): z.infer<typeof tilePathSche
 
   const [assetId, z, x, yWithExt] = pathParts
   const y = yWithExt.endsWith('.png') ? yWithExt.slice(0, -4) : yWithExt
+  const rgbBands = parseRasterRgbBandSelectionFromTileUrl(request.url) ?? undefined
 
   return tilePathSchema.parse({
     assetId,
     z,
     x,
-    y
+    y,
+    rgbBands
   })
 }

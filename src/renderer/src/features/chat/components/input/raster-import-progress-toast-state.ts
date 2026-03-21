@@ -1,7 +1,12 @@
 import type { GeoTiffAssetProcessingStatus } from '../../../../../../shared/ipc-types'
-import type { FloatingProgressToastState } from '@/components/ui/floating-progress-toast'
 
-export function createInitialRasterProgressToastState(): FloatingProgressToastState {
+export interface RasterImportProgress {
+  title: string
+  message: string
+  progress: number
+}
+
+export function createInitialRasterProgressToastState(): RasterImportProgress {
   return {
     title: 'Queued',
     message: 'Preparing raster import',
@@ -11,7 +16,7 @@ export function createInitialRasterProgressToastState(): FloatingProgressToastSt
 
 export function createRasterProgressToastState(
   status: GeoTiffAssetProcessingStatus
-): FloatingProgressToastState {
+): RasterImportProgress {
   return {
     title: RASTER_STAGE_LABELS[status.stage] ?? 'Processing raster',
     message: status.message?.trim() || 'Processing raster',

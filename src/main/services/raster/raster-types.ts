@@ -1,3 +1,5 @@
+import type { RasterRgbBandSelection } from '../../../shared/types/layer-types'
+
 export type SupportedRasterCrs = 'EPSG:4326' | 'EPSG:3857'
 
 export type BoundingBox = [number, number, number, number]
@@ -52,4 +54,5 @@ export interface RasterTileRequest {
   z: number
   x: number
   y: number
+  rgbBands?: RasterRgbBandSelection
 }

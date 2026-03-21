@@ -10,6 +10,7 @@ import { subscribeWithSelector } from 'zustand/middleware'
 import { v4 as uuidv4 } from 'uuid'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import type {
+  LayerCreateInput,
   LayerDefinition,
   LayerGroup,
   LayerStyle,
@@ -146,6 +147,9 @@ const omitKeys = <T extends object, K extends keyof T>(value: T, keys: K[]): Omi
   })
   return next as Omit<T, K>
 }
+
+const buildLayerCreateInput = (layer: LayerDefinition): LayerCreateInput =>
+  omitKeys(layer, ['createdAt', 'updatedAt'])
 
 // Default layer style
 const DEFAULT_LAYER_STYLE: LayerStyle = {
@@ -460,35 +464,39 @@ export const useLayerStore = create<LayerStore>()(
 
       // Only persist to database if not imported for session-only use
       const shouldPersist = isPersistableLayer(layer)
+      let effectiveLayer = layer
       if (shouldPersist) {
         {
-          const layerData = omitKeys(layer, ['id', 'createdAt', 'updatedAt'])
-          await window.ctg.layers.create(layerData)
+          effectiveLayer =
+            (await window.ctg.layers.create(buildLayerCreateInput(layer))) ?? effectiveLayer
         }
       }
 
       // Update local state
       set((state) => ({
-        layers: new Map(state.layers).set(id, layer),
+        layers: new Map(state.layers).set(effectiveLayer.id, effectiveLayer),
         isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
       }))
 
       // Sync to map immediately after state update
       try {
-        await get().syncLayerToMap(layer)
+        await get().syncLayerToMap(effectiveLayer)
       } catch (error) {
         get().addError({
           code: 'SOURCE_LOAD_FAILED',
-          message: `Failed to sync layer "${layer.name}" to map`,
-          details: { layerId: id, error: error instanceof Error ? error.message : 'Unknown error' },
+          message: `Failed to sync layer "${effectiveLayer.name}" to map`,
+          details: {
+            layerId: effectiveLayer.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          },
           timestamp: new Date(),
-          layerId: id
+          layerId: effectiveLayer.id
         })
       }
 
       // Auto-zoom to layer if bounds are available
       const map = get().mapLibreIntegration?.getMapInstance()
-      const bounds = layer.metadata.bounds
+      const bounds = effectiveLayer.metadata.bounds
       if (
         map &&
         bounds &&
@@ -506,11 +514,11 @@ export const useLayerStore = create<LayerStore>()(
       // Record operation
       get().addOperation({
         type: 'create',
-        layerId: id,
+        layerId: effectiveLayer.id,
         timestamp: now
       })
 
-      return id
+      return effectiveLayer.id
     },
 
     updateLayer: async (id, updates) => {
@@ -518,6 +526,12 @@ export const useLayerStore = create<LayerStore>()(
       if (!existingLayer) {
         throw new Error(`Layer not found: ${id}`)
       }
+
+      const sourceConfigChanged =
+        updates.sourceConfig !== undefined &&
+        JSON.stringify(updates.sourceConfig) !== JSON.stringify(existingLayer.sourceConfig)
+      const sourceIdChanged =
+        typeof updates.sourceId === 'string' && updates.sourceId !== existingLayer.sourceId
 
       const updatedLayer: LayerDefinition = {
         ...existingLayer,
@@ -537,20 +551,24 @@ export const useLayerStore = create<LayerStore>()(
 
       // Only persist to database if not imported for session-only use
       const shouldPersist = isPersistableLayer(updatedLayer)
+      let persistedLayer = updatedLayer
       if (shouldPersist) {
-        {
-          await window.ctg.layers.update(id, updates)
-        }
+        persistedLayer = (await window.ctg.layers.update(id, updates)) ?? persistedLayer
       }
 
       // Update local state
       set((state) => ({
-        layers: new Map(state.layers).set(id, updatedLayer),
+        layers: new Map(state.layers).set(id, persistedLayer),
         isDirty: shouldPersist ? false : state.isDirty // Only clean if we persisted
       }))
 
-      // Sync updated properties to map
-      await get().syncLayerProperties(updatedLayer)
+      // Source changes require a source rebuild so MapLibre picks up the new tile URL/options.
+      if (sourceConfigChanged || sourceIdChanged) {
+        await get().removeLayerFromMap(id)
+        await get().syncLayerToMap(persistedLayer)
+      } else {
+        await get().syncLayerProperties(persistedLayer)
+      }
 
       // Record operation
       get().addOperation({
@@ -920,8 +938,7 @@ export const useLayerStore = create<LayerStore>()(
           } catch {
             // If update fails, try to create the layer
             {
-              const layerData = omitKeys(layer, ['id', 'createdAt', 'updatedAt'])
-              await window.ctg.layers.create(layerData)
+              await window.ctg.layers.create(buildLayerCreateInput(layer))
             }
           }
         }
