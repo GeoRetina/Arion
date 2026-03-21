@@ -63,6 +63,9 @@ describe('gdal-runner-service', () => {
     expect(__testing.resolveCommand('gdalinfo', '/opt/gdal/bin', 'linux', 'bundled')).toBe(
       '/opt/gdal/bin/gdalinfo'
     )
+    expect(__testing.resolveCommand('ogr2ogr', '/opt/gdal/bin', 'linux', 'bundled')).toBe(
+      '/opt/gdal/bin/ogr2ogr'
+    )
     expect(__testing.resolveCommand('gdalinfo', null, 'linux', 'system')).toBe('gdalinfo')
     expect(__testing.resolveCommand('gdalinfo', '/opt/gdal/bin', 'win32', 'bundled')).toBe(
       '/opt/gdal/bin/gdalinfo.exe'

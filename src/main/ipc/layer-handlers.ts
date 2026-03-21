@@ -10,6 +10,8 @@ import { getLayerDbService, cleanupLayerDbService } from '../services/layer-data
 import { z } from 'zod'
 import { getRasterTileService } from '../services/raster/raster-tile-service'
 import type { RegisterGeoTiffAssetRequest } from '../services/raster/raster-types'
+import { getGeoPackageImportService } from '../services/vector/geopackage-import-service'
+import type { ImportGeoPackageRequest, ImportGeoPackageResult } from '../../shared/ipc-types'
 import type {
   LayerCreateInput,
   LayerDefinition,
@@ -32,6 +34,10 @@ export function getRuntimeLayerSnapshot(): unknown[] {
 const registerGeoTiffAssetSchema = z.object({
   sourcePath: z.string().trim().min(1).max(4096),
   jobId: z.string().uuid().optional()
+})
+
+const importGeoPackageSchema = z.object({
+  sourcePath: z.string().trim().min(1).max(4096)
 })
 
 const releaseGeoTiffAssetSchema = z.object({
@@ -432,6 +438,7 @@ const bulkLayerUpdateSchema = z
 export function registerLayerHandlers(): void {
   const dbService = getLayerDbService()
   const rasterTileService = getRasterTileService()
+  const geoPackageImportService = getGeoPackageImportService()
 
   void cleanupOrphanedRasterAssets(dbService.getAllLayers(), rasterTileService)
 
@@ -682,6 +689,17 @@ export function registerLayerHandlers(): void {
       {
         return dbService.importLayers(parsedData, parsedTargetGroupId)
       }
+    }
+  )
+
+  ipcMain.handle(
+    'layers:importGeoPackage',
+    async (
+      _event: IpcMainInvokeEvent,
+      request: ImportGeoPackageRequest
+    ): Promise<ImportGeoPackageResult> => {
+      const parsedRequest = importGeoPackageSchema.parse(request)
+      return await geoPackageImportService.importFile(parsedRequest.sourcePath)
     }
   )
 
