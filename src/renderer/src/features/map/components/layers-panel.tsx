@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { LayerItem } from './layer-item'
 import { LayerStyleEditor } from './layer-style-editor'
+import { RasterRgbBandControls } from './raster-rgb-band-controls'
 import { zoomToLayer } from '@/lib/layer-zoom-utils'
 import { toast } from 'sonner'
-import type { LayerStyle } from '../../../../../shared/types/layer-types'
+import type { LayerSourceConfig, LayerStyle } from '../../../../../shared/types/layer-types'
 
 interface LayersPanelProps {
   className?: string
@@ -21,6 +22,7 @@ interface LayersPanelProps {
 export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded, onClose }) => {
   const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
   const [styleEditorLayerId, setStyleEditorLayerId] = useState<string | null>(null)
+  const [bandConfigLayerId, setBandConfigLayerId] = useState<string | null>(null)
 
   // Map and Layer Store
   const mapInstance = useMapStore((state) => state.mapInstance)
@@ -83,6 +85,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
     return layer.metadata.tags?.includes(currentChatId)
   })
   const displayLayers = sessionLayers
+  const bandConfigLayer = bandConfigLayerId
+    ? displayLayers.find((layer) => layer.id === bandConfigLayerId) || null
+    : null
 
   // Event handlers
   const handleToggleLayerVisibility = async (layerId: string, visible: boolean): Promise<void> => {
@@ -115,6 +120,10 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
     setStyleEditorLayerId(layerId)
   }
 
+  const handleShowBandConfig = (layerId: string): void => {
+    setBandConfigLayerId(bandConfigLayerId === layerId ? null : layerId)
+  }
+
   const handleCloseStyleEditor = (): void => {
     setStyleEditorLayerId(null)
   }
@@ -136,6 +145,13 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
     }
 
     await zoomToLayer(mapInstance, layer)
+  }
+
+  const handleRasterSourceConfigChange = async (
+    layerId: string,
+    sourceConfig: LayerSourceConfig
+  ): Promise<void> => {
+    await updateLayer(layerId, { sourceConfig })
   }
 
   return (
@@ -196,22 +212,33 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
                         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                       )
                       .map((layer) => (
-                        <LayerItem
-                          key={layer.id}
-                          layer={layer}
-                          isSelected={selectedLayerId === layer.id}
-                          onToggleVisibility={handleToggleLayerVisibility}
-                          onSelect={handleSelectLayer}
-                          onDelete={handleDeleteLayer}
-                          onShowStyleEditor={handleShowStyleEditor}
-                          onZoomToLayer={handleZoomToLayer}
-                        />
+                        <div key={layer.id}>
+                          <LayerItem
+                            layer={layer}
+                            isSelected={selectedLayerId === layer.id}
+                            onToggleVisibility={handleToggleLayerVisibility}
+                            onSelect={handleSelectLayer}
+                            onDelete={handleDeleteLayer}
+                            onShowStyleEditor={handleShowStyleEditor}
+                            onZoomToLayer={handleZoomToLayer}
+                            onShowBandConfig={handleShowBandConfig}
+                            isBandConfigOpen={bandConfigLayerId === layer.id}
+                          />
+                          {bandConfigLayerId === layer.id && bandConfigLayer && (
+                            <RasterRgbBandControls
+                              layer={bandConfigLayer}
+                              onSourceConfigChange={handleRasterSourceConfigChange}
+                              onClose={() => setBandConfigLayerId(null)}
+                            />
+                          )}
+                        </div>
                       ))}
                   </div>
                 )}
               </div>
             </ScrollArea>
           </div>
+
         </div>
       </div>
 

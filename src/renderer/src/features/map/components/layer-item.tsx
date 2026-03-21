@@ -6,7 +6,16 @@
  */
 
 import React from 'react'
-import { MoreVertical, Eye, EyeOff, Palette, ZoomIn, Trash2 } from 'lucide-react'
+import {
+  MoreVertical,
+  Eye,
+  EyeOff,
+  Palette,
+  ZoomIn,
+  Trash2,
+  SlidersHorizontal,
+  ChevronDown
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LayerDefinition } from '../../../../../shared/types/layer-types'
 import { Button } from '@/components/ui/button'
@@ -27,6 +36,8 @@ interface LayerItemProps {
   onDelete: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
   onZoomToLayer: (layerId: string) => void
+  onShowBandConfig?: (layerId: string) => void
+  isBandConfigOpen?: boolean
 }
 
 export const LayerItem: React.FC<LayerItemProps> = ({
@@ -36,7 +47,9 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   onSelect,
   onDelete,
   onShowStyleEditor,
-  onZoomToLayer
+  onZoomToLayer,
+  onShowBandConfig,
+  isBandConfigOpen
 }) => {
   const handleVisibilityToggle = (e: React.MouseEvent): void => {
     e.stopPropagation()
@@ -47,6 +60,19 @@ export const LayerItem: React.FC<LayerItemProps> = ({
     e.stopPropagation()
     // Context menu is handled by the DropdownMenu
   }
+
+  const customRasterRgbBands = layer.sourceConfig.options?.rasterRgbBands
+  const rasterBandCount = layer.sourceConfig.options?.rasterBandCount
+
+  const canConfigureBands =
+    layer.type === 'raster' &&
+    layer.sourceConfig.type === 'raster' &&
+    typeof layer.sourceConfig.data === 'string' &&
+    typeof rasterBandCount === 'number' &&
+    Number.isInteger(rasterBandCount) &&
+    rasterBandCount >= 3 &&
+    typeof layer.sourceConfig.options?.rasterAssetId === 'string' &&
+    layer.sourceConfig.options.rasterAssetId.length > 0
 
   const getLayerTypeColor = (
     type: 'raster' | 'vector'
@@ -130,6 +156,43 @@ export const LayerItem: React.FC<LayerItemProps> = ({
               {Math.round(layer.opacity * 100)}%
             </span>
           )}
+          {canConfigureBands && onShowBandConfig && (
+            <button
+              type="button"
+              className={cn(
+                'inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md transition-colors',
+                'bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground',
+                isBandConfigOpen && 'bg-primary/10 text-primary'
+              )}
+              onClick={(e) => {
+                e.stopPropagation()
+                onShowBandConfig(layer.id)
+              }}
+              title="Configure RGB band mapping"
+            >
+              <SlidersHorizontal className="h-2.5 w-2.5" />
+              {customRasterRgbBands
+                ? `RGB ${customRasterRgbBands.red}/${customRasterRgbBands.green}/${customRasterRgbBands.blue}`
+                : `${rasterBandCount} bands`}
+              <ChevronDown
+                className={cn(
+                  'h-2.5 w-2.5 transition-transform',
+                  isBandConfigOpen && 'rotate-180'
+                )}
+              />
+            </button>
+          )}
+          {typeof rasterBandCount === 'number' &&
+            rasterBandCount >= 3 &&
+            !canConfigureBands && (
+              <span className="text-xs text-muted-foreground">{rasterBandCount} bands</span>
+            )}
+          {customRasterRgbBands && !canConfigureBands && (
+            <span className="text-xs text-muted-foreground">
+              RGB {customRasterRgbBands.red}/{customRasterRgbBands.green}/
+              {customRasterRgbBands.blue}
+            </span>
+          )}
         </div>
       </div>
 
@@ -169,6 +232,17 @@ export const LayerItem: React.FC<LayerItemProps> = ({
               <Palette className="h-4 w-4 mr-2" />
               Style Editor
             </DropdownMenuItem>
+            {canConfigureBands && onShowBandConfig && (
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onShowBandConfig(layer.id)
+                }}
+              >
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                RGB Bands
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={(e) => {

@@ -236,9 +236,14 @@ export class MapLibreIntegration {
       // Find all MapLibre layers associated with this layer definition
       const style = this.mapInstance.getStyle()
       const layersToRemove = style.layers.filter(
-        (layer) =>
-          layer.id.startsWith(layerId) ||
-          ('source' in layer && this.managedSources.has(layer.source as string))
+        (layer) => layer.id === layerId || layer.id.startsWith(`${layerId}-`)
+      )
+      const sourceIds = Array.from(
+        new Set(
+          layersToRemove
+            .filter((layer): layer is typeof layer & { source: string } => 'source' in layer)
+            .map((layer) => layer.source as string)
+        )
       )
 
       // Remove layers
@@ -249,16 +254,15 @@ export class MapLibreIntegration {
         }
       }
 
-      // Remove source if no other layers use it
-      const sourceId =
-        layersToRemove[0] && 'source' in layersToRemove[0]
-          ? (layersToRemove[0].source as string)
-          : null
+      // Remove sources if no other layers use them
+      for (const sourceId of sourceIds) {
+        if (!this.managedSources.has(sourceId)) {
+          continue
+        }
 
-      if (sourceId && this.managedSources.has(sourceId)) {
-        const remainingLayers = style.layers.filter(
-          (layer) => 'source' in layer && layer.source === sourceId
-        )
+        const remainingLayers = this.mapInstance
+          .getStyle()
+          .layers.filter((layer) => 'source' in layer && layer.source === sourceId)
 
         if (remainingLayers.length === 0 && this.mapInstance.getSource(sourceId)) {
           this.mapInstance.removeSource(sourceId)

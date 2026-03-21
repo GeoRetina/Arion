@@ -11,6 +11,7 @@ import { join } from 'path'
 import { app } from 'electron'
 import { resolveMigrationPath } from '../lib/migration-paths'
 import type {
+  LayerCreateInput,
   LayerDefinition,
   LayerGroup,
   LayerSearchCriteria,
@@ -27,7 +28,7 @@ export interface LayerDatabase {
   getLayerById: (id: string) => LayerDefinition | undefined
   getLayersByType: (type: 'raster' | 'vector') => LayerDefinition[]
   getLayersByGroup: (groupId: string | null) => LayerDefinition[]
-  createLayer: (layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>) => LayerDefinition
+  createLayer: (layer: LayerCreateInput) => LayerDefinition
   updateLayer: (id: string, updates: Partial<LayerDefinition>) => LayerDefinition
   deleteLayer: (id: string) => boolean
 
@@ -340,8 +341,8 @@ export class LayerDatabaseService implements LayerDatabase {
     return rows.map((row) => this.rowToLayer(row))
   }
 
-  createLayer(layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>): LayerDefinition {
-    const id = this.generateId()
+  createLayer(layer: LayerCreateInput): LayerDefinition {
+    const id = layer.id ?? this.generateId()
     const now = new Date()
 
     this.statements.createLayer.run(

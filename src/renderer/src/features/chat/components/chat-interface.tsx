@@ -35,13 +35,19 @@ import { useMapSidebar } from '../hooks/use-map-sidebar'
 import { useScrollReset } from '../hooks/use-scroll-reset'
 import { useReasoningNotification } from '../hooks/use-reasoning-notification'
 import { useChatController } from '../hooks/use-chat-controller'
+import { useChatFileDrop } from '../hooks/use-chat-file-drop'
 import { hasRenderableAssistantContent } from '../utils/message-part-utils'
+import { cn } from '@/lib/utils'
 import {
   resolveReasoningBudgetPreset,
   resolveReasoningEffort,
   type ReasoningBudgetPreset,
   type ReasoningEffort
 } from '../../../../../shared/utils/model-capabilities'
+import { useLayerFileImport } from './input/use-layer-file-import'
+import { ChatInputBanner } from '@/components/ui/chat-input-banner'
+import { Loader2 } from 'lucide-react'
+import type { ChatInputBannerItem } from './input/chat-input-box'
 
 export default function ChatInterface(): React.JSX.Element {
   // Use extracted custom hooks
@@ -93,6 +99,10 @@ export default function ChatInterface(): React.JSX.Element {
     currentMessagesFromStore,
     currentChatIdFromStore,
     setIsStreamingUi
+  })
+  const layerFileImport = useLayerFileImport({
+    disabled: isStreamingUi,
+    source: 'file-import'
   })
 
   // Set up auto-scrolling for new user messages
@@ -214,6 +224,42 @@ export default function ChatInterface(): React.JSX.Element {
     (lastDisplayMessage?.role === 'user' ||
       (lastDisplayMessage?.role === 'assistant' &&
         !hasRenderableAssistantContent(lastDisplayMessage)))
+  const {
+    isFileDragActive,
+    handleFileDragEnter,
+    handleFileDragOver,
+    handleFileDragLeave,
+    handleFileDrop
+  } = useChatFileDrop({
+    disabled: isStreamingUi,
+    isImporting: layerFileImport.uploadState === 'uploading',
+    onFileDrop: layerFileImport.importFile
+  })
+
+  // Build banners for chat input
+  const chatInputBanners = useMemo<ChatInputBannerItem[]>(() => {
+    const items: ChatInputBannerItem[] = []
+
+    if (layerFileImport.rasterProgress) {
+      const { title, message, progress } = layerFileImport.rasterProgress
+      items.push({
+        id: 'raster-import-progress',
+        content: (
+          <ChatInputBanner
+            icon={<Loader2 className="h-4 w-4 animate-spin text-primary" />}
+            progress={progress}
+          >
+            <span className="font-medium">{title}</span>
+            <span className="ml-2 text-xs text-muted-foreground">
+              {progress}% &middot; {message}
+            </span>
+          </ChatInputBanner>
+        )
+      })
+    }
+
+    return items
+  }, [layerFileImport.rasterProgress])
 
   // Custom handleSubmit to send message via v5 API
   const handleSubmit = (e?: React.FormEvent<HTMLFormElement>): void => {
@@ -266,11 +312,34 @@ export default function ChatInterface(): React.JSX.Element {
     <div className="flex flex-row h-full max-h-full bg-transparent overflow-hidden relative">
       {/* Chat Interface Area - Always full width, with padding when map is visible */}
       <div
-        className="flex flex-col h-full w-full bg-card transition-all duration-300 ease-in-out"
+        className={cn(
+          'relative flex flex-col h-full w-full bg-card transition-all duration-300 ease-in-out',
+          isFileDragActive && 'bg-primary/5'
+        )}
         style={{
           paddingRight: isMapSidebarExpanded ? 'max(45%, 500px)' : '0'
         }}
+        onDragEnter={handleFileDragEnter}
+        onDragOver={handleFileDragOver}
+        onDragLeave={handleFileDragLeave}
+        onDrop={handleFileDrop}
       >
+        {isFileDragActive && (
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center justify-center border-2 border-dashed border-primary bg-background/88 px-6 text-center backdrop-blur-sm"
+            style={{
+              right: isMapSidebarExpanded ? 'max(45%, 500px)' : '0'
+            }}
+          >
+            <div>
+              <p className="text-base font-medium text-foreground">Drop layer file to import</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Supports GeoJSON, zipped Shapefiles, and GeoTIFF
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Messages area */}
         <div className="grow min-h-0">
           <ScrollArea className="h-full" ref={scrollAreaRef}>
@@ -348,6 +417,8 @@ export default function ChatInterface(): React.JSX.Element {
               isMapSidebarExpanded={isMapSidebarExpanded}
               onToggleMapSidebar={toggleMapSidebar}
               onOpenDatabase={handleOpenDatabase}
+              layerFileImport={layerFileImport}
+              banners={chatInputBanners}
             />
           </div>
         </div>

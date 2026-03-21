@@ -24,6 +24,10 @@ export interface LayerDefinition {
   updatedAt: Date // Last modification timestamp
 }
 
+export type LayerCreateInput = Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'> & {
+  id?: string
+}
+
 // Layer type enumeration
 export type LayerType = 'raster' | 'vector'
 
@@ -65,6 +69,12 @@ export interface LayerCredentials {
   headers?: Record<string, string>
 }
 
+export interface RasterRgbBandSelection {
+  red: number
+  green: number
+  blue: number
+}
+
 export interface LayerSourceOptions {
   tileSize?: number
   maxZoom?: number
@@ -72,6 +82,8 @@ export interface LayerSourceOptions {
   attribution?: string
   rasterAssetId?: string
   rasterSourcePath?: string
+  rasterBandCount?: number
+  rasterRgbBands?: RasterRgbBandSelection
   scheme?: 'xyz' | 'tms'
   bounds?: [number, number, number, number]
   buffer?: number

@@ -11,6 +11,7 @@ import { z } from 'zod'
 import { getRasterTileService } from '../services/raster/raster-tile-service'
 import type { RegisterGeoTiffAssetRequest } from '../services/raster/raster-types'
 import type {
+  LayerCreateInput,
   LayerDefinition,
   LayerGroup,
   LayerSearchCriteria,
@@ -135,6 +136,14 @@ const layerCredentialsSchema = z
   })
   .strict()
 
+const rasterRgbBandSelectionSchema = z
+  .object({
+    red: z.number().int().min(1).max(65_535),
+    green: z.number().int().min(1).max(65_535),
+    blue: z.number().int().min(1).max(65_535)
+  })
+  .strict()
+
 const layerSourceOptionsSchema = z
   .object({
     tileSize: z.number().int().min(1).max(16384).optional(),
@@ -143,6 +152,8 @@ const layerSourceOptionsSchema = z
     attribution: z.string().trim().max(8192).optional(),
     rasterAssetId: z.string().trim().max(256).optional(),
     rasterSourcePath: z.string().trim().max(4096).optional(),
+    rasterBandCount: z.number().int().min(1).max(65_535).optional(),
+    rasterRgbBands: rasterRgbBandSelectionSchema.optional(),
     scheme: z.enum(['xyz', 'tms']).optional(),
     bounds: boundsSchema.optional(),
     buffer: z.number().int().min(0).max(2048).optional(),
@@ -228,6 +239,7 @@ const layerMetadataSchema = z
 
 const layerCreateSchema = z
   .object({
+    id: entityIdSchema.optional(),
     name: z.string().trim().min(1).max(256),
     type: layerTypeSchema,
     sourceId: z.string().trim().min(1).max(256),
@@ -443,14 +455,8 @@ export function registerLayerHandlers(): void {
 
   ipcMain.handle(
     'layers:create',
-    async (
-      _event: IpcMainInvokeEvent,
-      layer: Omit<LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
-    ): Promise<LayerDefinition> => {
-      const parsedLayer = layerCreateSchema.parse(layer) as Omit<
-        LayerDefinition,
-        'id' | 'createdAt' | 'updatedAt'
-      >
+    async (_event: IpcMainInvokeEvent, layer: LayerCreateInput): Promise<LayerDefinition> => {
+      const parsedLayer = layerCreateSchema.parse(layer) as LayerCreateInput
       {
         return dbService.createLayer(parsedLayer)
       }

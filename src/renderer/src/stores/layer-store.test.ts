@@ -36,7 +36,12 @@ import { useLayerStore } from './layer-store'
 describe('layer-store addLayer', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    layerApiMocks.create.mockResolvedValue(undefined)
+    layerApiMocks.create.mockImplementation(async (layer) => ({
+      ...layer,
+      id: layer.id ?? 'persisted-layer-id',
+      createdAt: new Date('2026-03-21T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T00:00:00.000Z')
+    }))
     layerApiMocks.updateRuntimeSnapshot.mockResolvedValue(true)
     useLayerStore.getState().reset()
   })
@@ -77,6 +82,7 @@ describe('layer-store addLayer', () => {
     expect(layerApiMocks.create).toHaveBeenCalledTimes(1)
     expect(layerApiMocks.create).toHaveBeenCalledWith(
       expect.objectContaining({
+        id: layerId,
         metadata: expect.objectContaining({
           tags: expect.arrayContaining([
             'imported',
@@ -96,5 +102,97 @@ describe('layer-store addLayer', () => {
       fileName: 'dem.tif',
       fileSize: 2048
     })
+  })
+
+  it('rebuilds the map source when a layer source config changes', async () => {
+    const layerId = await useLayerStore.getState().addLayer({
+      name: 'Multiband raster',
+      type: 'raster',
+      sourceId: 'source-2',
+      sourceConfig: {
+        type: 'raster',
+        data: 'arion-raster://tiles/asset/{z}/{x}/{y}.png',
+        options: {
+          rasterAssetId: 'asset-123',
+          rasterBandCount: 6
+        }
+      },
+      style: {
+        rasterOpacity: 1
+      },
+      visibility: true,
+      opacity: 1,
+      zIndex: 0,
+      metadata: {
+        description: 'Imported raster',
+        tags: ['imported']
+      },
+      isLocked: false,
+      createdBy: 'import'
+    })
+
+    const mockIntegration = {
+      cleanup: vi.fn(),
+      removeLayerFromMap: vi.fn().mockResolvedValue(undefined),
+      syncLayerToMap: vi.fn().mockResolvedValue(undefined),
+      syncLayerProperties: vi.fn().mockResolvedValue(undefined)
+    }
+
+    const updatedSourceConfig = {
+      type: 'raster' as const,
+      data: 'arion-raster://tiles/asset/{z}/{x}/{y}.png?rgb=4%2C3%2C2',
+      options: {
+        rasterAssetId: 'asset-123',
+        rasterBandCount: 6,
+        rasterRgbBands: {
+          red: 4,
+          green: 3,
+          blue: 2
+        }
+      }
+    }
+
+    vi.clearAllMocks()
+    layerApiMocks.update.mockResolvedValue({
+      id: layerId,
+      name: 'Multiband raster',
+      type: 'raster',
+      sourceId: 'source-2',
+      sourceConfig: updatedSourceConfig,
+      style: {
+        rasterOpacity: 1
+      },
+      visibility: true,
+      opacity: 1,
+      zIndex: 0,
+      metadata: {
+        description: 'Imported raster',
+        tags: ['imported']
+      },
+      isLocked: false,
+      createdBy: 'import',
+      createdAt: new Date('2026-03-21T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-21T00:00:00.000Z')
+    })
+    layerApiMocks.updateRuntimeSnapshot.mockResolvedValue(true)
+    useLayerStore.setState({
+      mapLibreIntegration: mockIntegration as never
+    })
+
+    await useLayerStore.getState().updateLayer(layerId, {
+      sourceConfig: updatedSourceConfig
+    })
+
+    expect(layerApiMocks.update).toHaveBeenCalledWith(layerId, {
+      sourceConfig: updatedSourceConfig
+    })
+    expect(mockIntegration.removeLayerFromMap).toHaveBeenCalledWith(layerId)
+    expect(mockIntegration.syncLayerToMap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: layerId,
+        sourceConfig: updatedSourceConfig
+      })
+    )
+    expect(mockIntegration.syncLayerProperties).not.toHaveBeenCalled()
   })
 })

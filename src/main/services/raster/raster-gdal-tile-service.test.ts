@@ -256,6 +256,86 @@ describe('raster-gdal-tile-service', () => {
     service.shutdown()
   })
 
+  it('uses a custom rgb band selection when provided', async () => {
+    const cacheRoot = mkdtempSync(join(tmpdir(), 'arion-gdal-tile-test-'))
+    cleanupPaths.push(cacheRoot)
+    const calls: Array<{ tool: string; args: string[] }> = []
+
+    const fakeRunner = {
+      getAvailability: async () => ({
+        available: true,
+        runtimePaths: {
+          binDirectory: '/mock/bin',
+          gdalDataDirectory: '/mock/share/gdal',
+          projDirectory: '/mock/share/proj',
+          gdalPluginsDirectory: null
+        }
+      }),
+      run: async (tool: string, args: string[]) => {
+        calls.push({ tool, args })
+        const outputPath = args[args.length - 1]
+        await fs.mkdir(dirname(outputPath), { recursive: true })
+        await fs.writeFile(
+          outputPath,
+          Buffer.from(tool === 'gdal_translate' ? '<VRTDataset/>' : 'rgb-tile')
+        )
+        return {
+          command: tool,
+          args,
+          stdout: '',
+          stderr: '',
+          durationMs: 1
+        }
+      }
+    } as unknown as GdalRunnerService
+
+    const service = new RasterGdalTileService(fakeRunner, cacheRoot)
+    await service.renderTile(
+      createRequest({
+        bandCount: 8,
+        rgbBands: {
+          red: 5,
+          green: 3,
+          blue: 2
+        },
+        sourceByteLike: false,
+        bandRanges: [
+          { min: 0, max: 1000 },
+          { min: 10, max: 2000 },
+          { min: 20, max: 3000 },
+          { min: 30, max: 4000 },
+          { min: 40, max: 5000 },
+          { min: 50, max: 6000 },
+          { min: 60, max: 7000 },
+          { min: 70, max: 8000 }
+        ]
+      })
+    )
+
+    const translateCall = calls.find((entry) => entry.tool === 'gdal_translate')
+    expect(translateCall?.args).toEqual(expect.arrayContaining(['-b', '5', '-b', '3', '-b', '2']))
+    expect(translateCall?.args).toEqual(
+      expect.arrayContaining([
+        '-scale_1',
+        '40',
+        '5000',
+        '0',
+        '255',
+        '-scale_2',
+        '20',
+        '3000',
+        '0',
+        '255',
+        '-scale_3',
+        '10',
+        '2000',
+        '0',
+        '255'
+      ])
+    )
+    service.shutdown()
+  })
+
   it('skips VRT generation for byte-like RGB rasters', async () => {
     const cacheRoot = mkdtempSync(join(tmpdir(), 'arion-gdal-tile-test-'))
     cleanupPaths.push(cacheRoot)

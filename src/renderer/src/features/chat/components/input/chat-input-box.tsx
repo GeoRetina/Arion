@@ -19,6 +19,12 @@ import type {
   ReasoningBudgetPreset,
   ReasoningEffort
 } from '../../../../../../shared/utils/model-capabilities'
+import type { UseLayerFileImportResult } from './use-layer-file-import'
+
+export interface ChatInputBannerItem {
+  id: string
+  content: React.ReactNode
+}
 
 interface ChatInputBoxProps {
   inputValue: string // Controlled input value from useChat
@@ -51,8 +57,15 @@ interface ChatInputBoxProps {
   // New prop for database modal
   onOpenDatabase?: () => void
 
+  // Banners rendered above the input
+  banners?: ChatInputBannerItem[]
+
   // New prop for orchestration
   enableOrchestration?: boolean
+  layerFileImport: Pick<
+    UseLayerFileImportResult,
+    'acceptedTypes' | 'fileInputRef' | 'handleFileSelect' | 'openFilePicker' | 'uploadState'
+  >
 }
 
 const ChatInputBox: React.FC<ChatInputBoxProps> = ({
@@ -75,7 +88,9 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   // New props for map sidebar control
   isMapSidebarExpanded = false,
   onToggleMapSidebar,
-  onOpenDatabase
+  onOpenDatabase,
+  banners,
+  layerFileImport
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isSubmitting, setIsSubmitting] = useState(false) // Local submitting state if needed
@@ -83,6 +98,8 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null) // Ref for the ScrollArea's viewport
   // Agent orchestration store
   const { initialize: initializeOrchestration } = useAgentOrchestrationStore()
+  const { acceptedTypes, fileInputRef, handleFileSelect, openFilePicker, uploadState } =
+    layerFileImport
 
   // Initialize the orchestration store
   useEffect(() => {
@@ -252,8 +269,20 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
   }, [isStreaming, internalText])
 
   return (
+    <div className="flex flex-col items-center w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto">
+      {/* Banners peeking out above the input box */}
+      {banners && banners.length > 0 &&
+        banners.map((banner) => (
+          <div
+            key={banner.id}
+            className="w-[calc(100%-32px)] shrink-0 rounded-t-xl border border-b-0 border-border bg-chat-input-background"
+          >
+            {banner.content}
+          </div>
+        ))}
+
     <div
-      className="flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-border w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl xl:max-w-3xl mx-auto relative"
+      className="flex flex-col gap-4 bg-chat-input-background h-full rounded-2xl items-center border border-border w-full relative"
       style={{
         minHeight: 'auto', // Allow shrinking based on content
         maxHeight: 'calc(100vh - 200px)' // Example: constrain overall component height
@@ -343,7 +372,15 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
           {/* Added mt-auto and shrink-0 */}
           <div className="flex items-center gap-2">
             {/* Plus dropdown moved to the left side */}
-            <PlusDropdown disabled={isStreaming} onOpenDatabase={onOpenDatabase} />
+            <PlusDropdown
+              acceptedTypes={acceptedTypes}
+              disabled={isStreaming}
+              fileInputRef={fileInputRef}
+              onFileImportClick={openFilePicker}
+              onFileSelect={handleFileSelect}
+              onOpenDatabase={onOpenDatabase}
+              uploadState={uploadState}
+            />
 
             <ModelSelector
               availableProviders={availableProviders}
@@ -413,6 +450,7 @@ const ChatInputBox: React.FC<ChatInputBoxProps> = ({
         onSelect={handleMentionSelect}
         onClose={mentionTrigger.closeMention}
       />
+    </div>
     </div>
   )
 }

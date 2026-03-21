@@ -2,6 +2,8 @@ import { promises as fs } from 'fs'
 import { cpus, tmpdir } from 'os'
 import { join } from 'path'
 import { app } from 'electron'
+import { serializeRasterRgbBandSelection } from '../../../shared/lib/raster-band-urls'
+import type { RasterRgbBandSelection } from '../../../shared/types/layer-types'
 import type { BoundingBox, SupportedRasterCrs } from './raster-types'
 import { lonLatToWebMercator, TILE_SIZE } from './raster-coordinate-utils'
 import { getGdalRunnerService, type GdalRunnerService } from './gdal-runner-service'
@@ -17,6 +19,7 @@ export interface RasterGdalTileRenderRequest {
   z: number
   x: number
   y: number
+  rgbBands?: RasterRgbBandSelection
   bandCount: number
   bandRanges: Array<{ min: number; max: number }>
   paletteIndexed: boolean
@@ -199,7 +202,10 @@ export class RasterGdalTileService {
   }
 
   private toCacheKey(request: RasterGdalTileRenderRequest): string {
-    return `${request.assetId}:${request.z}:${request.x}:${request.y}`
+    const rgbBandKey = request.rgbBands
+      ? serializeRasterRgbBandSelection(request.rgbBands)
+      : 'default'
+    return `${request.assetId}:${request.z}:${request.x}:${request.y}:${rgbBandKey}`
   }
 
   private async createTemporaryTileOutputPath(
@@ -227,7 +233,7 @@ export class RasterGdalTileService {
       return request.sourceFilePath
     }
 
-    const selectedBands = resolveVisualizationBands(request.bandCount)
+    const selectedBands = resolveVisualizationBands(request.bandCount, request.rgbBands)
     const scaleRanges = resolveScaleRanges(
       selectedBands,
       request.bandRanges,
@@ -394,17 +400,17 @@ export const __testing = {
   resolveGdalTileConcurrency
 }
 
-function resolveVisualizationBands(bandCount: number): number[] {
+function resolveVisualizationBands(bandCount: number, rgbBands?: RasterRgbBandSelection): number[] {
+  if (rgbBands && isValidRgbBandSelection(rgbBands)) {
+    return [rgbBands.red, rgbBands.green, rgbBands.blue]
+  }
+
   if (!Number.isFinite(bandCount) || bandCount <= 0) {
     return [1]
   }
 
   if (bandCount === 1 || bandCount === 2) {
     return [1]
-  }
-
-  if (bandCount === 4) {
-    return [1, 2, 3]
   }
 
   return [1, 2, 3]
@@ -476,4 +482,8 @@ function hasCustomBandSelection(selectedBands: number[], sourceBandCount: number
   }
 
   return false
+}
+
+function isValidRgbBandSelection(value: RasterRgbBandSelection): boolean {
+  return [value.red, value.green, value.blue].every((band) => Number.isInteger(band) && band > 0)
 }

@@ -1355,7 +1355,7 @@ export interface LayerApi {
   getAll: () => Promise<import('./types/layer-types').LayerDefinition[]>
   getById: (id: string) => Promise<import('./types/layer-types').LayerDefinition | null>
   create: (
-    layer: Omit<import('./types/layer-types').LayerDefinition, 'id' | 'createdAt' | 'updatedAt'>
+    layer: import('./types/layer-types').LayerCreateInput
   ) => Promise<import('./types/layer-types').LayerDefinition>
   update: (
     id: string,

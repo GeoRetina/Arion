@@ -6,6 +6,8 @@ import { app } from 'electron'
 import { fromFile as geoTiffFromFile, Pool } from 'geotiff'
 import type { GeoTIFF, GeoTIFFImage, ReadRasterResult } from 'geotiff'
 import { encode as encodePng } from 'fast-png'
+import { serializeRasterRgbBandSelection } from '../../../shared/lib/raster-band-urls'
+import type { RasterRgbBandSelection } from '../../../shared/types/layer-types'
 import {
   inferNativeMaxZoom,
   intersection,
@@ -38,6 +40,7 @@ const MAX_CONCURRENT_TILE_RENDERS = Math.max(1, Math.min(4, cpus().length - 1))
 const BAND_RANGE_PERCENTILE_LOW = 0.02
 const BAND_RANGE_PERCENTILE_HIGH = 0.98
 const BAND_RANGE_MAX_SAMPLE_VALUES = 131_072
+const BAND_RANGE_MAX_TOTAL_SAMPLE_VALUES = 3_000_000
 
 interface CachedTileEntry {
   data: Buffer
@@ -302,7 +305,7 @@ export class RasterTileService {
   async renderTile(request: RasterTileRequest): Promise<Buffer> {
     this.validateTileRequest(request)
 
-    const cacheKey = `${request.assetId}:${request.z}:${request.x}:${request.y}`
+    const cacheKey = buildRasterTileCacheKey(request)
     const cached = this.getTileFromCache(cacheKey)
     if (cached) {
       return cached
@@ -391,6 +394,7 @@ export class RasterTileService {
 
   private async renderTileInternal(request: RasterTileRequest): Promise<Buffer> {
     const context = await this.getAssetContext(request.assetId)
+    const rgbBands = validateRequestedRgbBands(request.rgbBands, context.bandCount)
     const mapTileBounds = tileToLonLatBounds(request.z, request.x, request.y)
     const sourceTileBounds = mapBoundsToSourceBounds(mapTileBounds, context.crs)
     const overlapBounds = intersection(sourceTileBounds, context.sourceBounds)
@@ -404,6 +408,7 @@ export class RasterTileService {
       z: request.z,
       x: request.x,
       y: request.y,
+      rgbBands,
       bandCount: context.bandCount,
       bandRanges: context.bandRanges,
       paletteIndexed: context.paletteIndexed,
@@ -697,6 +702,15 @@ export class RasterTileService {
     if (!Number.isInteger(request.y) || request.y < 0 || request.y > maxIndex) {
       throw new Error('Tile Y coordinate is out of range')
     }
+
+    if (
+      request.rgbBands &&
+      ![request.rgbBands.red, request.rgbBands.green, request.rgbBands.blue].every(
+        (band) => Number.isInteger(band) && band > 0
+      )
+    ) {
+      throw new Error('RGB band selection must use positive integer band numbers')
+    }
   }
 
   private async computeBandRanges(
@@ -704,10 +718,15 @@ export class RasterTileService {
     bandCount: number,
     noDataValue: number | null
   ): Promise<BandRange[]> {
-    const samplesToInspect = Math.max(1, Math.min(3, bandCount))
+    const samplesToInspect = Math.max(1, bandCount)
     const sampleIndexes = Array.from({ length: samplesToInspect }, (_, index) => index)
-    const sampleWidth = Math.max(1, Math.min(1024, image.getWidth()))
-    const sampleHeight = Math.max(1, Math.min(1024, image.getHeight()))
+    const maxSampleValuesPerBand = Math.max(
+      1,
+      Math.floor(BAND_RANGE_MAX_TOTAL_SAMPLE_VALUES / samplesToInspect)
+    )
+    const targetDimension = Math.max(1, Math.floor(Math.sqrt(maxSampleValuesPerBand)))
+    const sampleWidth = Math.max(1, Math.min(1024, image.getWidth(), targetDimension))
+    const sampleHeight = Math.max(1, Math.min(1024, image.getHeight(), targetDimension))
 
     const sampled = (await image.readRasters({
       samples: sampleIndexes,
@@ -1134,4 +1153,28 @@ export const __testing = {
   computeBandRange,
   computePercentileRange,
   pickPercentile
+}
+
+function buildRasterTileCacheKey(request: RasterTileRequest): string {
+  const rgbBandKey = request.rgbBands
+    ? serializeRasterRgbBandSelection(request.rgbBands)
+    : 'default'
+
+  return `${request.assetId}:${request.z}:${request.x}:${request.y}:${rgbBandKey}`
+}
+
+function validateRequestedRgbBands(
+  rgbBands: RasterRgbBandSelection | undefined,
+  bandCount: number
+): RasterRgbBandSelection | undefined {
+  if (!rgbBands) {
+    return undefined
+  }
+
+  const requestedBands = [rgbBands.red, rgbBands.green, rgbBands.blue]
+  if (requestedBands.some((band) => band > bandCount)) {
+    throw new Error(`Requested RGB band is out of range. Raster has ${bandCount} bands.`)
+  }
+
+  return rgbBands
 }
