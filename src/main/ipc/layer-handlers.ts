@@ -30,8 +30,7 @@ export function getRuntimeLayerSnapshot(): unknown[] {
 }
 
 const registerGeoTiffAssetSchema = z.object({
-  fileName: z.string().min(1),
-  fileBuffer: z.instanceof(ArrayBuffer),
+  sourcePath: z.string().trim().min(1).max(4096),
   jobId: z.string().uuid().optional()
 })
 
@@ -714,15 +713,6 @@ export function registerLayerHandlers(): void {
     }
   )
 
-  // Backward-compatible alias. New code should use layers:registerGeoTiffAsset.
-  ipcMain.handle(
-    'layers:processGeotiff',
-    async (_event: IpcMainInvokeEvent, fileBuffer: ArrayBuffer, fileName: string) => {
-      const parsedRequest = registerGeoTiffAssetSchema.parse({ fileBuffer, fileName })
-      return await rasterTileService.registerGeoTiffAsset(parsedRequest)
-    }
-  )
-
   // Renderer pushes its current in-memory layer store snapshot here.
   ipcMain.handle(
     'layers:runtime:updateSnapshot',
@@ -752,15 +742,6 @@ function getRasterAssetId(layer: LayerDefinition): string | null {
   return assetId
 }
 
-function getRasterSourcePath(layer: LayerDefinition): string | null {
-  const sourcePath = layer.sourceConfig.options?.rasterSourcePath
-  if (typeof sourcePath !== 'string' || sourcePath.trim().length === 0) {
-    return null
-  }
-
-  return sourcePath
-}
-
 function hasRasterAssetReference(layers: LayerDefinition[], assetId: string): boolean {
   return layers.some((layer) => getRasterAssetId(layer) === assetId)
 }
@@ -774,10 +755,6 @@ async function cleanupOrphanedRasterAssets(
     const assetId = getRasterAssetId(layer)
     if (assetId) {
       referencedAssetIds.add(assetId)
-      const sourcePath = getRasterSourcePath(layer)
-      if (sourcePath) {
-        await rasterTileService.bindGeoTiffAssetSourcePath(assetId, sourcePath)
-      }
     }
   }
 

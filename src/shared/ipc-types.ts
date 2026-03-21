@@ -1304,9 +1304,15 @@ export interface ConnectorApprovalGrantResult {
   message: string
 }
 
+export interface LocalFileDescriptor {
+  name: string
+  size: number
+  lastModified: number
+  type: string
+}
+
 export interface RegisterGeoTiffAssetRequest {
-  fileName: string
-  fileBuffer: ArrayBuffer
+  sourcePath: string
   jobId?: string
 }
 
@@ -1409,12 +1415,10 @@ export interface LayerApi {
   registerGeoTiffAsset: (
     request: RegisterGeoTiffAssetRequest
   ) => Promise<RegisterGeoTiffAssetResult>
+  resolveImportFilePath: (descriptor: LocalFileDescriptor) => Promise<string | null>
   getGeoTiffAssetStatus: (jobId: string) => Promise<GeoTiffAssetProcessingStatus | null>
   releaseGeoTiffAsset: (assetId: string) => Promise<boolean>
   updateRuntimeSnapshot: (layers: unknown[]) => Promise<boolean>
-
-  // Backward-compatible alias. Prefer registerGeoTiffAsset.
-  processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) => Promise<RegisterGeoTiffAssetResult>
 }
 
 // PostgreSQL API for preload script

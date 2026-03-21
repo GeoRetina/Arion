@@ -246,11 +246,11 @@ export default function ChatInterface(): React.JSX.Element {
         id: 'raster-import-progress',
         content: (
           <ChatInputBanner
-            icon={<Loader2 className="h-4 w-4 animate-spin text-primary" />}
+            icon={<Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
             progress={progress}
           >
-            <span className="font-medium">{title}</span>
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="text-xs font-normal">{title}</span>
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
               {progress}% &middot; {message}
             </span>
           </ChatInputBanner>
