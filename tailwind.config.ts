@@ -51,7 +51,8 @@ const config = {
           DEFAULT: 'var(--card)',
           foreground: 'var(--card-foreground)'
         },
-        'chat-input-background': 'var(--chat-input-background)'
+        'chat-input-background': 'var(--chat-input-background)',
+        'chat-input-banner-background': 'var(--chat-input-banner-background)'
       },
       borderRadius: {
         lg: 'var(--radius)',

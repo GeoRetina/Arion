@@ -1,7 +1,7 @@
 /**
  * Vector Metadata Extractor
  *
- * Extracts metadata from vector data sources (GeoJSON, Shapefile).
+ * Extracts metadata from vector data sources (GeoJSON, Shapefile, GeoPackage).
  * Handles geometry analysis, bounds calculation, and attribute inspection.
  */
 
@@ -30,47 +30,37 @@ export class VectorMetadataExtractor {
    * Extract metadata from GeoJSON data
    */
   static extractGeoJSONMetadata(geoJson: GeoJsonLike): LayerMetadata {
-    const features = geoJson.features || []
-    const featureCount = features.length
-
-    const geometryType = this.determineGeometryType(features)
-    const bounds = features.length > 0 ? this.calculateBounds(features) : undefined
-    const attributes = this.extractAttributeSchema(features)
-
-    return {
-      description: `Imported GeoJSON file with ${featureCount} features`,
+    return this.buildVectorMetadata(geoJson, {
+      description: 'Imported GeoJSON file',
       tags: ['imported', 'geojson'],
-      source: 'file-import',
-      geometryType,
-      featureCount,
-      bounds,
-      crs: 'EPSG:4326', // Assume WGS84 for GeoJSON
-      attributes
-    }
+      source: 'file-import'
+    })
   }
 
   /**
    * Extract metadata from Shapefile (converted to GeoJSON)
    */
-  static extractShapefileMetadata(geoJson: GeoJsonLike, fileName: string): LayerMetadata {
-    void fileName
-    const features = geoJson.features || []
-    const featureCount = features.length
-
-    const geometryType = this.determineGeometryType(features)
-    const bounds = features.length > 0 ? this.calculateBounds(features) : undefined
-    const attributes = this.extractAttributeSchema(features)
-
-    return {
-      description: `Imported Shapefile with ${featureCount} features`,
+  static extractShapefileMetadata(geoJson: GeoJsonLike): LayerMetadata {
+    return this.buildVectorMetadata(geoJson, {
+      description: 'Imported Shapefile',
       tags: ['imported', 'shapefile'],
-      source: 'shapefile-import',
-      geometryType,
-      featureCount,
-      bounds,
-      crs: 'EPSG:4326', // shpjs converts to WGS84
-      attributes
-    }
+      source: 'shapefile-import'
+    })
+  }
+
+  /**
+   * Extract metadata from GeoPackage (converted to GeoJSON)
+   */
+  static extractGeopackageMetadata(
+    geoJson: GeoJsonLike,
+    context?: Record<string, unknown>
+  ): LayerMetadata {
+    return this.buildVectorMetadata(geoJson, {
+      description: 'Imported GeoPackage',
+      tags: ['imported', 'geopackage'],
+      source: 'geopackage-import',
+      context
+    })
   }
 
   /**
@@ -233,5 +223,34 @@ export class VectorMetadataExtractor {
       typeof coords[0] === 'number' &&
       typeof coords[1] === 'number'
     )
+  }
+
+  private static buildVectorMetadata(
+    geoJson: GeoJsonLike,
+    options: {
+      description: string
+      tags: string[]
+      source: string
+      context?: Record<string, unknown>
+    }
+  ): LayerMetadata {
+    const features = geoJson.features || []
+    const featureCount = features.length
+
+    const geometryType = this.determineGeometryType(features)
+    const bounds = features.length > 0 ? this.calculateBounds(features) : undefined
+    const attributes = this.extractAttributeSchema(features)
+
+    return {
+      description: `${options.description} with ${featureCount} features`,
+      tags: options.tags,
+      source: options.source,
+      geometryType,
+      featureCount,
+      bounds,
+      crs: 'EPSG:4326',
+      attributes,
+      context: options.context
+    }
   }
 }

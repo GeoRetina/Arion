@@ -6,7 +6,13 @@ import { delimiter, join, posix, win32 } from 'path'
 const DEFAULT_COMMAND_TIMEOUT_MS = 2 * 60 * 1000
 const AVAILABILITY_TIMEOUT_MS = 8 * 1000
 
-export type GdalToolName = 'gdalinfo' | 'gdalwarp' | 'gdal_translate' | 'gdaladdo'
+export type GdalToolName =
+  | 'gdalinfo'
+  | 'gdalwarp'
+  | 'gdal_translate'
+  | 'gdaladdo'
+  | 'ogrinfo'
+  | 'ogr2ogr'
 export type GdalCommandSource = 'bundled' | 'system'
 
 export interface GdalRuntimePaths {

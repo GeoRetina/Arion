@@ -38,6 +38,7 @@ import { useChatController } from '../hooks/use-chat-controller'
 import { useChatFileDrop } from '../hooks/use-chat-file-drop'
 import { hasRenderableAssistantContent } from '../utils/message-part-utils'
 import { cn } from '@/lib/utils'
+import { SUPPORTED_LAYER_IMPORT_DESCRIPTION } from '@/services/layer-import'
 import {
   resolveReasoningBudgetPreset,
   resolveReasoningEffort,
@@ -240,10 +241,10 @@ export default function ChatInterface(): React.JSX.Element {
   const chatInputBanners = useMemo<ChatInputBannerItem[]>(() => {
     const items: ChatInputBannerItem[] = []
 
-    if (layerFileImport.rasterProgress) {
-      const { title, message, progress } = layerFileImport.rasterProgress
+    if (layerFileImport.importProgress) {
+      const { title, message, progress } = layerFileImport.importProgress
       items.push({
-        id: 'raster-import-progress',
+        id: 'layer-import-progress',
         content: (
           <ChatInputBanner
             icon={<Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
@@ -259,7 +260,7 @@ export default function ChatInterface(): React.JSX.Element {
     }
 
     return items
-  }, [layerFileImport.rasterProgress])
+  }, [layerFileImport.importProgress])
 
   // Custom handleSubmit to send message via v5 API
   const handleSubmit = (e?: React.FormEvent<HTMLFormElement>): void => {
@@ -335,7 +336,7 @@ export default function ChatInterface(): React.JSX.Element {
               <Files className="h-14 w-14 text-primary mb-3" />
               <p className="text-base font-medium text-foreground">Drop layer file to import</p>
               <p className="mt-2 text-sm text-muted-foreground">
-                Supports GeoJSON, zipped Shapefiles, and GeoTIFF
+                Supports {SUPPORTED_LAYER_IMPORT_DESCRIPTION}
               </p>
             </div>
           </div>

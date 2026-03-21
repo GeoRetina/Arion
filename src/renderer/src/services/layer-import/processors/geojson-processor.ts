@@ -8,41 +8,14 @@
 import { v4 as uuidv4 } from 'uuid'
 import type {
   LayerDefinition,
-  GeometryType,
   LayerType,
   LayerSourceConfig
 } from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
+import { asGeoJsonRecord, toMetadataFeature, type GeoJsonRecord } from './vector-feature-utils'
 
-type GeoJsonRecord = Record<string, unknown>
 type GeoJsonFeatureCollection = { type: 'FeatureCollection'; features: GeoJsonRecord[] }
-
-type MetadataFeatureLike = {
-  geometry?: {
-    type?: GeometryType
-    coordinates?: unknown
-  }
-  properties?: Record<string, unknown>
-}
-
-const geometryTypes = new Set<GeometryType>([
-  'Point',
-  'LineString',
-  'Polygon',
-  'MultiPoint',
-  'MultiLineString',
-  'MultiPolygon',
-  'GeometryCollection'
-])
-
-function asRecord(value: unknown): GeoJsonRecord | null {
-  return value && typeof value === 'object' ? (value as GeoJsonRecord) : null
-}
-
-function isGeometryType(value: unknown): value is GeometryType {
-  return typeof value === 'string' && geometryTypes.has(value as GeometryType)
-}
 
 export class GeoJSONProcessor {
   /**
@@ -63,7 +36,7 @@ export class GeoJSONProcessor {
 
     // Extract metadata and create style
     const metadata = VectorMetadataExtractor.extractGeoJSONMetadata({
-      features: normalizedData.features.map((feature) => this.toMetadataFeature(feature))
+      features: normalizedData.features.map((feature) => toMetadataFeature(feature))
     })
     const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
 
@@ -92,7 +65,7 @@ export class GeoJSONProcessor {
    * Normalize GeoJSON to FeatureCollection format
    */
   private static normalizeToFeatureCollection(geoJsonData: unknown): GeoJsonFeatureCollection {
-    const geoJsonRecord = asRecord(geoJsonData)
+    const geoJsonRecord = asGeoJsonRecord(geoJsonData)
     const geoJsonType = geoJsonRecord?.type
     if (!geoJsonRecord || typeof geoJsonType !== 'string') {
       throw new Error('Invalid GeoJSON structure')
@@ -101,7 +74,7 @@ export class GeoJSONProcessor {
     if (geoJsonType === 'FeatureCollection') {
       const features = Array.isArray(geoJsonRecord.features)
         ? geoJsonRecord.features.filter((feature): feature is GeoJsonRecord =>
-            Boolean(asRecord(feature))
+            Boolean(asGeoJsonRecord(feature))
           )
         : []
       return {
@@ -138,7 +111,7 @@ export class GeoJSONProcessor {
    * Validate GeoJSON structure
    */
   static validateGeoJSON(data: unknown): { valid: boolean; error?: string } {
-    const dataRecord = asRecord(data)
+    const dataRecord = asGeoJsonRecord(data)
     if (!dataRecord) {
       return { valid: false, error: 'Invalid GeoJSON: not an object' }
     }
@@ -208,17 +181,17 @@ export class GeoJSONProcessor {
     let hasProperties = false
 
     features.forEach((feature) => {
-      const featureRecord = asRecord(feature)
+      const featureRecord = asGeoJsonRecord(feature)
       if (!featureRecord) {
         return
       }
 
-      const geometryRecord = asRecord(featureRecord.geometry)
+      const geometryRecord = asGeoJsonRecord(featureRecord.geometry)
       if (typeof geometryRecord?.type === 'string') {
         geometryTypes.add(geometryRecord.type)
       }
 
-      const propertiesRecord = asRecord(featureRecord.properties)
+      const propertiesRecord = asGeoJsonRecord(featureRecord.properties)
       if (propertiesRecord && Object.keys(propertiesRecord).length > 0) {
         hasProperties = true
         Object.keys(propertiesRecord).forEach((key) => propertyKeys.add(key))
@@ -230,21 +203,6 @@ export class GeoJSONProcessor {
       geometryTypes: Array.from(geometryTypes),
       hasProperties,
       propertyKeys: Array.from(propertyKeys)
-    }
-  }
-
-  private static toMetadataFeature(feature: GeoJsonRecord): MetadataFeatureLike {
-    const geometryRecord = asRecord(feature.geometry)
-    const propertiesRecord = asRecord(feature.properties)
-
-    return {
-      geometry: geometryRecord
-        ? {
-            type: isGeometryType(geometryRecord.type) ? geometryRecord.type : undefined,
-            coordinates: geometryRecord.coordinates
-          }
-        : undefined,
-      properties: propertiesRecord ?? undefined
     }
   }
 }

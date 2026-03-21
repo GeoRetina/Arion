@@ -1311,6 +1311,30 @@ export interface LocalFileDescriptor {
   type: string
 }
 
+export interface ImportGeoPackageRequest {
+  sourcePath: string
+}
+
+export interface GeoPackageSourceLayerSummary {
+  name: string
+  featureCount: number
+  geometryType?: string
+  crs?: string | null
+}
+
+export interface ImportGeoPackageResult {
+  geojson: {
+    type: 'FeatureCollection'
+    features: Record<string, unknown>[]
+  }
+  featureCount: number
+  layerCount: number
+  sourceLayers: GeoPackageSourceLayerSummary[]
+  crs: string
+  warnings: string[]
+  mergedLayerPropertyName?: string
+}
+
 export interface RegisterGeoTiffAssetRequest {
   sourcePath: string
   jobId?: string
@@ -1412,6 +1436,7 @@ export interface LayerApi {
   recordMetrics: (metrics: import('./types/layer-types').LayerPerformanceMetrics) => Promise<void>
 
   // GeoTIFF raster asset management
+  importGeoPackage: (request: ImportGeoPackageRequest) => Promise<ImportGeoPackageResult>
   registerGeoTiffAsset: (
     request: RegisterGeoTiffAssetRequest
   ) => Promise<RegisterGeoTiffAssetResult>

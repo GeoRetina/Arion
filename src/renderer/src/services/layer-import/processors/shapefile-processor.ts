@@ -9,43 +9,16 @@ import { v4 as uuidv4 } from 'uuid'
 import shp from 'shpjs'
 import type {
   LayerDefinition,
-  GeometryType,
   LayerType,
   LayerSourceConfig
 } from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
+import { asGeoJsonRecord, toMetadataFeature, type GeoJsonRecord } from './vector-feature-utils'
 
-type ShapefileRecord = Record<string, unknown>
 type ShapefileFeatureCollection = {
   type: 'FeatureCollection'
-  features: ShapefileRecord[]
-}
-
-type MetadataFeatureLike = {
-  geometry?: {
-    type?: GeometryType
-    coordinates?: unknown
-  }
-  properties?: Record<string, unknown>
-}
-
-const geometryTypes = new Set<GeometryType>([
-  'Point',
-  'LineString',
-  'Polygon',
-  'MultiPoint',
-  'MultiLineString',
-  'MultiPolygon',
-  'GeometryCollection'
-])
-
-function asRecord(value: unknown): ShapefileRecord | null {
-  return value && typeof value === 'object' ? (value as ShapefileRecord) : null
-}
-
-function isGeometryType(value: unknown): value is GeometryType {
-  return typeof value === 'string' && geometryTypes.has(value as GeometryType)
+  features: GeoJsonRecord[]
 }
 
 export class ShapefileProcessor {
@@ -66,12 +39,9 @@ export class ShapefileProcessor {
       this.validateShapefileData(normalizedData)
 
       // Extract metadata and create style
-      const metadata = VectorMetadataExtractor.extractShapefileMetadata(
-        {
-          features: normalizedData.features.map((feature) => this.toMetadataFeature(feature))
-        },
-        fileName
-      )
+      const metadata = VectorMetadataExtractor.extractShapefileMetadata({
+        features: normalizedData.features.map((feature) => toMetadataFeature(feature))
+      })
       const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
 
       return {
@@ -220,16 +190,16 @@ export class ShapefileProcessor {
       totalFeatures += shapefile.features.length
 
       shapefile.features.forEach((feature) => {
-        const featureRecord = asRecord(feature)
+        const featureRecord = asGeoJsonRecord(feature)
         if (!featureRecord) {
           return
         }
-        const geometryRecord = asRecord(featureRecord.geometry)
+        const geometryRecord = asGeoJsonRecord(featureRecord.geometry)
         if (typeof geometryRecord?.type === 'string') {
           geometryTypes.add(geometryRecord.type)
         }
 
-        const propertiesRecord = asRecord(featureRecord.properties)
+        const propertiesRecord = asGeoJsonRecord(featureRecord.properties)
         if (propertiesRecord && Object.keys(propertiesRecord).length > 0) {
           hasAttributes = true
           Object.keys(propertiesRecord).forEach((key) => attributeKeys.add(key))
@@ -247,14 +217,14 @@ export class ShapefileProcessor {
   }
 
   private static toFeatureCollection(shpjsOutput: unknown): ShapefileFeatureCollection | null {
-    const outputRecord = asRecord(shpjsOutput)
+    const outputRecord = asGeoJsonRecord(shpjsOutput)
     if (!outputRecord) {
       return null
     }
 
     const features = Array.isArray(outputRecord.features)
-      ? outputRecord.features.filter((feature): feature is ShapefileRecord =>
-          Boolean(asRecord(feature))
+      ? outputRecord.features.filter((feature): feature is GeoJsonRecord =>
+          Boolean(asGeoJsonRecord(feature))
         )
       : null
 
@@ -265,21 +235,6 @@ export class ShapefileProcessor {
     return {
       type: 'FeatureCollection',
       features
-    }
-  }
-
-  private static toMetadataFeature(feature: ShapefileRecord): MetadataFeatureLike {
-    const geometryRecord = asRecord(feature.geometry)
-    const propertiesRecord = asRecord(feature.properties)
-
-    return {
-      geometry: geometryRecord
-        ? {
-            type: isGeometryType(geometryRecord.type) ? geometryRecord.type : undefined,
-            coordinates: geometryRecord.coordinates
-          }
-        : undefined,
-      properties: propertiesRecord ?? undefined
     }
   }
 }

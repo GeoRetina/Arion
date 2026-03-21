@@ -106,6 +106,8 @@ import {
   type CodexRunRequest,
   type CodexRunResult,
   type CodexRuntimeEvent,
+  type ImportGeoPackageRequest,
+  type ImportGeoPackageResult,
   type LocalFileDescriptor
 } from '../shared/ipc-types' // Corrected relative path
 import type {
@@ -851,6 +853,9 @@ const ctgApi = {
     export: (layerIds: string[]): Promise<string> => ipcRenderer.invoke('layers:export', layerIds),
     import: (data: string, targetGroupId?: string): Promise<string[]> =>
       ipcRenderer.invoke('layers:import', data, targetGroupId),
+
+    importGeoPackage: (request: ImportGeoPackageRequest): Promise<ImportGeoPackageResult> =>
+      ipcRenderer.invoke('layers:importGeoPackage', request),
 
     // Register GeoTIFF as a tiled raster asset
     registerGeoTiffAsset: (request) => ipcRenderer.invoke('layers:registerGeoTiffAsset', request),

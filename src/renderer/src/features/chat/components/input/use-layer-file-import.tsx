@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react'
-import { LayerImportService } from '@/services/layer-import-service'
+import { LayerImportService, LAYER_IMPORT_ACCEPT_ATTRIBUTE } from '@/services/layer-import'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { toast } from 'sonner'
 import type { LayerDefinition } from '../../../../../../shared/types/layer-types'
 import {
-  createInitialRasterProgressToastState,
-  createRasterProgressToastState,
+  createGeoPackageImportProgressState,
+  createInitialGeoPackageImportProgressState,
+  createInitialRasterImportProgressState,
+  createRasterImportProgressState,
+  getGeoPackageProgressSignature,
   getRasterProgressSignature
-} from './raster-import-progress-toast-state'
-import type { RasterImportProgress } from './raster-import-progress-toast-state'
-export type { RasterImportProgress } from './raster-import-progress-toast-state'
+} from './layer-import-progress-state'
+import type { LayerImportProgress } from './layer-import-progress-state'
+export type { LayerImportProgress } from './layer-import-progress-state'
 
 export type UploadState = 'idle' | 'uploading' | 'success' | 'error'
 
-export const DEFAULT_LAYER_IMPORT_ACCEPTED_TYPES = '.json,.geojson,.zip,.tif,.tiff'
+const DEFAULT_LAYER_IMPORT_ACCEPTED_TYPES = LAYER_IMPORT_ACCEPT_ATTRIBUTE
 
 interface UseLayerFileImportOptions {
   acceptedTypes?: string
@@ -29,7 +32,7 @@ export interface UseLayerFileImportResult {
   importFile: (file: File) => Promise<void>
   openFilePicker: () => void
   uploadState: UploadState
-  rasterProgress: RasterImportProgress | null
+  importProgress: LayerImportProgress | null
 }
 
 export const useLayerFileImport = ({
@@ -40,7 +43,7 @@ export const useLayerFileImport = ({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resetUploadStateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [uploadState, setUploadState] = useState<UploadState>('idle')
-  const [rasterProgress, setRasterProgress] = useState<RasterImportProgress | null>(null)
+  const [importProgress, setImportProgress] = useState<LayerImportProgress | null>(null)
   const { addLayer, addError } = useLayerStore()
   const currentChatId = useChatHistoryStore((state) => state.currentChatId)
 
@@ -80,6 +83,7 @@ export const useLayerFileImport = ({
       let layerDefinition: LayerDefinition | null = null
       let lastProgressSignature = ''
       let isGeoTiffImport = false
+      let isGeoPackageImport = false
       let geotiffReady = false
       let geotiffLayerAdded = false
       let geotiffSuccessToastShown = false
@@ -104,8 +108,12 @@ export const useLayerFileImport = ({
 
         if (validation.format === 'geotiff') {
           isGeoTiffImport = true
-          const initialState = createInitialRasterProgressToastState()
-          setRasterProgress(initialState)
+          setImportProgress(createInitialRasterImportProgressState())
+          await waitForNextPaint()
+        } else if (validation.format === 'geopackage') {
+          isGeoPackageImport = true
+          setImportProgress(createInitialGeoPackageImportProgressState(file.name))
+          await waitForNextPaint()
         }
 
         layerDefinition = await LayerImportService.processFile(file, validation.format, {
@@ -116,7 +124,7 @@ export const useLayerFileImport = ({
 
             if (status.stage === 'ready') {
               geotiffReady = true
-              setRasterProgress(null)
+              setImportProgress(null)
 
               if (status.warning) {
                 toast.warning('Raster optimization fallback', {
@@ -128,7 +136,7 @@ export const useLayerFileImport = ({
             }
 
             if (status.stage === 'error') {
-              setRasterProgress(null)
+              setImportProgress(null)
               toast.error('Raster optimization failed', {
                 description: status.error || status.warning || 'Unknown optimization error'
               })
@@ -141,10 +149,31 @@ export const useLayerFileImport = ({
             }
 
             lastProgressSignature = signature
-            const toastState = createRasterProgressToastState(status)
-            setRasterProgress(toastState)
+            setImportProgress(createRasterImportProgressState(status))
+          },
+          onGeoPackageProgress: (status) => {
+            if (!isGeoPackageImport) {
+              return
+            }
+
+            const signature = getGeoPackageProgressSignature(status)
+            if (signature === lastProgressSignature) {
+              return
+            }
+
+            lastProgressSignature = signature
+            setImportProgress(createGeoPackageImportProgressState(status))
           }
         })
+
+        if (isGeoPackageImport) {
+          setImportProgress({
+            title: 'Adding layer',
+            message: 'Syncing imported features to the map',
+            progress: 95
+          })
+          await waitForNextPaint()
+        }
 
         await addLayer(layerDefinition, {
           chatId: currentChatId,
@@ -165,7 +194,7 @@ export const useLayerFileImport = ({
           })
         }
 
-        setRasterProgress(null)
+        setImportProgress(null)
         scheduleUploadStateReset(1500)
       } catch (error) {
         if (layerDefinition) {
@@ -177,7 +206,7 @@ export const useLayerFileImport = ({
         }
 
         setUploadState('error')
-        setRasterProgress(null)
+        setImportProgress(null)
 
         const errorMessage = error instanceof Error ? error.message : 'Failed to import layer'
 
@@ -239,6 +268,12 @@ export const useLayerFileImport = ({
     importFile,
     openFilePicker,
     uploadState,
-    rasterProgress
+    importProgress
   }
+}
+
+async function waitForNextPaint(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
 }
