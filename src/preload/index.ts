@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 // Import IPC types from the shared directory
 import {
   IpcChannels,
@@ -105,7 +105,8 @@ import {
   type CodexRunRecord,
   type CodexRunRequest,
   type CodexRunResult,
-  type CodexRuntimeEvent
+  type CodexRuntimeEvent,
+  type LocalFileDescriptor
 } from '../shared/ipc-types' // Corrected relative path
 import type {
   LayerDefinition,
@@ -127,6 +128,7 @@ type PreloadChatRequestBody = ChatRequestBodyForPreload & {
 
 // Add EventEmitter for streaming support
 import { EventEmitter } from 'events'
+import { LocalImportPathRegistry } from './local-import-path-registry'
 
 // Define MapApi type for preload
 // export interface MapApi { // This local interface can be removed if ExposedMapApi is used directly for typing ctgApi.map
@@ -136,6 +138,58 @@ import { EventEmitter } from 'events'
 
 // Store active stream emitters
 const streamEmitters = new Map<string, EventEmitter>()
+const localImportPathRegistry = new LocalImportPathRegistry()
+let localImportPathCaptureInitialized = false
+
+function trackLocalImportFiles(fileList: FileList | null | undefined): void {
+  localImportPathRegistry.registerFiles(fileList, (candidate) => webUtils.getPathForFile(candidate))
+}
+
+function resolveTrackedLocalImportPath(descriptor: LocalFileDescriptor): string | null {
+  return localImportPathRegistry.resolvePath(descriptor)
+}
+
+function initializeLocalImportPathCapture(): void {
+  if (localImportPathCaptureInitialized || typeof document === 'undefined') {
+    return
+  }
+
+  const attachListeners = (): void => {
+    if (localImportPathCaptureInitialized) {
+      return
+    }
+
+    document.addEventListener(
+      'change',
+      (event) => {
+        const target = event.target
+        if (!(target instanceof HTMLInputElement) || target.type !== 'file') {
+          return
+        }
+
+        trackLocalImportFiles(target.files)
+      },
+      true
+    )
+
+    document.addEventListener(
+      'drop',
+      (event) => {
+        trackLocalImportFiles(event.dataTransfer?.files)
+      },
+      true
+    )
+
+    localImportPathCaptureInitialized = true
+  }
+
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', attachListeners, { once: true })
+    return
+  }
+
+  attachListeners()
+}
 
 // Custom APIs for renderer
 const ctgApi = {
@@ -800,16 +854,14 @@ const ctgApi = {
 
     // Register GeoTIFF as a tiled raster asset
     registerGeoTiffAsset: (request) => ipcRenderer.invoke('layers:registerGeoTiffAsset', request),
+    resolveImportFilePath: (descriptor) =>
+      Promise.resolve(resolveTrackedLocalImportPath(descriptor)),
     getGeoTiffAssetStatus: (jobId: string) =>
       ipcRenderer.invoke('layers:getGeoTiffAssetStatus', jobId),
     releaseGeoTiffAsset: (assetId: string): Promise<boolean> =>
       ipcRenderer.invoke('layers:releaseGeoTiffAsset', assetId),
     updateRuntimeSnapshot: (layers: unknown[]): Promise<boolean> =>
-      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers),
-
-    // Backward-compatible alias. Prefer registerGeoTiffAsset.
-    processGeotiff: (fileBuffer: ArrayBuffer, fileName: string) =>
-      ipcRenderer.invoke('layers:processGeotiff', fileBuffer, fileName)
+      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers)
   } as LayerApi,
   // Agent API for managing agents
   agents: {
@@ -931,6 +983,8 @@ const ctgApi = {
   },
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('ctg:get-app-version')
 }
+
+initializeLocalImportPathCapture()
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise

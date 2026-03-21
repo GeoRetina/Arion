@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs'
 import { randomUUID } from 'crypto'
-import { join, resolve } from 'path'
-import { cpus, tmpdir } from 'os'
+import { join } from 'path'
+import { cpus } from 'os'
 import { app } from 'electron'
 import { fromFile as geoTiffFromFile, Pool } from 'geotiff'
 import type { GeoTIFF, GeoTIFFImage, ReadRasterResult } from 'geotiff'
@@ -19,7 +19,7 @@ import {
 } from './raster-coordinate-utils'
 import { getRasterGdalTileService } from './raster-gdal-tile-service'
 import { getRasterGdalPreprocessService } from './raster-gdal-preprocess-service'
-import { isPathInsideDirectory } from '../../security/path-security'
+import { ensureLocalFilesystemPath } from '../../security/path-security'
 import type {
   BoundingBox,
   GeoTiffAssetProcessingStatus,
@@ -41,6 +41,9 @@ const BAND_RANGE_PERCENTILE_LOW = 0.02
 const BAND_RANGE_PERCENTILE_HIGH = 0.98
 const BAND_RANGE_MAX_SAMPLE_VALUES = 131_072
 const BAND_RANGE_MAX_TOTAL_SAMPLE_VALUES = 3_000_000
+const BAND_RANGE_MAX_SAMPLE_DIMENSION = 512
+const BAND_RANGE_MIN_SAMPLE_DIMENSION = 64
+const DEFAULT_BAND_RANGE = { min: 0, max: 255 }
 
 interface CachedTileEntry {
   data: Buffer
@@ -86,17 +89,11 @@ interface BandRange {
   max: number
 }
 
-interface MaterializedRasterInput {
-  path: string
-  cleanupDirectory: string | null
-}
-
 export class RasterTileService {
   private readonly decoderPool: Pool
   private readonly gdalTileService = getRasterGdalTileService()
   private readonly preprocessService = getRasterGdalPreprocessService()
   private readonly openAssetContexts = new Map<string, RasterAssetContext>()
-  private readonly assetActivePaths = new Map<string, string>()
   private readonly tileCache = new Map<string, CachedTileEntry>()
   private readonly pendingTiles = new Map<string, Promise<Buffer>>()
   private readonly processingStatusByJobId = new Map<string, GeoTiffAssetProcessingStatus>()
@@ -134,34 +131,25 @@ export class RasterTileService {
       updatedAt: nowIso
     })
 
-    let materializedInput: MaterializedRasterInput | null = null
-    let usesSourcePath = false
-    let activePath = destinationPath
-
     try {
       this.updateProcessingStatus(jobId, {
         stage: 'preparing',
         progress: 6,
         message: 'Preparing GeoTIFF source'
       })
-      materializedInput = await this.materializeInput(request, assetId)
+      const sourcePath = await this.resolveSourcePath(request)
 
       this.updateProcessingStatus(jobId, {
         stage: 'validating',
         progress: 12,
         message: 'Validating TIFF header'
       })
-      await this.assertGeoTiffMagic(materializedInput.path)
-
-      usesSourcePath = !materializedInput.cleanupDirectory
-      activePath = usesSourcePath ? materializedInput.path : destinationPath
+      await this.assertGeoTiffMagic(sourcePath)
 
       this.updateProcessingStatus(jobId, {
         stage: 'preparing',
         progress: 20,
-        message: usesSourcePath
-          ? 'Preparing source raster metadata'
-          : 'Preparing canonical raster asset'
+        message: 'Preparing managed raster asset'
       })
 
       this.updateProcessingStatus(jobId, {
@@ -173,8 +161,8 @@ export class RasterTileService {
 
       const preprocessResult = await this.preprocessService.preprocessGeoTiff({
         assetId,
-        inputPath: materializedInput.path,
-        outputPath: activePath,
+        inputPath: sourcePath,
+        outputPath: destinationPath,
         onProgress: (update) => {
           this.updateProcessingStatus(jobId, {
             stage: 'preprocessing',
@@ -199,8 +187,7 @@ export class RasterTileService {
         processingEngine: 'gdal',
         warning: processingWarning
       })
-      const context = await this.loadAssetContext(assetId, activePath)
-      this.assetActivePaths.set(assetId, activePath)
+      const context = await this.loadAssetContext(assetId, destinationPath)
       this.touchAssetContext(assetId, context)
       await this.enforceOpenAssetContextLimit(assetId)
 
@@ -228,10 +215,7 @@ export class RasterTileService {
         processingWarning
       }
     } catch (error) {
-      if (!usesSourcePath) {
-        await this.safeRemoveAssetArtifacts(destinationPath)
-      }
-      this.assetActivePaths.delete(assetId)
+      await this.safeRemoveAssetArtifacts(destinationPath)
       const message = error instanceof Error ? error.message : 'Failed to register GeoTIFF asset'
       this.updateProcessingStatus(jobId, {
         stage: 'error',
@@ -241,32 +225,6 @@ export class RasterTileService {
         error: message
       })
       throw error
-    } finally {
-      if (materializedInput) {
-        await this.cleanupMaterializedInput(materializedInput)
-      }
-    }
-  }
-
-  async bindGeoTiffAssetSourcePath(assetId: string, sourcePath: string): Promise<void> {
-    if (
-      !isValidAssetId(assetId) ||
-      typeof sourcePath !== 'string' ||
-      sourcePath.trim().length === 0
-    ) {
-      return
-    }
-
-    const resolvedPath = resolve(sourcePath)
-    if (!isPathInsideDirectory(resolvedPath, this.getAssetsDirectoryPath())) {
-      return
-    }
-
-    try {
-      await fs.access(resolvedPath)
-      this.assetActivePaths.set(assetId, resolvedPath)
-    } catch {
-      // Ignore unavailable source paths. Rendering will fall back to managed asset lookup.
     }
   }
 
@@ -275,7 +233,6 @@ export class RasterTileService {
       return
     }
 
-    this.assetActivePaths.delete(assetId)
     this.clearTileCacheForAsset(assetId)
 
     const openContext = this.openAssetContexts.get(assetId)
@@ -341,7 +298,6 @@ export class RasterTileService {
     }
 
     this.openAssetContexts.clear()
-    this.assetActivePaths.clear()
     this.gdalTileService.shutdown()
     this.tileCache.clear()
     this.pendingTiles.clear()
@@ -427,7 +383,7 @@ export class RasterTileService {
       return existing
     }
 
-    const filePath = this.getActiveAssetPath(assetId)
+    const filePath = this.getAssetPath(assetId)
     const context = await this.loadAssetContext(assetId, filePath)
     this.touchAssetContext(assetId, context)
     await this.enforceOpenAssetContextLimit(assetId)
@@ -483,9 +439,12 @@ export class RasterTileService {
       const height = baseLevel.height
       const bandCount = baseLevel.image.getSamplesPerPixel()
       const noDataValue = baseLevel.image.getGDALNoData()
-      const bandRanges = await this.computeBandRanges(baseLevel.image, bandCount, noDataValue)
       const paletteIndexed = isPaletteIndexedImage(baseLevel.image)
       const sourceByteLike = isByteLikeImage(baseLevel.image)
+      const bandRanges =
+        paletteIndexed || sourceByteLike
+          ? []
+          : await this.computeBandRanges(baseLevel.image, bandCount, noDataValue)
       const maxZoom = inferNativeMaxZoom(sourceBounds, width, crs)
 
       return {
@@ -524,30 +483,14 @@ export class RasterTileService {
     return randomUUID()
   }
 
-  private async materializeInput(
-    request: RegisterGeoTiffAssetRequest,
-    assetId: string
-  ): Promise<MaterializedRasterInput> {
-    if (!(request.fileBuffer instanceof ArrayBuffer)) {
-      throw new Error('GeoTIFF registration requires fileBuffer')
+  private async resolveSourcePath(request: RegisterGeoTiffAssetRequest): Promise<string> {
+    const resolvedPath = ensureLocalFilesystemPath(request.sourcePath, 'GeoTIFF source path')
+    const fileStats = await fs.stat(resolvedPath).catch(() => null)
+    if (!fileStats?.isFile()) {
+      throw new Error('GeoTIFF source path must point to a readable local file')
     }
 
-    const scratchDirectory = await fs.mkdtemp(join(tmpdir(), `arion-raster-input-${assetId}-`))
-    const scratchFilePath = join(scratchDirectory, `${assetId}.tif`)
-    await fs.writeFile(scratchFilePath, Buffer.from(request.fileBuffer))
-
-    return {
-      path: scratchFilePath,
-      cleanupDirectory: scratchDirectory
-    }
-  }
-
-  private async cleanupMaterializedInput(input: MaterializedRasterInput): Promise<void> {
-    if (!input.cleanupDirectory) {
-      return
-    }
-
-    await fs.rm(input.cleanupDirectory, { recursive: true, force: true })
+    return resolvedPath
   }
 
   private setProcessingStatus(status: GeoTiffAssetProcessingStatus): void {
@@ -619,10 +562,6 @@ export class RasterTileService {
 
   private getAssetsDirectoryPath(): string {
     return join(app.getPath('userData'), RASTER_ASSETS_DIR)
-  }
-
-  private getActiveAssetPath(assetId: string): string {
-    return this.assetActivePaths.get(assetId) ?? this.getAssetPath(assetId)
   }
 
   private getAssetPath(assetId: string): string {
@@ -725,13 +664,54 @@ export class RasterTileService {
       Math.floor(BAND_RANGE_MAX_TOTAL_SAMPLE_VALUES / samplesToInspect)
     )
     const targetDimension = Math.max(1, Math.floor(Math.sqrt(maxSampleValuesPerBand)))
-    const sampleWidth = Math.max(1, Math.min(1024, image.getWidth(), targetDimension))
-    const sampleHeight = Math.max(1, Math.min(1024, image.getHeight(), targetDimension))
+    let sampleDimension = Math.max(
+      1,
+      Math.min(
+        BAND_RANGE_MAX_SAMPLE_DIMENSION,
+        image.getWidth(),
+        image.getHeight(),
+        targetDimension
+      )
+    )
 
+    while (sampleDimension >= 1) {
+      try {
+        return await this.readBandRangesAtSampleDimension(
+          image,
+          sampleIndexes,
+          sampleDimension,
+          noDataValue
+        )
+      } catch (error) {
+        if (
+          !isArrayBufferAllocationError(error) ||
+          sampleDimension <= BAND_RANGE_MIN_SAMPLE_DIMENSION
+        ) {
+          console.warn('Falling back to default raster band ranges after sampling failure', {
+            sampleDimension,
+            bandCount: samplesToInspect,
+            error: error instanceof Error ? error.message : String(error)
+          })
+          return createDefaultBandRanges(samplesToInspect)
+        }
+
+        sampleDimension = Math.max(BAND_RANGE_MIN_SAMPLE_DIMENSION, Math.floor(sampleDimension / 2))
+      }
+    }
+
+    return createDefaultBandRanges(samplesToInspect)
+  }
+
+  private async readBandRangesAtSampleDimension(
+    image: GeoTIFFImage,
+    sampleIndexes: number[],
+    sampleDimension: number,
+    noDataValue: number | null
+  ): Promise<BandRange[]> {
     const sampled = (await image.readRasters({
       samples: sampleIndexes,
-      width: sampleWidth,
-      height: sampleHeight,
+      width: sampleDimension,
+      height: sampleDimension,
       interleave: false,
       fillValue: 0,
       resampleMethod: 'bilinear',
@@ -741,9 +721,9 @@ export class RasterTileService {
     const sampledBands = normalizeRasterBands(sampled)
 
     const ranges: BandRange[] = []
-    for (let index = 0; index < samplesToInspect; index += 1) {
+    for (let index = 0; index < sampleIndexes.length; index += 1) {
       const range = computeBandRange(sampledBands[index], noDataValue)
-      ranges.push(range ?? { min: 0, max: 255 })
+      ranges.push(range ?? { ...DEFAULT_BAND_RANGE })
     }
 
     return ranges
@@ -1055,6 +1035,17 @@ function readNumericTagValue(
 function hasArrayLength(value: ArrayBufferView): value is ArrayBufferView & { length: number } {
   const withLength = value as ArrayBufferView & { length?: unknown }
   return typeof withLength.length === 'number'
+}
+
+function isArrayBufferAllocationError(error: unknown): boolean {
+  return (
+    error instanceof RangeError ||
+    (error instanceof Error && /array buffer allocation failed/i.test(error.message))
+  )
+}
+
+function createDefaultBandRanges(count: number): BandRange[] {
+  return Array.from({ length: count }, () => ({ ...DEFAULT_BAND_RANGE }))
 }
 
 function isNoDataPixel(noDataValue: number | null, value: number | undefined): boolean {

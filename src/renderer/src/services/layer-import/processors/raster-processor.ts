@@ -6,6 +6,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
+import { createLocalFileDescriptor } from '../../../../../shared/lib/local-file-descriptor'
 import type {
   GeoTiffAssetProcessingStatus,
   RegisterGeoTiffAssetResult
@@ -46,7 +47,14 @@ export class RasterProcessor {
 
       // Use tiled protocol-backed rendering for GeoTIFF files.
       if (fileInfo.isGeoTIFF) {
-        geotiffAsset = await this.registerGeoTiffAsset(file, onProgress)
+        const sourcePath = await this.resolveGeoTiffSourcePath(file)
+        if (!sourcePath) {
+          throw new Error(
+            'GeoTIFF import requires a local file path. Re-select the file and try again.'
+          )
+        }
+
+        geotiffAsset = await this.registerGeoTiffAsset(sourcePath, onProgress)
         geotiffAssetId = geotiffAsset.assetId
         bounds = geotiffAsset.bounds
 
@@ -59,6 +67,7 @@ export class RasterProcessor {
             maxZoom: geotiffAsset.maxZoom,
             bounds: geotiffAsset.bounds,
             rasterAssetId: geotiffAsset.assetId,
+            rasterSourcePath: sourcePath,
             rasterBandCount: geotiffAsset.bandCount
           }
         } as LayerSourceConfig
@@ -216,7 +225,7 @@ export class RasterProcessor {
   }
 
   private static async registerGeoTiffAsset(
-    file: File,
+    sourcePath: string,
     onProgress?: (status: GeoTiffAssetProcessingStatus) => void
   ): Promise<RegisterGeoTiffAssetResult> {
     const jobId = uuidv4()
@@ -225,17 +234,10 @@ export class RasterProcessor {
 
     const pollingPromise = this.pollGeoTiffAssetStatus(jobId, emitProgress, () => shouldStopPolling)
 
-    const requestBase = {
-      fileName: file.name,
-      jobId
-    }
+    const requestBase = { jobId, sourcePath }
 
     try {
-      const fileBuffer = await file.arrayBuffer()
-      const result = await window.ctg.layers.registerGeoTiffAsset({
-        ...requestBase,
-        fileBuffer
-      })
+      const result = await window.ctg.layers.registerGeoTiffAsset(requestBase)
 
       await this.emitLatestStatus(jobId, emitProgress)
       void this.pollGeoTiffAssetStatusUntilTerminal(
@@ -248,6 +250,17 @@ export class RasterProcessor {
       shouldStopPolling = true
       await pollingPromise
     }
+  }
+
+  private static async resolveGeoTiffSourcePath(file: File): Promise<string | null> {
+    return await window.ctg.layers.resolveImportFilePath(
+      createLocalFileDescriptor({
+        name: file.name,
+        size: file.size,
+        lastModified: file.lastModified,
+        type: file.type
+      })
+    )
   }
 
   private static async pollGeoTiffAssetStatus(
