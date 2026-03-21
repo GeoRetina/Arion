@@ -20,9 +20,9 @@ import { AgentRoutingService } from './services/agent-routing-service'
 import { SkillPackService } from './services/skill-pack-service'
 import { PluginLoaderService } from './services/plugin/plugin-loader-service'
 import { CodexRuntimeService } from './services/codex/codex-runtime-service'
-import { CodexRunWorkspaceService } from './services/codex/codex-run-workspace-service'
 import { ExternalRuntimeRegistry } from './services/external-runtimes/external-runtime-registry'
 import { CodexExternalRuntimeAdapter } from './services/external-runtimes/adapters/codex-external-runtime-adapter'
+import { ExternalRuntimeWorkspaceService } from './services/external-runtimes/external-runtime-workspace-service'
 import { createConnectorExecutionRuntime } from './services/connectors/create-connector-execution-service'
 import type { ConnectorExecutionService } from './services/connectors/connector-execution-service'
 import {
@@ -253,7 +253,7 @@ async function initializeApplication(): Promise<void> {
     mcpClientService: mcpClientServiceInstance
   }).executionService
   codexRuntimeServiceInstance = new CodexRuntimeService(settingsServiceInstance, {
-    workspaceService: new CodexRunWorkspaceService(
+    workspaceService: new ExternalRuntimeWorkspaceService(
       () => getRuntimeLayerSnapshot(),
       () => app.getPath('userData')
     )
@@ -322,7 +322,8 @@ async function initializeApplication(): Promise<void> {
     llmToolServiceInstance,
     modularPromptManagerInstance,
     agentRegistryServiceInstance, // Pass the agent registry to ChatService
-    knowledgeBaseServiceInstance
+    knowledgeBaseServiceInstance,
+    () => externalRuntimeRegistryInstance.listRuntimes()
   )
 
   // Instantiate AgentRoutingService after ChatService and other required services

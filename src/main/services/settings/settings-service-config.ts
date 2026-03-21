@@ -21,6 +21,7 @@ export const SERVICE_NAME = 'ArionLLMCredentials'
 export const DB_FILENAME = 'arion-settings.db'
 export const EMBEDDING_CONFIG_KEY = 'embeddingConfig'
 export const CODEX_CONFIG_KEY = 'codexConfig'
+export const ACTIVE_EXTERNAL_RUNTIME_ID_KEY = 'activeExternalRuntimeId'
 
 export const DEFAULT_SYSTEM_PROMPT_CONFIG: SystemPromptConfig = {
   userSystemPrompt: ''

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type RefObject } from 'react'
 import { LayerImportService, LAYER_IMPORT_ACCEPT_ATTRIBUTE } from '@/services/layer-import'
+import { resolveLocalImportFilePath } from '@/services/layer-import/processors/local-import-file-path'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { toast } from 'sonner'
@@ -175,12 +176,15 @@ export const useLayerFileImport = ({
           await waitForNextPaint()
         }
 
+        const localFilePath = await resolveLocalImportFilePath(file)
+
         await addLayer(layerDefinition, {
           chatId: currentChatId,
           source,
           metadata: {
             fileName: file.name,
-            fileSize: file.size
+            fileSize: file.size,
+            ...(localFilePath ? { localFilePath } : {})
           }
         })
 

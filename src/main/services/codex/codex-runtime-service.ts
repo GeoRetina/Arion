@@ -17,11 +17,11 @@ import type {
   CodexStagedInput
 } from '../../../shared/ipc-types'
 import type { SettingsService } from '../settings-service'
-import { CodexArtifactService } from './codex-artifact-service'
 import { CodexAppServerClient, type CodexApprovalResponseDecision } from './codex-app-server-client'
 import { CodexHealthService } from './codex-health-service'
-import { CodexRunWorkspaceService } from './codex-run-workspace-service'
 import { mapCodexNotificationToRuntimeEvent, mapCodexRequestToApproval } from './codex-event-mapper'
+import { ExternalRuntimeArtifactService } from '../external-runtimes/external-runtime-artifact-service'
+import { ExternalRuntimeWorkspaceService } from '../external-runtimes/external-runtime-workspace-service'
 
 const DEFAULT_RUN_TIMEOUT_MS = 15 * 60 * 1000
 const CODEX_DEFAULT_MODEL = 'gpt-5.3-codex'
@@ -116,21 +116,21 @@ export class CodexRuntimeService extends EventEmitter {
   private readonly runs = new Map<string, CodexRunResult>()
   private readonly activeRuns = new Map<string, ActiveCodexRun>()
   private readonly healthService: CodexHealthService
-  private readonly artifactService: CodexArtifactService
-  private readonly workspaceService: CodexRunWorkspaceService
+  private readonly artifactService: ExternalRuntimeArtifactService
+  private readonly workspaceService: ExternalRuntimeWorkspaceService
 
   constructor(
     private readonly settingsService: SettingsService,
     options?: {
       healthService?: CodexHealthService
-      artifactService?: CodexArtifactService
-      workspaceService?: CodexRunWorkspaceService
+      artifactService?: ExternalRuntimeArtifactService
+      workspaceService?: ExternalRuntimeWorkspaceService
     }
   ) {
     super()
     this.healthService = options?.healthService ?? new CodexHealthService(this.settingsService)
-    this.artifactService = options?.artifactService ?? new CodexArtifactService()
-    this.workspaceService = options?.workspaceService ?? new CodexRunWorkspaceService()
+    this.artifactService = options?.artifactService ?? new ExternalRuntimeArtifactService()
+    this.workspaceService = options?.workspaceService ?? new ExternalRuntimeWorkspaceService()
   }
 
   async getHealth(configOverride?: CodexConfig): Promise<CodexHealthStatus> {
@@ -150,7 +150,16 @@ export class CodexRuntimeService extends EventEmitter {
     }
 
     const runId = randomUUID()
-    const preparedWorkspace = await this.workspaceService.prepareRun(runId, request)
+    const preparedWorkspace = await this.workspaceService.prepareRun(runId, {
+      runtimeId: 'codex',
+      runtimeName: 'Codex',
+      chatId: request.chatId,
+      goal: request.goal,
+      filePaths: request.filePaths,
+      layerIds: request.layerIds,
+      expectedOutputs: request.expectedOutputs,
+      importPreference: request.importPreference
+    })
     const now = new Date().toISOString()
     const model = request.model || config.defaultModel || CODEX_DEFAULT_MODEL
     const reasoningEffort = request.reasoningEffort || config.reasoningEffort || 'high'

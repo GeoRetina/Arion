@@ -51,7 +51,7 @@ function createRegistry(): {
 }
 
 describe('registerMapLayerManagementTools', () => {
-  it('lists session layers by excluding persisted runtime layers', async () => {
+  it('lists all runtime layers and annotates persistence state', async () => {
     mocks.layerDbService.getAllLayers.mockReturnValue([
       { id: 'persisted-id', sourceId: 'persisted-source' }
     ])
@@ -80,26 +80,121 @@ describe('registerMapLayerManagementTools', () => {
 
     const result = (await entries.get('list_map_layers')?.execute()) as {
       status: string
-      layers: Array<{ id: string; sourceId: string }>
+      layers: Array<{ id: string; sourceId: string; persistedInDatabase: boolean }>
       message: string
     }
 
     expect(result.status).toBe('success')
-    expect(result.layers).toEqual([
-      expect.objectContaining({
-        id: 'session-id',
-        sourceId: 'session-source'
-      })
-    ])
-    expect(result.message).toContain('Found 1 session')
+    expect(result.layers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'persisted-id',
+          sourceId: 'persisted-source',
+          persistedInDatabase: true
+        }),
+        expect.objectContaining({
+          id: 'session-id',
+          sourceId: 'session-source',
+          persistedInDatabase: false
+        })
+      ])
+    )
+    expect(result.message).toContain('Found 2 available')
   })
 
-  it('handles set_layer_style validation and success cases', async () => {
+  it('includes localFilePath when a runtime layer came from a local file', async () => {
+    mocks.layerDbService.getAllLayers.mockReturnValue([])
+    mocks.runtimeLayers = [
+      {
+        id: 'vector-id',
+        sourceId: 'vector-source',
+        name: 'Roads',
+        sourceConfig: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } },
+        type: 'vector',
+        createdBy: 'import',
+        metadata: {
+          tags: ['imported', 'source:file-import'],
+          geometryType: 'LineString',
+          context: {
+            localFilePath: 'C:\\data\\roads.geojson'
+          }
+        }
+      },
+      {
+        id: 'raster-id',
+        sourceId: 'raster-source',
+        name: 'Elevation',
+        sourceConfig: {
+          type: 'raster',
+          data: 'arion-raster://asset/{z}/{x}/{y}.png',
+          options: {
+            rasterSourcePath: 'C:\\data\\elevation.tif'
+          }
+        },
+        type: 'raster',
+        createdBy: 'import',
+        metadata: {
+          tags: ['imported', 'geotiff']
+        }
+      },
+      {
+        id: 'image-id',
+        sourceId: 'image-source',
+        name: 'Overlay',
+        sourceConfig: {
+          type: 'image',
+          data: 'C:\\data\\overlay.png'
+        },
+        type: 'raster',
+        createdBy: 'tool',
+        metadata: {
+          tags: ['image']
+        }
+      }
+    ]
+
+    const { registry, entries } = createRegistry()
+    registerMapLayerManagementTools(registry, { mapLayerTracker: {} as never })
+
+    const result = (await entries.get('list_map_layers')?.execute()) as {
+      status: string
+      layers: Array<{ id: string; localFilePath?: string }>
+    }
+
+    expect(result.status).toBe('success')
+    expect(result.layers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'vector-id',
+          localFilePath: 'C:\\data\\roads.geojson'
+        }),
+        expect.objectContaining({
+          id: 'raster-id',
+          localFilePath: 'C:\\data\\elevation.tif'
+        }),
+        expect.objectContaining({
+          id: 'image-id',
+          localFilePath: 'C:\\data\\overlay.png'
+        })
+      ])
+    )
+  })
+
+  it('styles runtime layers even when they were not tracker-recorded', async () => {
     const send = vi.fn()
     const mapLayerTracker = {
-      hasLayer: vi.fn((id: string) => id === 'exists'),
+      hasLayer: vi.fn(() => false),
       getMainWindow: vi.fn(() => ({ webContents: { send } }))
     }
+    mocks.runtimeLayers = [
+      {
+        id: 'imported-id',
+        sourceId: 'imported-source',
+        name: 'Imported layer',
+        sourceConfig: { type: 'geojson' },
+        type: 'vector'
+      }
+    ]
 
     const { registry, entries } = createRegistry()
     registerMapLayerManagementTools(registry, { mapLayerTracker: mapLayerTracker as never })
@@ -111,30 +206,39 @@ describe('registerMapLayerManagementTools', () => {
     expect(notFound.status).toBe('error')
 
     const noPaint = (await styleTool?.execute({
-      args: { source_id: 'exists' }
+      args: { source_id: 'imported-source' }
     })) as { status: string; message: string }
     expect(noPaint.status).toBe('success')
     expect(noPaint.message).toContain('No paint properties provided')
 
     const applied = (await styleTool?.execute({
-      args: { source_id: 'exists', paint: { 'fill-color': '#fff' } }
+      args: { source_id: 'imported-source', paint: { 'fill-color': '#fff' } }
     })) as { status: string; applied_properties: Record<string, string> }
     expect(applied.status).toBe('success')
     expect(applied.applied_properties).toEqual({ 'fill-color': '#fff' })
     expect(send).toHaveBeenCalledWith('ctg:map:setPaintProperties', {
-      sourceId: 'exists',
+      sourceId: 'imported-source',
       paintProperties: { 'fill-color': '#fff' }
     })
   })
 
-  it('removes tracked layers and sends remove command', async () => {
+  it('removes runtime layers and sends remove command', async () => {
     const send = vi.fn()
     const removeLayer = vi.fn()
     const mapLayerTracker = {
-      hasLayer: vi.fn(() => true),
+      hasLayer: vi.fn(() => false),
       getMainWindow: vi.fn(() => ({ webContents: { send } })),
       removeLayer
     }
+    mocks.runtimeLayers = [
+      {
+        id: 'session-id',
+        sourceId: 'session-source',
+        name: 'Session Layer',
+        sourceConfig: { type: 'geojson' },
+        type: 'vector'
+      }
+    ]
 
     const { registry, entries } = createRegistry()
     registerMapLayerManagementTools(registry, { mapLayerTracker: mapLayerTracker as never })
@@ -144,7 +248,7 @@ describe('registerMapLayerManagementTools', () => {
       args: { source_id: 'session-source' }
     })) as { status: string; removed_source_id: string }
 
-    expect(removeLayer).toHaveBeenCalledWith('session-source')
+    expect(removeLayer).not.toHaveBeenCalled()
     expect(send).toHaveBeenCalledWith('ctg:map:removeSourceAndLayers', {
       sourceId: 'session-source'
     })

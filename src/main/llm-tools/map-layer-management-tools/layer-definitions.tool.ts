@@ -7,7 +7,7 @@ export const ListMapLayersToolSchema = z.object({}) // No parameters for listing
 
 export const listMapLayersToolDefinition = {
   description:
-    'Lists session (non-persisted) layers currently in the renderer layer store, including their IDs, source IDs, geometry/type info, and basic metadata.',
+    'Lists map layers currently available in the renderer layer store, including their IDs, source IDs, geometry/type info, persistence state, basic metadata, and local filesystem paths when available for imported or file-backed layers.',
   inputSchema: ListMapLayersToolSchema
 }
 
@@ -33,7 +33,7 @@ export type SetLayerStyleParams = z.infer<typeof SetLayerStyleToolSchema>
 
 export const setLayerStyleToolDefinition = {
   description:
-    "Changes the visual style of a specified map layer using its source ID. Allows modification of MapLibre paint properties like color, opacity, size, etc. The paint properties object should be provided under the key 'paint'. The LLM should use its knowledge of MapLibre GL JS paint properties appropriate for the layer's geometry type.",
+    "Changes the visual style of a specified map layer using its source ID. Use 'list_map_layers' first when you need to discover the correct source ID. Allows modification of MapLibre paint properties like color, opacity, size, etc. The paint properties object should be provided under the key 'paint'. The LLM should use its knowledge of MapLibre GL JS paint properties appropriate for the layer's geometry type.",
   inputSchema: SetLayerStyleToolSchema
 }
 
@@ -52,7 +52,7 @@ export type RemoveMapLayerParams = z.infer<typeof RemoveMapLayerToolSchema>
 
 export const removeMapLayerToolDefinition = {
   description:
-    "Removes a previously added map layer (and its associated source) from the map using its unique source ID. Use 'list_map_layers' to find the source ID of the layer you want to remove.",
+    "Removes a map layer (and its associated source) from the map using its unique source ID. Use 'list_map_layers' to find the source ID of the layer you want to remove.",
   inputSchema: RemoveMapLayerToolSchema
 }
 

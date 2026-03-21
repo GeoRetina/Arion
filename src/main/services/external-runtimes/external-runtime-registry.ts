@@ -44,6 +44,10 @@ export class ExternalRuntimeRegistry extends EventEmitter {
       .sort((left, right) => left.name.localeCompare(right.name))
   }
 
+  getDescriptor(runtimeId: string): ExternalRuntimeDescriptor {
+    return this.getAdapter(runtimeId).descriptor
+  }
+
   async getConfig(runtimeId: string): Promise<ExternalRuntimeConfig> {
     return this.getAdapter(runtimeId).getConfig()
   }

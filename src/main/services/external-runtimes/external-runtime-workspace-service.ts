@@ -2,7 +2,12 @@ import fs from 'fs/promises'
 import path from 'path'
 import { app } from 'electron'
 import type { LayerDefinition } from '../../../shared/types/layer-types'
-import type { CodexRunRequest, CodexStagedInput } from '../../../shared/ipc-types'
+import type { ExternalRuntimeStagedInput } from '../../../shared/ipc-types'
+import {
+  isExternalLayerReference,
+  resolveLocalLayerFilePath,
+  trimToNonEmptyString
+} from '../../../shared/lib/layer-source-paths'
 import { ensureLocalFilesystemPath } from '../../security/path-security'
 
 interface PreparedWorkspacePaths {
@@ -13,9 +18,20 @@ interface PreparedWorkspacePaths {
   manifestPath: string
 }
 
-export interface CodexPreparedRunWorkspace extends PreparedWorkspacePaths {
+export interface ExternalRuntimePreparedRunWorkspace extends PreparedWorkspacePaths {
   prompt: string
-  stagedInputs: CodexStagedInput[]
+  stagedInputs: ExternalRuntimeStagedInput[]
+}
+
+export interface ExternalRuntimeWorkspacePrepareRequest {
+  runtimeId: string
+  runtimeName: string
+  chatId: string
+  goal: string
+  filePaths?: string[]
+  layerIds?: string[]
+  expectedOutputs?: string[]
+  importPreference?: 'none' | 'suggest'
 }
 
 interface LayerCatalogEntry {
@@ -46,17 +62,6 @@ function sanitizeSegment(value: string, fallback: string): string {
   }
 
   return sanitized
-}
-
-function looksLikeExternalReference(value: string): boolean {
-  const normalized = value.trim().toLowerCase()
-  return (
-    normalized.startsWith('http://') ||
-    normalized.startsWith('https://') ||
-    normalized.startsWith('blob:') ||
-    normalized.startsWith('data:') ||
-    normalized.startsWith('arion-raster:')
-  )
 }
 
 function asLayerDefinition(value: unknown): LayerDefinition | null {
@@ -102,15 +107,18 @@ function withUniqueName(
   return path.join(directoryPath, candidate)
 }
 
-export class CodexRunWorkspaceService {
+export class ExternalRuntimeWorkspaceService {
   constructor(
     private readonly getRuntimeLayerSnapshot: () => unknown[] = () => [],
     private readonly getUserDataPath: () => string = () => app.getPath('userData')
   ) {}
 
-  async prepareRun(runId: string, request: CodexRunRequest): Promise<CodexPreparedRunWorkspace> {
-    const workspace = await this.createWorkspacePaths(runId, request.chatId)
-    const stagedInputs: CodexStagedInput[] = []
+  async prepareRun(
+    runId: string,
+    request: ExternalRuntimeWorkspacePrepareRequest
+  ): Promise<ExternalRuntimePreparedRunWorkspace> {
+    const workspace = await this.createWorkspacePaths(runId, request.chatId, request.runtimeId)
+    const stagedInputs: ExternalRuntimeStagedInput[] = []
     const usedFileNames = new Set<string>()
 
     await fs.mkdir(workspace.inputsPath, { recursive: true })
@@ -141,7 +149,13 @@ export class CodexRunWorkspaceService {
       status: 'staged'
     })
 
-    await this.stageFiles(request.filePaths || [], workspace, stagedInputs, usedFileNames)
+    await this.stageFiles(
+      request.filePaths || [],
+      workspace,
+      stagedInputs,
+      usedFileNames,
+      request.runtimeName
+    )
     await this.stageLayers(request.layerIds || [], workspace, stagedInputs, usedFileNames)
 
     return {
@@ -153,11 +167,19 @@ export class CodexRunWorkspaceService {
 
   private async createWorkspacePaths(
     runId: string,
-    chatId: string
+    chatId: string,
+    runtimeId = 'runtime'
   ): Promise<PreparedWorkspacePaths> {
     const safeChatId = sanitizeSegment(chatId, 'chat')
     const safeRunId = sanitizeSegment(runId, 'run')
-    const workspacePath = path.join(this.getUserDataPath(), 'codex-runs', safeChatId, safeRunId)
+    const safeRuntimeId = sanitizeSegment(runtimeId, 'runtime')
+    const workspacePath = path.join(
+      this.getUserDataPath(),
+      'external-runtime-runs',
+      safeRuntimeId,
+      safeChatId,
+      safeRunId
+    )
 
     await fs.mkdir(workspacePath, { recursive: true })
 
@@ -173,15 +195,17 @@ export class CodexRunWorkspaceService {
   private async stageFiles(
     filePaths: string[],
     workspace: PreparedWorkspacePaths,
-    stagedInputs: CodexStagedInput[],
-    usedFileNames: Set<string>
+    stagedInputs: ExternalRuntimeStagedInput[],
+    usedFileNames: Set<string>,
+    runtimeName: string
   ): Promise<void> {
     const targetDirectory = path.join(workspace.inputsPath, 'files')
 
     for (const [index, rawFilePath] of filePaths.entries()) {
       const label = path.basename(rawFilePath || '') || `Input file ${index + 1}`
       try {
-        const safeSourcePath = ensureLocalFilesystemPath(rawFilePath, 'Codex input file')
+        const safeSourcePath = ensureLocalFilesystemPath(rawFilePath, `${runtimeName} input file`)
+
         const fileExists = await pathExists(safeSourcePath)
         if (!fileExists) {
           stagedInputs.push({
@@ -223,7 +247,7 @@ export class CodexRunWorkspaceService {
   private async stageLayers(
     layerIds: string[],
     workspace: PreparedWorkspacePaths,
-    stagedInputs: CodexStagedInput[],
+    stagedInputs: ExternalRuntimeStagedInput[],
     usedFileNames: Set<string>
   ): Promise<void> {
     if (layerIds.length === 0) {
@@ -288,13 +312,12 @@ export class CodexRunWorkspaceService {
     targetDirectory: string,
     usedFileNames: Set<string>
   ): Promise<{
-    input: CodexStagedInput
+    input: ExternalRuntimeStagedInput
     catalogEntry: LayerCatalogEntry
   }> {
     const baseLabel = layer.name || layer.id
-    const localSourceData =
-      typeof layer.sourceConfig.data === 'string' ? layer.sourceConfig.data.trim() : null
-    const rasterSourcePath = layer.sourceConfig.options?.rasterSourcePath?.trim() || null
+    const localSourceData = trimToNonEmptyString(layer.sourceConfig.data)
+    const localFilePath = resolveLocalLayerFilePath(layer)
 
     if (
       layer.sourceConfig.type === 'geojson' &&
@@ -328,8 +351,8 @@ export class CodexRunWorkspaceService {
       }
     }
 
-    const preferredPath = rasterSourcePath || localSourceData
-    if (preferredPath && !looksLikeExternalReference(preferredPath)) {
+    const preferredPath = localFilePath || localSourceData
+    if (preferredPath && !isExternalLayerReference(preferredPath)) {
       try {
         const safeSourcePath = ensureLocalFilesystemPath(
           preferredPath,
@@ -386,7 +409,7 @@ export class CodexRunWorkspaceService {
       }
     }
 
-    const note = looksLikeExternalReference(localSourceData || '')
+    const note = isExternalLayerReference(localSourceData || '')
       ? 'Layer source is an external or in-memory reference and was not copied into the run workspace.'
       : 'Layer source could not be copied into the run workspace.'
 
@@ -412,14 +435,17 @@ export class CodexRunWorkspaceService {
     }
   }
 
-  private buildPrompt(request: CodexRunRequest, workspace: PreparedWorkspacePaths): string {
+  private buildPrompt(
+    request: ExternalRuntimeWorkspacePrepareRequest,
+    workspace: PreparedWorkspacePaths
+  ): string {
     const expectedOutputs =
       request.expectedOutputs && request.expectedOutputs.length > 0
         ? request.expectedOutputs.map((entry) => `- ${entry}`).join('\n')
         : '- Create the minimal set of artifacts needed to complete the request.'
 
     return [
-      'You are running a Codex analysis job for Arion, a desktop app for geospatial analysis.',
+      `You are running an external analysis job for Arion using ${request.runtimeName}.`,
       '',
       `Goal: ${request.goal}`,
       '',

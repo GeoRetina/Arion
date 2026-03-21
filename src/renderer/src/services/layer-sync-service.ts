@@ -44,7 +44,7 @@ export class LayerSyncService {
   private unsubscribeStore: (() => void) | null = null
   private syncQueue: SyncOperation[] = []
   private isProcessing = false
-  private debounceTimer: NodeJS.Timeout | null = null
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null
   private options: SyncOptions
 
   // Track which layers are managed by this service
@@ -674,6 +674,18 @@ export class LayerSyncService {
             this.mapInstance.setPaintProperty(mapLayerId, 'text-halo-width', style.textHaloWidth)
           }
           break
+      }
+
+      if (style.layout) {
+        for (const [propertyName, propertyValue] of Object.entries(style.layout)) {
+          this.mapInstance.setLayoutProperty(mapLayerId, propertyName, propertyValue)
+        }
+      }
+
+      if (style.paint) {
+        for (const [propertyName, propertyValue] of Object.entries(style.paint)) {
+          this.mapInstance.setPaintProperty(mapLayerId, propertyName, propertyValue)
+        }
       }
     } catch (error) {
       this.log(`Failed to apply style to layer ${mapLayerId}:`, error)

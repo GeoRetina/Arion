@@ -1,19 +1,16 @@
 import {
-  runCustomAnalysisWithCodexToolDefinition,
-  runCustomAnalysisWithCodexToolName,
-  type RunCustomAnalysisWithCodexParams
-} from '../../../llm-tools/codex-tools'
-import {
   runExternalAnalysisToolDefinition,
   runExternalAnalysisToolName,
   type RunExternalAnalysisParams
 } from '../../../llm-tools/external-runtime-tools/run-external-analysis-tool'
 import type { ExternalRuntimeRunResult } from '../../../../shared/ipc-types'
 import type { ExternalRuntimeRegistry } from '../../external-runtimes/external-runtime-registry'
+import { ExternalRuntimeSelectionService } from '../../external-runtimes/external-runtime-selection-service'
 import type { ToolRegistry } from '../tool-registry'
 
 export interface ExternalRuntimeToolDependencies {
   getExternalRuntimeRegistry: () => ExternalRuntimeRegistry | null
+  getActiveExternalRuntimeId: () => Promise<string | null>
 }
 
 function normalizeRunResult(result: ExternalRuntimeRunResult): {
@@ -48,27 +45,17 @@ function normalizeRunResult(result: ExternalRuntimeRunResult): {
   }
 }
 
-function resolveRuntimeId(
-  preferredRuntime: string | undefined,
-  registry: ExternalRuntimeRegistry
-): string {
-  if (preferredRuntime) {
-    return preferredRuntime
-  }
-
-  const runtimes = registry.listRuntimes()
-  if (runtimes.length === 0) {
-    throw new Error('No external runtimes are registered.')
-  }
-
-  return runtimes[0].id
-}
-
 async function runWithExternalRuntime(
   registry: ExternalRuntimeRegistry,
+  deps: ExternalRuntimeToolDependencies,
   chatId: string | undefined,
   params: RunExternalAnalysisParams
-): Promise<ReturnType<typeof normalizeRunResult> | { status: string; message: string }> {
+): Promise<
+  | (ReturnType<typeof normalizeRunResult> & {
+      selection_reason: string
+    })
+  | { status: string; message: string }
+> {
   if (!chatId) {
     return {
       status: 'error',
@@ -76,9 +63,13 @@ async function runWithExternalRuntime(
     }
   }
 
-  const runtimeId = resolveRuntimeId(params.preferredRuntime, registry)
+  const selectionService = new ExternalRuntimeSelectionService(
+    registry,
+    deps.getActiveExternalRuntimeId
+  )
+  const selection = await selectionService.selectRuntime(params)
   const result = await registry.startRun({
-    runtimeId,
+    runtimeId: selection.runtimeId,
     chatId,
     goal: params.goal,
     filePaths: params.filePaths,
@@ -89,7 +80,10 @@ async function runWithExternalRuntime(
     reasoningEffort: params.reasoningEffort
   })
 
-  return normalizeRunResult(result)
+  return {
+    ...normalizeRunResult(result),
+    selection_reason: selection.reason
+  }
 }
 
 export function registerExternalRuntimeTools(
@@ -111,40 +105,12 @@ export function registerExternalRuntimeTools(
 
       try {
         const params = args as RunExternalAnalysisParams
-        return await runWithExternalRuntime(externalRuntimeRegistry, chatId, params)
+        return await runWithExternalRuntime(externalRuntimeRegistry, deps, chatId, params)
       } catch (error) {
         return {
           status: 'failed',
           message:
             error instanceof Error ? error.message : 'External runtime run failed unexpectedly.'
-        }
-      }
-    }
-  })
-
-  registry.register({
-    name: runCustomAnalysisWithCodexToolName,
-    definition: runCustomAnalysisWithCodexToolDefinition,
-    category: 'integrations',
-    execute: async ({ args, chatId }) => {
-      const externalRuntimeRegistry = deps.getExternalRuntimeRegistry()
-      if (!externalRuntimeRegistry) {
-        return {
-          status: 'error',
-          message: 'External runtime registry is not configured.'
-        }
-      }
-
-      try {
-        const params = args as RunCustomAnalysisWithCodexParams
-        return await runWithExternalRuntime(externalRuntimeRegistry, chatId, {
-          ...params,
-          preferredRuntime: 'codex'
-        })
-      } catch (error) {
-        return {
-          status: 'failed',
-          message: error instanceof Error ? error.message : 'Codex run failed unexpectedly.'
         }
       }
     }

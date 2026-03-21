@@ -36,10 +36,10 @@ export function ReasoningDropdownSelector<TValue extends string>({
               size="sm"
               disabled={disabled}
               aria-label={triggerAriaLabel}
-              className="group h-8 px-2.5 rounded-md bg-transparent hover:bg-secondary/50 flex items-center gap-2 transition-colors border-0 shadow-none"
+              className="group h-8 px-2.5 rounded-md bg-transparent hover:bg-secondary/50 flex items-center gap-2 transition-colors border-0 shadow-none text-foreground/60 hover:text-foreground/80"
             >
               <span className="font-medium text-xs truncate">{formatValue(value)}</span>
-              <ChevronDown className="h-3 w-3 text-foreground/50 ml-1" />
+              <ChevronDown className="h-3 w-3 ml-1" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>

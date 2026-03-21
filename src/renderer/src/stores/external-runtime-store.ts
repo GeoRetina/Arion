@@ -22,19 +22,17 @@ function isTerminalStatus(
   return status === 'completed' || status === 'failed' || status === 'cancelled'
 }
 
-const ENABLED_RUNTIMES_KEY = 'arion:enabled-runtime-ids'
+const ACTIVE_RUNTIME_SETTING_KEY = 'activeExternalRuntimeId'
 
-function loadEnabledRuntimeIds(): string[] {
-  try {
-    const raw = localStorage.getItem(ENABLED_RUNTIMES_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+function normalizeRuntimeId(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
-function persistEnabledRuntimeIds(ids: string[]): void {
-  localStorage.setItem(ENABLED_RUNTIMES_KEY, JSON.stringify(ids))
+async function persistActiveRuntimeId(runtimeId: string | null): Promise<void> {
+  const result = await window.ctg.settings.setSetting(ACTIVE_RUNTIME_SETTING_KEY, runtimeId)
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to save the active external runtime.')
+  }
 }
 
 interface ExternalRuntimeState {
@@ -44,7 +42,7 @@ interface ExternalRuntimeState {
   runs: Record<string, ExternalRuntimeStoredRun>
   runEvents: Record<string, ExternalRuntimeEvent[]>
   approvalRequests: ExternalRuntimeApprovalRequest[]
-  enabledRuntimeIds: string[]
+  activeRuntimeId: string | null
   loadingConfigByRuntime: Record<string, boolean>
   loadingHealthByRuntime: Record<string, boolean>
   isInitialized: boolean
@@ -65,8 +63,8 @@ interface ExternalRuntimeState {
     scope: ExternalRuntimeApprovalScope
   ) => Promise<void>
   denyRequest: (runtimeId: string, approvalId: string) => Promise<void>
-  toggleRuntimeEnabled: (runtimeId: string) => void
-  isRuntimeDisabled: (runtimeId: string) => boolean
+  setActiveRuntime: (runtimeId: string | null) => Promise<void>
+  isRuntimeActive: (runtimeId: string) => boolean
   clearError: () => void
   getRun: (runtimeId: string, runId: string) => ExternalRuntimeStoredRun | undefined
 }
@@ -137,7 +135,7 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
   runs: {},
   runEvents: {},
   approvalRequests: [],
-  enabledRuntimeIds: loadEnabledRuntimeIds(),
+  activeRuntimeId: null,
   loadingConfigByRuntime: {},
   loadingHealthByRuntime: {},
   isInitialized: false,
@@ -220,9 +218,26 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
     set({ isLoadingRuntimes: true, error: null })
     try {
       const descriptors = await window.ctg.externalRuntimes.listRuntimes()
+      const storedActiveRuntimeId = await window.ctg.settings.getSetting(ACTIVE_RUNTIME_SETTING_KEY)
+      const normalizedActiveRuntimeId = normalizeRuntimeId(storedActiveRuntimeId)
+
+      const hasStoredRuntime = normalizedActiveRuntimeId
+        ? descriptors.some((descriptor) => descriptor.id === normalizedActiveRuntimeId)
+        : false
+      const activeRuntimeId =
+        normalizedActiveRuntimeId && hasStoredRuntime
+          ? normalizedActiveRuntimeId
+          : descriptors.length === 1
+            ? descriptors[0].id
+            : null
+
+      if (activeRuntimeId !== normalizedActiveRuntimeId) {
+        await persistActiveRuntimeId(activeRuntimeId)
+      }
 
       set({
         descriptors,
+        activeRuntimeId,
         isLoadingRuntimes: false
       })
 
@@ -449,17 +464,24 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
     }
   },
 
-  toggleRuntimeEnabled: (runtimeId) => {
-    const current = get().enabledRuntimeIds
-    const next = current.includes(runtimeId)
-      ? current.filter((id) => id !== runtimeId)
-      : [...current, runtimeId]
-    persistEnabledRuntimeIds(next)
-    set({ enabledRuntimeIds: next })
+  setActiveRuntime: async (runtimeId) => {
+    const normalizedRuntimeId = normalizeRuntimeId(runtimeId)
+    set({ error: null })
+
+    try {
+      await persistActiveRuntimeId(normalizedRuntimeId)
+      set({ activeRuntimeId: normalizedRuntimeId })
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : 'Failed to update the active external runtime.'
+      })
+      throw error
+    }
   },
 
-  isRuntimeDisabled: (runtimeId) => {
-    return !get().enabledRuntimeIds.includes(runtimeId)
+  isRuntimeActive: (runtimeId) => {
+    return get().activeRuntimeId === runtimeId
   },
 
   clearError: () => {

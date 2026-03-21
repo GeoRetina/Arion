@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { randomUUID } from 'crypto'
-import type { CodexRunArtifact } from '../../../shared/ipc-types'
+import type { ExternalRuntimeRunArtifact } from '../../../shared/ipc-types'
 import { isPathInsideDirectory } from '../../security/path-security'
 
 function toPosixRelativePath(rootPath: string, filePath: string): string {
@@ -10,7 +10,7 @@ function toPosixRelativePath(rootPath: string, filePath: string): string {
 
 function classifyArtifact(
   filePath: string
-): Pick<CodexRunArtifact, 'type' | 'importKind' | 'mimeType'> {
+): Pick<ExternalRuntimeRunArtifact, 'type' | 'importKind' | 'mimeType'> {
   const extension = path.extname(filePath).toLowerCase()
 
   switch (extension) {
@@ -53,8 +53,8 @@ function walkDirectory(currentPath: string, entries: string[]): void {
   }
 }
 
-export class CodexArtifactService {
-  scanOutputs(outputsPath: string): CodexRunArtifact[] {
+export class ExternalRuntimeArtifactService {
+  scanOutputs(outputsPath: string): ExternalRuntimeRunArtifact[] {
     if (!fs.existsSync(outputsPath)) {
       return []
     }
@@ -76,12 +76,12 @@ export class CodexArtifactService {
           importKind: classified.importKind,
           mimeType: classified.mimeType,
           sizeBytes: stats.size
-        } satisfies CodexRunArtifact
+        } satisfies ExternalRuntimeRunArtifact
       })
       .sort((left, right) => left.relativePath.localeCompare(right.relativePath))
   }
 
-  readPrimarySummary(artifacts: CodexRunArtifact[]): string | null {
+  readPrimarySummary(artifacts: ExternalRuntimeRunArtifact[]): string | null {
     const summaryArtifact = artifacts.find(
       (artifact) => artifact.type === 'markdown' || artifact.type === 'text'
     )

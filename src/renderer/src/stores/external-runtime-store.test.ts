@@ -38,10 +38,33 @@ const externalRuntimeApiMocks = vi.hoisted(() => {
   }
 })
 
+const settingsApiMocks = vi.hoisted(() => {
+  let activeRuntimeId: string | null = null
+
+  return {
+    getSetting: vi.fn(async (key: string) => {
+      if (key === 'activeExternalRuntimeId') {
+        return activeRuntimeId
+      }
+      return undefined
+    }),
+    setSetting: vi.fn(async (key: string, value: unknown) => {
+      if (key === 'activeExternalRuntimeId') {
+        activeRuntimeId = typeof value === 'string' ? value : null
+      }
+      return { success: true }
+    }),
+    reset: () => {
+      activeRuntimeId = null
+    }
+  }
+})
+
 Object.defineProperty(globalThis, 'window', {
   value: {
     ctg: {
-      externalRuntimes: externalRuntimeApiMocks
+      externalRuntimes: externalRuntimeApiMocks,
+      settings: settingsApiMocks
     }
   },
   configurable: true
@@ -62,6 +85,7 @@ function resetStoreState(): void {
     runs: {},
     runEvents: {},
     approvalRequests: [],
+    activeRuntimeId: null,
     loadingConfigByRuntime: {},
     loadingHealthByRuntime: {},
     isInitialized: false,
@@ -101,6 +125,7 @@ describe('external-runtime-store', () => {
   beforeEach(async () => {
     disposeExternalRuntimeStoreListeners()
     externalRuntimeApiMocks.resetHandlers()
+    settingsApiMocks.reset()
     vi.clearAllMocks()
     resetStoreState()
 
@@ -144,6 +169,27 @@ describe('external-runtime-store', () => {
     })
 
     await useExternalRuntimeStore.getState().initialize()
+  })
+
+  it('auto-selects the only runtime when no runtime is configured yet', () => {
+    expect(useExternalRuntimeStore.getState().activeRuntimeId).toBe('codex')
+    expect(settingsApiMocks.setSetting).toHaveBeenCalledWith('activeExternalRuntimeId', 'codex')
+  })
+
+  it('surfaces persistence failures when updating the active runtime', async () => {
+    settingsApiMocks.setSetting.mockResolvedValueOnce({
+      success: false,
+      error: 'Database unavailable'
+    } as {
+      success: boolean
+      error?: string
+    })
+
+    await expect(useExternalRuntimeStore.getState().setActiveRuntime('codex')).rejects.toThrow(
+      'Database unavailable'
+    )
+    expect(useExternalRuntimeStore.getState().activeRuntimeId).toBe('codex')
+    expect(useExternalRuntimeStore.getState().error).toBe('Database unavailable')
   })
 
   it('does not surface non-terminal error events as run failures', () => {

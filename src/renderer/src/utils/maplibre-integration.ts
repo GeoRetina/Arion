@@ -437,6 +437,18 @@ export class MapLibreIntegration {
           }
           break
       }
+
+      if (style.layout) {
+        for (const [propertyName, propertyValue] of Object.entries(style.layout)) {
+          this.mapInstance.setLayoutProperty(mapLayerId, propertyName, propertyValue)
+        }
+      }
+
+      if (style.paint) {
+        for (const [propertyName, propertyValue] of Object.entries(style.paint)) {
+          this.mapInstance.setPaintProperty(mapLayerId, propertyName, propertyValue)
+        }
+      }
     }
   }
 

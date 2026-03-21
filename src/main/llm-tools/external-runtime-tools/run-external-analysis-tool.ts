@@ -14,7 +14,7 @@ export const RunExternalAnalysisParamsSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      'Optional preferred external runtime ID, such as codex. Omit this when Arion should choose.'
+      'Optional preferred external runtime ID, such as codex. Omit this by default so Arion can use the runtime currently enabled in Agents > Integrations.'
     ),
   filePaths: z
     .array(z.string())
@@ -43,6 +43,6 @@ export type RunExternalAnalysisParams = z.infer<typeof RunExternalAnalysisParams
 
 export const runExternalAnalysisToolDefinition = {
   description:
-    'Runs a custom analysis with an external coding runtime inside an Arion-managed workspace, staging selected files and layers, streaming progress, and returning the generated artifacts.',
+    'Runs a custom analysis with the currently enabled external coding runtime inside an Arion-managed workspace, staging selected files and layers, streaming progress, and returning the generated artifacts.',
   inputSchema: RunExternalAnalysisParamsSchema
 }
