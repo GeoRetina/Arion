@@ -171,9 +171,9 @@ describe('external-runtime-store', () => {
     await useExternalRuntimeStore.getState().initialize()
   })
 
-  it('auto-selects the only runtime when no runtime is configured yet', () => {
-    expect(useExternalRuntimeStore.getState().activeRuntimeId).toBe('codex')
-    expect(settingsApiMocks.setSetting).toHaveBeenCalledWith('activeExternalRuntimeId', 'codex')
+  it('keeps runtimes disabled when no runtime is configured yet', () => {
+    expect(useExternalRuntimeStore.getState().activeRuntimeId).toBeNull()
+    expect(settingsApiMocks.setSetting).not.toHaveBeenCalledWith('activeExternalRuntimeId', 'codex')
   })
 
   it('surfaces persistence failures when updating the active runtime', async () => {
@@ -188,7 +188,7 @@ describe('external-runtime-store', () => {
     await expect(useExternalRuntimeStore.getState().setActiveRuntime('codex')).rejects.toThrow(
       'Database unavailable'
     )
-    expect(useExternalRuntimeStore.getState().activeRuntimeId).toBe('codex')
+    expect(useExternalRuntimeStore.getState().activeRuntimeId).toBeNull()
     expect(useExternalRuntimeStore.getState().error).toBe('Database unavailable')
   })
 

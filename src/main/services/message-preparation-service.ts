@@ -6,6 +6,7 @@ import { AgentToolManager } from './agent-tool-manager'
 import { getArionSystemPrompt, type RuntimeDescriptorLike } from '../constants/system-prompts'
 import { createMCPToolDescription, type ToolDescription } from '../constants/tool-constants'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
+import { resolveRegisteredExternalRuntimeId } from '../../shared/utils/external-runtime-config'
 import { normalizeRendererMessages, sanitizeModelMessages } from './utils/message-normalizer'
 import { ACTIVE_EXTERNAL_RUNTIME_ID_KEY } from './settings/settings-service-config'
 import type { SystemPromptConfig } from '../../shared/ipc-types'
@@ -158,14 +159,14 @@ export class MessagePreparationService {
       }
 
       // Get the active external runtime for the system prompt
-      const activeRuntimeId = await this.settingsService.getSetting(ACTIVE_EXTERNAL_RUNTIME_ID_KEY)
       const registeredRuntimes = this.getRuntimeDescriptors?.() ?? []
-      const runtimes =
-        typeof activeRuntimeId === 'string' && activeRuntimeId.trim().length > 0
-          ? registeredRuntimes.filter((runtime) => runtime.id === activeRuntimeId.trim())
-          : registeredRuntimes.length === 1
-            ? registeredRuntimes
-            : []
+      const activeRuntimeId = resolveRegisteredExternalRuntimeId(
+        await this.settingsService.getSetting(ACTIVE_EXTERNAL_RUNTIME_ID_KEY),
+        registeredRuntimes
+      )
+      const runtimes = activeRuntimeId
+        ? registeredRuntimes.filter((runtime) => runtime.id === activeRuntimeId)
+        : []
 
       // Get the dynamic system prompt with current MCP tools and agent tool access
       let baseSystemPrompt = getArionSystemPrompt(mcpTools, agentToolAccess, runtimes)

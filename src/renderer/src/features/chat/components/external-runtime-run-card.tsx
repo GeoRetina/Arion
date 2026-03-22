@@ -21,6 +21,10 @@ import { cn } from '@/lib/utils'
 import { useExternalRuntimeStore } from '@/stores/external-runtime-store'
 import { PROVIDER_LOGOS, PROVIDER_LOGO_CLASSES } from '@/constants/llm-providers'
 import type { LLMProvider } from '@/stores/llm-store'
+import {
+  isExternalRuntimeInProgressStatus,
+  isExternalRuntimeRunStatus
+} from '../../../../../shared/utils/external-runtime-status'
 import type {
   ExternalRuntimeDescriptor,
   ExternalRuntimeRunArtifact,
@@ -108,15 +112,7 @@ function compactText(value: string | undefined, maxLength = MAX_PROGRESS_TEXT_LE
 }
 
 function isRunStatus(value: string): value is ExternalRuntimeRunStatus {
-  return [
-    'queued',
-    'starting',
-    'running',
-    'awaiting-approval',
-    'completed',
-    'failed',
-    'cancelled'
-  ].includes(value)
+  return isExternalRuntimeRunStatus(value)
 }
 
 function normalizeArtifacts(value: unknown): ExternalRuntimeRunArtifact[] {
@@ -301,7 +297,7 @@ function StatusIcon({
 }
 
 function isActiveStatus(status: ExternalRuntimeRunStatus): boolean {
-  return status === 'starting' || status === 'running' || status === 'awaiting-approval'
+  return isExternalRuntimeInProgressStatus(status)
 }
 
 function selectActiveRun(

@@ -1,5 +1,6 @@
 import type { ExternalRuntimeHealthStatus } from '../../../shared/ipc-types'
 import type { ExternalRuntimeRegistry } from './external-runtime-registry'
+import { resolveRegisteredExternalRuntimeId } from '../../../shared/utils/external-runtime-config'
 
 export interface ExternalRuntimeSelectionRequest {
   preferredRuntime?: string
@@ -33,17 +34,16 @@ export class ExternalRuntimeSelectionService {
     request: ExternalRuntimeSelectionRequest
   ): Promise<ExternalRuntimeSelectionDecision> {
     const runtimes = this.registry.listRuntimes()
-    const activeRuntimeId = await this.getActiveRuntimeId()
+    const configuredRuntimeId = await this.getActiveRuntimeId()
     const requestedRuntimeId = request.preferredRuntime?.trim() || null
-    const onlyRuntimeId = runtimes.length === 1 ? runtimes[0].id : null
+    const activeRuntimeId = resolveRegisteredExternalRuntimeId(configuredRuntimeId, runtimes)
 
     if (runtimes.length === 0) {
       throw new Error('No external runtimes are registered.')
     }
 
     if (requestedRuntimeId) {
-      const expectedRuntimeId = activeRuntimeId || onlyRuntimeId
-      if (!expectedRuntimeId || requestedRuntimeId !== expectedRuntimeId) {
+      if (!activeRuntimeId || requestedRuntimeId !== activeRuntimeId) {
         throw new Error(
           `The requested runtime "${requestedRuntimeId}" is not currently enabled in Agents > Integrations.`
         )
@@ -51,9 +51,7 @@ export class ExternalRuntimeSelectionService {
 
       return this.resolveReadyRuntime(
         requestedRuntimeId,
-        activeRuntimeId
-          ? 'because it was explicitly requested and is enabled.'
-          : 'because it was explicitly requested and is the only registered external runtime.'
+        'because it was explicitly requested and is enabled.'
       )
     }
 
@@ -61,13 +59,6 @@ export class ExternalRuntimeSelectionService {
       return this.resolveReadyRuntime(
         activeRuntimeId,
         'because it is the runtime currently enabled in Agents > Integrations.'
-      )
-    }
-
-    if (onlyRuntimeId) {
-      return this.resolveReadyRuntime(
-        onlyRuntimeId,
-        'because it is the only registered external runtime.'
       )
     }
 

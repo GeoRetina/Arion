@@ -69,7 +69,7 @@ export class AgentToolManager {
     let combinedTools: ToolSet = {}
 
     // Get ALL tools first
-    const allTools = this.llmToolService.getToolDefinitionsForLLM() as ToolSet
+    const allTools = (await this.llmToolService.getToolDefinitionsForLLM()) as ToolSet
 
     // Case 1: Specific agent is provided
     if (agentId && this.agentRegistryService) {
@@ -129,7 +129,9 @@ export class AgentToolManager {
 
     if (Array.isArray(agent.toolAccess) && agent.toolAccess.length > 0) {
       // Get tools with the agent's specific tool access list
-      const agentTools = this.llmToolService.getToolDefinitionsForLLM(agent.toolAccess) as ToolSet
+      const agentTools = (await this.llmToolService.getToolDefinitionsForLLM(
+        agent.toolAccess
+      )) as ToolSet
 
       // Only exclude call_agent tool for specialized agents (to prevent recursion)
       const combinedTools = Object.fromEntries(
@@ -147,8 +149,8 @@ export class AgentToolManager {
    * Get all available tools from LlmToolService
    * @returns All tool definitions
    */
-  getAllTools(): ToolSet {
-    return this.llmToolService.getToolDefinitionsForLLM() as ToolSet
+  async getAllTools(): Promise<ToolSet> {
+    return (await this.llmToolService.getToolDefinitionsForLLM()) as ToolSet
   }
 
   /**
@@ -156,7 +158,7 @@ export class AgentToolManager {
    * @param toolAccessList List of tool names to retrieve
    * @returns Tool definitions for the specified tools
    */
-  getToolsForAccessList(toolAccessList: string[]): ToolSet {
-    return this.llmToolService.getToolDefinitionsForLLM(toolAccessList) as ToolSet
+  async getToolsForAccessList(toolAccessList: string[]): Promise<ToolSet> {
+    return (await this.llmToolService.getToolDefinitionsForLLM(toolAccessList)) as ToolSet
   }
 }

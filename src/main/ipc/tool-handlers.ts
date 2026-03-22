@@ -6,7 +6,7 @@ export function registerToolIpcHandlers(ipcMain: IpcMain, llmToolService: LlmToo
   // Get all available tools (builtin + MCP)
   ipcMain.handle(IpcChannels.toolsGetAllAvailable, async () => {
     try {
-      const tools = llmToolService.getAllAvailableTools()
+      const tools = await llmToolService.getAllAvailableTools()
       return {
         success: true,
         data: tools

@@ -240,6 +240,47 @@ describe('registerExternalRuntimeTools', () => {
     )
   })
 
+  it('does not auto-enable the only registered runtime', async () => {
+    const { registry, entries } = createRegistry()
+    const startRun = vi.fn()
+
+    registerExternalRuntimeTools(registry, {
+      getExternalRuntimeRegistry: () =>
+        ({
+          listRuntimes: () => [
+            {
+              id: 'codex',
+              name: 'Codex',
+              description: 'CLI coding runtime',
+              runtimeKind: 'coding-runtime',
+              providerHint: 'openai',
+              defaultConfig: {},
+              configFields: []
+            }
+          ],
+          getDescriptor: (runtimeId: string) => ({
+            id: runtimeId,
+            name: 'Codex'
+          }),
+          getHealth: vi.fn(),
+          startRun
+        }) as never,
+      getActiveExternalRuntimeId: async () => null
+    })
+
+    const tool = entries.get(runExternalAnalysisToolName)
+    const result = (await tool?.execute({
+      args: {
+        goal: 'Use the available coding runtime for this task.'
+      },
+      chatId: 'chat-123'
+    })) as { status: string; message: string }
+
+    expect(result.status).toBe('failed')
+    expect(result.message).toContain('No external runtime is enabled')
+    expect(startRun).not.toHaveBeenCalled()
+  })
+
   it('rejects explicitly requested runtimes that are not enabled', async () => {
     const { registry, entries } = createRegistry()
 

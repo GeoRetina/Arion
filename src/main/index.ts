@@ -360,7 +360,8 @@ async function initializeApplication(): Promise<void> {
     chatServiceInstance,
     agentRoutingServiceInstance,
     knowledgeBaseServiceInstance,
-    getLayerDbManager()
+    getLayerDbManager(),
+    externalRuntimeRegistryInstance
   ) // Pass routing service, knowledge base, and layer db manager
   registerDbIpcHandlers(ipcMain)
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)

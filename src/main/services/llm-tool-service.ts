@@ -20,6 +20,11 @@ import type { SettingsService } from './settings-service'
 import type { ExternalRuntimeRegistry } from './external-runtimes/external-runtime-registry'
 import { ACTIVE_EXTERNAL_RUNTIME_ID_KEY } from './settings/settings-service-config'
 import { normalizeConnectorPolicyConfig } from './connectors/policy/connector-policy-config'
+import { runExternalAnalysisToolName } from '../llm-tools/external-runtime-tools/run-external-analysis-tool'
+import {
+  normalizeExternalRuntimeId,
+  resolveRegisteredExternalRuntimeId
+} from '../../shared/utils/external-runtime-config'
 
 const MCP_DYNAMIC_TOOL_CATEGORY_PREFIX = 'mcp_server_'
 
@@ -75,14 +80,7 @@ export class LlmToolService {
       getOrchestrationService: () => this.orchestrationService,
       getConnectorExecutionService: () => this.connectorExecutionService,
       getExternalRuntimeRegistry: () => this.externalRuntimeRegistry,
-      getActiveExternalRuntimeId: async () => {
-        if (!this.settingsService) {
-          return null
-        }
-
-        const value = await this.settingsService.getSetting(ACTIVE_EXTERNAL_RUNTIME_ID_KEY)
-        return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-      }
+      getActiveExternalRuntimeId: async () => this.getConfiguredExternalRuntimeId()
     })
     // Actual assimilation of MCP tools will happen in initialize()
   }
@@ -278,13 +276,6 @@ export class LlmToolService {
     }
   }
 
-  public getToolDefinitionsForLLM(allowedToolIds?: string[]): Record<string, unknown> {
-    return this.toolRegistry.createToolDefinitions(
-      (toolName, args) => this.executeTool(toolName, args),
-      allowedToolIds
-    )
-  }
-
   public async executeTool(toolName: string, args: unknown): Promise<unknown> {
     const toolEntry = this.toolRegistry.get(toolName)
     if (!toolEntry) {
@@ -345,8 +336,18 @@ export class LlmToolService {
     return this.mcpClientService.getDiscoveredTools() || []
   }
 
-  public getAllAvailableTools(): string[] {
-    return this.toolRegistry.getAllToolNames().sort()
+  public async getToolDefinitionsForLLM(
+    allowedToolIds?: string[]
+  ): Promise<Record<string, unknown>> {
+    const visibleToolIds = await this.getVisibleToolIds(allowedToolIds)
+    return this.toolRegistry.createToolDefinitions(
+      (toolName, args) => this.executeTool(toolName, args),
+      visibleToolIds
+    )
+  }
+
+  public async getAllAvailableTools(): Promise<string[]> {
+    return (await this.getVisibleToolIds()).sort()
   }
 
   public async emitLifecycleHook(
@@ -378,5 +379,47 @@ export class LlmToolService {
     }
     const candidate = (payload as Record<string, unknown>)[key]
     return (candidate as T) ?? fallback
+  }
+
+  private async getVisibleToolIds(allowedToolIds?: string[]): Promise<string[]> {
+    const visibleToolIds = [...(allowedToolIds ?? this.toolRegistry.getAllToolNames())]
+
+    if (visibleToolIds.includes(runExternalAnalysisToolName)) {
+      const isExternalRuntimeToolVisible = await this.isExternalRuntimeToolVisible()
+      if (!isExternalRuntimeToolVisible) {
+        return visibleToolIds.filter((toolId) => toolId !== runExternalAnalysisToolName)
+      }
+    }
+
+    return visibleToolIds
+  }
+
+  private async getConfiguredExternalRuntimeId(): Promise<string | null> {
+    if (!this.settingsService) {
+      return null
+    }
+
+    const value = await this.settingsService.getSetting(ACTIVE_EXTERNAL_RUNTIME_ID_KEY)
+    return normalizeExternalRuntimeId(value)
+  }
+
+  private async getRegisteredActiveExternalRuntimeId(): Promise<string | null> {
+    if (!this.externalRuntimeRegistry) {
+      return null
+    }
+
+    const configuredRuntimeId = await this.getConfiguredExternalRuntimeId()
+    if (!configuredRuntimeId) {
+      return null
+    }
+
+    return resolveRegisteredExternalRuntimeId(
+      configuredRuntimeId,
+      this.externalRuntimeRegistry.listRuntimes()
+    )
+  }
+
+  private async isExternalRuntimeToolVisible(): Promise<boolean> {
+    return (await this.getRegisteredActiveExternalRuntimeId()) !== null
   }
 }

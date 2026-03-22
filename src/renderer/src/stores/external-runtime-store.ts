@@ -9,6 +9,11 @@ import type {
   ExternalRuntimeRunResult,
   ExternalRuntimeEvent
 } from '../../../shared/ipc-types'
+import {
+  normalizeExternalRuntimeId,
+  resolveRegisteredExternalRuntimeId
+} from '../../../shared/utils/external-runtime-config'
+import { isExternalRuntimeTerminalStatus } from '../../../shared/utils/external-runtime-status'
 
 type ExternalRuntimeStoredRun = ExternalRuntimeRunRecord | ExternalRuntimeRunResult
 
@@ -16,17 +21,7 @@ function getRunKey(runtimeId: string, runId: string): string {
   return `${runtimeId}:${runId}`
 }
 
-function isTerminalStatus(
-  status: ExternalRuntimeRunRecord['status'] | ExternalRuntimeRunResult['status'] | undefined
-): status is 'completed' | 'failed' | 'cancelled' {
-  return status === 'completed' || status === 'failed' || status === 'cancelled'
-}
-
 const ACTIVE_RUNTIME_SETTING_KEY = 'activeExternalRuntimeId'
-
-function normalizeRuntimeId(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
 
 async function persistActiveRuntimeId(runtimeId: string | null): Promise<void> {
   const result = await window.ctg.settings.setSetting(ACTIVE_RUNTIME_SETTING_KEY, runtimeId)
@@ -111,7 +106,11 @@ function updateRunFromEvent(
     nextRun.summary = event.text
   }
 
-  if (event.type === 'error' && event.message && isTerminalStatus(event.status ?? nextRun.status)) {
+  if (
+    event.type === 'error' &&
+    event.message &&
+    isExternalRuntimeTerminalStatus(event.status ?? nextRun.status)
+  ) {
     nextRun.error = event.message
   }
 
@@ -156,7 +155,7 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
             const existingRun = state.runs[runKey]
             const nextEvents = [...(state.runEvents[runKey] || []), event].slice(-200)
             return {
-              approvalRequests: isTerminalStatus(event.status)
+              approvalRequests: isExternalRuntimeTerminalStatus(event.status)
                 ? state.approvalRequests.filter(
                     (request) =>
                       !(request.runtimeId === event.runtimeId && request.runId === event.runId)
@@ -219,19 +218,9 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
     try {
       const descriptors = await window.ctg.externalRuntimes.listRuntimes()
       const storedActiveRuntimeId = await window.ctg.settings.getSetting(ACTIVE_RUNTIME_SETTING_KEY)
-      const normalizedActiveRuntimeId = normalizeRuntimeId(storedActiveRuntimeId)
+      const activeRuntimeId = resolveRegisteredExternalRuntimeId(storedActiveRuntimeId, descriptors)
 
-      const hasStoredRuntime = normalizedActiveRuntimeId
-        ? descriptors.some((descriptor) => descriptor.id === normalizedActiveRuntimeId)
-        : false
-      const activeRuntimeId =
-        normalizedActiveRuntimeId && hasStoredRuntime
-          ? normalizedActiveRuntimeId
-          : descriptors.length === 1
-            ? descriptors[0].id
-            : null
-
-      if (activeRuntimeId !== normalizedActiveRuntimeId) {
+      if (activeRuntimeId !== normalizeExternalRuntimeId(storedActiveRuntimeId)) {
         await persistActiveRuntimeId(activeRuntimeId)
       }
 
@@ -465,7 +454,7 @@ export const useExternalRuntimeStore = create<ExternalRuntimeState>((set, get) =
   },
 
   setActiveRuntime: async (runtimeId) => {
-    const normalizedRuntimeId = normalizeRuntimeId(runtimeId)
+    const normalizedRuntimeId = normalizeExternalRuntimeId(runtimeId)
     set({ error: null })
 
     try {

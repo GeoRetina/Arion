@@ -7,6 +7,8 @@ import { ProductionDataSourceResolver } from '../services/data-source-resolver'
 import type { KnowledgeBaseService } from '../services/knowledge-base-service'
 import type { LayerDbManagerLike } from '../services/data-source-resolver'
 import type { ChatReasoningConfig } from '../../shared/ipc-types'
+import type { ExternalRuntimeRegistry } from '../services/external-runtimes/external-runtime-registry'
+import { isExternalRuntimeInProgressStatus } from '../../shared/utils/external-runtime-status'
 
 // Initialize mention processing services
 const mentionService = MentionService.getInstance()
@@ -15,6 +17,7 @@ let dataSourceResolver: ProductionDataSourceResolver
 
 // Registry for active streams and their abort controllers
 const activeStreams = new Map<string, AbortController>()
+const activeStreamChatIds = new Map<string, string>()
 
 const streamTextEncoder = new TextEncoder()
 
@@ -107,12 +110,41 @@ async function processMentions(messages: RendererMessageLike[]): Promise<void> {
   }
 }
 
+async function cancelActiveExternalRuntimeRunsForChat(
+  chatId: string | undefined,
+  externalRuntimeRegistry?: ExternalRuntimeRegistry
+): Promise<number> {
+  if (!chatId || !externalRuntimeRegistry) {
+    return 0
+  }
+
+  const runs = await externalRuntimeRegistry.listRuns({ chatId })
+  const activeRuns = runs.filter((run) => isExternalRuntimeInProgressStatus(run.status))
+
+  if (activeRuns.length === 0) {
+    return 0
+  }
+
+  const results = await Promise.allSettled(
+    activeRuns.map((run) => externalRuntimeRegistry.cancelRun(run.runtimeId, run.runId))
+  )
+
+  return results.reduce((count, result) => {
+    if (result.status === 'fulfilled' && result.value) {
+      return count + 1
+    }
+
+    return count
+  }, 0)
+}
+
 export function registerChatIpcHandlers(
   ipcMain: IpcMain,
   chatService: ChatService,
   agentRoutingService?: AgentRoutingService,
   knowledgeBaseService?: KnowledgeBaseService,
-  layerDbManager?: LayerDbManagerLike
+  layerDbManager?: LayerDbManagerLike,
+  externalRuntimeRegistry?: ExternalRuntimeRegistry
 ): void {
   // Initialize production resolver with real services
   dataSourceResolver = new ProductionDataSourceResolver(knowledgeBaseService, layerDbManager)
@@ -280,6 +312,9 @@ export function registerChatIpcHandlers(
       // Create an abort controller for this stream
       const abortController = new AbortController()
       activeStreams.set(streamId, abortController)
+      if (typeof parsedBody?.id === 'string' && parsedBody.id.trim().length > 0) {
+        activeStreamChatIds.set(streamId, parsedBody.id.trim())
+      }
 
       // Send start notification
       event.sender.send(`ctg:chat:stream:start:${streamId}`)
@@ -317,6 +352,8 @@ export function registerChatIpcHandlers(
                     event.sender.send(`ctg:chat:stream:chunk:${streamId}`, chunk)
                   })
                   event.sender.send(`ctg:chat:stream:end:${streamId}`)
+                  activeStreams.delete(streamId)
+                  activeStreamChatIds.delete(streamId)
                   return true
                 }
               } catch {
@@ -340,11 +377,13 @@ export function registerChatIpcHandlers(
             event.sender.send(`ctg:chat:stream:error:${streamId}`, error.message)
             // Clean up abort controller on error
             activeStreams.delete(streamId)
+            activeStreamChatIds.delete(streamId)
           },
           onComplete: () => {
             event.sender.send(`ctg:chat:stream:end:${streamId}`)
             // Clean up abort controller on completion
             activeStreams.delete(streamId)
+            activeStreamChatIds.delete(streamId)
           }
         },
         abortController.signal
@@ -358,19 +397,34 @@ export function registerChatIpcHandlers(
       event.sender.send(`ctg:chat:stream:end:${streamId}`)
       // Clean up abort controller on exception
       activeStreams.delete(streamId)
+      activeStreamChatIds.delete(streamId)
       return false
     }
   })
 
   // Add handler for canceling streams
   ipcMain.handle('ctg:chat:cancelStream', async (_event, streamId: string) => {
+    const chatId = activeStreamChatIds.get(streamId)
     const abortController = activeStreams.get(streamId)
+    let cancelledExternalRuns = 0
+
+    try {
+      cancelledExternalRuns = await cancelActiveExternalRuntimeRunsForChat(
+        chatId,
+        externalRuntimeRegistry
+      )
+    } catch (error) {
+      console.error('[IPC chat cancelStream] Failed to cancel external runtime runs:', error)
+    }
+
     if (abortController) {
       abortController.abort()
       activeStreams.delete(streamId)
+      activeStreamChatIds.delete(streamId)
       return true
     }
-    return false
+    activeStreamChatIds.delete(streamId)
+    return cancelledExternalRuns > 0
   })
 
   // Add new handler for orchestrated chat messages
