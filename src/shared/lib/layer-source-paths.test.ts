@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isQgisCompatibleLayerInputPath,
   isExternalLayerReference,
   resolveLocalLayerFilePath,
+  resolveQgisLayerInputPath,
   trimToNonEmptyString
 } from './layer-source-paths'
 
@@ -87,6 +89,61 @@ describe('layer-source-paths', () => {
           }
         })
       ).toBeNull()
+    })
+  })
+
+  describe('resolveQgisLayerInputPath', () => {
+    it('returns QGIS-ready paths for supported local vector and raster datasets', () => {
+      expect(
+        resolveQgisLayerInputPath({
+          metadata: {
+            context: {
+              localFilePath: 'C:\\data\\roads.gpkg'
+            }
+          }
+        })
+      ).toBe('C:\\data\\roads.gpkg')
+
+      expect(
+        resolveQgisLayerInputPath({
+          sourceConfig: {
+            options: {
+              rasterSourcePath: 'C:\\data\\elevation.tif'
+            }
+          }
+        })
+      ).toBe('C:\\data\\elevation.tif')
+    })
+
+    it('omits unsupported or non-local paths from QGIS-ready output', () => {
+      expect(
+        resolveQgisLayerInputPath({
+          metadata: {
+            context: {
+              localFilePath: 'C:\\data\\overlay.png'
+            }
+          }
+        })
+      ).toBeNull()
+
+      expect(
+        resolveQgisLayerInputPath({
+          metadata: {
+            context: {
+              localFilePath: 'relative\\roads.geojson'
+            }
+          }
+        })
+      ).toBeNull()
+    })
+  })
+
+  describe('isQgisCompatibleLayerInputPath', () => {
+    it('accepts supported absolute dataset paths and rejects unsupported ones', () => {
+      expect(isQgisCompatibleLayerInputPath('C:\\data\\roads.geojson')).toBe(true)
+      expect(isQgisCompatibleLayerInputPath('/tmp/roads.shp')).toBe(true)
+      expect(isQgisCompatibleLayerInputPath('C:\\data\\overlay.png')).toBe(false)
+      expect(isQgisCompatibleLayerInputPath('relative\\roads.geojson')).toBe(false)
     })
   })
 })

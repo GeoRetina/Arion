@@ -9,6 +9,7 @@ import type {
   CogIntegrationConfig,
   GoogleEarthEngineIntegrationConfig,
   PmtilesIntegrationConfig,
+  QgisIntegrationConfig,
   S3IntegrationConfig,
   StacIntegrationConfig,
   WmsIntegrationConfig,
@@ -23,6 +24,7 @@ import {
   checkWms,
   checkWmts
 } from './http-checkers'
+import { checkQgis } from './qgis-checker'
 import { checkS3 } from './s3-checker'
 import { type ConnectionMode, createHealthCheckResult } from './result'
 
@@ -50,6 +52,8 @@ export const runIntegrationHealthCheck = async (
         return await checkS3(config as S3IntegrationConfig)
       case 'google-earth-engine':
         return await checkGoogleEarthEngine(config as GoogleEarthEngineIntegrationConfig)
+      case 'qgis':
+        return await checkQgis(config as QgisIntegrationConfig)
     }
   } catch (error) {
     return createHealthCheckResult(

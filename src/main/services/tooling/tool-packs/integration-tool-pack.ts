@@ -8,6 +8,16 @@ import {
   pmtilesInspectArchiveToolName,
   postgresqlRunQuerySafeToolDefinition,
   postgresqlRunQuerySafeToolName,
+  qgisApplyLayerStyleToolDefinition,
+  qgisApplyLayerStyleToolName,
+  qgisDescribeAlgorithmToolDefinition,
+  qgisDescribeAlgorithmToolName,
+  qgisExportLayoutToolDefinition,
+  qgisExportLayoutToolName,
+  qgisListAlgorithmsToolDefinition,
+  qgisListAlgorithmsToolName,
+  qgisRunProcessingToolDefinition,
+  qgisRunProcessingToolName,
   s3ListObjectsToolDefinition,
   s3ListObjectsToolName,
   stacSearchCatalogToolDefinition,
@@ -80,6 +90,36 @@ const INTEGRATION_TOOL_REGISTRATIONS: IntegrationToolRegistration[] = [
     definition: postgresqlRunQuerySafeToolDefinition,
     integrationId: 'postgresql-postgis',
     capability: 'sql.query'
+  },
+  {
+    name: qgisListAlgorithmsToolName,
+    definition: qgisListAlgorithmsToolDefinition,
+    integrationId: 'qgis',
+    capability: 'desktop.processing.listAlgorithms'
+  },
+  {
+    name: qgisDescribeAlgorithmToolName,
+    definition: qgisDescribeAlgorithmToolDefinition,
+    integrationId: 'qgis',
+    capability: 'desktop.processing.describeAlgorithm'
+  },
+  {
+    name: qgisRunProcessingToolName,
+    definition: qgisRunProcessingToolDefinition,
+    integrationId: 'qgis',
+    capability: 'desktop.processing.run'
+  },
+  {
+    name: qgisApplyLayerStyleToolName,
+    definition: qgisApplyLayerStyleToolDefinition,
+    integrationId: 'qgis',
+    capability: 'desktop.style.apply'
+  },
+  {
+    name: qgisExportLayoutToolName,
+    definition: qgisExportLayoutToolDefinition,
+    integrationId: 'qgis',
+    capability: 'desktop.layout.export'
   }
 ]
 

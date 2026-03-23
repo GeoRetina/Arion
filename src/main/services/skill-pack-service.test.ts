@@ -407,6 +407,61 @@ description: Checklist.
     expect(deletedSkill).toBeUndefined()
   })
 
+  it('lists bundled skills from the local resources manifest when present', async () => {
+    const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-bundled-skill-local-manifest-'))
+    tempRoots.push(testRoot)
+
+    const workspaceRoot = path.join(testRoot, 'workspace')
+    const userDataRoot = path.join(testRoot, 'user-data')
+    const resourcesRoot = path.join(testRoot, 'resources')
+    const appRoot = path.join(testRoot, 'app')
+
+    fs.mkdirSync(workspaceRoot, { recursive: true })
+    fs.mkdirSync(userDataRoot, { recursive: true })
+    fs.mkdirSync(resourcesRoot, { recursive: true })
+    fs.mkdirSync(appRoot, { recursive: true })
+
+    const bundledSkillsRoot = path.join(resourcesRoot, 'skills', 'bundled')
+    fs.mkdirSync(bundledSkillsRoot, { recursive: true })
+    fs.writeFileSync(
+      path.join(bundledSkillsRoot, 'index.json'),
+      JSON.stringify({
+        skills: [
+          {
+            id: 'geospatial-triage',
+            name: 'Geospatial Triage',
+            description: 'Local bundled version',
+            repositoryPath: 'resources/skills/bundled/geospatial-triage/SKILL.md',
+            downloadUrl:
+              'https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/geospatial-triage/SKILL.md'
+          }
+        ]
+      }),
+      'utf8'
+    )
+
+    const service = new SkillPackService({
+      getUserDataPath: () => userDataRoot,
+      getResourcesPath: () => resourcesRoot,
+      getAppPath: () => appRoot,
+      getCwd: () => workspaceRoot,
+      getBundledSkillsManifestUrl: () => {
+        throw new Error('Remote manifest should not be used when a local bundled manifest exists')
+      }
+    })
+
+    const catalog = await service.listBundledSkillCatalog()
+    expect(catalog).toEqual([
+      {
+        id: 'geospatial-triage',
+        name: 'Geospatial Triage',
+        description: 'Local bundled version',
+        repositoryPath: 'resources/skills/bundled/geospatial-triage/SKILL.md',
+        isInstalled: false
+      }
+    ])
+  })
+
   it('lists bundled skills from remote manifest and installs them into managed source', async () => {
     const testRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arion-bundled-skill-install-'))
     tempRoots.push(testRoot)

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { stacSearchCatalogToolName } from '../../../llm-tools/integration-tools'
+import {
+  qgisRunProcessingToolName,
+  stacSearchCatalogToolName
+} from '../../../llm-tools/integration-tools'
 import { registerIntegrationTools } from './integration-tool-pack'
 
 function createRegistry(): {
@@ -86,5 +89,76 @@ describe('registerIntegrationTools', () => {
       data: { returned: 2 },
       details: { source: 'native' }
     })
+  })
+
+  it('registers and delegates the QGIS processing tool', async () => {
+    const { registry, entries } = createRegistry()
+    const execute = vi.fn(async () => ({
+      success: true,
+      runId: 'run_qgis',
+      integrationId: 'qgis',
+      capability: 'desktop.processing.run',
+      backend: 'native',
+      durationMs: 84,
+      data: { operation: 'runAlgorithm' },
+      details: { launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat' }
+    }))
+
+    registerIntegrationTools(registry, {
+      getConnectorExecutionService: () =>
+        ({
+          execute
+        }) as never
+    })
+
+    const tool = entries.get(qgisRunProcessingToolName)
+    const result = (await tool?.execute({
+      args: {
+        algorithmId: 'native:buffer',
+        parameters: {
+          DISTANCE: 10
+        },
+        importPreference: 'auto'
+      },
+      chatId: 'chat-qgis'
+    })) as {
+      status: string
+      run_id: string
+      data: { operation: string }
+    }
+
+    expect(execute).toHaveBeenCalledWith({
+      integrationId: 'qgis',
+      capability: 'desktop.processing.run',
+      chatId: 'chat-qgis',
+      input: {
+        algorithmId: 'native:buffer',
+        parameters: {
+          DISTANCE: 10
+        },
+        importPreference: 'auto'
+      },
+      timeoutMs: undefined
+    })
+    expect(result).toEqual({
+      status: 'success',
+      run_id: 'run_qgis',
+      backend: 'native',
+      duration_ms: 84,
+      data: { operation: 'runAlgorithm' },
+      details: { launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat' }
+    })
+  })
+
+  it('does not register bespoke QGIS analysis helpers', async () => {
+    const { registry, entries } = createRegistry()
+    registerIntegrationTools(registry, {
+      getConnectorExecutionService: () =>
+        ({
+          execute: vi.fn()
+        }) as never
+    })
+
+    expect(entries.has('qgis_extract_top_features')).toBe(false)
   })
 })

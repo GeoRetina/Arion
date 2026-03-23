@@ -7,6 +7,8 @@ import type {
 export type ConnectorExecutionErrorCode =
   | 'NOT_CONFIGURED'
   | 'UNSUPPORTED_CAPABILITY'
+  | 'UNSUPPORTED_ALGORITHM'
+  | 'DISALLOWED_PROVIDER'
   | 'POLICY_DENIED'
   | 'APPROVAL_REQUIRED'
   | 'TIMEOUT'

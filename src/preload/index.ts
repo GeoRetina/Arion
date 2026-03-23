@@ -26,6 +26,7 @@ import {
   type LayerApi,
   type AddMapFeaturePayload,
   type SetPaintPropertiesPayload,
+  type UpdateLayerStylePayload,
   type RemoveSourceAndLayersPayload,
   type SetMapViewPayload,
   type SystemPromptConfig,
@@ -108,7 +109,9 @@ import {
   type CodexRuntimeEvent,
   type ImportGeoPackageRequest,
   type ImportGeoPackageResult,
-  type LocalFileDescriptor
+  type LocalFileDescriptor,
+  type LocalFileDialogOptions,
+  type LayerImportDefinitionsPayload
 } from '../shared/ipc-types' // Corrected relative path
 import type {
   LayerDefinition,
@@ -674,7 +677,9 @@ const ctgApi = {
   } as KnowledgeBaseApi,
   shell: {
     openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke(IpcChannels.shellOpenPath, filePath)
+      ipcRenderer.invoke(IpcChannels.shellOpenPath, filePath),
+    selectFile: (options?: LocalFileDialogOptions): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.shellSelectFile, options)
   } as ExposedShellApi,
   mcp: {
     requestPermission: (request: McpPermissionRequest): Promise<boolean> =>
@@ -710,6 +715,14 @@ const ctgApi = {
       ipcRenderer.on('ctg:map:setPaintProperties', handler)
       return () => {
         ipcRenderer.removeListener('ctg:map:setPaintProperties', handler)
+      }
+    },
+    onUpdateLayerStyle: (callback: (payload: UpdateLayerStylePayload) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: UpdateLayerStylePayload): void =>
+        callback(payload)
+      ipcRenderer.on('ctg:map:updateLayerStyle', handler)
+      return () => {
+        ipcRenderer.removeListener('ctg:map:updateLayerStyle', handler)
       }
     },
     onRemoveSourceAndLayers: (callback: (payload: RemoveSourceAndLayersPayload) => void) => {
@@ -866,7 +879,17 @@ const ctgApi = {
     releaseGeoTiffAsset: (assetId: string): Promise<boolean> =>
       ipcRenderer.invoke('layers:releaseGeoTiffAsset', assetId),
     updateRuntimeSnapshot: (layers: unknown[]): Promise<boolean> =>
-      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers)
+      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers),
+    onImportDefinitions: (callback: (payload: LayerImportDefinitionsPayload) => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: LayerImportDefinitionsPayload
+      ): void => callback(payload)
+      ipcRenderer.on(IpcChannels.layersImportDefinitionsEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.layersImportDefinitionsEvent, handler)
+      }
+    }
   } as LayerApi,
   // Agent API for managing agents
   agents: {

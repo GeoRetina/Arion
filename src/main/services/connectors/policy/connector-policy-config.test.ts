@@ -30,4 +30,14 @@ describe('normalizeConnectorPolicyConfig', () => {
 
     expect(normalized.blockedMcpToolNames).toEqual(['connect_database', 'execute_select_query'])
   })
+
+  it('includes QGIS write operations in the default sensitive capability set', () => {
+    expect(DEFAULT_CONNECTOR_POLICY_CONFIG.sensitiveCapabilities).toEqual(
+      expect.arrayContaining([
+        'desktop.processing.run',
+        'desktop.style.apply',
+        'desktop.layout.export'
+      ])
+    )
+  })
 })

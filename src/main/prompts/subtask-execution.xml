@@ -9,9 +9,9 @@ Your specific subtask: {{subtask_description}}
 
 {{dependency_context}}
 
-You have access to the following specialized agents that can help accomplish tasks:
-
 {{agents_info}}
+
+Use only the specialized agents explicitly listed above. If none are listed, do not invent any specialized agents.
 
 Provide a complete solution for this specific subtask only. Do not attempt to solve the entire original query.
 ]]>

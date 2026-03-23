@@ -9,6 +9,7 @@ import { ConnectorCapabilityRegistry } from './connector-capability-registry'
 import { ConnectorExecutionService } from './connector-execution-service'
 import { ConnectorPolicyService } from './policy/connector-policy-service'
 import { ConnectorRunLogger } from './telemetry/connector-run-logger'
+import { QgisProcessService } from '../qgis/qgis-process-service'
 
 interface ConnectorExecutionRuntimeDeps {
   settingsService: SettingsService
@@ -29,6 +30,7 @@ interface ConnectorRouteTemplate {
   nativeDescription: string
   mcpDescription: string
   sensitivity?: 'normal' | 'sensitive'
+  enableMcpFallback?: boolean
 }
 
 const ROUTE_TEMPLATES: ConnectorRouteTemplate[] = [
@@ -82,6 +84,44 @@ const ROUTE_TEMPLATES: ConnectorRouteTemplate[] = [
     nativeDescription: 'List Earth Engine algorithms',
     mcpDescription: 'List Earth Engine algorithms via MCP fallback',
     sensitivity: 'sensitive'
+  },
+  {
+    integrationId: 'qgis',
+    capability: 'desktop.processing.listAlgorithms',
+    nativeDescription: 'List QGIS processing algorithms',
+    mcpDescription: 'QGIS algorithms via MCP fallback',
+    enableMcpFallback: false
+  },
+  {
+    integrationId: 'qgis',
+    capability: 'desktop.processing.describeAlgorithm',
+    nativeDescription: 'Describe a QGIS processing algorithm',
+    mcpDescription: 'QGIS algorithm help via MCP fallback',
+    enableMcpFallback: false
+  },
+  {
+    integrationId: 'qgis',
+    capability: 'desktop.processing.run',
+    nativeDescription: 'Run an approved QGIS processing algorithm',
+    mcpDescription: 'QGIS processing via MCP fallback',
+    sensitivity: 'sensitive',
+    enableMcpFallback: false
+  },
+  {
+    integrationId: 'qgis',
+    capability: 'desktop.style.apply',
+    nativeDescription: 'Apply a file-based style through QGIS',
+    mcpDescription: 'QGIS style application via MCP fallback',
+    sensitivity: 'sensitive',
+    enableMcpFallback: false
+  },
+  {
+    integrationId: 'qgis',
+    capability: 'desktop.layout.export',
+    nativeDescription: 'Export a print layout through QGIS',
+    mcpDescription: 'QGIS layout export via MCP fallback',
+    sensitivity: 'sensitive',
+    enableMcpFallback: false
   }
 ]
 
@@ -91,8 +131,15 @@ export const createConnectorExecutionRuntime = (
   const registry = new ConnectorCapabilityRegistry()
   const runLogger = new ConnectorRunLogger()
   const policyService = new ConnectorPolicyService(deps.settingsService)
+  const qgisProcessService = new QgisProcessService({
+    connectorHubService: deps.connectorHubService
+  })
 
-  const nativeAdapter = new NativeConnectorAdapter(deps.connectorHubService, deps.postgresqlService)
+  const nativeAdapter = new NativeConnectorAdapter(
+    deps.connectorHubService,
+    deps.postgresqlService,
+    qgisProcessService
+  )
   const mcpAdapter = new McpConnectorAdapter(deps.mcpClientService)
 
   for (const route of ROUTE_TEMPLATES) {
@@ -105,14 +152,16 @@ export const createConnectorExecutionRuntime = (
       priority: 10
     })
 
-    registry.register({
-      integrationId: route.integrationId,
-      capability: route.capability,
-      adapter: mcpAdapter,
-      description: route.mcpDescription,
-      sensitivity: route.sensitivity,
-      priority: 80
-    })
+    if (route.enableMcpFallback !== false) {
+      registry.register({
+        integrationId: route.integrationId,
+        capability: route.capability,
+        adapter: mcpAdapter,
+        description: route.mcpDescription,
+        sensitivity: route.sensitivity,
+        priority: 80
+      })
+    }
   }
 
   const executionService = new ConnectorExecutionService(registry, policyService, runLogger)

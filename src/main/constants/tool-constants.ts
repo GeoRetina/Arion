@@ -49,7 +49,7 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
       },
       {
         name: 'set_layer_style',
-        description: 'Style map layers with colors, symbols, and other visual properties'
+        description: 'Style live map layers with MapLibre paint, layout, and filter expressions'
       },
       {
         name: 'open_map_sidebar',
@@ -106,13 +106,29 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
     tools: [
       {
         name: 'call_agent',
-        description: 'Call specialized agents for domain-specific tasks'
+        description:
+          'Call a listed specialized agent for domain-specific tasks. Use only the exact agent_handle from the AVAILABLE SPECIALIZED AGENTS section and never invent agent handles or IDs.'
       }
     ]
   },
   {
     name: 'Integrations',
     tools: [
+      {
+        name: 'qgis_run_processing',
+        description:
+          'Run an approved QGIS Processing algorithm with explicit parameters against local datasets, chain multi-step analyses by reusing output artifact paths between runs, and auto-import supported final outputs back into the map when they are written to named GeoPackage, GeoJSON, or GeoTIFF files'
+      },
+      {
+        name: 'qgis_describe_algorithm',
+        description:
+          'Inspect the exact parameters and outputs for a QGIS Processing algorithm before running it'
+      },
+      {
+        name: 'qgis_list_algorithms',
+        description:
+          'Discover available QGIS Processing algorithms from the configured local QGIS installation'
+      },
       {
         name: 'run_external_analysis',
         description:

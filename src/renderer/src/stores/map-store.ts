@@ -4,17 +4,20 @@ import * as turf from '@turf/turf'
 import type {
   AddMapFeaturePayload,
   SetPaintPropertiesPayload,
+  UpdateLayerStylePayload,
   SetMapViewPayload,
   AddGeoreferencedImageLayerPayload
 } from '../../../shared/ipc-types'
 import { useLayerStore } from './layer-store'
-import { createStyleUpdateFromPaintProperties } from '../lib/map-style-paint'
+import { createStyleUpdateFromMapStyleProperties } from '../lib/map-style-paint'
+import { applyRawMapStyleUpdate } from '../lib/map-style-application'
 
 interface MapState {
   mapInstance: Map | null
   setMapInstance: (map: Map | null) => void
   addFeature: (payload: AddMapFeaturePayload) => void
   setLayerPaintProperties: (payload: SetPaintPropertiesPayload) => void
+  updateLayerStyleProperties: (payload: UpdateLayerStylePayload) => void
   removeSourceAndAssociatedLayers: (sourceIdToRemove: string) => void
   setMapView: (payload: SetMapViewPayload) => void
   addGeoreferencedImageLayer: (payload: AddGeoreferencedImageLayerPayload) => void
@@ -114,6 +117,9 @@ export const useMapStore = create<MapState>((set, get) => ({
     }
   },
   setLayerPaintProperties: (payload) => {
+    get().updateLayerStyleProperties(payload)
+  },
+  updateLayerStyleProperties: (payload) => {
     const layerStore = useLayerStore.getState()
     const matchingLayers = Array.from(layerStore.layers.values()).filter(
       (layer) => layer.sourceId === payload.sourceId
@@ -124,7 +130,14 @@ export const useMapStore = create<MapState>((set, get) => ({
         matchingLayers.map((layer) =>
           layerStore.updateLayerStyle(
             layer.id,
-            createStyleUpdateFromPaintProperties(payload.paintProperties, layer.style)
+            createStyleUpdateFromMapStyleProperties(
+              {
+                paintProperties: payload.paintProperties,
+                layoutProperties: payload.layoutProperties,
+                filter: payload.filter
+              },
+              layer.style
+            )
           )
         )
       ).catch(() => {})
@@ -136,12 +149,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     if (!map || !isMapReady) {
       return
     }
-    const { sourceId, paintProperties, layerIdPattern } = payload
+    const { sourceId, layerIdPattern } = payload
 
     try {
       if (!map.isStyleLoaded()) {
         map.once('styledata', () => {
-          get().setLayerPaintProperties(payload)
+          get().updateLayerStyleProperties(payload)
         })
         return
       }
@@ -167,11 +180,11 @@ export const useMapStore = create<MapState>((set, get) => ({
       }
 
       layersToUpdate.forEach((layer) => {
-        for (const propName in paintProperties) {
-          if (Object.prototype.hasOwnProperty.call(paintProperties, propName)) {
-            map.setPaintProperty(layer.id, propName, paintProperties[propName])
-          }
-        }
+        applyRawMapStyleUpdate(map, layer.id, {
+          paintProperties: payload.paintProperties,
+          layoutProperties: payload.layoutProperties,
+          filter: payload.filter
+        })
       })
     } catch {
       void 0

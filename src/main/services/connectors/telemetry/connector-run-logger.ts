@@ -24,7 +24,8 @@ export class ConnectorRunLogger {
       backend: input.backend,
       outcome: input.outcome,
       message: input.message,
-      errorCode: input.errorCode
+      errorCode: input.errorCode,
+      details: input.details
     }
 
     this.records.unshift(record)

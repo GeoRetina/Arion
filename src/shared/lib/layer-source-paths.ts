@@ -10,6 +10,15 @@ type LayerSourcePathLike = {
   } | null
 }
 
+const QGIS_COMPATIBLE_LAYER_EXTENSIONS = new Set([
+  '.geojson',
+  '.json',
+  '.gpkg',
+  '.shp',
+  '.tif',
+  '.tiff'
+])
+
 export function trimToNonEmptyString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null
@@ -54,4 +63,31 @@ export function resolveLocalLayerFilePath(layer: LayerSourcePathLike): string | 
   }
 
   return null
+}
+
+export function isQgisCompatibleLayerInputPath(value: string): boolean {
+  if (isExternalLayerReference(value) || !isAbsoluteFilesystemPath(value)) {
+    return false
+  }
+
+  return QGIS_COMPATIBLE_LAYER_EXTENSIONS.has(getPathExtension(value))
+}
+
+export function resolveQgisLayerInputPath(layer: LayerSourcePathLike): string | null {
+  const localPath = resolveLocalLayerFilePath(layer)
+  if (!localPath || !isQgisCompatibleLayerInputPath(localPath)) {
+    return null
+  }
+
+  return localPath
+}
+
+function getPathExtension(value: string): string {
+  const trimmed = value.trim()
+  const sanitized = trimmed.replace(/[?#].*$/u, '')
+  const lastSlashIndex = Math.max(sanitized.lastIndexOf('/'), sanitized.lastIndexOf('\\'))
+  const fileName = lastSlashIndex >= 0 ? sanitized.slice(lastSlashIndex + 1) : sanitized
+  const extensionIndex = fileName.lastIndexOf('.')
+
+  return extensionIndex >= 0 ? fileName.slice(extensionIndex).toLowerCase() : ''
 }

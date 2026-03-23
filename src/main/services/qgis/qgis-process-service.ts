@@ -1,0 +1,1049 @@
+import { randomUUID } from 'crypto'
+import { promises as fs, statSync } from 'fs'
+import path from 'path'
+import { app, BrowserWindow } from 'electron'
+import {
+  IpcChannels,
+  type LayerImportDefinitionsPayload,
+  type QgisIntegrationConfig
+} from '../../../shared/ipc-types'
+import {
+  ensureLocalFilesystemPath,
+  isNetworkPath,
+  isPathInsideDirectory,
+  looksLikeFilesystemPath
+} from '../../security/path-security'
+import type { ConnectorHubService } from '../connector-hub-service'
+import { LocalLayerImportService } from '../layers/local-layer-import-service'
+import { evaluateQgisAlgorithmApproval, isQgisAlgorithmApproved } from './qgis-algorithm-policy'
+import { runQgisLauncherCommand } from './qgis-command-runner'
+import { QgisDiscoveryService } from './qgis-discovery-service'
+import type {
+  QgisApplyLayerStyleRequest,
+  QgisArtifactRecord,
+  QgisExecutionDiagnostics,
+  QgisExportLayoutRequest,
+  QgisImportedLayerRecord,
+  QgisImportPreference,
+  QgisListAlgorithmsRequest,
+  QgisProcessFailureResult,
+  QgisProcessOperation,
+  QgisProcessResult,
+  QgisRunAlgorithmRequest
+} from './types'
+
+const DEFAULT_QGIS_TIMEOUT_MS = 60_000
+const MAX_STDIO_PREVIEW_LENGTH = 4_000
+const OUTPUT_KEY_PATTERN = /(output|destination|dest|file)$/i
+
+interface PreparedWorkspace {
+  workspacePath: string
+  outputDirectory: string
+}
+
+interface QgisProcessServiceDeps {
+  connectorHubService: Pick<ConnectorHubService, 'getConfig'>
+  discoveryService?: QgisDiscoveryService
+  localLayerImportService?: LocalLayerImportService
+  getUserDataPath?: () => string
+  broadcastLayerImports?: (payload: LayerImportDefinitionsPayload) => void
+}
+
+export class QgisProcessService {
+  private readonly discoveryService: QgisDiscoveryService
+  private readonly localLayerImportService: LocalLayerImportService
+  private readonly getUserDataPath: () => string
+  private readonly broadcastLayerImports: (payload: LayerImportDefinitionsPayload) => void
+
+  constructor(private readonly deps: QgisProcessServiceDeps) {
+    this.discoveryService = deps.discoveryService ?? new QgisDiscoveryService()
+    this.localLayerImportService = deps.localLayerImportService ?? new LocalLayerImportService()
+    this.getUserDataPath = deps.getUserDataPath ?? (() => app.getPath('userData'))
+    this.broadcastLayerImports = deps.broadcastLayerImports ?? defaultBroadcastLayerImports
+  }
+
+  public async listAlgorithms(options: QgisListAlgorithmsRequest = {}): Promise<QgisProcessResult> {
+    const result = await this.executeLauncherCommand({
+      operation: 'listAlgorithms',
+      args: ['--json', ...this.buildPluginFlags(await this.getConfig()), 'list'],
+      timeoutMs: options.timeoutMs
+    })
+
+    if (!result.success) {
+      return result
+    }
+
+    return {
+      ...result,
+      parsedResult: filterAlgorithmList(result.parsedResult, options)
+    }
+  }
+
+  public async describeAlgorithm(
+    algorithmId: string,
+    options: {
+      timeoutMs?: number
+    } = {}
+  ): Promise<QgisProcessResult> {
+    if (!isQgisAlgorithmIdentifier(algorithmId)) {
+      return buildQgisFailureResult('describeAlgorithm', 'VALIDATION_FAILED', {
+        message: `Invalid QGIS algorithm id "${algorithmId}".`
+      })
+    }
+
+    return await this.executeLauncherCommand({
+      operation: 'describeAlgorithm',
+      args: ['--json', ...this.buildPluginFlags(await this.getConfig()), 'help', algorithmId],
+      timeoutMs: options.timeoutMs
+    })
+  }
+
+  public async runAlgorithm(request: QgisRunAlgorithmRequest): Promise<QgisProcessResult> {
+    return await this.runPreparedAlgorithm(request)
+  }
+
+  public async applyLayerStyle(request: QgisApplyLayerStyleRequest): Promise<QgisProcessResult> {
+    const normalizedInputPath = normalizeOptionalExistingLocalPath(request.inputPath, 'Layer input')
+    if (!normalizedInputPath) {
+      return buildQgisFailureResult('applyLayerStyle', 'VALIDATION_FAILED', {
+        message: 'inputPath must point to a readable local layer file.'
+      })
+    }
+
+    const normalizedStylePath = normalizeOptionalExistingLocalPath(request.stylePath, 'Style file')
+    if (!normalizedStylePath) {
+      return buildQgisFailureResult('applyLayerStyle', 'VALIDATION_FAILED', {
+        message: 'stylePath must point to a readable local style file.'
+      })
+    }
+
+    return await this.runPreparedAlgorithm({
+      algorithmId: 'native:setlayerstyle',
+      parameters: {
+        INPUT: normalizedInputPath,
+        STYLE: normalizedStylePath
+      },
+      chatId: request.chatId,
+      timeoutMs: request.timeoutMs,
+      importPreference: 'none',
+      expectedOutputs: []
+    })
+  }
+
+  public async exportLayout(request: QgisExportLayoutRequest): Promise<QgisProcessResult> {
+    const normalizedProjectPath = normalizeOptionalExistingLocalPath(
+      request.projectPath,
+      'QGIS project'
+    )
+    if (!normalizedProjectPath) {
+      return buildQgisFailureResult('exportLayout', 'VALIDATION_FAILED', {
+        message: 'projectPath must point to a readable local QGIS project file.'
+      })
+    }
+
+    const workspace = await this.createWorkspace('layout', request.chatId)
+    const format = normalizeLayoutFormat(request.format, request.outputPath)
+    if (!format) {
+      return buildQgisFailureResult('exportLayout', 'VALIDATION_FAILED', {
+        message: 'Layout exports must use either PDF or image output formats.'
+      })
+    }
+
+    let outputPath: string
+    try {
+      outputPath = resolveOutputPath(
+        request.outputPath ||
+          `${sanitizeFileName(request.layoutName)}.${format === 'pdf' ? 'pdf' : 'png'}`,
+        workspace.outputDirectory,
+        'Layout output'
+      )
+    } catch (error) {
+      return buildQgisFailureResult('exportLayout', 'VALIDATION_FAILED', {
+        message: error instanceof Error ? error.message : 'Invalid layout output path'
+      })
+    }
+
+    const algorithmId = format === 'pdf' ? 'native:printlayouttopdf' : 'native:printlayouttoimage'
+    const parameters: Record<string, unknown> = compactObject({
+      LAYOUT: request.layoutName,
+      OUTPUT: outputPath,
+      DPI: request.dpi,
+      GEOREFERENCE: request.georeference,
+      INCLUDE_METADATA: request.includeMetadata,
+      ANTIALIAS: format === 'image' ? request.antialias : undefined,
+      FORCE_VECTOR: format === 'pdf' ? request.forceVector : undefined,
+      FORCE_RASTER: format === 'pdf' ? request.forceRaster : undefined
+    })
+
+    return await this.runPreparedAlgorithm(
+      {
+        algorithmId,
+        parameters,
+        projectPath: normalizedProjectPath,
+        timeoutMs: request.timeoutMs,
+        importPreference: 'none',
+        expectedOutputs: [outputPath],
+        chatId: request.chatId
+      },
+      workspace
+    )
+  }
+
+  private async runPreparedAlgorithm(
+    request: QgisRunAlgorithmRequest,
+    workspace?: PreparedWorkspace
+  ): Promise<QgisProcessResult> {
+    if (!isQgisAlgorithmIdentifier(request.algorithmId)) {
+      return buildQgisFailureResult('runAlgorithm', 'VALIDATION_FAILED', {
+        message: `Invalid QGIS algorithm id "${request.algorithmId}".`
+      })
+    }
+
+    const config = await this.getConfig()
+    const approvalDecision = evaluateQgisAlgorithmApproval(request.algorithmId, {
+      allowPluginAlgorithms: config?.allowPluginAlgorithms
+    })
+    if (!approvalDecision.allowed) {
+      return buildQgisFailureResult(
+        'runAlgorithm',
+        approvalDecision.errorCode || 'UNSUPPORTED_ALGORITHM',
+        {
+          message:
+            approvalDecision.message || `QGIS algorithm "${request.algorithmId}" is not allowed.`
+        }
+      )
+    }
+
+    const preparedWorkspace = workspace ?? (await this.createWorkspace('run', request.chatId))
+    const normalizedProjectPath = normalizeOptionalExistingLocalPath(
+      request.projectPath,
+      'QGIS project'
+    )
+    if (request.projectPath && !normalizedProjectPath) {
+      return buildQgisFailureResult('runAlgorithm', 'VALIDATION_FAILED', {
+        message: `Project path "${request.projectPath}" must point to a readable local file.`
+      })
+    }
+
+    let normalizedParameters: Record<string, unknown>
+    try {
+      normalizedParameters = await normalizeAlgorithmParameters(
+        request.parameters || {},
+        preparedWorkspace.outputDirectory
+      )
+    } catch (error) {
+      return buildQgisFailureResult('runAlgorithm', 'VALIDATION_FAILED', {
+        message: error instanceof Error ? error.message : 'Invalid QGIS parameters'
+      })
+    }
+
+    const executionResult = await this.executeLauncherCommand({
+      operation: 'runAlgorithm',
+      args: ['--json', ...this.buildPluginFlags(config), 'run', request.algorithmId, '-'],
+      timeoutMs: request.timeoutMs ?? config?.timeoutMs,
+      stdin: JSON.stringify(
+        compactObject({
+          project_path: normalizedProjectPath,
+          inputs: normalizedParameters
+        })
+      ),
+      workspace: preparedWorkspace,
+      algorithmId: request.algorithmId,
+      importPreference: request.importPreference ?? 'auto',
+      expectedOutputs: request.expectedOutputs,
+      chatId: request.chatId,
+      parameterSnapshot: normalizedParameters
+    })
+
+    return executionResult
+  }
+
+  private async executeLauncherCommand(input: {
+    operation: QgisProcessOperation
+    args: string[]
+    timeoutMs?: number
+    stdin?: string
+    workspace?: PreparedWorkspace
+    algorithmId?: string
+    expectedOutputs?: string[]
+    importPreference?: QgisImportPreference
+    chatId?: string
+    parameterSnapshot?: Record<string, unknown>
+  }): Promise<QgisProcessResult> {
+    const config = await this.getConfig()
+    const discovery = await this.discoveryService.discover(config)
+    const installation = discovery.preferredInstallation
+    if (!installation) {
+      return buildQgisFailureResult(input.operation, 'NOT_CONFIGURED', {
+        message: 'QGIS is not configured or no verified qgis_process launcher was found.'
+      })
+    }
+
+    const workspace = input.workspace ?? (await this.createWorkspace(input.operation, input.chatId))
+    const timeoutMs = Math.max(
+      1_000,
+      input.timeoutMs ?? config?.timeoutMs ?? DEFAULT_QGIS_TIMEOUT_MS
+    )
+
+    try {
+      const execution = await runQgisLauncherCommand({
+        launcherPath: installation.launcherPath,
+        args: input.args,
+        cwd: workspace.workspacePath,
+        timeoutMs,
+        stdin: input.stdin,
+        env: {
+          ...process.env,
+          QT_QPA_PLATFORM: process.env['QT_QPA_PLATFORM'] || 'offscreen'
+        }
+      })
+
+      const diagnostics = buildDiagnostics({
+        launcherPath: installation.launcherPath,
+        installRoot: installation.installRoot,
+        version: installation.version,
+        workspacePath: workspace.workspacePath,
+        outputDirectory: workspace.outputDirectory,
+        discoveryDiagnostics: [...discovery.diagnostics, ...installation.diagnostics],
+        stdout: execution.stdout,
+        stderr: execution.stderr
+      })
+
+      if (execution.exitCode !== 0) {
+        return {
+          success: false,
+          operation: input.operation,
+          stdout: execution.stdout,
+          stderr: execution.stderr,
+          exitCode: execution.exitCode,
+          durationMs: execution.durationMs,
+          errorCode: 'EXECUTION_FAILED',
+          message: summarizeCommandFailure(execution.stderr, execution.stdout),
+          diagnostics
+        }
+      }
+
+      const parsedResult = safeParseJson(execution.stdout)
+      const artifactPaths = collectArtifactPaths({
+        parsedResult,
+        expectedOutputs: input.expectedOutputs || [],
+        parameterSnapshot: input.parameterSnapshot || {}
+      })
+
+      const artifacts = await resolveArtifacts(artifactPaths)
+      const importedLayers =
+        input.importPreference === 'auto' ? await this.importArtifacts(artifacts, input.chatId) : []
+
+      if (input.importPreference === 'auto' && importedLayers.length > 0) {
+        this.broadcastLayerImports({
+          chatId: input.chatId,
+          source: 'qgis',
+          runId: randomUUID(),
+          layers: importedLayers.map((entry) => entry.layer)
+        })
+      }
+
+      const normalizedResult = normalizeProcessResult(input.operation, {
+        algorithmId: input.algorithmId,
+        stdout: execution.stdout,
+        parsedResult,
+        artifacts
+      })
+
+      return {
+        success: true,
+        operation: input.operation,
+        stdout: execution.stdout,
+        stderr: execution.stderr,
+        exitCode: execution.exitCode,
+        durationMs: execution.durationMs,
+        version: installation.version,
+        artifacts,
+        importedLayers,
+        parsedResult: normalizedResult,
+        diagnostics
+      }
+    } catch (error) {
+      return {
+        success: false,
+        operation: input.operation,
+        stdout: '',
+        stderr: '',
+        exitCode: -1,
+        durationMs: 0,
+        errorCode:
+          error instanceof Error && /timed out/i.test(error.message)
+            ? 'TIMEOUT'
+            : 'EXECUTION_FAILED',
+        message:
+          error instanceof Error ? error.message : 'Failed to execute the QGIS process launcher.'
+      }
+    }
+  }
+
+  private async importArtifacts(
+    artifacts: QgisArtifactRecord[],
+    chatId?: string
+  ): Promise<QgisImportedLayerRecord[]> {
+    const importedLayers: QgisImportedLayerRecord[] = []
+
+    for (const artifact of artifacts) {
+      if (!artifact.exists || !['vector', 'raster'].includes(artifact.kind)) {
+        continue
+      }
+
+      try {
+        const layer = await this.localLayerImportService.importPath(artifact.path)
+        importedLayers.push({
+          path: artifact.path,
+          layer
+        })
+        artifact.imported = true
+      } catch (error) {
+        artifact.importError = error instanceof Error ? error.message : String(error)
+      }
+    }
+
+    void chatId
+    return importedLayers
+  }
+
+  private buildPluginFlags(config: QgisIntegrationConfig | null): string[] {
+    return config?.allowPluginAlgorithms === true ? [] : ['--skip-loading-plugins']
+  }
+
+  private async getConfig(): Promise<QgisIntegrationConfig | null> {
+    return (await this.deps.connectorHubService.getConfig('qgis')) as QgisIntegrationConfig | null
+  }
+
+  private async createWorkspace(operation: string, chatId?: string): Promise<PreparedWorkspace> {
+    const safeChatId = sanitizeFileName(chatId || 'global')
+    const safeOperation = sanitizeFileName(operation)
+    const workspacePath = path.join(
+      this.getUserDataPath(),
+      'qgis-runs',
+      safeChatId,
+      `${safeOperation}-${randomUUID()}`
+    )
+
+    const outputDirectory = path.join(workspacePath, 'outputs')
+    await fs.mkdir(outputDirectory, { recursive: true })
+
+    return {
+      workspacePath,
+      outputDirectory
+    }
+  }
+}
+
+function buildDiagnostics(input: {
+  launcherPath: string
+  installRoot?: string
+  version?: string
+  workspacePath: string
+  outputDirectory: string
+  discoveryDiagnostics: string[]
+  stdout: string
+  stderr: string
+}): QgisExecutionDiagnostics {
+  return {
+    launcherPath: input.launcherPath,
+    installRoot: input.installRoot,
+    version: input.version,
+    workspacePath: input.workspacePath,
+    outputDirectory: input.outputDirectory,
+    discoveryDiagnostics: input.discoveryDiagnostics,
+    stdoutPreview: limitText(input.stdout),
+    stderrPreview: limitText(input.stderr)
+  }
+}
+
+function buildQgisFailureResult(
+  operation: QgisProcessOperation,
+  errorCode: QgisProcessFailureResult['errorCode'],
+  input: {
+    message: string
+  }
+): QgisProcessFailureResult {
+  return {
+    success: false,
+    operation,
+    stdout: '',
+    stderr: '',
+    exitCode: -1,
+    durationMs: 0,
+    errorCode,
+    message: input.message
+  }
+}
+
+async function normalizeAlgorithmParameters(
+  value: Record<string, unknown>,
+  outputDirectory: string
+): Promise<Record<string, unknown>> {
+  const entries = await Promise.all(
+    Object.entries(value).map(async ([key, entryValue]) => [
+      key,
+      await normalizeParameterValue(key, entryValue, outputDirectory)
+    ])
+  )
+
+  return Object.fromEntries(entries)
+}
+
+async function normalizeParameterValue(
+  key: string,
+  value: unknown,
+  outputDirectory: string
+): Promise<unknown> {
+  if (Array.isArray(value)) {
+    return await Promise.all(
+      value.map(
+        async (entry, index) =>
+          await normalizeParameterValue(`${key}_${index}`, entry, outputDirectory)
+      )
+    )
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = await Promise.all(
+      Object.entries(value as Record<string, unknown>).map(async ([childKey, childValue]) => [
+        childKey,
+        await normalizeParameterValue(childKey, childValue, outputDirectory)
+      ])
+    )
+    return Object.fromEntries(entries)
+  }
+
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmedValue = value.trim()
+  if (trimmedValue.length === 0 || trimmedValue === 'TEMPORARY_OUTPUT') {
+    return trimmedValue
+  }
+
+  const isOutputKey = OUTPUT_KEY_PATTERN.test(key)
+  if (looksLikeFilesystemPath(trimmedValue)) {
+    const normalizedLocalPath = ensureLocalFilesystemPath(trimmedValue, `${key} path`)
+    const exists = await fs
+      .stat(normalizedLocalPath)
+      .then((stats) => stats.isFile())
+      .catch(() => false)
+
+    if (exists) {
+      if (isNetworkPath(normalizedLocalPath)) {
+        throw new Error(`${key} must use a local filesystem path`)
+      }
+      return normalizedLocalPath
+    }
+
+    if (isOutputKey) {
+      return resolveOutputPath(normalizedLocalPath, outputDirectory, key)
+    }
+
+    throw new Error(`${key} must point to an existing local file`)
+  }
+
+  if (isOutputKey) {
+    return resolveOutputPath(trimmedValue, outputDirectory, key)
+  }
+
+  return trimmedValue
+}
+
+function resolveOutputPath(value: string, outputDirectory: string, label: string): string {
+  if (isNetworkPath(value)) {
+    throw new Error(`${label} must use a local filesystem path`)
+  }
+
+  const resolvedPath = looksLikeFilesystemPath(value)
+    ? ensureLocalFilesystemPath(value, label)
+    : path.resolve(outputDirectory, value)
+
+  if (!isPathInsideDirectory(path.dirname(resolvedPath), outputDirectory)) {
+    throw new Error(`${label} must stay within the managed QGIS output workspace`)
+  }
+
+  return resolvedPath
+}
+
+function normalizeOptionalExistingLocalPath(
+  value: string | undefined,
+  label: string
+): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null
+  }
+
+  try {
+    const resolvedPath = ensureLocalFilesystemPath(value, label)
+    return statSync(resolvedPath).isFile() ? resolvedPath : null
+  } catch {
+    return null
+  }
+}
+
+function collectArtifactPaths(input: {
+  parsedResult: unknown
+  expectedOutputs: string[]
+  parameterSnapshot: Record<string, unknown>
+}): string[] {
+  const candidates = new Set<string>()
+  for (const expectedOutput of input.expectedOutputs) {
+    if (typeof expectedOutput === 'string' && expectedOutput.trim().length > 0) {
+      candidates.add(expectedOutput.trim())
+    }
+  }
+
+  collectOutputPathsFromNamedObject(input.parameterSnapshot, candidates)
+  collectResultArtifactPaths(input.parsedResult, candidates)
+
+  return Array.from(candidates.values())
+}
+
+async function resolveArtifacts(paths: string[]): Promise<QgisArtifactRecord[]> {
+  const artifacts: QgisArtifactRecord[] = []
+  for (const candidatePath of paths) {
+    const normalizedPath = normalizeArtifactPath(candidatePath)
+    if (!normalizedPath) {
+      continue
+    }
+
+    const exists = await fs
+      .stat(normalizedPath)
+      .then((stats) => stats.isFile())
+      .catch(() => false)
+    artifacts.push({
+      path: normalizedPath,
+      kind: classifyArtifactKind(normalizedPath),
+      exists
+    })
+  }
+
+  return artifacts
+}
+
+function normalizeArtifactPath(value: string): string | null {
+  const trimmedValue = value.trim()
+  if (trimmedValue.length === 0 || trimmedValue === 'TEMPORARY_OUTPUT') {
+    return null
+  }
+
+  if (!looksLikeFilesystemPath(trimmedValue)) {
+    return null
+  }
+
+  try {
+    return ensureLocalFilesystemPath(trimmedValue, 'QGIS artifact path')
+  } catch {
+    return null
+  }
+}
+
+function collectOutputPathsFromNamedObject(value: unknown, candidates: Set<string>): void {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return
+  }
+
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (OUTPUT_KEY_PATTERN.test(key)) {
+      collectPathsFromStructuredValue(entry, candidates, key)
+    }
+  }
+}
+
+function collectResultArtifactPaths(value: unknown, candidates: Set<string>): void {
+  if (!value) {
+    return
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectPathsFromStructuredValue(entry, candidates, 'results')
+    }
+    return
+  }
+
+  if (!isRecord(value)) {
+    return
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    if (OUTPUT_KEY_PATTERN.test(key) || /^(outputs?|results?)$/i.test(key)) {
+      collectPathsFromStructuredValue(entry, candidates, key)
+    }
+  }
+}
+
+function collectPathsFromStructuredValue(
+  value: unknown,
+  candidates: Set<string>,
+  parentKey = ''
+): void {
+  if (typeof value === 'string') {
+    const normalizedPath = normalizeArtifactPath(value)
+    if (normalizedPath) {
+      candidates.add(normalizedPath)
+    }
+    return
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectPathsFromStructuredValue(entry, candidates, parentKey)
+    }
+    return
+  }
+
+  if (!value || typeof value !== 'object') {
+    return
+  }
+
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    const shouldInspect = OUTPUT_KEY_PATTERN.test(key) || /^(outputs?|results?)$/i.test(parentKey)
+    if (shouldInspect) {
+      collectPathsFromStructuredValue(entry, candidates, key)
+    }
+  }
+}
+
+function classifyArtifactKind(filePath: string): QgisArtifactRecord['kind'] {
+  const extension = path.extname(filePath).toLowerCase()
+  switch (extension) {
+    case '.geojson':
+    case '.json':
+    case '.gpkg':
+      return 'vector'
+    case '.tif':
+    case '.tiff':
+      return 'raster'
+    case '.qml':
+    case '.sld':
+      return 'style'
+    case '.pdf':
+    case '.png':
+    case '.jpg':
+    case '.jpeg':
+      return 'layout'
+    case '.csv':
+      return 'table'
+    default:
+      return 'other'
+  }
+}
+
+function normalizeProcessResult(
+  operation: QgisProcessOperation,
+  input: {
+    algorithmId?: string
+    stdout: string
+    parsedResult: unknown
+    artifacts: QgisArtifactRecord[]
+  }
+): unknown {
+  if (operation === 'listAlgorithms') {
+    return normalizeAlgorithmList(input.parsedResult, input.stdout)
+  }
+
+  if (operation === 'describeAlgorithm') {
+    return input.parsedResult ?? { stdout: input.stdout }
+  }
+
+  return compactObject({
+    algorithmId: input.algorithmId,
+    artifacts: input.artifacts,
+    raw: input.parsedResult ?? input.stdout
+  })
+}
+
+function normalizeAlgorithmList(
+  parsedResult: unknown,
+  stdout: string
+): {
+  algorithms: Array<{
+    id: string
+    name?: string
+    provider?: string
+    supportedForExecution: boolean
+  }>
+} {
+  const algorithms = new Map<
+    string,
+    { id: string; name?: string; provider?: string; supportedForExecution: boolean }
+  >()
+
+  const pushAlgorithm = (entry: { id: string; name?: string; provider?: string }): void => {
+    const normalizedId = entry.id.trim()
+    if (!normalizedId) {
+      return
+    }
+    const provider = readString(entry.provider, normalizedId.split(':')[0])
+
+    algorithms.set(normalizedId, {
+      id: normalizedId,
+      name: entry.name,
+      provider,
+      supportedForExecution: isQgisAlgorithmApproved(normalizedId)
+    })
+  }
+
+  const records = extractObjects(parsedResult)
+  for (const record of records) {
+    const algorithmId = readString(record.algorithmId, record.id, record.name)
+    if (!algorithmId || !isQgisAlgorithmIdentifier(algorithmId)) {
+      continue
+    }
+
+    pushAlgorithm({
+      id: algorithmId,
+      name: readString(record.display_name, record.name, record.label),
+      provider: readString(record.provider, record.providerId)
+    })
+  }
+
+  if (algorithms.size === 0) {
+    for (const line of stdout.split(/\r?\n/u)) {
+      const match = line.trim().match(/^([A-Za-z0-9_]+:[A-Za-z0-9_]+)(?:\s+-\s+(.+))?$/)
+      if (!match?.[1]) {
+        continue
+      }
+
+      pushAlgorithm({
+        id: match[1],
+        name: match[2]
+      })
+    }
+  }
+
+  return {
+    algorithms: Array.from(algorithms.values()).sort((left, right) =>
+      left.id.localeCompare(right.id)
+    )
+  }
+}
+
+function filterAlgorithmList(
+  value: unknown,
+  options: Pick<QgisListAlgorithmsRequest, 'query' | 'provider' | 'limit'>
+): {
+  algorithms: Array<{
+    id: string
+    name?: string
+    provider?: string
+    supportedForExecution: boolean
+  }>
+  totalAlgorithms: number
+  matchedAlgorithms: number
+  returnedAlgorithms: number
+  truncated: boolean
+  filters?: {
+    query?: string
+    provider?: string
+    limit?: number
+  }
+} {
+  const algorithms = extractAlgorithmEntries(value)
+  const normalizedQuery = normalizeOptionalText(options.query)
+  const normalizedProvider = normalizeOptionalText(options.provider)?.toLowerCase()
+  const queryTerms = normalizedQuery ? normalizedQuery.toLowerCase().split(/\s+/u) : []
+  const limit =
+    typeof options.limit === 'number' && Number.isFinite(options.limit)
+      ? Math.max(1, Math.min(Math.floor(options.limit), 200))
+      : undefined
+
+  const matchedAlgorithms = algorithms.filter((algorithm) => {
+    const algorithmProvider = (algorithm.provider || algorithm.id.split(':')[0] || '').toLowerCase()
+    if (normalizedProvider && algorithmProvider !== normalizedProvider) {
+      return false
+    }
+
+    if (queryTerms.length === 0) {
+      return true
+    }
+
+    const searchableText = [algorithm.id, algorithm.name, algorithm.provider]
+      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      .join(' ')
+      .toLowerCase()
+
+    return queryTerms.every((term) => searchableText.includes(term))
+  })
+
+  const returnedAlgorithms =
+    typeof limit === 'number' ? matchedAlgorithms.slice(0, limit) : matchedAlgorithms
+  const filters = compactObject({
+    query: normalizedQuery,
+    provider: normalizedProvider,
+    limit
+  })
+
+  return {
+    algorithms: returnedAlgorithms,
+    totalAlgorithms: algorithms.length,
+    matchedAlgorithms: matchedAlgorithms.length,
+    returnedAlgorithms: returnedAlgorithms.length,
+    truncated: returnedAlgorithms.length < matchedAlgorithms.length,
+    ...(Object.keys(filters).length > 0 ? { filters } : {})
+  }
+}
+
+function extractAlgorithmEntries(value: unknown): Array<{
+  id: string
+  name?: string
+  provider?: string
+  supportedForExecution: boolean
+}> {
+  if (!isRecord(value) || !Array.isArray(value.algorithms)) {
+    return []
+  }
+
+  const algorithms: Array<{
+    id: string
+    name?: string
+    provider?: string
+    supportedForExecution: boolean
+  }> = []
+
+  for (const entry of value.algorithms) {
+    if (!isRecord(entry)) {
+      continue
+    }
+
+    const id = readString(entry.id)
+    if (!id) {
+      continue
+    }
+
+    algorithms.push({
+      id,
+      name: readString(entry.name),
+      provider: readString(entry.provider, id.split(':')[0]),
+      supportedForExecution: entry.supportedForExecution !== false
+    })
+  }
+
+  return algorithms
+}
+
+function extractObjects(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) {
+    return value.filter(isRecord)
+  }
+
+  if (!isRecord(value)) {
+    return []
+  }
+
+  const nestedArrays = Object.values(value).filter(Array.isArray)
+  for (const nestedArray of nestedArrays) {
+    const recordArray = (nestedArray as unknown[]).filter(isRecord)
+    if (recordArray.length > 0) {
+      return recordArray
+    }
+  }
+
+  return [value]
+}
+
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}
+
+function summarizeCommandFailure(stderr: string, stdout: string): string {
+  const summary = firstNonEmptyLine(stderr) || firstNonEmptyLine(stdout)
+  return summary || 'QGIS execution failed'
+}
+
+function firstNonEmptyLine(value: string): string | null {
+  return (
+    value
+      .split(/\r?\n/u)
+      .map((entry) => entry.trim())
+      .find((entry) => entry.length > 0) ?? null
+  )
+}
+
+function readString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value.trim()
+    }
+  }
+
+  return undefined
+}
+
+function normalizeOptionalText(value: string | undefined): string | undefined {
+  const normalizedValue = readString(value)
+  return normalizedValue && normalizedValue.length > 0 ? normalizedValue : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function compactObject<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
+  ) as T
+}
+
+function isQgisAlgorithmIdentifier(value: string): boolean {
+  return /^[A-Za-z0-9_]+:[A-Za-z0-9_]+$/.test(value.trim())
+}
+
+function limitText(value: string): string | undefined {
+  if (value.trim().length === 0) {
+    return undefined
+  }
+
+  return value.length > MAX_STDIO_PREVIEW_LENGTH
+    ? `${value.slice(0, MAX_STDIO_PREVIEW_LENGTH)}...`
+    : value
+}
+
+function sanitizeFileName(value: string): string {
+  const sanitized = Array.from(value)
+    .filter((character) => {
+      const charCode = character.charCodeAt(0)
+      return charCode >= 0x20 && !/[<>:"/\\|?*]/.test(character)
+    })
+    .join('')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  return sanitized || 'qgis'
+}
+
+function normalizeLayoutFormat(
+  format: QgisExportLayoutRequest['format'],
+  outputPath?: string
+): 'pdf' | 'image' | null {
+  if (format === 'pdf' || format === 'image') {
+    return format
+  }
+
+  const extension = outputPath ? path.extname(outputPath).toLowerCase() : ''
+  if (extension === '.pdf') {
+    return 'pdf'
+  }
+
+  if (['.png', '.jpg', '.jpeg'].includes(extension)) {
+    return 'image'
+  }
+
+  return outputPath ? null : 'pdf'
+}
+
+function defaultBroadcastLayerImports(payload: LayerImportDefinitionsPayload): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IpcChannels.layersImportDefinitionsEvent, payload)
+  }
+}

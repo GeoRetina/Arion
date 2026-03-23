@@ -14,6 +14,7 @@ import type {
 } from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
+import { resolveLocalImportFilePath } from './local-import-file-path'
 import { asGeoJsonRecord, toMetadataFeature, type GeoJsonRecord } from './vector-feature-utils'
 
 type ShapefileFeatureCollection = {
@@ -27,6 +28,7 @@ export class ShapefileProcessor {
    */
   static async processFile(file: File, fileName: string): Promise<LayerDefinition> {
     const arrayBuffer = await file.arrayBuffer()
+    const sourcePath = await resolveLocalImportFilePath(file)
 
     try {
       // Parse shapefile using shpjs - it handles ZIP files automatically
@@ -39,9 +41,12 @@ export class ShapefileProcessor {
       this.validateShapefileData(normalizedData)
 
       // Extract metadata and create style
-      const metadata = VectorMetadataExtractor.extractShapefileMetadata({
-        features: normalizedData.features.map((feature) => toMetadataFeature(feature))
-      })
+      const metadata = VectorMetadataExtractor.extractShapefileMetadata(
+        {
+          features: normalizedData.features.map((feature) => toMetadataFeature(feature))
+        },
+        sourcePath ? { localFilePath: sourcePath } : undefined
+      )
       const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
 
       return {

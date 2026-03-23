@@ -13,6 +13,7 @@ import type {
 } from '../../../../../shared/types/layer-types'
 import { VectorMetadataExtractor } from '../metadata/vector-metadata-extractor'
 import { LayerStyleFactory } from '../styles/layer-style-factory'
+import { resolveLocalImportFilePath } from './local-import-file-path'
 import { asGeoJsonRecord, toMetadataFeature, type GeoJsonRecord } from './vector-feature-utils'
 
 type GeoJsonFeatureCollection = { type: 'FeatureCollection'; features: GeoJsonRecord[] }
@@ -23,6 +24,7 @@ export class GeoJSONProcessor {
    */
   static async processFile(file: File, fileName: string): Promise<LayerDefinition> {
     const text = await file.text()
+    const sourcePath = await resolveLocalImportFilePath(file)
     let geoJsonData: unknown
 
     try {
@@ -35,9 +37,12 @@ export class GeoJSONProcessor {
     const normalizedData = this.normalizeToFeatureCollection(geoJsonData)
 
     // Extract metadata and create style
-    const metadata = VectorMetadataExtractor.extractGeoJSONMetadata({
-      features: normalizedData.features.map((feature) => toMetadataFeature(feature))
-    })
+    const metadata = VectorMetadataExtractor.extractGeoJSONMetadata(
+      {
+        features: normalizedData.features.map((feature) => toMetadataFeature(feature))
+      },
+      sourcePath ? { localFilePath: sourcePath } : undefined
+    )
     const style = LayerStyleFactory.createVectorStyle(metadata.geometryType)
 
     return {

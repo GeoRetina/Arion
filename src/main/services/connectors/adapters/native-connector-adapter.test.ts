@@ -22,6 +22,13 @@ const createAdapter = (
     {
       getConnectionInfo: vi.fn(async () => ({ connected: true, config: {} })),
       executeQuery: vi.fn()
+    } as never,
+    {
+      listAlgorithms: vi.fn(),
+      describeAlgorithm: vi.fn(),
+      runAlgorithm: vi.fn(),
+      applyLayerStyle: vi.fn(),
+      exportLayout: vi.fn()
     } as never
   )
 }
@@ -215,6 +222,305 @@ describe('NativeConnectorAdapter', () => {
       expect(pmtiles.version).toBe(3)
       expect(pmtiles.layout).toBeDefined()
       expect(pmtiles.bounds).toBeDefined()
+    }
+  })
+
+  it('maps QGIS processing failures into connector errors', async () => {
+    const qgisProcessService = {
+      listAlgorithms: vi.fn(),
+      describeAlgorithm: vi.fn(),
+      runAlgorithm: vi.fn(async () => ({
+        success: false,
+        operation: 'runAlgorithm',
+        stdout: '',
+        stderr: '',
+        exitCode: -1,
+        durationMs: 0,
+        errorCode: 'DISALLOWED_PROVIDER',
+        message: 'Provider "saga" is not allowed by the current QGIS policy.',
+        diagnostics: {
+          launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat',
+          workspacePath: 'C:\\workspace',
+          outputDirectory: 'C:\\workspace\\outputs',
+          discoveryDiagnostics: []
+        }
+      })),
+      applyLayerStyle: vi.fn(),
+      exportLayout: vi.fn()
+    }
+
+    const adapter = new NativeConnectorAdapter(
+      {
+        getConfig: vi.fn(async () => ({ detectionMode: 'auto' }))
+      } as never,
+      {
+        getConnectionInfo: vi.fn(async () => ({ connected: true, config: {} })),
+        executeQuery: vi.fn()
+      } as never,
+      qgisProcessService as never
+    )
+
+    const result = await adapter.execute(
+      {
+        integrationId: 'qgis',
+        capability: 'desktop.processing.run',
+        chatId: 'chat-qgis',
+        input: {
+          algorithmId: 'saga:buffer'
+        }
+      },
+      {
+        timeoutMs: 5000,
+        attempt: 0,
+        maxRetries: 0
+      }
+    )
+
+    expect(qgisProcessService.runAlgorithm).toHaveBeenCalledWith({
+      algorithmId: 'saga:buffer',
+      parameters: {},
+      projectPath: undefined,
+      timeoutMs: 5000,
+      importPreference: undefined,
+      expectedOutputs: undefined,
+      chatId: 'chat-qgis'
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.code).toBe('DISALLOWED_PROVIDER')
+      expect(result.error.message).toContain('not allowed')
+      expect(result.error.details).toEqual({
+        launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat',
+        workspacePath: 'C:\\workspace',
+        outputDirectory: 'C:\\workspace\\outputs',
+        discoveryDiagnostics: []
+      })
+    }
+  })
+
+  it('forwards qgis_list_algorithms filters to the QGIS process service', async () => {
+    const qgisProcessService = {
+      listAlgorithms: vi.fn(async () => ({
+        success: true,
+        operation: 'listAlgorithms',
+        stdout: '{}',
+        stderr: '',
+        exitCode: 0,
+        durationMs: 14,
+        version: '3.40.1',
+        artifacts: [],
+        importedLayers: [],
+        parsedResult: {
+          algorithms: [
+            {
+              id: 'native:extractbyexpression',
+              name: 'Extract by expression',
+              provider: 'native',
+              supportedForExecution: true
+            }
+          ],
+          totalAlgorithms: 100,
+          matchedAlgorithms: 3,
+          returnedAlgorithms: 1,
+          truncated: true,
+          filters: {
+            query: 'extract',
+            provider: 'native',
+            limit: 1
+          }
+        },
+        diagnostics: {
+          launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat',
+          workspacePath: 'C:\\workspace',
+          outputDirectory: 'C:\\workspace\\outputs',
+          discoveryDiagnostics: []
+        }
+      })),
+      describeAlgorithm: vi.fn(),
+      runAlgorithm: vi.fn(),
+      applyLayerStyle: vi.fn(),
+      exportLayout: vi.fn()
+    }
+
+    const adapter = new NativeConnectorAdapter(
+      {
+        getConfig: vi.fn(async () => ({ detectionMode: 'auto' }))
+      } as never,
+      {
+        getConnectionInfo: vi.fn(async () => ({ connected: true, config: {} })),
+        executeQuery: vi.fn()
+      } as never,
+      qgisProcessService as never
+    )
+
+    const result = await adapter.execute(
+      {
+        integrationId: 'qgis',
+        capability: 'desktop.processing.listAlgorithms',
+        input: {
+          query: 'extract',
+          provider: 'native',
+          limit: '1'
+        }
+      },
+      {
+        timeoutMs: 5000,
+        attempt: 0,
+        maxRetries: 0
+      }
+    )
+
+    expect(qgisProcessService.listAlgorithms).toHaveBeenCalledWith({
+      query: 'extract',
+      provider: 'native',
+      limit: 1,
+      timeoutMs: 5000
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data).toEqual({
+        operation: 'listAlgorithms',
+        exitCode: 0,
+        version: '3.40.1',
+        artifacts: [],
+        importedLayers: [],
+        result: {
+          algorithms: [
+            {
+              id: 'native:extractbyexpression',
+              name: 'Extract by expression',
+              provider: 'native',
+              supportedForExecution: true
+            }
+          ],
+          totalAlgorithms: 100,
+          matchedAlgorithms: 3,
+          returnedAlgorithms: 1,
+          truncated: true,
+          filters: {
+            query: 'extract',
+            provider: 'native',
+            limit: 1
+          }
+        }
+      })
+    }
+  })
+
+  it('returns imported QGIS layer metadata for successful runs', async () => {
+    const qgisProcessService = {
+      listAlgorithms: vi.fn(),
+      describeAlgorithm: vi.fn(),
+      runAlgorithm: vi.fn(async () => ({
+        success: true,
+        operation: 'runAlgorithm',
+        stdout: '{}',
+        stderr: '',
+        exitCode: 0,
+        durationMs: 32,
+        version: '3.40.1',
+        artifacts: [
+          {
+            path: 'E:\\outputs\\buffer.geojson',
+            kind: 'vector',
+            exists: true,
+            imported: true
+          }
+        ],
+        importedLayers: [
+          {
+            path: 'E:\\outputs\\buffer.geojson',
+            layer: {
+              name: 'buffer-output',
+              type: 'vector',
+              sourceId: 'source-buffer-output',
+              sourceConfig: {
+                type: 'geojson',
+                data: {
+                  type: 'FeatureCollection',
+                  features: []
+                }
+              },
+              style: {},
+              visibility: true,
+              opacity: 1,
+              zIndex: 0,
+              metadata: {
+                tags: ['qgis'],
+                featureCount: 42,
+                geometryType: 'Polygon'
+              },
+              isLocked: false,
+              createdBy: 'import'
+            }
+          }
+        ],
+        parsedResult: {
+          algorithmId: 'native:buffer'
+        },
+        diagnostics: {
+          launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat',
+          workspacePath: 'C:\\workspace',
+          outputDirectory: 'C:\\workspace\\outputs',
+          discoveryDiagnostics: []
+        }
+      })),
+      applyLayerStyle: vi.fn(),
+      exportLayout: vi.fn()
+    }
+
+    const adapter = new NativeConnectorAdapter(
+      {
+        getConfig: vi.fn(async () => ({ detectionMode: 'auto' }))
+      } as never,
+      {
+        getConnectionInfo: vi.fn(async () => ({ connected: true, config: {} })),
+        executeQuery: vi.fn()
+      } as never,
+      qgisProcessService as never
+    )
+
+    const result = await adapter.execute(
+      {
+        integrationId: 'qgis',
+        capability: 'desktop.processing.run',
+        chatId: 'chat-qgis',
+        input: {
+          algorithmId: 'native:buffer'
+        }
+      },
+      {
+        timeoutMs: 5000,
+        attempt: 0,
+        maxRetries: 0
+      }
+    )
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data).toEqual({
+        operation: 'runAlgorithm',
+        exitCode: 0,
+        version: '3.40.1',
+        artifacts: [
+          {
+            path: 'E:\\outputs\\buffer.geojson',
+            kind: 'vector',
+            exists: true,
+            imported: true
+          }
+        ],
+        importedLayers: [
+          {
+            path: 'E:\\outputs\\buffer.geojson',
+            layerName: 'buffer-output',
+            layerType: 'vector'
+          }
+        ],
+        result: {
+          algorithmId: 'native:buffer'
+        }
+      })
     }
   })
 })

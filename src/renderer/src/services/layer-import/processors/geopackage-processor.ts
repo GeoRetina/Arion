@@ -27,7 +27,7 @@ export class GeopackageProcessor {
     fileName: string,
     onProgress?: (status: GeoPackageImportProgressStatus) => void
   ): Promise<LayerDefinition> {
-    const importResult = await this.importGeoPackage(file, onProgress)
+    const { importResult, sourcePath } = await this.importGeoPackage(file, onProgress)
     onProgress?.({
       stage: 'finalizing',
       progress: 88,
@@ -39,6 +39,7 @@ export class GeopackageProcessor {
         features: importResult.geojson.features.map((feature) => toMetadataFeature(feature))
       },
       {
+        localFilePath: sourcePath,
         sourceLayers: importResult.sourceLayers,
         sourceLayerCount: importResult.layerCount,
         importWarnings: importResult.warnings,
@@ -75,7 +76,7 @@ export class GeopackageProcessor {
     sourceLayers: GeoPackageSourceLayerSummary[]
     warnings: string[]
   }> {
-    const importResult = await this.importGeoPackage(file)
+    const { importResult } = await this.importGeoPackage(file)
 
     return {
       featureCount: importResult.featureCount,
@@ -95,7 +96,7 @@ export class GeopackageProcessor {
   private static async importGeoPackage(
     file: File,
     onProgress?: (status: GeoPackageImportProgressStatus) => void
-  ): Promise<ImportGeoPackageResult> {
+  ): Promise<{ importResult: ImportGeoPackageResult; sourcePath: string }> {
     onProgress?.({
       stage: 'resolving',
       progress: 12,
@@ -115,7 +116,10 @@ export class GeopackageProcessor {
       message: 'Inspecting and converting GeoPackage layers'
     })
 
-    return await window.ctg.layers.importGeoPackage({ sourcePath })
+    return {
+      importResult: await window.ctg.layers.importGeoPackage({ sourcePath }),
+      sourcePath
+    }
   }
 
   private static async resolveSourcePath(file: File): Promise<string | null> {
