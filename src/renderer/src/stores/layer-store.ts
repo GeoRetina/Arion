@@ -100,6 +100,7 @@ interface LayerStore {
   // Persistence Operations
   saveToPersistence: () => Promise<void>
   loadFromPersistence: (includeImported?: boolean) => Promise<void>
+  loadChatLayers: (chatId: string) => Promise<void>
   exportLayers: (layerIds: string[]) => Promise<string>
   importLayers: (data: string) => Promise<string[]>
 
@@ -233,6 +234,11 @@ const hasOtherAssetReference = (
   )
 }
 
+const isImportedLayerForChat = (layer: LayerDefinition, chatId: string): boolean =>
+  layer.createdBy === 'import' &&
+  layer.metadata.tags?.includes('session-import') &&
+  layer.metadata.tags?.includes(chatId)
+
 const cleanupRemovedSessionLayers = (
   removedLayers: LayerDefinition[],
   retainedLayers: Iterable<LayerDefinition>,
@@ -255,8 +261,10 @@ const cleanupRemovedSessionLayers = (
     }
   }
 
+  const ephemeralRemovedLayers = removedLayers.filter((layer) => !isPersistableLayer(layer))
+
   const releasableAssetIds = collectReleasableAssetIds(
-    removedLayers,
+    ephemeralRemovedLayers,
     retainedLayers,
     getRasterAssetId
   )
@@ -265,7 +273,7 @@ const cleanupRemovedSessionLayers = (
   }
 
   const releasableVectorAssetIds = collectReleasableAssetIds(
-    removedLayers,
+    ephemeralRemovedLayers,
     retainedLayers,
     getVectorAssetId
   )
@@ -456,18 +464,14 @@ const searchLayersImpl = (
   }
 }
 
-// Persist only layers that have a string-based data reference (e.g., URL/file path).
+// Persist layers whose source can be reloaded from a stable reference or managed asset URL.
 const isPersistableLayer = (layer: LayerDefinition): boolean => {
   if (typeof layer.sourceConfig?.data !== 'string') {
     return false
   }
 
   const sourceData = layer.sourceConfig.data.trim().toLowerCase()
-  if (
-    sourceData.startsWith('blob:') ||
-    sourceData.startsWith('data:') ||
-    sourceData.startsWith('arion-vector:')
-  ) {
+  if (sourceData.startsWith('blob:') || sourceData.startsWith('data:')) {
     return false
   }
 
@@ -1102,6 +1106,39 @@ export const useLayerStore = create<LayerStore>()(
         set({
           layers: new Map(mergedLayers.map((l) => [l.id, l])),
           groups: new Map(groups.map((g) => [g.id, g])),
+          selectedLayerId:
+            get().selectedLayerId &&
+            mergedLayers.some((layer) => layer.id === get().selectedLayerId)
+              ? get().selectedLayerId
+              : null,
+          isDirty: false,
+          lastSyncTimestamp: Date.now()
+        })
+      } finally {
+        set({ isLoading: false })
+      }
+    },
+
+    loadChatLayers: async (chatId: string) => {
+      set({ isLoading: true })
+      try {
+        const [layers, groups] = await Promise.all([
+          window.ctg.layers.getAll(),
+          window.ctg.layers.groups.getAll()
+        ])
+
+        const visibleLayers = layers.filter(
+          (layer) => layer.createdBy !== 'import' || isImportedLayerForChat(layer, chatId)
+        )
+
+        set({
+          layers: new Map(visibleLayers.map((layer) => [layer.id, layer])),
+          groups: new Map(groups.map((group) => [group.id, group])),
+          selectedLayerId:
+            get().selectedLayerId &&
+            visibleLayers.some((layer) => layer.id === get().selectedLayerId)
+              ? get().selectedLayerId
+              : null,
           isDirty: false,
           lastSyncTimestamp: Date.now()
         })
