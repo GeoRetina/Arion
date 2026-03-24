@@ -177,9 +177,6 @@ const BundledCard: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium truncate">{bundled.name}</span>
-            {isInstalled && (
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-            )}
           </div>
           <p className="text-xs font-mono text-muted-foreground">{`$${bundled.id}`}</p>
         </div>
@@ -292,7 +289,6 @@ const InstalledOnlyCard: React.FC<{
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium truncate">{skill.name}</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
           </div>
           <p className="text-xs font-mono text-muted-foreground">{`$${skill.id}`}</p>
         </div>
