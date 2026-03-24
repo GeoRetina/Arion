@@ -691,7 +691,8 @@ export class SkillPackService {
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
     try {
       return await fetch(url, {
-        signal: controller.signal
+        signal: controller.signal,
+        cache: 'no-cache'
       })
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') {
