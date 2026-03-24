@@ -151,6 +151,95 @@ const omitKeys = <T extends object, K extends keyof T>(value: T, keys: K[]): Omi
 const buildLayerCreateInput = (layer: LayerDefinition): LayerCreateInput =>
   omitKeys(layer, ['createdAt', 'updatedAt'])
 
+interface SessionLayerCleanupResult {
+  removedLayers: LayerDefinition[]
+  nextLayers: Map<string, LayerDefinition>
+  nextSelectedLayerId: string | null
+  nextOperations: LayerOperation[]
+  nextErrors: LayerError[]
+}
+
+const buildSessionLayerCleanupResult = (
+  state: Pick<LayerStore, 'layers' | 'selectedLayerId' | 'operations' | 'errors'>,
+  predicate: (layer: LayerDefinition) => boolean
+): SessionLayerCleanupResult => {
+  const removedLayerIds = new Set<string>()
+  const removedLayers: LayerDefinition[] = []
+  const nextLayers = new Map<string, LayerDefinition>()
+
+  for (const [layerId, layer] of state.layers.entries()) {
+    if (predicate(layer)) {
+      removedLayerIds.add(layerId)
+      removedLayers.push(layer)
+      continue
+    }
+
+    nextLayers.set(layerId, layer)
+  }
+
+  return {
+    removedLayers,
+    nextLayers,
+    nextSelectedLayerId:
+      state.selectedLayerId && nextLayers.has(state.selectedLayerId) ? state.selectedLayerId : null,
+    nextOperations: state.operations.filter((operation) => !removedLayerIds.has(operation.layerId)),
+    nextErrors: state.errors.filter(
+      (error) => !error.layerId || !removedLayerIds.has(error.layerId)
+    )
+  }
+}
+
+const collectReleasableRasterAssetIds = (
+  removedLayers: LayerDefinition[],
+  retainedLayers: Iterable<LayerDefinition>
+): string[] => {
+  const retainedAssetIds = new Set<string>()
+  for (const layer of retainedLayers) {
+    const assetId = layer.sourceConfig.options?.rasterAssetId
+    if (typeof assetId === 'string' && assetId.length > 0) {
+      retainedAssetIds.add(assetId)
+    }
+  }
+
+  const releasableAssetIds = new Set<string>()
+  for (const layer of removedLayers) {
+    const assetId = layer.sourceConfig.options?.rasterAssetId
+    if (typeof assetId === 'string' && assetId.length > 0 && !retainedAssetIds.has(assetId)) {
+      releasableAssetIds.add(assetId)
+    }
+  }
+
+  return Array.from(releasableAssetIds)
+}
+
+const cleanupRemovedSessionLayers = (
+  removedLayers: LayerDefinition[],
+  retainedLayers: Iterable<LayerDefinition>,
+  removeLayerFromMap: (layerId: string) => Promise<void>
+): void => {
+  if (removedLayers.length === 0) {
+    return
+  }
+
+  for (const layer of removedLayers) {
+    void removeLayerFromMap(layer.id).catch(() => {})
+
+    const sourceData = layer.sourceConfig.data
+    if (
+      layer.type === 'raster' &&
+      typeof sourceData === 'string' &&
+      sourceData.startsWith('blob:')
+    ) {
+      URL.revokeObjectURL(sourceData)
+    }
+  }
+
+  const releasableAssetIds = collectReleasableRasterAssetIds(removedLayers, retainedLayers)
+  for (const assetId of releasableAssetIds) {
+    void window.ctg.layers.releaseGeoTiffAsset(assetId).catch(() => {})
+  }
+}
+
 // Default layer style
 const DEFAULT_LAYER_STYLE: LayerStyle = {
   // Vector defaults
@@ -1088,54 +1177,44 @@ export const useLayerStore = create<LayerStore>()(
     // Session Management
     clearSessionData: () => {
       const state = get()
-      const sessionLayers = Array.from(state.layers.entries()).filter(
-        ([, layer]) => layer.createdBy === 'import'
+      const cleanupResult = buildSessionLayerCleanupResult(
+        state,
+        (layer) => layer.createdBy === 'import'
       )
 
-      // Remove session-imported layers
-      sessionLayers.forEach(([layerId]) => {
-        state.layers.delete(layerId)
+      set({
+        layers: cleanupResult.nextLayers,
+        selectedLayerId: cleanupResult.nextSelectedLayerId,
+        operations: cleanupResult.nextOperations,
+        errors: cleanupResult.nextErrors
       })
 
-      set({
-        layers: new Map(state.layers),
-        selectedLayerId:
-          state.selectedLayerId && state.layers.has(state.selectedLayerId)
-            ? state.selectedLayerId
-            : null,
-        operations: state.operations.filter(
-          (op) => !sessionLayers.some(([layerId]) => op.layerId === layerId)
-        ),
-        errors: state.errors.filter(
-          (error) => !sessionLayers.some(([layerId]) => error.layerId === layerId)
-        )
-      })
+      cleanupRemovedSessionLayers(
+        cleanupResult.removedLayers,
+        cleanupResult.nextLayers.values(),
+        get().removeLayerFromMap
+      )
     },
 
     clearSessionLayersForChat: (chatId: string) => {
       const state = get()
-      const chatLayers = Array.from(state.layers.entries()).filter(
-        ([, layer]) => layer.createdBy === 'import' && layer.metadata.tags?.includes(chatId)
+      const cleanupResult = buildSessionLayerCleanupResult(
+        state,
+        (layer) => layer.createdBy === 'import' && layer.metadata.tags?.includes(chatId)
       )
 
-      // Remove layers associated with this chat
-      chatLayers.forEach(([layerId]) => {
-        state.layers.delete(layerId)
+      set({
+        layers: cleanupResult.nextLayers,
+        selectedLayerId: cleanupResult.nextSelectedLayerId,
+        operations: cleanupResult.nextOperations,
+        errors: cleanupResult.nextErrors
       })
 
-      set({
-        layers: new Map(state.layers),
-        selectedLayerId:
-          state.selectedLayerId && state.layers.has(state.selectedLayerId)
-            ? state.selectedLayerId
-            : null,
-        operations: state.operations.filter(
-          (op) => !chatLayers.some(([layerId]) => op.layerId === layerId)
-        ),
-        errors: state.errors.filter(
-          (error) => !chatLayers.some(([layerId]) => error.layerId === layerId)
-        )
-      })
+      cleanupRemovedSessionLayers(
+        cleanupResult.removedLayers,
+        cleanupResult.nextLayers.values(),
+        get().removeLayerFromMap
+      )
     },
 
     // Cleanup

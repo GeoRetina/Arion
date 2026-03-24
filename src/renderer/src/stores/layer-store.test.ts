@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { LayerDefinition } from '../../../shared/types/layer-types'
 
 vi.mock('@/utils/maplibre-integration', () => ({
   MapLibreIntegration: class {
@@ -33,7 +34,37 @@ Object.defineProperty(globalThis, 'window', {
 
 import { useLayerStore } from './layer-store'
 
-describe('layer-store addLayer', () => {
+const createLayer = (
+  overrides: Partial<LayerDefinition> & Pick<LayerDefinition, 'id'>
+): LayerDefinition => ({
+  id: overrides.id,
+  name: overrides.name ?? 'Test layer',
+  type: overrides.type ?? 'vector',
+  sourceId: overrides.sourceId ?? `source-${overrides.id}`,
+  sourceConfig: overrides.sourceConfig ?? {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: []
+    }
+  },
+  style: overrides.style ?? {
+    fillColor: '#22c55e'
+  },
+  visibility: overrides.visibility ?? true,
+  opacity: overrides.opacity ?? 1,
+  zIndex: overrides.zIndex ?? 0,
+  metadata: overrides.metadata ?? {
+    tags: []
+  },
+  groupId: overrides.groupId,
+  isLocked: overrides.isLocked ?? false,
+  createdBy: overrides.createdBy ?? 'import',
+  createdAt: overrides.createdAt ?? new Date('2026-03-21T00:00:00.000Z'),
+  updatedAt: overrides.updatedAt ?? new Date('2026-03-21T00:00:00.000Z')
+})
+
+describe('layer-store', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     layerApiMocks.create.mockImplementation(async (layer) => ({
@@ -42,6 +73,7 @@ describe('layer-store addLayer', () => {
       createdAt: new Date('2026-03-21T00:00:00.000Z'),
       updatedAt: new Date('2026-03-21T00:00:00.000Z')
     }))
+    layerApiMocks.releaseGeoTiffAsset.mockResolvedValue(true)
     layerApiMocks.updateRuntimeSnapshot.mockResolvedValue(true)
     useLayerStore.getState().reset()
   })
@@ -194,5 +226,136 @@ describe('layer-store addLayer', () => {
       })
     )
     expect(mockIntegration.syncLayerProperties).not.toHaveBeenCalled()
+  })
+
+  it('clearSessionData removes imported layers from store state and the active map', () => {
+    const importedLayer = createLayer({
+      id: 'imported-raster',
+      name: 'Imported raster',
+      type: 'raster',
+      sourceConfig: {
+        type: 'raster',
+        data: 'arion-raster://tiles/asset-123/{z}/{x}/{y}.png',
+        options: {
+          rasterAssetId: 'asset-123'
+        }
+      },
+      createdBy: 'import',
+      metadata: {
+        tags: ['session-import', 'chat-a']
+      }
+    })
+    const retainedLayer = createLayer({
+      id: 'retained-user-layer',
+      name: 'Retained user layer',
+      createdBy: 'user',
+      metadata: {
+        tags: ['persistent']
+      }
+    })
+
+    const mockIntegration = {
+      cleanup: vi.fn(),
+      removeLayerFromMap: vi.fn().mockResolvedValue(undefined),
+      syncLayerToMap: vi.fn().mockResolvedValue(undefined),
+      syncLayerProperties: vi.fn().mockResolvedValue(undefined)
+    }
+
+    useLayerStore.setState({
+      layers: new Map([
+        [importedLayer.id, importedLayer],
+        [retainedLayer.id, retainedLayer]
+      ]),
+      selectedLayerId: importedLayer.id,
+      operations: [
+        { type: 'create', layerId: importedLayer.id, timestamp: new Date() },
+        { type: 'create', layerId: retainedLayer.id, timestamp: new Date() }
+      ],
+      errors: [
+        {
+          code: 'SOURCE_LOAD_FAILED',
+          message: 'Imported layer failed',
+          layerId: importedLayer.id,
+          timestamp: new Date()
+        },
+        {
+          code: 'SOURCE_LOAD_FAILED',
+          message: 'Retained layer failed',
+          layerId: retainedLayer.id,
+          timestamp: new Date()
+        }
+      ],
+      mapLibreIntegration: mockIntegration as never
+    })
+
+    useLayerStore.getState().clearSessionData()
+
+    const state = useLayerStore.getState()
+    expect(Array.from(state.layers.keys())).toEqual([retainedLayer.id])
+    expect(state.selectedLayerId).toBeNull()
+    expect(state.operations.map((operation) => operation.layerId)).toEqual([retainedLayer.id])
+    expect(state.errors.map((error) => error.layerId)).toEqual([retainedLayer.id])
+    expect(mockIntegration.removeLayerFromMap).toHaveBeenCalledWith(importedLayer.id)
+    expect(layerApiMocks.releaseGeoTiffAsset).toHaveBeenCalledWith('asset-123')
+  })
+
+  it('clearSessionLayersForChat only removes layers from the target chat and keeps shared assets alive', () => {
+    const chatALayer = createLayer({
+      id: 'chat-a-raster',
+      name: 'Chat A raster',
+      type: 'raster',
+      sourceConfig: {
+        type: 'raster',
+        data: 'arion-raster://tiles/shared-asset/{z}/{x}/{y}.png',
+        options: {
+          rasterAssetId: 'shared-asset'
+        }
+      },
+      createdBy: 'import',
+      metadata: {
+        tags: ['session-import', 'chat-a']
+      }
+    })
+    const chatBLayer = createLayer({
+      id: 'chat-b-raster',
+      name: 'Chat B raster',
+      type: 'raster',
+      sourceConfig: {
+        type: 'raster',
+        data: 'arion-raster://tiles/shared-asset/{z}/{x}/{y}.png',
+        options: {
+          rasterAssetId: 'shared-asset'
+        }
+      },
+      createdBy: 'import',
+      metadata: {
+        tags: ['session-import', 'chat-b']
+      }
+    })
+
+    const mockIntegration = {
+      cleanup: vi.fn(),
+      removeLayerFromMap: vi.fn().mockResolvedValue(undefined),
+      syncLayerToMap: vi.fn().mockResolvedValue(undefined),
+      syncLayerProperties: vi.fn().mockResolvedValue(undefined)
+    }
+
+    useLayerStore.setState({
+      layers: new Map([
+        [chatALayer.id, chatALayer],
+        [chatBLayer.id, chatBLayer]
+      ]),
+      selectedLayerId: chatALayer.id,
+      mapLibreIntegration: mockIntegration as never
+    })
+
+    useLayerStore.getState().clearSessionLayersForChat('chat-a')
+
+    const state = useLayerStore.getState()
+    expect(Array.from(state.layers.keys())).toEqual([chatBLayer.id])
+    expect(state.selectedLayerId).toBeNull()
+    expect(mockIntegration.removeLayerFromMap).toHaveBeenCalledWith(chatALayer.id)
+    expect(mockIntegration.removeLayerFromMap).not.toHaveBeenCalledWith(chatBLayer.id)
+    expect(layerApiMocks.releaseGeoTiffAsset).not.toHaveBeenCalled()
   })
 })
