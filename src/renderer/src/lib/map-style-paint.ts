@@ -218,3 +218,34 @@ export function createStyleUpdateFromPaintProperties(
 
   return styleUpdate
 }
+
+export function createStyleUpdateFromMapStyleProperties(
+  input: {
+    paintProperties?: Record<string, unknown>
+    layoutProperties?: Record<string, unknown>
+    filter?: unknown[]
+  },
+  existingStyle: LayerStyle = {}
+): Partial<LayerStyle> {
+  const styleUpdate: Partial<LayerStyle> = {}
+
+  if (input.paintProperties && Object.keys(input.paintProperties).length > 0) {
+    Object.assign(
+      styleUpdate,
+      createStyleUpdateFromPaintProperties(input.paintProperties, existingStyle)
+    )
+  }
+
+  if (input.layoutProperties && Object.keys(input.layoutProperties).length > 0) {
+    styleUpdate.layout = {
+      ...(existingStyle.layout || {}),
+      ...input.layoutProperties
+    }
+  }
+
+  if (Array.isArray(input.filter)) {
+    styleUpdate.filter = [...input.filter]
+  }
+
+  return styleUpdate
+}

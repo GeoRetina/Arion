@@ -50,6 +50,11 @@ const validConfigs: Record<IntegrationId, Record<string, unknown>> = {
     projectId: 'my-project',
     serviceAccountJson,
     timeoutMs: 10000
+  },
+  qgis: {
+    detectionMode: 'auto',
+    timeoutMs: 30000,
+    allowPluginAlgorithms: false
   }
 }
 
@@ -130,5 +135,11 @@ describe('integration schemas', () => {
     })
     expect(geeSplit.secretConfig).toEqual({ serviceAccountJson })
     expect(geeSplit.publicConfig).not.toHaveProperty('serviceAccountJson')
+
+    const qgisSplit = splitPublicAndSecretConfig('qgis', {
+      ...validConfigs.qgis
+    })
+    expect(qgisSplit.secretConfig).toEqual({})
+    expect(qgisSplit.publicConfig).toEqual(validConfigs.qgis)
   })
 })

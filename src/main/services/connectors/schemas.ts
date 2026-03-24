@@ -11,7 +11,8 @@ import {
   type PmtilesIntegrationConfig,
   type WmsIntegrationConfig,
   type WmtsIntegrationConfig,
-  type GoogleEarthEngineIntegrationConfig
+  type GoogleEarthEngineIntegrationConfig,
+  type QgisIntegrationConfig
 } from '../../../shared/ipc-types'
 import { MAX_TIMEOUT_MS, MIN_TIMEOUT_MS } from './constants'
 
@@ -110,6 +111,16 @@ const googleEarthEngineConfigSchema = z.object({
   timeoutMs: timeoutSchema
 })
 
+const qgisConfigSchema = z.object({
+  detectionMode: z.enum(['auto', 'manual']).default('auto'),
+  launcherPath: z.preprocess(toTrimmedString, z.string().min(1)).optional(),
+  installRoot: z.preprocess(toTrimmedString, z.string().min(1)).optional(),
+  version: z.preprocess(toTrimmedString, z.string().min(1)).optional(),
+  timeoutMs: timeoutSchema,
+  allowPluginAlgorithms: z.preprocess(toBoolean, z.boolean()).optional(),
+  lastVerifiedAt: z.preprocess(toTrimmedString, z.string().min(1)).optional()
+})
+
 const integrationConfigSchemas = {
   'postgresql-postgis': postgresqlConfigSchema,
   stac: stacConfigSchema,
@@ -118,7 +129,8 @@ const integrationConfigSchemas = {
   wms: wmsConfigSchema,
   wmts: wmtsConfigSchema,
   s3: s3ConfigSchema,
-  'google-earth-engine': googleEarthEngineConfigSchema
+  'google-earth-engine': googleEarthEngineConfigSchema,
+  qgis: qgisConfigSchema
 } satisfies { [K in IntegrationId]: z.ZodType<IntegrationConfigMap[K], z.ZodTypeDef, unknown> }
 
 const secretKeysByIntegration: Record<IntegrationId, Set<string>> = {
@@ -129,7 +141,8 @@ const secretKeysByIntegration: Record<IntegrationId, Set<string>> = {
   wms: new Set(),
   wmts: new Set(),
   s3: new Set(['accessKeyId', 'secretAccessKey', 'sessionToken']),
-  'google-earth-engine': new Set(['serviceAccountJson'])
+  'google-earth-engine': new Set(['serviceAccountJson']),
+  qgis: new Set()
 }
 
 export const validateIntegrationId = (rawId: string): IntegrationId =>
@@ -171,5 +184,6 @@ export type {
   WmsIntegrationConfig,
   WmtsIntegrationConfig,
   S3IntegrationConfig,
-  GoogleEarthEngineIntegrationConfig
+  GoogleEarthEngineIntegrationConfig,
+  QgisIntegrationConfig
 }

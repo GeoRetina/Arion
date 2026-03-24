@@ -7,7 +7,7 @@ export const ListMapLayersToolSchema = z.object({}) // No parameters for listing
 
 export const listMapLayersToolDefinition = {
   description:
-    'Lists map layers currently available in the renderer layer store, including their IDs, source IDs, geometry/type info, persistence state, basic metadata, and local filesystem paths when available for imported or file-backed layers.',
+    'Lists map layers currently available in the renderer layer store, including their IDs, source IDs, geometry/type info, persistence state, basic metadata, local filesystem paths when available, and integration-specific input hints when available, for example `integrationInputs.qgis.inputPath` for supported file-backed datasets that can be passed directly into `qgis_run_processing`.',
   inputSchema: ListMapLayersToolSchema
 }
 
@@ -25,15 +25,27 @@ export const SetLayerStyleToolSchema = z.object({
     .passthrough()
     .optional()
     .describe(
-      'An object of MapLibre paint properties to apply (e.g., { "fill-color": "#FF0000", "fill-opacity": 0.7 }). This object should be provided under the key "paint". Refer to MapLibre GL JS documentation for valid properties based on layer type. If omitted, no style changes will be applied.'
-    )
+      'Optional MapLibre paint properties to apply to the live Arion map layer (for example { "fill-color": "#FF0000", "fill-opacity": 0.7 } or expression-based values).'
+    ),
+  layout: z
+    .object({})
+    .passthrough()
+    .optional()
+    .describe(
+      'Optional MapLibre layout properties to apply to the live Arion map layer (for example { "line-cap": "round" } or { "icon-image": "marker" }).'
+    ),
+  filter: z
+    .array(z.unknown())
+    .max(1000)
+    .optional()
+    .describe('Optional MapLibre filter expression array to apply to the live Arion map layer.')
 })
 
 export type SetLayerStyleParams = z.infer<typeof SetLayerStyleToolSchema>
 
 export const setLayerStyleToolDefinition = {
   description:
-    "Changes the visual style of a specified map layer using its source ID. Use 'list_map_layers' first when you need to discover the correct source ID. Allows modification of MapLibre paint properties like color, opacity, size, etc. The paint properties object should be provided under the key 'paint'. The LLM should use its knowledge of MapLibre GL JS paint properties appropriate for the layer's geometry type.",
+    "Changes the live Arion map styling for a specified layer using its source ID. Use 'list_map_layers' first when you need to discover the correct source ID. Supports MapLibre paint properties, layout properties, and filter expressions. This updates the rendered layer on the map rather than creating or requiring a QGIS style file.",
   inputSchema: SetLayerStyleToolSchema
 }
 

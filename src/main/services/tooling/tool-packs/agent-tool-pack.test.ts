@@ -60,8 +60,48 @@ describe('registerAgentTools', () => {
 
   it('enhances params with resolved agent name and delegates call', async () => {
     const { registry, entries } = createRegistry()
-    const getAgentById = vi.fn(async () => ({ id: 'a1', name: 'Planner' }))
-    const agentRegistryService = { getAgentById }
+    const getAgentById = vi.fn(async (id: string) =>
+      id === 'a1'
+        ? {
+            id: 'a1',
+            name: 'Planner',
+            description: 'Plans tasks',
+            role: 'specialist',
+            type: 'user-defined',
+            capabilities: [
+              {
+                id: 'plan',
+                name: 'Planning',
+                description: 'Planning work',
+                tools: ['query_knowledge_base']
+              }
+            ],
+            promptConfig: {
+              coreModules: [],
+              agentModules: []
+            },
+            modelConfig: { provider: 'openai', model: 'gpt-4.1' },
+            toolAccess: ['query_knowledge_base'],
+            createdAt: '2026-03-23T00:00:00.000Z',
+            updatedAt: '2026-03-23T00:00:00.000Z'
+          }
+        : null
+    )
+    const getAllAgents = vi.fn(async () => [
+      {
+        id: 'a1',
+        name: 'Planner',
+        description: 'Plans tasks',
+        type: 'user-defined',
+        capabilities: ['plan'],
+        toolAccess: ['query_knowledge_base'],
+        provider: 'openai',
+        model: 'gpt-4.1',
+        createdAt: '2026-03-23T00:00:00.000Z',
+        updatedAt: '2026-03-23T00:00:00.000Z'
+      }
+    ])
+    const agentRegistryService = { getAgentById, getAllAgents }
     const orchestrationService = { executeAgentWithPrompt: vi.fn() }
 
     registerAgentTools(registry, {
@@ -71,13 +111,18 @@ describe('registerAgentTools', () => {
 
     const tool = entries.get('call_agent')
     const result = (await tool?.execute({
-      args: { agent_id: 'a1', message: 'work' },
+      args: { agent_handle: 'planner-a1', message: 'work' },
       chatId: 'chat-5'
     })) as { status: string }
 
     expect(result.status).toBe('success')
     expect(callAgentMock).toHaveBeenCalledWith(
-      { agent_id: 'a1', message: 'work', agent_name: 'Planner' },
+      {
+        agent_handle: 'planner-a1',
+        agent_id: 'a1',
+        message: 'work',
+        agent_name: 'Planner'
+      },
       'chat-5',
       agentRegistryService,
       orchestrationService

@@ -587,6 +587,14 @@ export class SkillPackService {
     }
 
     const rawManifest = await this.fetchRemoteJson(manifestUrl)
+    const skills = this.cacheBundledManifestSkills(rawManifest, manifestUrl)
+    return skills
+  }
+
+  private cacheBundledManifestSkills(
+    rawManifest: unknown,
+    manifestUrl: string
+  ): BundledSkillManifestRecord[] {
     const parsedManifest = bundledSkillManifestSchema.parse(rawManifest)
     const manifestHost = new URL(manifestUrl).host
     const byId = new Map<string, BundledSkillManifestRecord>()

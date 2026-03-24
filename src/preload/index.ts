@@ -26,6 +26,7 @@ import {
   type LayerApi,
   type AddMapFeaturePayload,
   type SetPaintPropertiesPayload,
+  type UpdateLayerStylePayload,
   type RemoveSourceAndLayersPayload,
   type SetMapViewPayload,
   type SystemPromptConfig,
@@ -108,7 +109,12 @@ import {
   type CodexRuntimeEvent,
   type ImportGeoPackageRequest,
   type ImportGeoPackageResult,
-  type LocalFileDescriptor
+  type RegisterVectorAssetRequest,
+  type RegisterVectorAssetResult,
+  type RenderGeoTiffTileRequest,
+  type LocalFileDescriptor,
+  type LocalFileDialogOptions,
+  type LayerImportDefinitionsPayload
 } from '../shared/ipc-types' // Corrected relative path
 import type {
   LayerDefinition,
@@ -193,45 +199,51 @@ function initializeLocalImportPathCapture(): void {
   attachListeners()
 }
 
+const buildOrchestrationErrorResult = (error: unknown): OrchestrationResult => ({
+  sessionId: '',
+  finalResponse: '',
+  subtasks: [],
+  subtasksExecuted: 0,
+  agentsInvolved: [],
+  completionTime: 0,
+  success: false,
+  error: error instanceof Error ? error.message : 'Unknown error in orchestration'
+})
+
+const buildOrchestrationStatusError = (error: unknown): OrchestrationStatus => ({
+  success: false,
+  error: error instanceof Error ? error.message : 'Unknown error getting orchestration status'
+})
+
+const invokeOrchestrationMessage = async (
+  chatId: string,
+  message: string,
+  orchestratorAgentId: string
+): Promise<OrchestrationResult> => {
+  try {
+    return await ipcRenderer.invoke(IpcChannels.orchestrateMessage, {
+      chatId,
+      message,
+      orchestratorAgentId
+    })
+  } catch (error) {
+    return buildOrchestrationErrorResult(error)
+  }
+}
+
+const invokeOrchestrationStatus = async (sessionId?: string): Promise<OrchestrationStatus> => {
+  try {
+    return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
+  } catch (error) {
+    return buildOrchestrationStatusError(error)
+  }
+}
+
 // Custom APIs for renderer
 const ctgApi = {
   orchestration: {
-    orchestrateMessage: async (
-      chatId: string,
-      message: string,
-      orchestratorAgentId: string
-    ): Promise<OrchestrationResult> => {
-      try {
-        return await ipcRenderer.invoke(IpcChannels.orchestrateMessage, {
-          chatId,
-          message,
-          orchestratorAgentId
-        })
-      } catch (error) {
-        return {
-          sessionId: '',
-          finalResponse: '',
-          subtasks: [],
-          subtasksExecuted: 0,
-          agentsInvolved: [],
-          completionTime: 0,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
-        }
-      }
-    },
-
-    getStatus: async (sessionId?: string): Promise<OrchestrationStatus> => {
-      try {
-        return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
-      } catch (error) {
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : 'Unknown error getting orchestration status'
-        }
-      }
-    }
+    orchestrateMessage: invokeOrchestrationMessage,
+    getStatus: invokeOrchestrationStatus
   },
   settings: {
     getSetting: async (key: string): Promise<unknown> => {
@@ -674,7 +686,9 @@ const ctgApi = {
   } as KnowledgeBaseApi,
   shell: {
     openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke(IpcChannels.shellOpenPath, filePath)
+      ipcRenderer.invoke(IpcChannels.shellOpenPath, filePath),
+    selectFile: (options?: LocalFileDialogOptions): Promise<string | null> =>
+      ipcRenderer.invoke(IpcChannels.shellSelectFile, options)
   } as ExposedShellApi,
   mcp: {
     requestPermission: (request: McpPermissionRequest): Promise<boolean> =>
@@ -710,6 +724,14 @@ const ctgApi = {
       ipcRenderer.on('ctg:map:setPaintProperties', handler)
       return () => {
         ipcRenderer.removeListener('ctg:map:setPaintProperties', handler)
+      }
+    },
+    onUpdateLayerStyle: (callback: (payload: UpdateLayerStylePayload) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: UpdateLayerStylePayload): void =>
+        callback(payload)
+      ipcRenderer.on('ctg:map:updateLayerStyle', handler)
+      return () => {
+        ipcRenderer.removeListener('ctg:map:updateLayerStyle', handler)
       }
     },
     onRemoveSourceAndLayers: (callback: (payload: RemoveSourceAndLayersPayload) => void) => {
@@ -856,17 +878,35 @@ const ctgApi = {
 
     importGeoPackage: (request: ImportGeoPackageRequest): Promise<ImportGeoPackageResult> =>
       ipcRenderer.invoke('layers:importGeoPackage', request),
+    registerVectorAsset: (
+      request: RegisterVectorAssetRequest
+    ): Promise<RegisterVectorAssetResult> =>
+      ipcRenderer.invoke('layers:registerVectorAsset', request),
 
     // Register GeoTIFF as a tiled raster asset
     registerGeoTiffAsset: (request) => ipcRenderer.invoke('layers:registerGeoTiffAsset', request),
+    renderGeoTiffTile: (request: RenderGeoTiffTileRequest): Promise<Uint8Array> =>
+      ipcRenderer.invoke('layers:renderGeoTiffTile', request),
     resolveImportFilePath: (descriptor) =>
       Promise.resolve(resolveTrackedLocalImportPath(descriptor)),
     getGeoTiffAssetStatus: (jobId: string) =>
       ipcRenderer.invoke('layers:getGeoTiffAssetStatus', jobId),
     releaseGeoTiffAsset: (assetId: string): Promise<boolean> =>
       ipcRenderer.invoke('layers:releaseGeoTiffAsset', assetId),
+    releaseVectorAsset: (assetId: string): Promise<boolean> =>
+      ipcRenderer.invoke('layers:releaseVectorAsset', assetId),
     updateRuntimeSnapshot: (layers: unknown[]): Promise<boolean> =>
-      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers)
+      ipcRenderer.invoke('layers:runtime:updateSnapshot', layers),
+    onImportDefinitions: (callback: (payload: LayerImportDefinitionsPayload) => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        payload: LayerImportDefinitionsPayload
+      ): void => callback(payload)
+      ipcRenderer.on(IpcChannels.layersImportDefinitionsEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.layersImportDefinitionsEvent, handler)
+      }
+    }
   } as LayerApi,
   // Agent API for managing agents
   agents: {
@@ -901,30 +941,7 @@ const ctgApi = {
     },
 
     // Agent orchestration
-    orchestrateMessage: async (
-      chatId: string,
-      message: string,
-      orchestratorAgentId: string
-    ): Promise<OrchestrationResult> => {
-      try {
-        return await ipcRenderer.invoke(IpcChannels.orchestrateMessage, {
-          chatId,
-          message,
-          orchestratorAgentId
-        })
-      } catch (error) {
-        return {
-          sessionId: '',
-          finalResponse: '',
-          subtasks: [],
-          subtasksExecuted: 0,
-          agentsInvolved: [],
-          completionTime: 0,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error in orchestration'
-        }
-      }
-    },
+    orchestrateMessage: invokeOrchestrationMessage,
 
     getCapabilities: async (): Promise<AgentCapabilitiesResult> => {
       try {
@@ -938,17 +955,7 @@ const ctgApi = {
       }
     },
 
-    getOrchestrationStatus: async (sessionId?: string): Promise<OrchestrationStatus> => {
-      try {
-        return await ipcRenderer.invoke(IpcChannels.getOrchestrationStatus, sessionId)
-      } catch (error) {
-        return {
-          success: false,
-          error:
-            error instanceof Error ? error.message : 'Unknown error getting orchestration status'
-        }
-      }
-    }
+    getOrchestrationStatus: invokeOrchestrationStatus
   } as AgentApi,
   // Prompt Module API for managing prompt modules
   promptModules: {

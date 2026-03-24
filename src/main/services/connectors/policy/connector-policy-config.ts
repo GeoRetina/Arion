@@ -31,7 +31,14 @@ export const DEFAULT_CONNECTOR_POLICY_CONFIG: ConnectorPolicyConfig = {
   defaultMaxRetries: 1,
   defaultAllowedBackends: [...DEFAULT_ALLOWED_BACKENDS],
   backendDenylist: [],
-  sensitiveCapabilities: ['sql.query', 'storage.list', 'gee.listAlgorithms'],
+  sensitiveCapabilities: [
+    'sql.query',
+    'storage.list',
+    'gee.listAlgorithms',
+    'desktop.processing.run',
+    'desktop.style.apply',
+    'desktop.layout.export'
+  ],
   blockedMcpToolNames: [...DEFAULT_BLOCKED_MCP_TOOL_NAMES],
   integrationPolicies: {}
 }

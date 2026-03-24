@@ -92,19 +92,7 @@ export class RasterGdalPreprocessService {
       sourceEpsg = extractEpsgCode(sourceInfo)
       const shouldReproject = sourceEpsg === null || !DIRECT_RENDER_EPSG_CODES.has(sourceEpsg)
 
-      if (inPlaceOutput && shouldReproject) {
-        return {
-          success: false,
-          processingEngine: 'geotiff-js',
-          sourceEpsg,
-          reprojected: false,
-          usedCogDriver,
-          warning:
-            'Source raster requires reprojection, so auxiliary files cannot be prepared in place'
-        }
-      }
-
-      if (shouldReproject) {
+      if (!inPlaceOutput && shouldReproject) {
         reprojected = true
         request.onProgress?.({
           stage: 'reproject',

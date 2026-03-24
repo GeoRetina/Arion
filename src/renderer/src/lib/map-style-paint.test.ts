@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { LayerStyle } from '../../../shared/types/layer-types'
-import { createStyleUpdateFromPaintProperties } from './map-style-paint'
+import {
+  createStyleUpdateFromMapStyleProperties,
+  createStyleUpdateFromPaintProperties
+} from './map-style-paint'
 
 describe('createStyleUpdateFromPaintProperties', () => {
   it('maps known paint properties to typed layer style fields', () => {
@@ -40,6 +43,36 @@ describe('createStyleUpdateFromPaintProperties', () => {
       'legacy-prop': true,
       'fill-antialias': false,
       'circle-radius': expressionValue
+    })
+  })
+
+  it('merges layout and filter updates into the layer style patch', () => {
+    const existingStyle: LayerStyle = {
+      layout: {
+        'line-join': 'bevel'
+      }
+    }
+
+    const result = createStyleUpdateFromMapStyleProperties(
+      {
+        paintProperties: {
+          'line-color': '#1d4ed8'
+        },
+        layoutProperties: {
+          'line-cap': 'round'
+        },
+        filter: ['==', ['geometry-type'], 'LineString']
+      },
+      existingStyle
+    )
+
+    expect(result).toEqual({
+      lineColor: '#1d4ed8',
+      layout: {
+        'line-join': 'bevel',
+        'line-cap': 'round'
+      },
+      filter: ['==', ['geometry-type'], 'LineString']
     })
   })
 })

@@ -1,12 +1,48 @@
 import type { IntegrationId } from '../../../../../shared/ipc-types'
 import type { IntegrationDefinition, IntegrationType } from '../types/connector'
 
+import postgresqlLogo from '@/assets/connector-logos/postgresql.svg'
+import stacLogo from '@/assets/connector-logos/stac.svg'
+import cogLogo from '@/assets/connector-logos/cog.png'
+import pmtilesLogo from '@/assets/connector-logos/pmtiles.svg'
+import wmsLogo from '@/assets/connector-logos/wms.svg'
+import wmtsLogo from '@/assets/connector-logos/wmts.svg'
+import s3Logo from '@/assets/connector-logos/s3.svg'
+import geeLogo from '@/assets/connector-logos/google-earth-engine.png'
+import qgisLogo from '@/assets/connector-logos/qgis.svg'
+
+export const CONNECTOR_LOGOS: Record<IntegrationId, string> = {
+  'postgresql-postgis': postgresqlLogo,
+  stac: stacLogo,
+  cog: cogLogo,
+  pmtiles: pmtilesLogo,
+  wms: wmsLogo,
+  wmts: wmtsLogo,
+  s3: s3Logo,
+  'google-earth-engine': geeLogo,
+  qgis: qgisLogo
+}
+
+/** Extra CSS classes for connector logos (e.g. invert monochrome logos in dark mode) */
+export const CONNECTOR_LOGO_CLASSES: Record<IntegrationId, string> = {
+  'postgresql-postgis': '',
+  stac: 'dark:invert',
+  cog: '',
+  pmtiles: '',
+  wms: 'dark:invert',
+  wmts: 'dark:invert',
+  s3: '',
+  'google-earth-engine': '',
+  qgis: ''
+}
+
 const createDefinition = (definition: IntegrationDefinition): IntegrationDefinition => definition
 
 const apiType: IntegrationType = 'api'
 const cloudType: IntegrationType = 'cloud'
 const databaseType: IntegrationType = 'database'
 const cloudPlatformType: IntegrationType = 'cloud-platform'
+const desktopType: IntegrationType = 'desktop'
 
 export const integrationRegistry: IntegrationDefinition[] = [
   createDefinition({
@@ -324,6 +360,24 @@ export const integrationRegistry: IntegrationDefinition[] = [
         placeholder: '10000'
       }
     ]
+  }),
+  createDefinition({
+    integration: {
+      id: 'qgis',
+      name: 'QGIS',
+      description: 'Use a local QGIS installation for processing, styling, and layout exports',
+      type: desktopType,
+      status: 'not-configured',
+      lastUsed: 'Never',
+      category: 'Desktop GIS',
+      configurable: true,
+      documentation: 'https://docs.qgis.org/latest/en/docs/user_manual/processing/standalone.html'
+    },
+    defaultConnectionSettings: {
+      detectionMode: 'auto',
+      timeoutMs: 30000,
+      allowPluginAlgorithms: false
+    }
   })
 ]
 

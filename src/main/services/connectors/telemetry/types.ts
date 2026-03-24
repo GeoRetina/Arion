@@ -18,4 +18,5 @@ export interface ConnectorRunLogInput {
   outcome: ConnectorRunOutcome
   message: string
   errorCode?: string
+  details?: Record<string, unknown>
 }

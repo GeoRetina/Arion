@@ -74,4 +74,28 @@ describe('map-store', () => {
       }
     })
   })
+
+  it('merges layout and filter updates through the layer store for matching layers', () => {
+    const updateLayerStyle = vi.fn().mockResolvedValue(undefined)
+
+    useLayerStore.setState({
+      layers: new Map([[baseLayer.id, baseLayer]]),
+      updateLayerStyle: updateLayerStyle as never
+    })
+
+    useMapStore.getState().updateLayerStyleProperties({
+      sourceId: 'source-1',
+      layoutProperties: {
+        'line-cap': 'round'
+      },
+      filter: ['==', ['geometry-type'], 'Polygon']
+    })
+
+    expect(updateLayerStyle).toHaveBeenCalledWith('layer-1', {
+      layout: {
+        'line-cap': 'round'
+      },
+      filter: ['==', ['geometry-type'], 'Polygon']
+    })
+  })
 })

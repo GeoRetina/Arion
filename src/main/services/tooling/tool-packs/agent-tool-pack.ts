@@ -6,6 +6,10 @@ import {
 import type { ToolRegistry } from '../tool-registry'
 import type { AgentRegistryService } from '../../agent-registry-service'
 import type { OrchestrationService } from '../../orchestration-service'
+import {
+  loadSpecialistAgentDirectory,
+  resolveSpecialistAgentReference
+} from '../../utils/specialist-agent-directory'
 
 export interface AgentToolDependencies {
   getAgentRegistryService: () => AgentRegistryService | null
@@ -32,13 +36,21 @@ export function registerAgentTools(registry: ToolRegistry, deps: AgentToolDepend
         const actualChatId = chatId || 'unknown'
 
         let enhancedParams = params
-        if (params.agent_id) {
+        const requestedReference = (params.agent_handle || params.agent_id || '').trim()
+        if (requestedReference) {
           try {
-            const agent = await agentRegistryService.getAgentById(params.agent_id)
-            if (agent) {
+            const specialistDirectory = await loadSpecialistAgentDirectory(agentRegistryService)
+            const resolvedReference = resolveSpecialistAgentReference(
+              requestedReference,
+              specialistDirectory
+            )
+
+            if (!('error' in resolvedReference)) {
               enhancedParams = {
                 ...params,
-                agent_name: agent.name
+                agent_handle: resolvedReference.entry.handle,
+                agent_id: resolvedReference.entry.id,
+                agent_name: resolvedReference.entry.name
               }
             }
           } catch {

@@ -3,34 +3,20 @@ import type { AgentDefinition } from '../../../shared/types/agent-types'
 import { IAgentSelector } from './types/orchestration-interfaces'
 import { AgentRegistryService } from '../agent-registry-service'
 import { isOrchestratorAgent } from '../../../../src/shared/utils/agent-utils'
+import {
+  formatSpecialistAgentDirectoryForPrompt,
+  loadSpecialistAgentDirectory
+} from '../utils/specialist-agent-directory'
 
 export class AgentSelector implements IAgentSelector {
   constructor(private agentRegistryService: AgentRegistryService) {}
 
   public async getAvailableAgentsInfo(): Promise<string> {
     try {
-      const allAgents = await this.agentRegistryService.getAllAgents()
-      let agentInfoText = 'AVAILABLE SPECIALIZED AGENTS:\\n\\n'
-
-      for (const agentEntry of allAgents) {
-        const agentDef = await this.agentRegistryService.getAgentById(agentEntry.id)
-        if (!agentDef) continue
-
-        // Skip agents that are orchestrators (to avoid recursion)
-        const isOrchestrator = isOrchestratorAgent(agentDef)
-
-        if (!isOrchestrator) {
-          const capabilitiesList = agentDef.capabilities
-            .map((cap) => `- ${cap.name}: ${cap.description}`)
-            .join('\\n')
-
-          agentInfoText += `Agent: ${agentDef.name} (ID: ${agentDef.id})\\n`
-          agentInfoText += `Description: ${agentDef.description || 'No description'}\\n`
-          agentInfoText += `Capabilities:\\n${capabilitiesList}\\n\\n`
-        }
-      }
-
-      return agentInfoText
+      const specialistDirectory = await loadSpecialistAgentDirectory(this.agentRegistryService)
+      return formatSpecialistAgentDirectoryForPrompt(specialistDirectory, {
+        includeUnavailableMessage: true
+      })
     } catch {
       return 'Error: Could not retrieve agent information.'
     }
@@ -48,9 +34,30 @@ export class AgentSelector implements IAgentSelector {
     }
 
     // Filter out the orchestrator itself to avoid recursion, unless no other agent is available
-    const candidateAgents = allAgents.filter((agent) => agent.id !== orchestratorAgentId)
+    const candidateAgents = await Promise.all(
+      allAgents.map(async (agent) => {
+        const agentDef = await this.agentRegistryService.getAgentById(agent.id)
+        if (!agentDef || agent.id === orchestratorAgentId || isOrchestratorAgent(agentDef)) {
+          return null
+        }
 
-    if (candidateAgents.length === 0) {
+        return {
+          entry: agent,
+          definition: agentDef
+        }
+      })
+    )
+
+    const specializedCandidates = candidateAgents.filter(
+      (
+        candidate
+      ): candidate is {
+        entry: (typeof allAgents)[number]
+        definition: AgentDefinition
+      } => candidate !== null
+    )
+
+    if (specializedCandidates.length === 0) {
       return {
         agentId: orchestratorAgentId,
         confidence: 1,
@@ -59,28 +66,21 @@ export class AgentSelector implements IAgentSelector {
     }
 
     // Score each agent based on capability match
-    const scoredAgents = await Promise.all(
-      candidateAgents.map(async (agent) => {
-        const agentDef = await this.agentRegistryService.getAgentById(agent.id)
-        if (!agentDef) {
-          return { agent, score: 0, matchedCapabilities: [] }
-        }
+    const scoredAgents = specializedCandidates.map(({ entry, definition }) => {
+      const matchedCapabilities = this.matchCapabilities(subtask.requiredCapabilities, definition)
 
-        const matchedCapabilities = this.matchCapabilities(subtask.requiredCapabilities, agentDef)
+      // Calculate score based on capability match percentage
+      const capabilityScore =
+        subtask.requiredCapabilities.length > 0
+          ? matchedCapabilities.length / subtask.requiredCapabilities.length
+          : 0.5 // Default score if no capabilities specified
 
-        // Calculate score based on capability match percentage
-        const capabilityScore =
-          subtask.requiredCapabilities.length > 0
-            ? matchedCapabilities.length / subtask.requiredCapabilities.length
-            : 0.5 // Default score if no capabilities specified
-
-        return {
-          agent,
-          score: capabilityScore,
-          matchedCapabilities
-        }
-      })
-    )
+      return {
+        agent: entry,
+        score: capabilityScore,
+        matchedCapabilities
+      }
+    })
 
     // Sort by score (highest first)
     scoredAgents.sort((a, b) => b.score - a.score)

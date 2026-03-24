@@ -15,6 +15,7 @@ const layerApiMocks = vi.hoisted(() => ({
   delete: vi.fn(),
   getAll: vi.fn(),
   releaseGeoTiffAsset: vi.fn(),
+  releaseVectorAsset: vi.fn(),
   updateRuntimeSnapshot: vi.fn(),
   groups: {
     create: vi.fn(),
@@ -74,7 +75,10 @@ describe('layer-store', () => {
       updatedAt: new Date('2026-03-21T00:00:00.000Z')
     }))
     layerApiMocks.releaseGeoTiffAsset.mockResolvedValue(true)
+    layerApiMocks.releaseVectorAsset.mockResolvedValue(true)
     layerApiMocks.updateRuntimeSnapshot.mockResolvedValue(true)
+    layerApiMocks.getAll.mockResolvedValue([])
+    layerApiMocks.groups.getAll.mockResolvedValue([])
     useLayerStore.getState().reset()
   })
 
@@ -228,6 +232,41 @@ describe('layer-store', () => {
     expect(mockIntegration.syncLayerProperties).not.toHaveBeenCalled()
   })
 
+  it('persists managed vector imports backed by protocol asset urls', async () => {
+    const layerId = await useLayerStore.getState().addLayer({
+      name: 'Managed vector import',
+      type: 'vector',
+      sourceId: 'source-managed-vector',
+      sourceConfig: {
+        type: 'geojson',
+        data: 'arion-vector://assets/asset-123.geojson',
+        options: {
+          vectorAssetId: 'asset-123',
+          vectorSourcePath: 'C:\\data\\roads.geojson'
+        }
+      },
+      style: {
+        lineColor: '#22c55e'
+      },
+      visibility: true,
+      opacity: 1,
+      zIndex: 0,
+      metadata: {
+        tags: ['imported']
+      },
+      isLocked: false,
+      createdBy: 'import'
+    })
+
+    expect(layerApiMocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: layerId,
+        sourceConfig: expect.objectContaining({
+          data: 'arion-vector://assets/asset-123.geojson'
+        })
+      })
+    )
+  })
   it('clearSessionData removes imported layers from store state and the active map', () => {
     const importedLayer = createLayer({
       id: 'imported-raster',
@@ -296,7 +335,7 @@ describe('layer-store', () => {
     expect(state.operations.map((operation) => operation.layerId)).toEqual([retainedLayer.id])
     expect(state.errors.map((error) => error.layerId)).toEqual([retainedLayer.id])
     expect(mockIntegration.removeLayerFromMap).toHaveBeenCalledWith(importedLayer.id)
-    expect(layerApiMocks.releaseGeoTiffAsset).toHaveBeenCalledWith('asset-123')
+    expect(layerApiMocks.releaseGeoTiffAsset).not.toHaveBeenCalled()
   })
 
   it('clearSessionLayersForChat only removes layers from the target chat and keeps shared assets alive', () => {
@@ -357,5 +396,59 @@ describe('layer-store', () => {
     expect(mockIntegration.removeLayerFromMap).toHaveBeenCalledWith(chatALayer.id)
     expect(mockIntegration.removeLayerFromMap).not.toHaveBeenCalledWith(chatBLayer.id)
     expect(layerApiMocks.releaseGeoTiffAsset).not.toHaveBeenCalled()
+  })
+
+  it('loadChatLayers restores only imported layers tagged for the active chat', async () => {
+    const persistentLayer = createLayer({
+      id: 'persistent-user-layer',
+      createdBy: 'user',
+      sourceConfig: {
+        type: 'geojson',
+        data: 'https://example.com/layer.geojson'
+      },
+      metadata: {
+        tags: ['persistent']
+      }
+    })
+    const chatALayer = createLayer({
+      id: 'chat-a-import',
+      type: 'vector',
+      sourceConfig: {
+        type: 'geojson',
+        data: 'arion-vector://assets/chat-a.geojson',
+        options: {
+          vectorAssetId: 'chat-a-asset'
+        }
+      },
+      createdBy: 'import',
+      metadata: {
+        tags: ['session-import', 'chat-a']
+      }
+    })
+    const chatBLayer = createLayer({
+      id: 'chat-b-import',
+      type: 'raster',
+      sourceConfig: {
+        type: 'raster',
+        data: 'arion-raster://tiles/chat-b/{z}/{x}/{y}.png',
+        options: {
+          rasterAssetId: 'chat-b-asset'
+        }
+      },
+      createdBy: 'import',
+      metadata: {
+        tags: ['session-import', 'chat-b']
+      }
+    })
+
+    layerApiMocks.getAll.mockResolvedValue([persistentLayer, chatALayer, chatBLayer])
+    layerApiMocks.groups.getAll.mockResolvedValue([])
+
+    await useLayerStore.getState().loadChatLayers('chat-a')
+
+    const state = useLayerStore.getState()
+    expect(Array.from(state.layers.keys())).toEqual([persistentLayer.id, chatALayer.id])
+    expect(state.layers.get(chatALayer.id)).toEqual(chatALayer)
+    expect(state.layers.has(chatBLayer.id)).toBe(false)
   })
 })

@@ -3,6 +3,7 @@ import { AgentRegistryService } from './agent-registry-service'
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
 import type { AgentDefinition } from '../../shared/types/agent-types'
 import type { ToolSet } from 'ai'
+import { loadSpecialistAgentDirectory } from './utils/specialist-agent-directory'
 
 export class AgentToolManager {
   private llmToolService: LlmToolService
@@ -108,10 +109,17 @@ export class AgentToolManager {
   private async getOrchestratorTools(allTools: ToolSet): Promise<ToolSet> {
     // For orchestrator: Filter out tools assigned to specialized agents
     const specializedAgentTools = await this.getToolsAssignedToSpecializedAgents()
+    const hasSpecializedAgents = await this.hasSpecializedAgents()
 
     // Filter out tools that are assigned to specialized agents
     const combinedTools = Object.fromEntries(
-      Object.entries(allTools).filter(([toolName]) => !specializedAgentTools.includes(toolName))
+      Object.entries(allTools).filter(([toolName]) => {
+        if (toolName === 'call_agent' && !hasSpecializedAgents) {
+          return false
+        }
+
+        return !specializedAgentTools.includes(toolName)
+      })
     ) as ToolSet
 
     return combinedTools
@@ -160,5 +168,18 @@ export class AgentToolManager {
    */
   async getToolsForAccessList(toolAccessList: string[]): Promise<ToolSet> {
     return (await this.llmToolService.getToolDefinitionsForLLM(toolAccessList)) as ToolSet
+  }
+
+  private async hasSpecializedAgents(): Promise<boolean> {
+    if (!this.agentRegistryService) {
+      return false
+    }
+
+    try {
+      const specialistDirectory = await loadSpecialistAgentDirectory(this.agentRegistryService)
+      return specialistDirectory.length > 0
+    } catch {
+      return false
+    }
   }
 }

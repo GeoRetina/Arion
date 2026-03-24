@@ -22,7 +22,8 @@ const DEFAULT_CAPABILITY_BY_INTEGRATION: Record<IntegrationId, ConnectorCapabili
   wmts: 'tiles.getCapabilities',
   s3: 'storage.list',
   'google-earth-engine': 'gee.listAlgorithms',
-  'postgresql-postgis': 'sql.query'
+  'postgresql-postgis': 'sql.query',
+  qgis: 'desktop.processing.listAlgorithms'
 }
 
 interface ConnectorTimeoutError extends Error {
@@ -258,7 +259,8 @@ export class ConnectorExecutionService {
               capability: request.capability,
               backend: route.adapter.backend,
               outcome: 'success',
-              message: `${request.integrationId}/${request.capability} succeeded via ${route.adapter.backend}`
+              message: `${request.integrationId}/${request.capability} succeeded via ${route.adapter.backend}`,
+              details: adapterResult.details
             })
 
             return {
@@ -370,7 +372,8 @@ export class ConnectorExecutionService {
       backend: fallbackFailure.backend,
       outcome: fallbackFailure.error.code === 'TIMEOUT' ? 'timeout' : 'error',
       message: fallbackFailure.error.message,
-      errorCode: fallbackFailure.error.code
+      errorCode: fallbackFailure.error.code,
+      details: fallbackFailure.error.details
     })
 
     return fallbackFailure

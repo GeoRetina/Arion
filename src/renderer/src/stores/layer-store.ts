@@ -19,7 +19,6 @@ import type {
   LayerSearchCriteria,
   LayerSearchResult,
   LayerValidationResult,
-  LayerPerformanceMetrics,
   LayerType,
   LayerContext,
   LayerSourceConfig,
@@ -66,7 +65,6 @@ interface LayerStore {
   setLayerVisibility: (id: string, visible: boolean) => Promise<void>
   setLayerOpacity: (id: string, opacity: number) => Promise<void>
   resetLayerStyle: (id: string) => Promise<void>
-  applyStylePreset: (id: string, presetId: string) => Promise<void>
 
   // Layer Organization
   reorderLayers: (layerIds: string[]) => Promise<void>
@@ -99,14 +97,10 @@ interface LayerStore {
   validateLayer: (layer: Partial<LayerDefinition>) => LayerValidationResult
   validateAllLayers: () => LayerValidationResult[]
 
-  // Performance Monitoring
-  recordPerformanceMetrics: (metrics: LayerPerformanceMetrics) => void
-  getPerformanceMetrics: (layerId?: string) => LayerPerformanceMetrics[]
-  clearPerformanceMetrics: () => void
-
   // Persistence Operations
   saveToPersistence: () => Promise<void>
   loadFromPersistence: (includeImported?: boolean) => Promise<void>
+  loadChatLayers: (chatId: string) => Promise<void>
   exportLayers: (layerIds: string[]) => Promise<string>
   importLayers: (data: string) => Promise<string[]>
 
@@ -159,6 +153,18 @@ interface SessionLayerCleanupResult {
   nextErrors: LayerError[]
 }
 
+type LayerAssetIdGetter = (layer: LayerDefinition) => string | null
+
+const getRasterAssetId = (layer: LayerDefinition): string | null => {
+  const assetId = layer.sourceConfig.options?.rasterAssetId
+  return typeof assetId === 'string' && assetId.length > 0 ? assetId : null
+}
+
+const getVectorAssetId = (layer: LayerDefinition): string | null => {
+  const assetId = layer.sourceConfig.options?.vectorAssetId
+  return typeof assetId === 'string' && assetId.length > 0 ? assetId : null
+}
+
 const buildSessionLayerCleanupResult = (
   state: Pick<LayerStore, 'layers' | 'selectedLayerId' | 'operations' | 'errors'>,
   predicate: (layer: LayerDefinition) => boolean
@@ -189,22 +195,23 @@ const buildSessionLayerCleanupResult = (
   }
 }
 
-const collectReleasableRasterAssetIds = (
+const collectReleasableAssetIds = (
   removedLayers: LayerDefinition[],
-  retainedLayers: Iterable<LayerDefinition>
+  retainedLayers: Iterable<LayerDefinition>,
+  getAssetId: LayerAssetIdGetter
 ): string[] => {
   const retainedAssetIds = new Set<string>()
   for (const layer of retainedLayers) {
-    const assetId = layer.sourceConfig.options?.rasterAssetId
-    if (typeof assetId === 'string' && assetId.length > 0) {
+    const assetId = getAssetId(layer)
+    if (assetId) {
       retainedAssetIds.add(assetId)
     }
   }
 
   const releasableAssetIds = new Set<string>()
   for (const layer of removedLayers) {
-    const assetId = layer.sourceConfig.options?.rasterAssetId
-    if (typeof assetId === 'string' && assetId.length > 0 && !retainedAssetIds.has(assetId)) {
+    const assetId = getAssetId(layer)
+    if (assetId && !retainedAssetIds.has(assetId)) {
       releasableAssetIds.add(assetId)
     }
   }
@@ -212,6 +219,25 @@ const collectReleasableRasterAssetIds = (
   return Array.from(releasableAssetIds)
 }
 
+const hasOtherAssetReference = (
+  layers: Iterable<LayerDefinition>,
+  excludedLayerId: string,
+  assetId: string | null,
+  getAssetId: LayerAssetIdGetter
+): boolean => {
+  if (!assetId) {
+    return false
+  }
+
+  return Array.from(layers).some(
+    (candidate) => candidate.id !== excludedLayerId && getAssetId(candidate) === assetId
+  )
+}
+
+const isImportedLayerForChat = (layer: LayerDefinition, chatId: string): boolean =>
+  layer.createdBy === 'import' &&
+  layer.metadata.tags?.includes('session-import') &&
+  layer.metadata.tags?.includes(chatId)
 const cleanupRemovedSessionLayers = (
   removedLayers: LayerDefinition[],
   retainedLayers: Iterable<LayerDefinition>,
@@ -234,9 +260,24 @@ const cleanupRemovedSessionLayers = (
     }
   }
 
-  const releasableAssetIds = collectReleasableRasterAssetIds(removedLayers, retainedLayers)
+  const ephemeralRemovedLayers = removedLayers.filter((layer) => !isPersistableLayer(layer))
+
+  const releasableAssetIds = collectReleasableAssetIds(
+    ephemeralRemovedLayers,
+    retainedLayers,
+    getRasterAssetId
+  )
   for (const assetId of releasableAssetIds) {
     void window.ctg.layers.releaseGeoTiffAsset(assetId).catch(() => {})
+  }
+
+  const releasableVectorAssetIds = collectReleasableAssetIds(
+    ephemeralRemovedLayers,
+    retainedLayers,
+    getVectorAssetId
+  )
+  for (const assetId of releasableVectorAssetIds) {
+    void window.ctg.layers.releaseVectorAsset(assetId).catch(() => {})
   }
 }
 
@@ -422,7 +463,7 @@ const searchLayersImpl = (
   }
 }
 
-// Persist only layers that have a string-based data reference (e.g., URL/file path).
+// Persist layers whose source can be reloaded from a stable reference or managed asset URL.
 const isPersistableLayer = (layer: LayerDefinition): boolean => {
   if (typeof layer.sourceConfig?.data !== 'string') {
     return false
@@ -682,16 +723,20 @@ export const useLayerStore = create<LayerStore>()(
           throw new Error(`Failed to delete persisted layer: ${id}`)
         }
       } else {
-        const rasterAssetId = layer.sourceConfig.options?.rasterAssetId
-        const hasOtherAssetRefs =
-          typeof rasterAssetId === 'string' &&
-          Array.from(get().layers.values()).some(
-            (candidate) =>
-              candidate.id !== id && candidate.sourceConfig.options?.rasterAssetId === rasterAssetId
-          )
-
-        if (typeof rasterAssetId === 'string' && rasterAssetId.length > 0 && !hasOtherAssetRefs) {
+        const rasterAssetId = getRasterAssetId(layer)
+        if (
+          rasterAssetId &&
+          !hasOtherAssetReference(get().layers.values(), id, rasterAssetId, getRasterAssetId)
+        ) {
           await window.ctg.layers.releaseGeoTiffAsset(rasterAssetId)
+        }
+
+        const vectorAssetId = getVectorAssetId(layer)
+        if (
+          vectorAssetId &&
+          !hasOtherAssetReference(get().layers.values(), id, vectorAssetId, getVectorAssetId)
+        ) {
+          await window.ctg.layers.releaseVectorAsset(vectorAssetId)
         }
       }
 
@@ -769,12 +814,6 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       await get().updateLayer(id, { style: { ...DEFAULT_LAYER_STYLE } })
-    },
-
-    applyStylePreset: async (id, presetId) => {
-      // This will be implemented when style presets are added
-      void id
-      void presetId
     },
 
     // Layer Organization
@@ -996,20 +1035,6 @@ export const useLayerStore = create<LayerStore>()(
       })
     },
 
-    // Performance Monitoring
-    recordPerformanceMetrics: (metrics) => {
-      // Performance metrics will be stored separately or in a performance store
-      void metrics
-    },
-
-    getPerformanceMetrics: (layerId) => {
-      // Placeholder - implement when performance monitoring is added
-      void layerId
-      return []
-    },
-
-    clearPerformanceMetrics: () => {},
-
     // Persistence Operations
     saveToPersistence: async () => {
       set({ isLoading: true })
@@ -1080,6 +1105,39 @@ export const useLayerStore = create<LayerStore>()(
         set({
           layers: new Map(mergedLayers.map((l) => [l.id, l])),
           groups: new Map(groups.map((g) => [g.id, g])),
+          selectedLayerId:
+            get().selectedLayerId &&
+            mergedLayers.some((layer) => layer.id === get().selectedLayerId)
+              ? get().selectedLayerId
+              : null,
+          isDirty: false,
+          lastSyncTimestamp: Date.now()
+        })
+      } finally {
+        set({ isLoading: false })
+      }
+    },
+
+    loadChatLayers: async (chatId: string) => {
+      set({ isLoading: true })
+      try {
+        const [layers, groups] = await Promise.all([
+          window.ctg.layers.getAll(),
+          window.ctg.layers.groups.getAll()
+        ])
+
+        const visibleLayers = layers.filter(
+          (layer) => layer.createdBy !== 'import' || isImportedLayerForChat(layer, chatId)
+        )
+
+        set({
+          layers: new Map(visibleLayers.map((layer) => [layer.id, layer])),
+          groups: new Map(groups.map((group) => [group.id, group])),
+          selectedLayerId:
+            get().selectedLayerId &&
+            visibleLayers.some((layer) => layer.id === get().selectedLayerId)
+              ? get().selectedLayerId
+              : null,
           isDirty: false,
           lastSyncTimestamp: Date.now()
         })

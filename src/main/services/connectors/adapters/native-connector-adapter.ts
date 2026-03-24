@@ -12,6 +12,7 @@ import type {
 } from '../../../../shared/ipc-types'
 import type { ConnectorHubService } from '../../connector-hub-service'
 import type { PostgreSQLService } from '../../postgresql-service'
+import type { QgisProcessService } from '../../qgis/qgis-process-service'
 import { getGoogleEarthEngineAccessToken } from '../health-checks/gee-auth'
 import {
   buildCapabilitiesUrl,
@@ -51,7 +52,8 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
 
   constructor(
     private readonly connectorHubService: ConnectorHubService,
-    private readonly postgresqlService: PostgreSQLService
+    private readonly postgresqlService: PostgreSQLService,
+    private readonly qgisProcessService: QgisProcessService
   ) {
     this.handlers = new Map<string, NativeCapabilityExecutor>([
       [
@@ -85,6 +87,26 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
       [
         capabilityKey('google-earth-engine', 'gee.listAlgorithms'),
         (input, timeoutMs) => this.executeGEEListAlgorithms(input, timeoutMs)
+      ],
+      [
+        capabilityKey('qgis', 'desktop.processing.listAlgorithms'),
+        (input, timeoutMs) => this.executeQgisListAlgorithms(input, timeoutMs)
+      ],
+      [
+        capabilityKey('qgis', 'desktop.processing.describeAlgorithm'),
+        (input, timeoutMs) => this.executeQgisDescribeAlgorithm(input, timeoutMs)
+      ],
+      [
+        capabilityKey('qgis', 'desktop.processing.run'),
+        (input, timeoutMs) => this.executeQgisRunAlgorithm(input, timeoutMs)
+      ],
+      [
+        capabilityKey('qgis', 'desktop.style.apply'),
+        (input, timeoutMs) => this.executeQgisApplyStyle(input, timeoutMs)
+      ],
+      [
+        capabilityKey('qgis', 'desktop.layout.export'),
+        (input, timeoutMs) => this.executeQgisExportLayout(input, timeoutMs)
       ]
     ])
   }
@@ -105,7 +127,13 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
       )
     }
 
-    return handler(request.input, context.timeoutMs)
+    return handler(
+      {
+        ...request.input,
+        __chatId: request.chatId
+      },
+      context.timeoutMs
+    )
   }
 
   private async executePostgresqlQuery(
@@ -632,4 +660,184 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
       }
     }
   }
+
+  private async executeQgisListAlgorithms(
+    input: Record<string, unknown>,
+    timeoutMs: number
+  ): Promise<ConnectorAdapterResult> {
+    const parsedLimit =
+      typeof input.limit === 'number'
+        ? input.limit
+        : typeof input.limit === 'string' && input.limit.trim().length > 0
+          ? Number(input.limit.trim())
+          : NaN
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(200, Math.max(1, Math.floor(parsedLimit)))
+      : undefined
+
+    const result = await this.qgisProcessService.listAlgorithms({
+      query: readString(input.query) ?? undefined,
+      provider: readString(input.provider) ?? undefined,
+      limit,
+      timeoutMs
+    })
+    return toQgisConnectorAdapterResult(result)
+  }
+
+  private async executeQgisDescribeAlgorithm(
+    input: Record<string, unknown>,
+    timeoutMs: number
+  ): Promise<ConnectorAdapterResult> {
+    const algorithmId = readString(input.algorithmId)
+    if (!algorithmId) {
+      return buildConnectorError('VALIDATION_FAILED', 'algorithmId is required.')
+    }
+
+    const result = await this.qgisProcessService.describeAlgorithm(algorithmId, { timeoutMs })
+    return toQgisConnectorAdapterResult(result)
+  }
+
+  private async executeQgisRunAlgorithm(
+    input: Record<string, unknown>,
+    timeoutMs: number
+  ): Promise<ConnectorAdapterResult> {
+    const algorithmId = readString(input.algorithmId)
+    if (!algorithmId) {
+      return buildConnectorError('VALIDATION_FAILED', 'algorithmId is required.')
+    }
+
+    const parameters = isRecord(input.parameters) ? input.parameters : {}
+    const expectedOutputs = Array.isArray(input.expectedOutputs)
+      ? input.expectedOutputs.filter((value): value is string => typeof value === 'string')
+      : undefined
+    const outputsToImport = Array.isArray(input.outputsToImport)
+      ? input.outputsToImport.filter((value): value is string => typeof value === 'string')
+      : undefined
+
+    const result = await this.qgisProcessService.runAlgorithm({
+      algorithmId,
+      parameters,
+      projectPath: readString(input.projectPath) ?? undefined,
+      timeoutMs,
+      importPreference: normalizeImportPreference(input.importPreference),
+      expectedOutputs,
+      outputsToImport,
+      chatId: readString(input.__chatId) ?? undefined
+    })
+
+    return toQgisConnectorAdapterResult(result)
+  }
+
+  private async executeQgisApplyStyle(
+    input: Record<string, unknown>,
+    timeoutMs: number
+  ): Promise<ConnectorAdapterResult> {
+    const inputPath = readString(input.inputPath)
+    const stylePath = readString(input.stylePath)
+    if (!inputPath || !stylePath) {
+      return buildConnectorError(
+        'VALIDATION_FAILED',
+        'inputPath and stylePath are required for QGIS style application.'
+      )
+    }
+
+    const result = await this.qgisProcessService.applyLayerStyle({
+      inputPath,
+      stylePath,
+      timeoutMs,
+      chatId: readString(input.__chatId) ?? undefined
+    })
+
+    return toQgisConnectorAdapterResult(result)
+  }
+
+  private async executeQgisExportLayout(
+    input: Record<string, unknown>,
+    timeoutMs: number
+  ): Promise<ConnectorAdapterResult> {
+    const projectPath = readString(input.projectPath)
+    const layoutName = readString(input.layoutName)
+    if (!projectPath || !layoutName) {
+      return buildConnectorError(
+        'VALIDATION_FAILED',
+        'projectPath and layoutName are required for QGIS layout export.'
+      )
+    }
+
+    const result = await this.qgisProcessService.exportLayout({
+      projectPath,
+      layoutName,
+      outputPath: readString(input.outputPath) ?? undefined,
+      format: input.format === 'pdf' || input.format === 'image' ? input.format : undefined,
+      dpi: typeof input.dpi === 'number' ? input.dpi : undefined,
+      georeference: typeof input.georeference === 'boolean' ? input.georeference : undefined,
+      includeMetadata:
+        typeof input.includeMetadata === 'boolean' ? input.includeMetadata : undefined,
+      antialias: typeof input.antialias === 'boolean' ? input.antialias : undefined,
+      forceVector: typeof input.forceVector === 'boolean' ? input.forceVector : undefined,
+      forceRaster: typeof input.forceRaster === 'boolean' ? input.forceRaster : undefined,
+      timeoutMs,
+      chatId: readString(input.__chatId) ?? undefined
+    })
+
+    return toQgisConnectorAdapterResult(result)
+  }
+}
+
+function normalizeImportPreference(value: unknown): 'none' | 'suggest' | 'auto' | undefined {
+  if (value === 'none' || value === 'suggest' || value === 'auto') {
+    return value
+  }
+
+  return undefined
+}
+
+function toConnectorDetails(diagnostics?: unknown): Record<string, unknown> | undefined {
+  if (!diagnostics || typeof diagnostics !== 'object') {
+    return undefined
+  }
+
+  return { ...diagnostics }
+}
+
+function toQgisConnectorAdapterResult(
+  result: Awaited<ReturnType<QgisProcessService['listAlgorithms']>>
+): ConnectorAdapterResult {
+  if (!result.success) {
+    return buildConnectorError(
+      result.errorCode,
+      result.message,
+      toConnectorDetails(result.diagnostics),
+      result.errorCode === 'TIMEOUT'
+    )
+  }
+
+  const outputByPath = new Map(
+    result.outputs.map((output) => [toOutputLookupKey(output.path), output])
+  )
+
+  return {
+    success: true,
+    data: {
+      operation: result.operation,
+      exitCode: result.exitCode,
+      version: result.version,
+      artifacts: result.artifacts,
+      outputs: result.outputs,
+      importedLayers: result.importedLayers.map((entry) => ({
+        path: entry.path,
+        layerName: entry.layer.name,
+        layerType: entry.layer.type,
+        sourceId: entry.layer.sourceId,
+        metadata: outputByPath.get(toOutputLookupKey(entry.path))?.layer?.metadata
+      })),
+      result: result.parsedResult
+    },
+    details: toConnectorDetails(result.diagnostics)
+  }
+}
+
+function toOutputLookupKey(filePath: string): string {
+  const normalizedPath = filePath.replace(/[\\/]+/g, '/')
+  return process.platform === 'win32' ? normalizedPath.toLowerCase() : normalizedPath
 }

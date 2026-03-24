@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useChatHistoryStore, type Message as StoreMessage } from '@/stores/chat-history-store'
+import { useLayerStore } from '@/stores/layer-store'
 import { resetChatStores, prepareChatSwitch } from '@/lib/chat-store-reset'
 import { v4 as uuidv4 } from 'uuid'
 import type { UIMessage } from 'ai'
@@ -27,6 +28,7 @@ export function useChatSession(): UseChatSessionReturn {
     loadChat,
     clearCurrentChat
   } = useChatHistoryStore()
+  const loadChatLayers = useLayerStore((state) => state.loadChatLayers)
 
   const processingNewChatUrlRef = useRef(false)
 
@@ -52,7 +54,8 @@ export function useChatSession(): UseChatSessionReturn {
         // Use centralized chat switch preparation
         prepareChatSwitch(currentChatIdFromStore || undefined, chatIdFromUrl)
         // loadChat should set currentChatId and messages in the store if found
-        loadChat(chatIdFromUrl)
+        void loadChat(chatIdFromUrl)
+        void loadChatLayers(chatIdFromUrl)
       }
     } else if (!chatIdFromUrl && currentChatIdFromStore) {
       // If there's no chat ID in the URL, but there is one in the store (e.g., after a hot reload or returning to the app)
@@ -61,7 +64,7 @@ export function useChatSession(): UseChatSessionReturn {
     }
     // If !chatIdFromUrl && !currentChatIdFromStore, we do nothing, user might be on a different page or app just loaded.
     // ChatInterface might show a "select a chat or start new" message.
-  }, [chatIdFromUrl, currentChatIdFromStore, loadChat, clearCurrentChat, navigate])
+  }, [chatIdFromUrl, currentChatIdFromStore, loadChat, loadChatLayers, clearCurrentChat, navigate])
 
   const stableChatIdForUseChat = useMemo(() => {
     if (chatIdFromUrl && chatIdFromUrl !== 'new') {

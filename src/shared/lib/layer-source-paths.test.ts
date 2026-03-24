@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isQgisCompatibleLayerInputPath,
   isExternalLayerReference,
   resolveLocalLayerFilePath,
+  resolveQgisLayerInputPath,
   trimToNonEmptyString
 } from './layer-source-paths'
 
@@ -21,6 +23,7 @@ describe('layer-source-paths', () => {
       expect(isExternalLayerReference('data:image/png;base64,abc')).toBe(true)
       expect(isExternalLayerReference('arion-raster://tiles/asset/{z}/{x}/{y}.png')).toBe(true)
       expect(isExternalLayerReference('arion-raster:tiles/asset')).toBe(true)
+      expect(isExternalLayerReference('arion-vector://assets/asset.geojson')).toBe(true)
     })
 
     it('does not treat local filesystem paths as external', () => {
@@ -48,7 +51,7 @@ describe('layer-source-paths', () => {
       ).toBe('C:\\data\\roads.geojson')
     })
 
-    it('falls back to rasterSourcePath and absolute source data when needed', () => {
+    it('falls back to managed source paths and absolute source data when needed', () => {
       expect(
         resolveLocalLayerFilePath({
           sourceConfig: {
@@ -58,6 +61,16 @@ describe('layer-source-paths', () => {
           }
         })
       ).toBe('relative\\elevation.tif')
+
+      expect(
+        resolveLocalLayerFilePath({
+          sourceConfig: {
+            options: {
+              vectorSourcePath: 'C:\\data\\roads.gpkg'
+            }
+          }
+        })
+      ).toBe('C:\\data\\roads.gpkg')
 
       expect(
         resolveLocalLayerFilePath({
@@ -87,6 +100,61 @@ describe('layer-source-paths', () => {
           }
         })
       ).toBeNull()
+    })
+  })
+
+  describe('resolveQgisLayerInputPath', () => {
+    it('returns QGIS-ready paths for supported local vector and raster datasets', () => {
+      expect(
+        resolveQgisLayerInputPath({
+          metadata: {
+            context: {
+              localFilePath: 'C:\\data\\roads.gpkg'
+            }
+          }
+        })
+      ).toBe('C:\\data\\roads.gpkg')
+
+      expect(
+        resolveQgisLayerInputPath({
+          sourceConfig: {
+            options: {
+              rasterSourcePath: 'C:\\data\\elevation.tif'
+            }
+          }
+        })
+      ).toBe('C:\\data\\elevation.tif')
+    })
+
+    it('omits unsupported or non-local paths from QGIS-ready output', () => {
+      expect(
+        resolveQgisLayerInputPath({
+          metadata: {
+            context: {
+              localFilePath: 'C:\\data\\overlay.png'
+            }
+          }
+        })
+      ).toBeNull()
+
+      expect(
+        resolveQgisLayerInputPath({
+          metadata: {
+            context: {
+              localFilePath: 'relative\\roads.geojson'
+            }
+          }
+        })
+      ).toBeNull()
+    })
+  })
+
+  describe('isQgisCompatibleLayerInputPath', () => {
+    it('accepts supported absolute dataset paths and rejects unsupported ones', () => {
+      expect(isQgisCompatibleLayerInputPath('C:\\data\\roads.geojson')).toBe(true)
+      expect(isQgisCompatibleLayerInputPath('/tmp/roads.shp')).toBe(true)
+      expect(isQgisCompatibleLayerInputPath('C:\\data\\overlay.png')).toBe(false)
+      expect(isQgisCompatibleLayerInputPath('relative\\roads.geojson')).toBe(false)
     })
   })
 })

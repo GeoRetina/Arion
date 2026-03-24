@@ -11,7 +11,14 @@ import { z } from 'zod'
 import { getRasterTileService } from '../services/raster/raster-tile-service'
 import type { RegisterGeoTiffAssetRequest } from '../services/raster/raster-types'
 import { getGeoPackageImportService } from '../services/vector/geopackage-import-service'
-import type { ImportGeoPackageRequest, ImportGeoPackageResult } from '../../shared/ipc-types'
+import { getVectorAssetService } from '../services/vector/vector-asset-service'
+import type {
+  ImportGeoPackageRequest,
+  ImportGeoPackageResult,
+  RenderGeoTiffTileRequest,
+  RegisterVectorAssetRequest,
+  RegisterVectorAssetResult
+} from '../../shared/ipc-types'
 import type {
   LayerCreateInput,
   LayerDefinition,
@@ -40,7 +47,16 @@ const importGeoPackageSchema = z.object({
   sourcePath: z.string().trim().min(1).max(4096)
 })
 
+const registerVectorAssetSchema = z.object({
+  sourcePath: z.string().trim().min(1).max(4096),
+  format: z.enum(['geojson', 'shapefile', 'geopackage'])
+})
+
 const releaseGeoTiffAssetSchema = z.object({
+  assetId: z.string().uuid()
+})
+
+const releaseVectorAssetSchema = z.object({
   assetId: z.string().uuid()
 })
 
@@ -149,6 +165,16 @@ const rasterRgbBandSelectionSchema = z
   })
   .strict()
 
+const renderGeoTiffTileSchema = z
+  .object({
+    assetId: z.string().uuid(),
+    z: z.number().int().min(0).max(30),
+    x: z.number().int().min(0),
+    y: z.number().int().min(0),
+    rgbBands: rasterRgbBandSelectionSchema.optional()
+  })
+  .strict()
+
 const layerSourceOptionsSchema = z
   .object({
     tileSize: z.number().int().min(1).max(16384).optional(),
@@ -157,6 +183,8 @@ const layerSourceOptionsSchema = z
     attribution: z.string().trim().max(8192).optional(),
     rasterAssetId: z.string().trim().max(256).optional(),
     rasterSourcePath: z.string().trim().max(4096).optional(),
+    vectorAssetId: z.string().trim().max(256).optional(),
+    vectorSourcePath: z.string().trim().max(4096).optional(),
     rasterBandCount: z.number().int().min(1).max(65_535).optional(),
     rasterRgbBands: rasterRgbBandSelectionSchema.optional(),
     scheme: z.enum(['xyz', 'tms']).optional(),
@@ -439,6 +467,7 @@ export function registerLayerHandlers(): void {
   const dbService = getLayerDbService()
   const rasterTileService = getRasterTileService()
   const geoPackageImportService = getGeoPackageImportService()
+  const vectorAssetService = getVectorAssetService()
 
   void cleanupOrphanedRasterAssets(dbService.getAllLayers(), rasterTileService)
 
@@ -501,6 +530,18 @@ export function registerLayerHandlers(): void {
               await rasterTileService.releaseGeoTiffAsset(assetId)
             } catch (error) {
               console.warn(`Failed to release raster asset ${assetId}:`, error)
+            }
+          }
+        }
+
+        const vectorAssetId = getVectorAssetId(existingLayer)
+        if (vectorAssetId) {
+          const remainingLayers = dbService.getAllLayers()
+          if (!hasVectorAssetReference(remainingLayers, vectorAssetId)) {
+            try {
+              await vectorAssetService.releaseVectorAsset(vectorAssetId)
+            } catch (error) {
+              console.warn(`Failed to release vector asset ${vectorAssetId}:`, error)
             }
           }
         }
@@ -703,6 +744,17 @@ export function registerLayerHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    'layers:registerVectorAsset',
+    async (
+      _event: IpcMainInvokeEvent,
+      request: RegisterVectorAssetRequest
+    ): Promise<RegisterVectorAssetResult> => {
+      const parsedRequest = registerVectorAssetSchema.parse(request)
+      return await vectorAssetService.registerVectorAsset(parsedRequest)
+    }
+  )
+
   // GeoTIFF tiling
   ipcMain.handle(
     'layers:registerGeoTiffAsset',
@@ -713,11 +765,30 @@ export function registerLayerHandlers(): void {
   )
 
   ipcMain.handle(
+    'layers:renderGeoTiffTile',
+    async (_event: IpcMainInvokeEvent, request: RenderGeoTiffTileRequest) => {
+      const parsedRequest = renderGeoTiffTileSchema.parse(request)
+      return await rasterTileService.renderTile(parsedRequest)
+    }
+  )
+
+  ipcMain.handle(
     'layers:releaseGeoTiffAsset',
     async (_event: IpcMainInvokeEvent, assetId: string) => {
       const parsedRequest = releaseGeoTiffAssetSchema.parse({ assetId })
       if (!hasRasterAssetReference(dbService.getAllLayers(), parsedRequest.assetId)) {
         await rasterTileService.releaseGeoTiffAsset(parsedRequest.assetId)
+      }
+      return true
+    }
+  )
+
+  ipcMain.handle(
+    'layers:releaseVectorAsset',
+    async (_event: IpcMainInvokeEvent, assetId: string) => {
+      const parsedRequest = releaseVectorAssetSchema.parse({ assetId })
+      if (!hasVectorAssetReference(dbService.getAllLayers(), parsedRequest.assetId)) {
+        await vectorAssetService.releaseVectorAsset(parsedRequest.assetId)
       }
       return true
     }
@@ -762,6 +833,19 @@ function getRasterAssetId(layer: LayerDefinition): string | null {
 
 function hasRasterAssetReference(layers: LayerDefinition[], assetId: string): boolean {
   return layers.some((layer) => getRasterAssetId(layer) === assetId)
+}
+
+function getVectorAssetId(layer: LayerDefinition): string | null {
+  const assetId = layer.sourceConfig.options?.vectorAssetId
+  if (typeof assetId !== 'string' || assetId.length === 0) {
+    return null
+  }
+
+  return assetId
+}
+
+function hasVectorAssetReference(layers: LayerDefinition[], assetId: string): boolean {
+  return layers.some((layer) => getVectorAssetId(layer) === assetId)
 }
 
 async function cleanupOrphanedRasterAssets(
