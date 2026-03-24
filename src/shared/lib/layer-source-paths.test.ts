@@ -23,6 +23,7 @@ describe('layer-source-paths', () => {
       expect(isExternalLayerReference('data:image/png;base64,abc')).toBe(true)
       expect(isExternalLayerReference('arion-raster://tiles/asset/{z}/{x}/{y}.png')).toBe(true)
       expect(isExternalLayerReference('arion-raster:tiles/asset')).toBe(true)
+      expect(isExternalLayerReference('arion-vector://assets/asset.geojson')).toBe(true)
     })
 
     it('does not treat local filesystem paths as external', () => {
@@ -50,7 +51,7 @@ describe('layer-source-paths', () => {
       ).toBe('C:\\data\\roads.geojson')
     })
 
-    it('falls back to rasterSourcePath and absolute source data when needed', () => {
+    it('falls back to managed source paths and absolute source data when needed', () => {
       expect(
         resolveLocalLayerFilePath({
           sourceConfig: {
@@ -60,6 +61,16 @@ describe('layer-source-paths', () => {
           }
         })
       ).toBe('relative\\elevation.tif')
+
+      expect(
+        resolveLocalLayerFilePath({
+          sourceConfig: {
+            options: {
+              vectorSourcePath: 'C:\\data\\roads.gpkg'
+            }
+          }
+        })
+      ).toBe('C:\\data\\roads.gpkg')
 
       expect(
         resolveLocalLayerFilePath({

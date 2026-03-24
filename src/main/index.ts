@@ -30,6 +30,10 @@ import {
   registerRasterTileProtocol
 } from './services/raster/raster-protocol-service'
 import { getRasterTileService } from './services/raster/raster-tile-service'
+import {
+  registerVectorProtocolPrivileges,
+  registerVectorAssetProtocol
+} from './services/vector/vector-protocol-service'
 import { parseHttpsUrl } from './security/path-security'
 import { buildStartupErrorDetail } from './lib/startup-error'
 
@@ -73,6 +77,7 @@ let externalRuntimeRegistryInstance: ExternalRuntimeRegistry
 let hasShownStartupErrorDialog = false
 
 registerRasterProtocolPrivileges()
+registerVectorProtocolPrivileges()
 
 const safeGetAppValue = (getter: () => string): string | null => {
   try {
@@ -144,9 +149,7 @@ function createWindow(): void {
   const allowedDevOrigin = resolveAllowedDevOrigin()
   const allowedProdRendererEntryUrl = resolveAllowedProdRendererEntryUrl()
 
-  if (fs.existsSync(preloadPath)) {
-    // Preload script exists
-  } else {
+  if (!fs.existsSync(preloadPath)) {
     console.warn('Preload script not found at:', preloadPath)
   }
 
@@ -211,7 +214,7 @@ async function initializeApplication(): Promise<void> {
 
   // --- Content Security Policy (CSP) ---
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const connectSrc = ["'self'", 'https:', 'wss:', 'arion-raster:']
+    const connectSrc = ["'self'", 'https:', 'wss:', 'arion-raster:', 'arion-vector:']
     const scriptSrc = ["'self'"]
     if (is.dev) {
       connectSrc.push('http://localhost:*', 'ws://localhost:*')
@@ -375,6 +378,7 @@ async function initializeApplication(): Promise<void> {
   )
   registerLayerHandlers()
   registerRasterTileProtocol(session.defaultSession, getRasterTileService())
+  registerVectorAssetProtocol(session.defaultSession)
   registerAgentIpcHandlers(ipcMain, agentRegistryServiceInstance, promptModuleServiceInstance)
   registerToolIpcHandlers(ipcMain, llmToolServiceInstance)
   // --- End IPC Handler Registration ---
@@ -404,18 +408,6 @@ async function initializeApplication(): Promise<void> {
     if (mcpPermissionServiceInstance) {
       mcpPermissionServiceInstance.cleanup()
     }
-    if (postgresqlServiceInstance) {
-      // PostgreSQLService may not have a close method, add if needed
-    }
-
-    if (agentRegistryServiceInstance) {
-      // No explicit cleanup needed unless we add persistent connections
-    }
-
-    if (promptModuleServiceInstance) {
-      // No explicit cleanup needed unless we add persistent connections
-    }
-
     if (postgresqlServiceInstance) {
       await postgresqlServiceInstance.cleanup()
     }

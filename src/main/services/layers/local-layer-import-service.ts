@@ -1,18 +1,19 @@
 import { promises as fs } from 'fs'
 import { basename, extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
-import type { ImportGeoPackageResult, RegisterGeoTiffAssetResult } from '../../../shared/ipc-types'
+import type {
+  RegisterGeoTiffAssetResult,
+  RegisterVectorAssetResult
+} from '../../../shared/ipc-types'
+import { buildManagedVectorLayerInput } from '../../../shared/lib/managed-vector-layer'
 import { LayerStyleFactory } from '../../../shared/lib/layer-style-factory'
 import type { LayerCreateInput } from '../../../shared/types/layer-types'
 import { ensureLocalFilesystemPath } from '../../security/path-security'
 import { getRasterTileService } from '../raster/raster-tile-service'
-import { getGeoPackageImportService } from '../vector/geopackage-import-service'
-import {
-  basenameWithoutExtension,
-  buildGeoJsonLayerMetadata,
-  buildGeoPackageLayerMetadata,
-  normalizeGeoJson
-} from './local-layer-metadata-utils'
+import { getVectorAssetService } from '../vector/vector-asset-service'
+import { basenameWithoutExtension } from './local-layer-metadata-utils'
+
+type ManagedVectorImportFormat = 'geojson' | 'shapefile' | 'geopackage'
 
 export class LocalLayerImportService {
   public async importPath(
@@ -29,9 +30,11 @@ export class LocalLayerImportService {
     switch (extension) {
       case '.geojson':
       case '.json':
-        return await this.importGeoJsonPath(safeSourcePath, options.layerName)
+        return await this.importManagedVectorPath(safeSourcePath, 'geojson', options.layerName)
+      case '.zip':
+        return await this.importManagedVectorPath(safeSourcePath, 'shapefile', options.layerName)
       case '.gpkg':
-        return await this.importGeoPackagePath(safeSourcePath, options.layerName)
+        return await this.importManagedVectorPath(safeSourcePath, 'geopackage', options.layerName)
       case '.tif':
       case '.tiff':
         return await this.importGeoTiffPath(safeSourcePath, options.layerName)
@@ -42,53 +45,16 @@ export class LocalLayerImportService {
     }
   }
 
-  private async importGeoJsonPath(
+  private async importManagedVectorPath(
     sourcePath: string,
+    format: ManagedVectorImportFormat,
     layerName?: string
   ): Promise<LayerCreateInput> {
-    const fileContents = await fs.readFile(sourcePath, 'utf8')
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(fileContents)
-    } catch (error) {
-      throw new Error(
-        `Failed to parse GeoJSON output "${sourcePath}": ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
-
-    const normalizedGeoJson = normalizeGeoJson(parsed)
-    const metadata = buildGeoJsonLayerMetadata(normalizedGeoJson, sourcePath)
-
-    return {
-      name: layerName || basenameWithoutExtension(sourcePath),
-      type: 'vector',
-      sourceId: `source-${uuidv4()}`,
-      sourceConfig: {
-        type: 'geojson',
-        data: normalizedGeoJson
-      },
-      style: LayerStyleFactory.createVectorStyle(metadata.geometryType),
-      visibility: true,
-      opacity: 1,
-      zIndex: 0,
-      metadata: {
-        ...metadata,
-        context: {
-          ...(metadata.context || {}),
-          localFilePath: sourcePath
-        }
-      },
-      isLocked: false,
-      createdBy: 'import'
-    }
-  }
-
-  private async importGeoPackagePath(
-    sourcePath: string,
-    layerName?: string
-  ): Promise<LayerCreateInput> {
-    const importResult = await getGeoPackageImportService().importFile(sourcePath)
-    return buildVectorLayerFromGeoPackage(importResult, sourcePath, layerName)
+    const asset = await getVectorAssetService().registerVectorAsset({
+      sourcePath,
+      format
+    })
+    return buildManagedVectorLayerFromAsset(asset, sourcePath, layerName)
   }
 
   private async importGeoTiffPath(
@@ -100,28 +66,18 @@ export class LocalLayerImportService {
   }
 }
 
-function buildVectorLayerFromGeoPackage(
-  importResult: ImportGeoPackageResult,
+function buildManagedVectorLayerFromAsset(
+  asset: RegisterVectorAssetResult,
   sourcePath: string,
   layerName?: string
 ): LayerCreateInput {
-  const metadata = buildGeoPackageLayerMetadata(importResult, sourcePath)
-
   return {
-    name: layerName || basenameWithoutExtension(sourcePath),
-    type: 'vector',
-    sourceId: `source-${uuidv4()}`,
-    sourceConfig: {
-      type: 'geojson',
-      data: importResult.geojson
-    },
-    style: LayerStyleFactory.createVectorStyle(metadata.geometryType),
-    visibility: true,
-    opacity: 1,
-    zIndex: 0,
-    metadata,
-    isLocked: false,
-    createdBy: 'import'
+    ...buildManagedVectorLayerInput(
+      asset,
+      layerName || basenameWithoutExtension(sourcePath),
+      sourcePath
+    ),
+    sourceId: `source-${uuidv4()}`
   }
 }
 

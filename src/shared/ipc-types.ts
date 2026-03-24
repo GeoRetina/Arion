@@ -1395,6 +1395,20 @@ export interface ImportGeoPackageResult {
   mergedLayerPropertyName?: string
 }
 
+export type RegisterVectorAssetFormat = 'geojson' | 'shapefile' | 'geopackage'
+
+export interface RegisterVectorAssetRequest {
+  sourcePath: string
+  format: RegisterVectorAssetFormat
+}
+
+export interface RegisterVectorAssetResult {
+  assetId: string
+  dataUrl: string
+  metadata: import('./types/layer-types').LayerMetadata
+  featureCount: number
+}
+
 export interface RegisterGeoTiffAssetRequest {
   sourcePath: string
   jobId?: string
@@ -1504,12 +1518,14 @@ export interface LayerApi {
 
   // GeoTIFF raster asset management
   importGeoPackage: (request: ImportGeoPackageRequest) => Promise<ImportGeoPackageResult>
+  registerVectorAsset: (request: RegisterVectorAssetRequest) => Promise<RegisterVectorAssetResult>
   registerGeoTiffAsset: (
     request: RegisterGeoTiffAssetRequest
   ) => Promise<RegisterGeoTiffAssetResult>
   resolveImportFilePath: (descriptor: LocalFileDescriptor) => Promise<string | null>
   getGeoTiffAssetStatus: (jobId: string) => Promise<GeoTiffAssetProcessingStatus | null>
   releaseGeoTiffAsset: (assetId: string) => Promise<boolean>
+  releaseVectorAsset: (assetId: string) => Promise<boolean>
   updateRuntimeSnapshot: (layers: unknown[]) => Promise<boolean>
   onImportDefinitions: (callback: (payload: LayerImportDefinitionsPayload) => void) => () => void
 }

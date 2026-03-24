@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle, FolderOpen, Loader2, Monitor, Search } from 'lucide-react'
+import { ChevronDown, FolderOpen, Monitor, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,6 +10,8 @@ import type {
   QgisDiscoveredInstallation,
   QgisIntegrationConfig
 } from '../../../../../shared/ipc-types'
+import { IntegrationDialogFooter, IntegrationStatusBanner } from './integration-dialog-shared'
+import { buildIntegrationErrorResult, runIntegrationHealthAction } from './integration-dialog-utils'
 
 interface QgisConfigDialogProps {
   isOpen: boolean
@@ -142,8 +143,14 @@ const getDiagnostics = (result: IntegrationHealthCheckResult | null): string[] =
     : []
 }
 
-const formatTimestamp = (value?: string): string =>
-  value ? new Date(value).toLocaleString() : 'Never'
+const formatTimestamp = (value?: string): string | null => {
+  if (!value) return null
+  try {
+    return new Date(value).toLocaleString()
+  } catch {
+    return null
+  }
+}
 
 export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
   isOpen,
@@ -156,6 +163,7 @@ export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
   const [testResult, setTestResult] = useState<IntegrationHealthCheckResult | null>(null)
   const [isTesting, setIsTesting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
 
   useEffect(() => {
     if (!isOpen) {
@@ -164,6 +172,7 @@ export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
 
     setConfig(toQgisConfig(initialConfig))
     setTestResult(null)
+    setShowDetails(false)
   }, [initialConfig, isOpen])
 
   const resolvedConfig = useMemo(
@@ -176,6 +185,13 @@ export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
   )
   const installations = useMemo(() => getInstallations(testResult), [testResult])
   const diagnostics = useMemo(() => getDiagnostics(testResult), [testResult])
+  const isAlreadyVerified = !testResult && !!config.lastVerifiedAt
+  const verifiedAtLabel = isAlreadyVerified ? formatTimestamp(config.lastVerifiedAt) : null
+  const showStatus = testResult !== null || isAlreadyVerified
+  const statusSuccess = testResult ? testResult.success : true
+  const statusMessage = testResult?.message ?? null
+  const hasDetails =
+    preferredInstallation !== null || installations.length > 1 || diagnostics.length > 0
 
   const updateConfig = (updates: Partial<QgisIntegrationConfig>): void => {
     setConfig((previous) => ({
@@ -213,40 +229,23 @@ export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
   }
 
   const handleTest = async (): Promise<void> => {
-    setIsTesting(true)
-    try {
-      const result = await onTest(config)
-      applyHealthResult(result)
-    } catch (error) {
-      setTestResult({
-        success: false,
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Failed to verify QGIS',
-        checkedAt: new Date().toISOString()
-      })
-    } finally {
-      setIsTesting(false)
-    }
+    await runIntegrationHealthAction({
+      action: () => onTest(config),
+      setPending: setIsTesting,
+      onResult: applyHealthResult,
+      onError: (error) => setTestResult(buildIntegrationErrorResult(error, 'Failed to verify QGIS'))
+    })
   }
 
   const handleSaveAndConnect = async (): Promise<void> => {
-    setIsSaving(true)
-    try {
-      const result = await onSaveAndConnect(config)
-      applyHealthResult(result)
-      if (result.success) {
-        onClose()
-      }
-    } catch (error) {
-      setTestResult({
-        success: false,
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save QGIS integration',
-        checkedAt: new Date().toISOString()
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    await runIntegrationHealthAction({
+      action: () => onSaveAndConnect(config),
+      setPending: setIsSaving,
+      onResult: applyHealthResult,
+      onSuccess: () => onClose(),
+      onError: (error) =>
+        setTestResult(buildIntegrationErrorResult(error, 'Failed to save QGIS integration'))
+    })
   }
 
   return (
@@ -258,7 +257,7 @@ export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
         }
       }}
     >
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Monitor className="h-5 w-5" />
@@ -266,226 +265,206 @@ export const QgisConfigDialog: React.FC<QgisConfigDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Installation</CardTitle>
-              <CardDescription>
-                Auto-detect QGIS when possible, or provide a manual launcher path for a specific
-                installation.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={config.detectionMode === 'auto' ? 'default' : 'outline'}
-                  onClick={() =>
+        <div className="space-y-5">
+          {/* Detection mode */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Installation</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={config.detectionMode === 'auto' ? 'default' : 'outline'}
+                onClick={() =>
+                  updateConfig({
+                    detectionMode: 'auto',
+                    launcherPath: undefined
+                  })
+                }
+              >
+                <Search className="mr-1.5 h-3.5 w-3.5" />
+                Auto Detect
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={config.detectionMode === 'manual' ? 'default' : 'outline'}
+                onClick={() => updateConfig({ detectionMode: 'manual' })}
+              >
+                <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
+                Manual
+              </Button>
+            </div>
+
+            {config.detectionMode === 'manual' && (
+              <div className="flex gap-2">
+                <Input
+                  id="qgis-launcher-path"
+                  value={config.launcherPath || ''}
+                  onChange={(event) =>
                     updateConfig({
-                      detectionMode: 'auto',
-                      launcherPath: undefined
+                      launcherPath: event.target.value
                     })
                   }
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Auto Detect
-                </Button>
+                  placeholder="Path to qgis_process executable"
+                  className="text-sm"
+                />
                 <Button
                   type="button"
-                  variant={config.detectionMode === 'manual' ? 'default' : 'outline'}
-                  onClick={() => updateConfig({ detectionMode: 'manual' })}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleBrowseLauncher()}
                 >
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  Manual Path
+                  Browse
                 </Button>
               </div>
+            )}
+          </div>
 
-              {config.detectionMode === 'manual' && (
-                <div className="space-y-2">
-                  <Label htmlFor="qgis-launcher-path">Launcher Path</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="qgis-launcher-path"
-                      value={config.launcherPath || ''}
-                      onChange={(event) =>
-                        updateConfig({
-                          launcherPath: event.target.value
-                        })
-                      }
-                      placeholder="C:\\Program Files\\QGIS\\bin\\qgis_process-qgis.bat"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void handleBrowseLauncher()}
-                    >
-                      Browse
-                    </Button>
-                  </div>
-                </div>
-              )}
+          <div className="border-t border-border/40" />
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="qgis-timeout">Default Timeout (ms)</Label>
-                  <Input
-                    id="qgis-timeout"
-                    type="number"
-                    inputMode="numeric"
-                    value={typeof config.timeoutMs === 'number' ? String(config.timeoutMs) : ''}
-                    onChange={(event) =>
-                      updateConfig({
-                        timeoutMs: normalizeTimeout(event.target.value)
-                      })
-                    }
-                    placeholder="30000"
-                  />
-                </div>
+          {/* Settings */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Settings</Label>
 
-                <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="qgis-plugins">Allow Plugin Algorithms</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Off by default so only vetted core providers are available.
-                    </p>
-                  </div>
-                  <Switch
-                    id="qgis-plugins"
-                    checked={config.allowPluginAlgorithms === true}
-                    onCheckedChange={(checked) =>
-                      updateConfig({
-                        allowPluginAlgorithms: checked === true
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Verification</CardTitle>
-              <CardDescription>
-                Verify the selected QGIS installation before saving it for connector execution.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button onClick={handleTest} disabled={isTesting}>
-                  {isTesting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    'Verify Installation'
-                  )}
-                </Button>
-                <div className="text-xs text-muted-foreground self-center">
-                  Last verified: {formatTimestamp(resolvedConfig.lastVerifiedAt)}
-                </div>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="qgis-timeout" className="text-xs text-muted-foreground">
+                  Default timeout (ms)
+                </Label>
+                <Input
+                  id="qgis-timeout"
+                  type="number"
+                  inputMode="numeric"
+                  value={typeof config.timeoutMs === 'number' ? String(config.timeoutMs) : ''}
+                  onChange={(event) =>
+                    updateConfig({
+                      timeoutMs: normalizeTimeout(event.target.value)
+                    })
+                  }
+                  placeholder="30000"
+                  className="text-sm"
+                />
               </div>
 
-              {testResult && (
-                <div
-                  className={`rounded-md border p-4 ${
-                    testResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {testResult.success ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    <span
-                      className={`font-medium ${
-                        testResult.success ? 'text-green-700' : 'text-red-700'
-                      }`}
-                    >
-                      {testResult.success ? 'QGIS is ready' : 'QGIS verification failed'}
-                    </span>
-                  </div>
-                  <p
-                    className={`mt-2 text-sm ${
-                      testResult.success ? 'text-green-700' : 'text-red-700'
-                    }`}
-                  >
-                    {testResult.message}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="qgis-plugins" className="text-sm">
+                    Allow plugin algorithms
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Only vetted core providers are available by default.
                   </p>
                 </div>
-              )}
+                <Switch
+                  id="qgis-plugins"
+                  checked={config.allowPluginAlgorithms === true}
+                  onCheckedChange={(checked) =>
+                    updateConfig({
+                      allowPluginAlgorithms: checked === true
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
 
-              {preferredInstallation && (
-                <div className="rounded-md border border-border/60 p-3 text-sm">
-                  <div className="font-medium">Selected installation</div>
-                  <div className="mt-2 text-muted-foreground">
-                    Version: {preferredInstallation.version || 'Unknown'}
-                  </div>
-                  <div className="text-muted-foreground">
-                    Source: {preferredInstallation.source}
-                  </div>
-                  <div className="break-all text-muted-foreground">
-                    Launcher: {preferredInstallation.launcherPath}
-                  </div>
-                  {preferredInstallation.installRoot && (
-                    <div className="break-all text-muted-foreground">
-                      Install root: {preferredInstallation.installRoot}
+          {/* Status — from a fresh test result, or from a previously verified config */}
+          {showStatus && (
+            <>
+              <div className="border-t border-border/40" />
+
+              <IntegrationStatusBanner
+                success={statusSuccess}
+                title={
+                  statusSuccess
+                    ? isAlreadyVerified
+                      ? 'Connected'
+                      : 'QGIS is ready'
+                    : 'Verification failed'
+                }
+                message={statusMessage}
+                secondaryMessage={
+                  isAlreadyVerified && verifiedAtLabel ? `Verified: ${verifiedAtLabel}` : null
+                }
+              />
+
+              {/* Collapsible details */}
+              {hasDetails && (
+                <div className="rounded-md border border-border/60">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowDetails((prev) => !prev)}
+                  >
+                    Details
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform ${showDetails ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {showDetails && (
+                    <div className="border-t border-border/40 px-3 py-2.5 space-y-3 text-xs text-muted-foreground">
+                      {preferredInstallation && (
+                        <div className="space-y-1">
+                          <div className="font-medium text-foreground">Selected installation</div>
+                          <div>Version: {preferredInstallation.version || 'Unknown'}</div>
+                          <div>Source: {preferredInstallation.source}</div>
+                          <div className="break-all">
+                            Launcher: {preferredInstallation.launcherPath}
+                          </div>
+                          {preferredInstallation.installRoot && (
+                            <div className="break-all">
+                              Install root: {preferredInstallation.installRoot}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {installations.length > 1 && (
+                        <div className="space-y-1.5">
+                          <div className="font-medium text-foreground">Other installations</div>
+                          {installations.map((installation) => (
+                            <div
+                              key={`${installation.source}:${installation.launcherPath}`}
+                              className="rounded border border-border/40 px-2 py-1.5"
+                            >
+                              <div className="font-medium text-foreground">
+                                {installation.version || 'Unknown version'}
+                              </div>
+                              <div>Source: {installation.source}</div>
+                              <div className="break-all">{installation.launcherPath}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {diagnostics.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="font-medium text-foreground">Diagnostics</div>
+                          <ul className="list-disc list-inside space-y-0.5">
+                            {diagnostics.map((entry, index) => (
+                              <li key={`${entry}-${index}`}>{entry}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               )}
-
-              {installations.length > 1 && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Detected installations</div>
-                  <div className="space-y-2">
-                    {installations.map((installation) => (
-                      <div
-                        key={`${installation.source}:${installation.launcherPath}`}
-                        className="rounded-md border border-border/60 p-3 text-xs text-muted-foreground"
-                      >
-                        <div className="font-medium text-foreground">
-                          {installation.version || 'Unknown version'}
-                        </div>
-                        <div>Source: {installation.source}</div>
-                        <div className="break-all">{installation.launcherPath}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {diagnostics.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-sm font-medium">Diagnostics</div>
-                  <ul className="space-y-1 text-xs text-muted-foreground">
-                    {diagnostics.map((entry, index) => (
-                      <li key={`${entry}-${index}`}>{entry}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveAndConnect} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save and Connect'
-              )}
-            </Button>
-          </div>
+            </>
+          )}
         </div>
+
+        <IntegrationDialogFooter
+          isSaving={isSaving}
+          isTesting={isTesting}
+          onCancel={onClose}
+          onSave={handleSaveAndConnect}
+          onTest={handleTest}
+          testLabel="Verify"
+          testingLabel="Verifying..."
+        />
       </DialogContent>
     </Dialog>
   )

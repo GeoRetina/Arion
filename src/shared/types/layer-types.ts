@@ -82,6 +82,8 @@ export interface LayerSourceOptions {
   attribution?: string
   rasterAssetId?: string
   rasterSourcePath?: string
+  vectorAssetId?: string
+  vectorSourcePath?: string
   rasterBandCount?: number
   rasterRgbBands?: RasterRgbBandSelection
   scheme?: 'xyz' | 'tms'

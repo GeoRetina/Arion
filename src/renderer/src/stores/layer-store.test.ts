@@ -15,6 +15,7 @@ const layerApiMocks = vi.hoisted(() => ({
   delete: vi.fn(),
   getAll: vi.fn(),
   releaseGeoTiffAsset: vi.fn(),
+  releaseVectorAsset: vi.fn(),
   updateRuntimeSnapshot: vi.fn(),
   groups: {
     create: vi.fn(),
@@ -74,6 +75,7 @@ describe('layer-store', () => {
       updatedAt: new Date('2026-03-21T00:00:00.000Z')
     }))
     layerApiMocks.releaseGeoTiffAsset.mockResolvedValue(true)
+    layerApiMocks.releaseVectorAsset.mockResolvedValue(true)
     layerApiMocks.updateRuntimeSnapshot.mockResolvedValue(true)
     useLayerStore.getState().reset()
   })

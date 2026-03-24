@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, CheckCircle, Loader2, PlugZap } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { PlugZap } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { IntegrationHealthCheckResult } from '../../../../../shared/ipc-types'
+import { IntegrationDialogFooter, IntegrationStatusBanner } from './integration-dialog-shared'
+import { buildIntegrationErrorResult, runIntegrationHealthAction } from './integration-dialog-utils'
 import type { Integration, IntegrationFieldDefinition } from '../types/connector'
 
 interface IntegrationConfigDialogProps {
@@ -73,35 +73,37 @@ export const IntegrationConfigDialog: React.FC<IntegrationConfigDialogProps> = (
 
     if (field.type === 'boolean') {
       return (
-        <div key={field.key} className="flex items-start gap-2 pt-2">
+        <div key={field.key} className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label htmlFor={field.key} className="text-sm">
+              {field.label}
+            </Label>
+            {field.description && (
+              <p className="text-xs text-muted-foreground">{field.description}</p>
+            )}
+          </div>
           <Checkbox
             id={field.key}
             checked={currentValue === true}
             onCheckedChange={(checked) => updateFieldValue(field, checked === true)}
           />
-          <div className="space-y-1">
-            <Label htmlFor={field.key}>{field.label}</Label>
-            {field.description && (
-              <p className="text-xs text-muted-foreground">{field.description}</p>
-            )}
-          </div>
         </div>
       )
     }
 
     if (field.type === 'textarea') {
       return (
-        <div key={field.key} className="space-y-2">
-          <Label htmlFor={field.key}>
+        <div key={field.key} className="space-y-1.5">
+          <Label htmlFor={field.key} className="text-xs text-muted-foreground">
             {field.label}
-            {field.required && <span className="text-red-500 ml-1">*</span>}
+            {field.required && <span className="text-red-500 ml-0.5">*</span>}
           </Label>
           <Textarea
             id={field.key}
             value={typeof currentValue === 'string' ? currentValue : ''}
             onChange={(event) => updateFieldValue(field, event.target.value)}
             placeholder={field.placeholder}
-            className="min-h-28"
+            className="min-h-24 text-sm"
           />
           {field.description && (
             <p className="text-xs text-muted-foreground">{field.description}</p>
@@ -114,10 +116,10 @@ export const IntegrationConfigDialog: React.FC<IntegrationConfigDialogProps> = (
       field.type === 'number' ? 'number' : field.type === 'password' ? 'password' : 'text'
 
     return (
-      <div key={field.key} className="space-y-2">
-        <Label htmlFor={field.key}>
+      <div key={field.key} className="space-y-1.5">
+        <Label htmlFor={field.key} className="text-xs text-muted-foreground">
           {field.label}
-          {field.required && <span className="text-red-500 ml-1">*</span>}
+          {field.required && <span className="text-red-500 ml-0.5">*</span>}
         </Label>
         <Input
           id={field.key}
@@ -138,6 +140,7 @@ export const IntegrationConfigDialog: React.FC<IntegrationConfigDialogProps> = (
             }
           }}
           placeholder={field.placeholder}
+          className="text-sm"
         />
         {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
       </div>
@@ -145,46 +148,30 @@ export const IntegrationConfigDialog: React.FC<IntegrationConfigDialogProps> = (
   }
 
   const handleTest = async (): Promise<void> => {
-    setIsTesting(true)
-    setTestResult(null)
-    try {
-      const result = await onTest(config)
-      setTestResult(result)
-    } catch (error) {
-      setTestResult({
-        success: false,
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Failed to test integration',
-        checkedAt: new Date().toISOString()
-      })
-    } finally {
-      setIsTesting(false)
-    }
+    await runIntegrationHealthAction({
+      action: () => onTest(config),
+      setPending: setIsTesting,
+      onStart: () => setTestResult(null),
+      onResult: setTestResult,
+      onError: (error) =>
+        setTestResult(buildIntegrationErrorResult(error, 'Failed to test integration'))
+    })
   }
 
   const handleSaveAndConnect = async (): Promise<void> => {
-    setIsSaving(true)
-    try {
-      const result = await onSaveAndConnect(config)
-      setTestResult(result)
-      if (result.success) {
-        onClose()
-      }
-    } catch (error) {
-      setTestResult({
-        success: false,
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Failed to save integration config',
-        checkedAt: new Date().toISOString()
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    await runIntegrationHealthAction({
+      action: () => onSaveAndConnect(config),
+      setPending: setIsSaving,
+      onResult: setTestResult,
+      onSuccess: () => onClose(),
+      onError: (error) =>
+        setTestResult(buildIntegrationErrorResult(error, 'Failed to save integration config'))
+    })
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PlugZap className="h-5 w-5" />
@@ -192,84 +179,36 @@ export const IntegrationConfigDialog: React.FC<IntegrationConfigDialogProps> = (
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Connection Settings</CardTitle>
-              <CardDescription>
-                Configure the connection settings and verify connectivity before saving.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {fields.map((field) => renderField(field))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Connection Test</CardTitle>
-              <CardDescription>
-                Run a live connectivity check with the current settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button onClick={handleTest} disabled={!isFormValid || isTesting} className="w-full">
-                {isTesting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Testing...
-                  </>
-                ) : (
-                  'Test Connection'
-                )}
-              </Button>
-
-              {testResult && (
-                <div
-                  className={`p-4 rounded-md border ${
-                    testResult.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {testResult.success ? (
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    ) : (
-                      <AlertCircle className="h-5 w-5 text-red-600" />
-                    )}
-                    <span
-                      className={`font-medium ${
-                        testResult.success ? 'text-green-700' : 'text-red-700'
-                      }`}
-                    >
-                      {testResult.success ? 'Connection successful' : 'Connection failed'}
-                    </span>
-                  </div>
-                  <p
-                    className={`text-sm mt-2 ${testResult.success ? 'text-green-700' : 'text-red-700'}`}
-                  >
-                    {testResult.message}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveAndConnect} disabled={!isFormValid || isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save and Connect'
-              )}
-            </Button>
+        <div className="space-y-5">
+          {/* Fields */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Connection</Label>
+            <div className="space-y-3">{fields.map((field) => renderField(field))}</div>
           </div>
+
+          {/* Test result */}
+          {testResult && (
+            <>
+              <div className="border-t border-border/40" />
+
+              <IntegrationStatusBanner
+                success={testResult.success}
+                title={testResult.success ? 'Connection successful' : 'Connection failed'}
+                message={testResult.message ?? null}
+              />
+            </>
+          )}
         </div>
+
+        <IntegrationDialogFooter
+          disableSave={!isFormValid}
+          disableTest={!isFormValid}
+          isSaving={isSaving}
+          isTesting={isTesting}
+          onCancel={onClose}
+          onSave={handleSaveAndConnect}
+          onTest={handleTest}
+        />
       </DialogContent>
     </Dialog>
   )

@@ -3,6 +3,7 @@ type LayerSourcePathLike = {
     data?: unknown
     options?: {
       rasterSourcePath?: unknown
+      vectorSourcePath?: unknown
     } | null
   } | null
   metadata?: {
@@ -36,7 +37,8 @@ export function isExternalLayerReference(value: string): boolean {
     normalized.startsWith('https://') ||
     normalized.startsWith('blob:') ||
     normalized.startsWith('data:') ||
-    normalized.startsWith('arion-raster:')
+    normalized.startsWith('arion-raster:') ||
+    normalized.startsWith('arion-vector:')
   )
 }
 
@@ -55,6 +57,11 @@ export function resolveLocalLayerFilePath(layer: LayerSourcePathLike): string | 
   const rasterSourcePath = trimToNonEmptyString(layer.sourceConfig?.options?.rasterSourcePath)
   if (rasterSourcePath) {
     return rasterSourcePath
+  }
+
+  const vectorSourcePath = trimToNonEmptyString(layer.sourceConfig?.options?.vectorSourcePath)
+  if (vectorSourcePath) {
+    return vectorSourcePath
   }
 
   const sourceData = trimToNonEmptyString(layer.sourceConfig?.data)

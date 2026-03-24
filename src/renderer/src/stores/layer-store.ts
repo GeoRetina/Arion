@@ -19,7 +19,6 @@ import type {
   LayerSearchCriteria,
   LayerSearchResult,
   LayerValidationResult,
-  LayerPerformanceMetrics,
   LayerType,
   LayerContext,
   LayerSourceConfig,
@@ -66,7 +65,6 @@ interface LayerStore {
   setLayerVisibility: (id: string, visible: boolean) => Promise<void>
   setLayerOpacity: (id: string, opacity: number) => Promise<void>
   resetLayerStyle: (id: string) => Promise<void>
-  applyStylePreset: (id: string, presetId: string) => Promise<void>
 
   // Layer Organization
   reorderLayers: (layerIds: string[]) => Promise<void>
@@ -98,11 +96,6 @@ interface LayerStore {
   // Validation
   validateLayer: (layer: Partial<LayerDefinition>) => LayerValidationResult
   validateAllLayers: () => LayerValidationResult[]
-
-  // Performance Monitoring
-  recordPerformanceMetrics: (metrics: LayerPerformanceMetrics) => void
-  getPerformanceMetrics: (layerId?: string) => LayerPerformanceMetrics[]
-  clearPerformanceMetrics: () => void
 
   // Persistence Operations
   saveToPersistence: () => Promise<void>
@@ -159,6 +152,18 @@ interface SessionLayerCleanupResult {
   nextErrors: LayerError[]
 }
 
+type LayerAssetIdGetter = (layer: LayerDefinition) => string | null
+
+const getRasterAssetId = (layer: LayerDefinition): string | null => {
+  const assetId = layer.sourceConfig.options?.rasterAssetId
+  return typeof assetId === 'string' && assetId.length > 0 ? assetId : null
+}
+
+const getVectorAssetId = (layer: LayerDefinition): string | null => {
+  const assetId = layer.sourceConfig.options?.vectorAssetId
+  return typeof assetId === 'string' && assetId.length > 0 ? assetId : null
+}
+
 const buildSessionLayerCleanupResult = (
   state: Pick<LayerStore, 'layers' | 'selectedLayerId' | 'operations' | 'errors'>,
   predicate: (layer: LayerDefinition) => boolean
@@ -189,27 +194,43 @@ const buildSessionLayerCleanupResult = (
   }
 }
 
-const collectReleasableRasterAssetIds = (
+const collectReleasableAssetIds = (
   removedLayers: LayerDefinition[],
-  retainedLayers: Iterable<LayerDefinition>
+  retainedLayers: Iterable<LayerDefinition>,
+  getAssetId: LayerAssetIdGetter
 ): string[] => {
   const retainedAssetIds = new Set<string>()
   for (const layer of retainedLayers) {
-    const assetId = layer.sourceConfig.options?.rasterAssetId
-    if (typeof assetId === 'string' && assetId.length > 0) {
+    const assetId = getAssetId(layer)
+    if (assetId) {
       retainedAssetIds.add(assetId)
     }
   }
 
   const releasableAssetIds = new Set<string>()
   for (const layer of removedLayers) {
-    const assetId = layer.sourceConfig.options?.rasterAssetId
-    if (typeof assetId === 'string' && assetId.length > 0 && !retainedAssetIds.has(assetId)) {
+    const assetId = getAssetId(layer)
+    if (assetId && !retainedAssetIds.has(assetId)) {
       releasableAssetIds.add(assetId)
     }
   }
 
   return Array.from(releasableAssetIds)
+}
+
+const hasOtherAssetReference = (
+  layers: Iterable<LayerDefinition>,
+  excludedLayerId: string,
+  assetId: string | null,
+  getAssetId: LayerAssetIdGetter
+): boolean => {
+  if (!assetId) {
+    return false
+  }
+
+  return Array.from(layers).some(
+    (candidate) => candidate.id !== excludedLayerId && getAssetId(candidate) === assetId
+  )
 }
 
 const cleanupRemovedSessionLayers = (
@@ -234,9 +255,22 @@ const cleanupRemovedSessionLayers = (
     }
   }
 
-  const releasableAssetIds = collectReleasableRasterAssetIds(removedLayers, retainedLayers)
+  const releasableAssetIds = collectReleasableAssetIds(
+    removedLayers,
+    retainedLayers,
+    getRasterAssetId
+  )
   for (const assetId of releasableAssetIds) {
     void window.ctg.layers.releaseGeoTiffAsset(assetId).catch(() => {})
+  }
+
+  const releasableVectorAssetIds = collectReleasableAssetIds(
+    removedLayers,
+    retainedLayers,
+    getVectorAssetId
+  )
+  for (const assetId of releasableVectorAssetIds) {
+    void window.ctg.layers.releaseVectorAsset(assetId).catch(() => {})
   }
 }
 
@@ -429,7 +463,11 @@ const isPersistableLayer = (layer: LayerDefinition): boolean => {
   }
 
   const sourceData = layer.sourceConfig.data.trim().toLowerCase()
-  if (sourceData.startsWith('blob:') || sourceData.startsWith('data:')) {
+  if (
+    sourceData.startsWith('blob:') ||
+    sourceData.startsWith('data:') ||
+    sourceData.startsWith('arion-vector:')
+  ) {
     return false
   }
 
@@ -682,16 +720,20 @@ export const useLayerStore = create<LayerStore>()(
           throw new Error(`Failed to delete persisted layer: ${id}`)
         }
       } else {
-        const rasterAssetId = layer.sourceConfig.options?.rasterAssetId
-        const hasOtherAssetRefs =
-          typeof rasterAssetId === 'string' &&
-          Array.from(get().layers.values()).some(
-            (candidate) =>
-              candidate.id !== id && candidate.sourceConfig.options?.rasterAssetId === rasterAssetId
-          )
-
-        if (typeof rasterAssetId === 'string' && rasterAssetId.length > 0 && !hasOtherAssetRefs) {
+        const rasterAssetId = getRasterAssetId(layer)
+        if (
+          rasterAssetId &&
+          !hasOtherAssetReference(get().layers.values(), id, rasterAssetId, getRasterAssetId)
+        ) {
           await window.ctg.layers.releaseGeoTiffAsset(rasterAssetId)
+        }
+
+        const vectorAssetId = getVectorAssetId(layer)
+        if (
+          vectorAssetId &&
+          !hasOtherAssetReference(get().layers.values(), id, vectorAssetId, getVectorAssetId)
+        ) {
+          await window.ctg.layers.releaseVectorAsset(vectorAssetId)
         }
       }
 
@@ -769,12 +811,6 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       await get().updateLayer(id, { style: { ...DEFAULT_LAYER_STYLE } })
-    },
-
-    applyStylePreset: async (id, presetId) => {
-      // This will be implemented when style presets are added
-      void id
-      void presetId
     },
 
     // Layer Organization
@@ -995,20 +1031,6 @@ export const useLayerStore = create<LayerStore>()(
         return validateLayerDefinition(_layer)
       })
     },
-
-    // Performance Monitoring
-    recordPerformanceMetrics: (metrics) => {
-      // Performance metrics will be stored separately or in a performance store
-      void metrics
-    },
-
-    getPerformanceMetrics: (layerId) => {
-      // Placeholder - implement when performance monitoring is added
-      void layerId
-      return []
-    },
-
-    clearPerformanceMetrics: () => {},
 
     // Persistence Operations
     saveToPersistence: async () => {
