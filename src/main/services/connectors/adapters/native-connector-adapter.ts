@@ -710,6 +710,9 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
     const expectedOutputs = Array.isArray(input.expectedOutputs)
       ? input.expectedOutputs.filter((value): value is string => typeof value === 'string')
       : undefined
+    const outputsToImport = Array.isArray(input.outputsToImport)
+      ? input.outputsToImport.filter((value): value is string => typeof value === 'string')
+      : undefined
 
     const result = await this.qgisProcessService.runAlgorithm({
       algorithmId,
@@ -718,6 +721,7 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
       timeoutMs,
       importPreference: normalizeImportPreference(input.importPreference),
       expectedOutputs,
+      outputsToImport,
       chatId: readString(input.__chatId) ?? undefined
     })
 
@@ -808,6 +812,10 @@ function toQgisConnectorAdapterResult(
     )
   }
 
+  const outputByPath = new Map(
+    result.outputs.map((output) => [toOutputLookupKey(output.path), output])
+  )
+
   return {
     success: true,
     data: {
@@ -815,13 +823,21 @@ function toQgisConnectorAdapterResult(
       exitCode: result.exitCode,
       version: result.version,
       artifacts: result.artifacts,
+      outputs: result.outputs,
       importedLayers: result.importedLayers.map((entry) => ({
         path: entry.path,
         layerName: entry.layer.name,
-        layerType: entry.layer.type
+        layerType: entry.layer.type,
+        sourceId: entry.layer.sourceId,
+        metadata: outputByPath.get(toOutputLookupKey(entry.path))?.layer?.metadata
       })),
       result: result.parsedResult
     },
     details: toConnectorDetails(result.diagnostics)
   }
+}
+
+function toOutputLookupKey(filePath: string): string {
+  const normalizedPath = filePath.replace(/[\\/]+/g, '/')
+  return process.platform === 'win32' ? normalizedPath.toLowerCase() : normalizedPath
 }

@@ -283,6 +283,7 @@ describe('NativeConnectorAdapter', () => {
       timeoutMs: 5000,
       importPreference: undefined,
       expectedOutputs: undefined,
+      outputsToImport: undefined,
       chatId: 'chat-qgis'
     })
     expect(result.success).toBe(false)
@@ -310,6 +311,7 @@ describe('NativeConnectorAdapter', () => {
         version: '3.40.1',
         artifacts: [],
         importedLayers: [],
+        outputs: [],
         parsedResult: {
           algorithms: [
             {
@@ -383,6 +385,7 @@ describe('NativeConnectorAdapter', () => {
         exitCode: 0,
         version: '3.40.1',
         artifacts: [],
+        outputs: [],
         importedLayers: [],
         result: {
           algorithms: [
@@ -424,7 +427,28 @@ describe('NativeConnectorAdapter', () => {
             path: 'E:\\outputs\\buffer.geojson',
             kind: 'vector',
             exists: true,
+            selectedForImport: true,
             imported: true
+          }
+        ],
+        outputs: [
+          {
+            path: 'E:\\outputs\\buffer.geojson',
+            kind: 'vector',
+            exists: true,
+            selectedForImport: true,
+            imported: true,
+            layer: {
+              name: 'buffer-output',
+              type: 'vector',
+              sourceType: 'geojson',
+              sourceId: 'source-buffer-output',
+              metadata: {
+                tags: ['qgis'],
+                featureCount: 42,
+                geometryType: 'Polygon'
+              }
+            }
           }
         ],
         importedLayers: [
@@ -507,14 +531,41 @@ describe('NativeConnectorAdapter', () => {
             path: 'E:\\outputs\\buffer.geojson',
             kind: 'vector',
             exists: true,
+            selectedForImport: true,
             imported: true
+          }
+        ],
+        outputs: [
+          {
+            path: 'E:\\outputs\\buffer.geojson',
+            kind: 'vector',
+            exists: true,
+            selectedForImport: true,
+            imported: true,
+            layer: {
+              name: 'buffer-output',
+              type: 'vector',
+              sourceType: 'geojson',
+              sourceId: 'source-buffer-output',
+              metadata: {
+                tags: ['qgis'],
+                featureCount: 42,
+                geometryType: 'Polygon'
+              }
+            }
           }
         ],
         importedLayers: [
           {
             path: 'E:\\outputs\\buffer.geojson',
             layerName: 'buffer-output',
-            layerType: 'vector'
+            layerType: 'vector',
+            sourceId: 'source-buffer-output',
+            metadata: {
+              tags: ['qgis'],
+              featureCount: 42,
+              geometryType: 'Polygon'
+            }
           }
         ],
         result: {
@@ -522,5 +573,83 @@ describe('NativeConnectorAdapter', () => {
         }
       })
     }
+  })
+
+  it('forwards outputsToImport to the QGIS process service', async () => {
+    const qgisProcessService = {
+      listAlgorithms: vi.fn(),
+      describeAlgorithm: vi.fn(),
+      runAlgorithm: vi.fn(async () => ({
+        success: true,
+        operation: 'runAlgorithm',
+        stdout: '{}',
+        stderr: '',
+        exitCode: 0,
+        durationMs: 12,
+        version: '3.40.1',
+        artifacts: [],
+        outputs: [],
+        importedLayers: [],
+        parsedResult: {
+          algorithmId: 'native:extractbyexpression'
+        },
+        diagnostics: {
+          launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat',
+          workspacePath: 'C:\\workspace',
+          outputDirectory: 'C:\\workspace\\outputs',
+          discoveryDiagnostics: []
+        }
+      })),
+      applyLayerStyle: vi.fn(),
+      exportLayout: vi.fn()
+    }
+
+    const adapter = new NativeConnectorAdapter(
+      {
+        getConfig: vi.fn(async () => ({ detectionMode: 'auto' }))
+      } as never,
+      {
+        getConnectionInfo: vi.fn(async () => ({ connected: true, config: {} })),
+        executeQuery: vi.fn()
+      } as never,
+      qgisProcessService as never
+    )
+
+    const result = await adapter.execute(
+      {
+        integrationId: 'qgis',
+        capability: 'desktop.processing.run',
+        chatId: 'chat-qgis',
+        input: {
+          algorithmId: 'native:extractbyexpression',
+          parameters: {
+            INPUT: 'E:\\data\\network.geojson',
+            OUTPUT: 'E:\\outputs\\top_10.geojson'
+          },
+          importPreference: 'auto',
+          outputsToImport: ['E:\\outputs\\top_10.geojson']
+        }
+      },
+      {
+        timeoutMs: 5000,
+        attempt: 0,
+        maxRetries: 0
+      }
+    )
+
+    expect(qgisProcessService.runAlgorithm).toHaveBeenCalledWith({
+      algorithmId: 'native:extractbyexpression',
+      parameters: {
+        INPUT: 'E:\\data\\network.geojson',
+        OUTPUT: 'E:\\outputs\\top_10.geojson'
+      },
+      projectPath: undefined,
+      timeoutMs: 5000,
+      importPreference: 'auto',
+      expectedOutputs: undefined,
+      outputsToImport: ['E:\\outputs\\top_10.geojson'],
+      chatId: 'chat-qgis'
+    })
+    expect(result.success).toBe(true)
   })
 })

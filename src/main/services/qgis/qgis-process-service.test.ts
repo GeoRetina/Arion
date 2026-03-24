@@ -22,8 +22,9 @@ vi.mock('./qgis-command-runner', () => ({
 
 import type { LayerCreateInput } from '../../../shared/types/layer-types'
 import { QgisProcessService } from './qgis-process-service'
+import type { QgisDiscoveryResult } from './types'
 
-function createDiscoveredInstallation() {
+function createDiscoveredInstallation(): QgisDiscoveryResult {
   return {
     status: 'found' as const,
     preferredInstallation: {
@@ -214,7 +215,16 @@ describe('QgisProcessService', () => {
       opacity: 1,
       zIndex: 0,
       metadata: {
-        tags: ['qgis']
+        tags: ['qgis'],
+        featureCount: 5,
+        geometryType: 'Polygon',
+        bounds: [-79.4, 43.6, -79.2, 43.8],
+        attributes: {
+          id: {
+            type: 'number',
+            nullable: false
+          }
+        }
       },
       isLocked: false,
       createdBy: 'import'
@@ -290,12 +300,35 @@ describe('QgisProcessService', () => {
       expect(result.artifacts[0]).toMatchObject({
         kind: 'vector',
         exists: true,
+        selectedForImport: true,
         imported: true
       })
       expect(result.importedLayers).toEqual([
         {
           path: result.artifacts[0].path,
           layer: importedLayer
+        }
+      ])
+      expect(result.outputs).toEqual([
+        {
+          path: result.artifacts[0].path,
+          kind: 'vector',
+          exists: true,
+          selectedForImport: true,
+          imported: true,
+          layer: {
+            name: 'buffer-output',
+            type: 'vector',
+            sourceType: 'geojson',
+            sourceId: 'source-buffer-output',
+            metadata: {
+              tags: ['qgis'],
+              featureCount: 5,
+              geometryType: 'Polygon',
+              bounds: [-79.4, 43.6, -79.2, 43.8],
+              attributeKeys: ['id']
+            }
+          }
         }
       ])
     }
@@ -336,7 +369,9 @@ describe('QgisProcessService', () => {
       opacity: 1,
       zIndex: 0,
       metadata: {
-        tags: ['qgis']
+        tags: ['qgis'],
+        featureCount: 7,
+        geometryType: 'Polygon'
       },
       isLocked: false,
       createdBy: 'import'
@@ -406,12 +441,33 @@ describe('QgisProcessService', () => {
       expect(result.artifacts[0]).toMatchObject({
         kind: 'vector',
         exists: true,
+        selectedForImport: true,
         imported: true
       })
       expect(result.importedLayers).toEqual([
         {
           path: result.artifacts[0].path,
           layer: importedLayer
+        }
+      ])
+      expect(result.outputs).toEqual([
+        {
+          path: result.artifacts[0].path,
+          kind: 'vector',
+          exists: true,
+          selectedForImport: true,
+          imported: true,
+          layer: {
+            name: 'buffer-output',
+            type: 'vector',
+            sourceType: 'geojson',
+            sourceId: 'source-buffer-output',
+            metadata: {
+              tags: ['qgis'],
+              featureCount: 7,
+              geometryType: 'Polygon'
+            }
+          }
         }
       ])
     }
@@ -423,5 +479,371 @@ describe('QgisProcessService', () => {
       runId: expect.any(String),
       layers: [importedLayer]
     })
+  })
+
+  it('inspects supported output artifacts when importPreference is suggest', async () => {
+    const inputPath = path.join(tempRoot, 'input.geojson')
+    await fs.writeFile(
+      inputPath,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: []
+      }),
+      'utf8'
+    )
+
+    runQgisLauncherCommand.mockImplementation(async ({ stdin }: { stdin?: string }) => {
+      const payload = JSON.parse(stdin || '{}') as {
+        inputs?: { OUTPUT?: string }
+      }
+      const outputPath = payload.inputs?.OUTPUT
+      if (!outputPath) {
+        throw new Error('Missing output path in mocked QGIS request')
+      }
+
+      await fs.writeFile(
+        outputPath,
+        JSON.stringify({
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              geometry: {
+                type: 'Point',
+                coordinates: [-79.38, 43.65]
+              },
+              properties: {
+                id: 1,
+                name: 'Downtown'
+              }
+            }
+          ]
+        }),
+        'utf8'
+      )
+
+      return {
+        stdout: JSON.stringify({
+          results: {
+            OUTPUT: outputPath
+          }
+        }),
+        stderr: '',
+        exitCode: 0,
+        durationMs: 18
+      }
+    })
+
+    const localLayerImportService = {
+      importPath: vi.fn()
+    }
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      localLayerImportService: localLayerImportService as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const result = await service.runAlgorithm({
+      algorithmId: 'native:extractbyexpression',
+      parameters: {
+        INPUT: inputPath,
+        OUTPUT: 'suggest-output.geojson'
+      },
+      importPreference: 'suggest'
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.importedLayers).toEqual([])
+      expect(result.outputs).toEqual([
+        {
+          path: result.artifacts[0].path,
+          kind: 'vector',
+          exists: true,
+          selectedForImport: false,
+          imported: false,
+          layer: {
+            name: 'suggest-output',
+            type: 'vector',
+            sourceType: 'geojson',
+            metadata: {
+              description: 'Imported GeoJSON file with 1 features',
+              tags: ['imported', 'geojson'],
+              geometryType: 'Point',
+              featureCount: 1,
+              bounds: [-79.38, 43.65, -79.38, 43.65],
+              crs: 'EPSG:4326',
+              attributeKeys: ['id', 'name']
+            }
+          }
+        }
+      ])
+    }
+
+    expect(localLayerImportService.importPath).not.toHaveBeenCalled()
+  })
+
+  it('imports only explicitly selected outputs when outputsToImport is provided', async () => {
+    const inputPath = path.join(tempRoot, 'input.geojson')
+    await fs.writeFile(
+      inputPath,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: []
+      }),
+      'utf8'
+    )
+
+    const importedLayerByPath = new Map<string, LayerCreateInput>()
+    const broadcastLayerImports = vi.fn()
+    let expectedTop10Path: string | undefined
+    let expectedRemainderPath: string | undefined
+    const localLayerImportService = {
+      importPath: vi.fn(async (artifactPath: string) => {
+        const layer = importedLayerByPath.get(artifactPath)
+        if (!layer) {
+          throw new Error(`Unexpected import path: ${artifactPath}`)
+        }
+        return layer
+      })
+    }
+
+    runQgisLauncherCommand.mockImplementation(async ({ stdin }: { stdin?: string }) => {
+      const payload = JSON.parse(stdin || '{}') as {
+        inputs?: { TOP10_OUTPUT?: string; REMAINDER_OUTPUT?: string }
+      }
+      const top10Path = payload.inputs?.TOP10_OUTPUT
+      const remainderPath = payload.inputs?.REMAINDER_OUTPUT
+      if (!top10Path || !remainderPath) {
+        throw new Error('Missing output paths in mocked QGIS request')
+      }
+
+      importedLayerByPath.set(top10Path, {
+        name: 'top_10_longest_features',
+        type: 'vector',
+        sourceId: 'source-top-10',
+        sourceConfig: {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: []
+          }
+        },
+        style: {},
+        visibility: true,
+        opacity: 1,
+        zIndex: 0,
+        metadata: {
+          tags: ['qgis'],
+          featureCount: 10,
+          geometryType: 'LineString'
+        },
+        isLocked: false,
+        createdBy: 'import'
+      })
+
+      await fs.writeFile(
+        top10Path,
+        JSON.stringify({
+          type: 'FeatureCollection',
+          features: Array.from({ length: 10 }, (_, index) => ({
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [
+                [-79.4 + index * 0.001, 43.6],
+                [-79.39 + index * 0.001, 43.61]
+              ]
+            },
+            properties: {
+              rank: index + 1
+            }
+          }))
+        }),
+        'utf8'
+      )
+
+      await fs.writeFile(
+        remainderPath,
+        JSON.stringify({
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [-79.5, 43.7],
+                  [-79.49, 43.71]
+                ]
+              },
+              properties: {
+                kind: 'remainder'
+              }
+            }
+          ]
+        }),
+        'utf8'
+      )
+
+      return {
+        stdout: JSON.stringify({
+          results: {
+            TOP10_OUTPUT: top10Path,
+            REMAINDER_OUTPUT: remainderPath
+          }
+        }),
+        stderr: '',
+        exitCode: 0,
+        durationMs: 21
+      }
+    })
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      localLayerImportService: localLayerImportService as never,
+      getUserDataPath: () => tempRoot,
+      broadcastLayerImports
+    })
+
+    const result = await service.runAlgorithm({
+      algorithmId: 'native:extractbyexpression',
+      parameters: {
+        INPUT: inputPath,
+        TOP10_OUTPUT: 'top_10_longest_features.geojson',
+        REMAINDER_OUTPUT: 'non_top10_features.geojson'
+      },
+      importPreference: 'auto',
+      outputsToImport: ['top_10_longest_features.geojson'],
+      chatId: 'chat-qgis'
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expectedTop10Path = path.join(
+        result.diagnostics.outputDirectory,
+        'top_10_longest_features.geojson'
+      )
+      expectedRemainderPath = path.join(
+        result.diagnostics.outputDirectory,
+        'non_top10_features.geojson'
+      )
+
+      expect(result.artifacts).toHaveLength(2)
+      expect(result.artifacts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: expectedTop10Path,
+            kind: 'vector',
+            exists: true,
+            selectedForImport: true,
+            imported: true
+          }),
+          expect.objectContaining({
+            path: expectedRemainderPath,
+            kind: 'vector',
+            exists: true,
+            selectedForImport: false
+          })
+        ])
+      )
+      expect(result.importedLayers).toEqual([
+        {
+          path: expectedTop10Path,
+          layer: importedLayerByPath.get(expectedTop10Path) as LayerCreateInput
+        }
+      ])
+      expect(result.outputs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: expectedTop10Path,
+            selectedForImport: true,
+            imported: true,
+            layer: expect.objectContaining({
+              name: 'top_10_longest_features',
+              sourceId: 'source-top-10',
+              metadata: expect.objectContaining({
+                featureCount: 10,
+                geometryType: 'LineString'
+              })
+            })
+          }),
+          expect.objectContaining({
+            path: expectedRemainderPath,
+            selectedForImport: false,
+            imported: false,
+            layer: expect.objectContaining({
+              name: 'non_top10_features',
+              metadata: expect.objectContaining({
+                featureCount: 1,
+                geometryType: 'LineString'
+              })
+            })
+          })
+        ])
+      )
+    }
+
+    expect(expectedTop10Path).toBeDefined()
+    expect(localLayerImportService.importPath).toHaveBeenCalledTimes(1)
+    expect(localLayerImportService.importPath).toHaveBeenCalledWith(expectedTop10Path)
+    expect(broadcastLayerImports).toHaveBeenCalledWith({
+      chatId: 'chat-qgis',
+      source: 'qgis',
+      runId: expect.any(String),
+      layers: [importedLayerByPath.get(expectedTop10Path as string) as LayerCreateInput]
+    })
+  })
+
+  it('rejects outputsToImport paths outside the managed workspace', async () => {
+    const inputPath = path.join(tempRoot, 'input.geojson')
+    await fs.writeFile(
+      inputPath,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: []
+      }),
+      'utf8'
+    )
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const result = await service.runAlgorithm({
+      algorithmId: 'native:buffer',
+      parameters: {
+        INPUT: inputPath,
+        OUTPUT: 'buffer.geojson'
+      },
+      outputsToImport: ['..\\outside.geojson']
+    })
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.errorCode).toBe('VALIDATION_FAILED')
+      expect(result.message).toContain('managed QGIS output workspace')
+    }
+    expect(runQgisLauncherCommand).not.toHaveBeenCalled()
   })
 })

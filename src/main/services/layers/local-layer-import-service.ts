@@ -3,18 +3,16 @@ import { basename, extname } from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import type { ImportGeoPackageResult, RegisterGeoTiffAssetResult } from '../../../shared/ipc-types'
 import { LayerStyleFactory } from '../../../shared/lib/layer-style-factory'
-import { VectorMetadataExtractor } from '../../../shared/lib/vector-metadata-extractor'
 import type { LayerCreateInput } from '../../../shared/types/layer-types'
 import { ensureLocalFilesystemPath } from '../../security/path-security'
 import { getRasterTileService } from '../raster/raster-tile-service'
 import { getGeoPackageImportService } from '../vector/geopackage-import-service'
-
-type GeoJsonRecord = Record<string, unknown>
-
-type GeoJsonFeatureCollection = {
-  type: 'FeatureCollection'
-  features: GeoJsonRecord[]
-}
+import {
+  basenameWithoutExtension,
+  buildGeoJsonLayerMetadata,
+  buildGeoPackageLayerMetadata,
+  normalizeGeoJson
+} from './local-layer-metadata-utils'
 
 export class LocalLayerImportService {
   public async importPath(
@@ -59,9 +57,7 @@ export class LocalLayerImportService {
     }
 
     const normalizedGeoJson = normalizeGeoJson(parsed)
-    const metadata = VectorMetadataExtractor.extractGeoJSONMetadata({
-      features: normalizedGeoJson.features.map((feature) => feature)
-    })
+    const metadata = buildGeoJsonLayerMetadata(normalizedGeoJson, sourcePath)
 
     return {
       name: layerName || basenameWithoutExtension(sourcePath),
@@ -109,18 +105,7 @@ function buildVectorLayerFromGeoPackage(
   sourcePath: string,
   layerName?: string
 ): LayerCreateInput {
-  const metadata = VectorMetadataExtractor.extractGeopackageMetadata(
-    {
-      features: importResult.geojson.features.map((feature) => feature)
-    },
-    {
-      sourceLayers: importResult.sourceLayers,
-      sourceLayerCount: importResult.layerCount,
-      importWarnings: importResult.warnings,
-      mergedLayerPropertyName: importResult.mergedLayerPropertyName,
-      localFilePath: sourcePath
-    }
-  )
+  const metadata = buildGeoPackageLayerMetadata(importResult, sourcePath)
 
   return {
     name: layerName || basenameWithoutExtension(sourcePath),
@@ -173,60 +158,16 @@ function buildRasterLayerFromAsset(
       bounds: asset.bounds,
       crs: asset.crs,
       context: {
-        localFilePath: sourcePath
+        localFilePath: sourcePath,
+        sourceBounds: asset.sourceBounds,
+        width: asset.width,
+        height: asset.height,
+        bandCount: asset.bandCount,
+        processingEngine: asset.processingEngine,
+        processingWarning: asset.processingWarning
       }
     },
     isLocked: false,
     createdBy: 'import'
   }
-}
-
-function normalizeGeoJson(value: unknown): GeoJsonFeatureCollection {
-  const geoJsonRecord = asRecord(value)
-  if (!geoJsonRecord || typeof geoJsonRecord.type !== 'string') {
-    throw new Error('Invalid GeoJSON structure')
-  }
-
-  if (geoJsonRecord.type === 'FeatureCollection') {
-    return {
-      type: 'FeatureCollection',
-      features: Array.isArray(geoJsonRecord.features)
-        ? geoJsonRecord.features.filter((feature): feature is GeoJsonRecord =>
-            Boolean(asRecord(feature))
-          )
-        : []
-    }
-  }
-
-  if (geoJsonRecord.type === 'Feature') {
-    return {
-      type: 'FeatureCollection',
-      features: [geoJsonRecord]
-    }
-  }
-
-  if ('coordinates' in geoJsonRecord) {
-    return {
-      type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          geometry: geoJsonRecord,
-          properties: {}
-        }
-      ]
-    }
-  }
-
-  throw new Error('Invalid GeoJSON structure')
-}
-
-function asRecord(value: unknown): GeoJsonRecord | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as GeoJsonRecord)
-    : null
-}
-
-function basenameWithoutExtension(filePath: string): string {
-  return basename(filePath, extname(filePath))
 }

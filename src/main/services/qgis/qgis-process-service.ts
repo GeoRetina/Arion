@@ -18,6 +18,8 @@ import { LocalLayerImportService } from '../layers/local-layer-import-service'
 import { evaluateQgisAlgorithmApproval, isQgisAlgorithmApproved } from './qgis-algorithm-policy'
 import { runQgisLauncherCommand } from './qgis-command-runner'
 import { QgisDiscoveryService } from './qgis-discovery-service'
+import { selectQgisArtifactsForImport } from './qgis-import-selection'
+import { QgisOutputInspector } from './qgis-output-inspector'
 import type {
   QgisApplyLayerStyleRequest,
   QgisArtifactRecord,
@@ -45,6 +47,7 @@ interface QgisProcessServiceDeps {
   connectorHubService: Pick<ConnectorHubService, 'getConfig'>
   discoveryService?: QgisDiscoveryService
   localLayerImportService?: LocalLayerImportService
+  outputInspector?: QgisOutputInspector
   getUserDataPath?: () => string
   broadcastLayerImports?: (payload: LayerImportDefinitionsPayload) => void
 }
@@ -52,12 +55,14 @@ interface QgisProcessServiceDeps {
 export class QgisProcessService {
   private readonly discoveryService: QgisDiscoveryService
   private readonly localLayerImportService: LocalLayerImportService
+  private readonly outputInspector: QgisOutputInspector
   private readonly getUserDataPath: () => string
   private readonly broadcastLayerImports: (payload: LayerImportDefinitionsPayload) => void
 
   constructor(private readonly deps: QgisProcessServiceDeps) {
     this.discoveryService = deps.discoveryService ?? new QgisDiscoveryService()
     this.localLayerImportService = deps.localLayerImportService ?? new LocalLayerImportService()
+    this.outputInspector = deps.outputInspector ?? new QgisOutputInspector()
     this.getUserDataPath = deps.getUserDataPath ?? (() => app.getPath('userData'))
     this.broadcastLayerImports = deps.broadcastLayerImports ?? defaultBroadcastLayerImports
   }
@@ -226,9 +231,14 @@ export class QgisProcessService {
     }
 
     let normalizedParameters: Record<string, unknown>
+    let normalizedOutputsToImport: string[] | undefined
     try {
       normalizedParameters = await normalizeAlgorithmParameters(
         request.parameters || {},
+        preparedWorkspace.outputDirectory
+      )
+      normalizedOutputsToImport = normalizeRequestedImportPaths(
+        request.outputsToImport,
         preparedWorkspace.outputDirectory
       )
     } catch (error) {
@@ -251,6 +261,7 @@ export class QgisProcessService {
       algorithmId: request.algorithmId,
       importPreference: request.importPreference ?? 'auto',
       expectedOutputs: request.expectedOutputs,
+      outputsToImport: normalizedOutputsToImport,
       chatId: request.chatId,
       parameterSnapshot: normalizedParameters
     })
@@ -266,6 +277,7 @@ export class QgisProcessService {
     workspace?: PreparedWorkspace
     algorithmId?: string
     expectedOutputs?: string[]
+    outputsToImport?: string[]
     importPreference?: QgisImportPreference
     chatId?: string
     parameterSnapshot?: Record<string, unknown>
@@ -330,9 +342,17 @@ export class QgisProcessService {
         parameterSnapshot: input.parameterSnapshot || {}
       })
 
-      const artifacts = await resolveArtifacts(artifactPaths)
+      const resolvedArtifacts = await resolveArtifacts(artifactPaths)
+      const { artifacts, artifactsToImport } = selectQgisArtifactsForImport({
+        artifacts: resolvedArtifacts,
+        importPreference: input.importPreference,
+        outputsToImport: input.outputsToImport
+      })
       const importedLayers =
-        input.importPreference === 'auto' ? await this.importArtifacts(artifacts, input.chatId) : []
+        input.importPreference === 'auto'
+          ? await this.importArtifacts(artifactsToImport, input.chatId)
+          : []
+      const outputs = await this.outputInspector.summarizeArtifacts(artifacts, importedLayers)
 
       if (input.importPreference === 'auto' && importedLayers.length > 0) {
         this.broadcastLayerImports({
@@ -360,6 +380,7 @@ export class QgisProcessService {
         version: installation.version,
         artifacts,
         importedLayers,
+        outputs,
         parsedResult: normalizedResult,
         diagnostics
       }
@@ -489,6 +510,26 @@ async function normalizeAlgorithmParameters(
   )
 
   return Object.fromEntries(entries)
+}
+
+function normalizeRequestedImportPaths(
+  values: string[] | undefined,
+  outputDirectory: string
+): string[] | undefined {
+  if (!Array.isArray(values) || values.length === 0) {
+    return undefined
+  }
+
+  const normalizedPaths = Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0)
+        .map((value) => resolveOutputPath(value, outputDirectory, 'Output import path'))
+    )
+  )
+
+  return normalizedPaths.length > 0 ? normalizedPaths : undefined
 }
 
 async function normalizeParameterValue(

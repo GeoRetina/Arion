@@ -117,7 +117,7 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
       {
         name: 'qgis_run_processing',
         description:
-          'Run an approved QGIS Processing algorithm with explicit parameters against local datasets, chain multi-step analyses by reusing output artifact paths between runs, and auto-import supported final outputs back into the map when they are written to named GeoPackage, GeoJSON, or GeoTIFF files'
+          'Run an approved QGIS Processing algorithm with explicit parameters against local datasets, chain multi-step analyses by reusing output artifact paths between runs, inspect generated outputs, and import only the map layers the user actually wants to see when final datasets are written to named GeoPackage, GeoJSON, or GeoTIFF files'
       },
       {
         name: 'qgis_describe_algorithm',

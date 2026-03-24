@@ -118,7 +118,8 @@ describe('registerIntegrationTools', () => {
         parameters: {
           DISTANCE: 10
         },
-        importPreference: 'auto'
+        importPreference: 'auto',
+        outputsToImport: ['top_10_longest_features.geojson']
       },
       chatId: 'chat-qgis'
     })) as {
@@ -136,7 +137,8 @@ describe('registerIntegrationTools', () => {
         parameters: {
           DISTANCE: 10
         },
-        importPreference: 'auto'
+        importPreference: 'auto',
+        outputsToImport: ['top_10_longest_features.geojson']
       },
       timeoutMs: undefined
     })

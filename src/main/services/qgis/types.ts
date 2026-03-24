@@ -1,6 +1,17 @@
 import type { ConnectorExecutionErrorCode } from '../connectors/adapters/connector-adapter'
-import type { QgisDiscoveredInstallation, QgisDiscoveryStatus } from '../../../shared/ipc-types'
-import type { LayerCreateInput } from '../../../shared/types/layer-types'
+import type {
+  GeoPackageSourceLayerSummary,
+  QgisDiscoveredInstallation,
+  QgisDiscoveryStatus
+} from '../../../shared/ipc-types'
+import type {
+  BoundingBox,
+  GeometryType,
+  LayerCreateInput,
+  LayerSourceType,
+  LayerType
+} from '../../../shared/types/layer-types'
+import type { RasterProcessingEngine } from '../raster/raster-types'
 
 export type QgisProcessOperation =
   | 'listAlgorithms'
@@ -22,6 +33,7 @@ export interface QgisArtifactRecord {
   path: string
   kind: 'vector' | 'raster' | 'style' | 'layout' | 'table' | 'other'
   exists: boolean
+  selectedForImport?: boolean
   imported?: boolean
   importError?: string
 }
@@ -29,6 +41,43 @@ export interface QgisArtifactRecord {
 export interface QgisImportedLayerRecord {
   path: string
   layer: LayerCreateInput
+}
+
+export interface QgisOutputLayerMetadataSummary {
+  description?: string
+  tags: string[]
+  geometryType?: GeometryType
+  featureCount?: number
+  bounds?: BoundingBox
+  crs?: string
+  attributeKeys?: string[]
+  sourceLayers?: GeoPackageSourceLayerSummary[]
+  sourceLayerCount?: number
+  mergedLayerPropertyName?: string
+  warnings?: string[]
+  raster?: {
+    bandCount?: number
+    width?: number
+    height?: number
+    minZoom?: number
+    maxZoom?: number
+    sourceBounds?: BoundingBox
+    processingEngine?: RasterProcessingEngine
+    processingWarning?: string
+  }
+}
+
+export interface QgisOutputLayerSummary {
+  name: string
+  type: LayerType
+  sourceType: LayerSourceType
+  sourceId?: string
+  metadata: QgisOutputLayerMetadataSummary
+}
+
+export interface QgisOutputRecord extends QgisArtifactRecord {
+  layer?: QgisOutputLayerSummary
+  inspectionError?: string
 }
 
 export interface QgisExecutionDiagnostics {
@@ -52,6 +101,7 @@ export interface QgisProcessSuccessResult {
   version?: string
   artifacts: QgisArtifactRecord[]
   importedLayers: QgisImportedLayerRecord[]
+  outputs: QgisOutputRecord[]
   parsedResult?: unknown
   diagnostics: QgisExecutionDiagnostics
 }
@@ -84,6 +134,7 @@ export interface QgisRunAlgorithmRequest {
   timeoutMs?: number
   importPreference?: QgisImportPreference
   expectedOutputs?: string[]
+  outputsToImport?: string[]
   chatId?: string
 }
 
