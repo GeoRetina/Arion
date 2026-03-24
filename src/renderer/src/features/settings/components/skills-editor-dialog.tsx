@@ -14,6 +14,12 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
+const FRONTMATTER_PATTERN = /^---\s*\n[\s\S]*?\n---\s*\n?/
+
+function stripFrontmatter(content: string): string {
+  return content.replace(FRONTMATTER_PATTERN, '').trim()
+}
+
 interface SkillsEditorDialogProps {
   open: boolean
   editingSkill: SkillPackInfo | null
@@ -70,7 +76,7 @@ const SkillsEditorDialog: React.FC<SkillsEditorDialogProps> = ({
                 <ScrollArea className="h-105 rounded-md border">
                   <div className="p-4">
                     {editedSkillContent.trim() ? (
-                      <MarkdownRenderer content={editedSkillContent} />
+                      <MarkdownRenderer content={stripFrontmatter(editedSkillContent)} />
                     ) : (
                       <p className="text-sm text-muted-foreground italic">Nothing to preview</p>
                     )}
