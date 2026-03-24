@@ -541,6 +541,7 @@ export const IpcChannels = {
 
   // Shell operations
   shellOpenPath: 'ctg:shell:openPath',
+  shellSelectFile: 'ctg:shell:selectFile',
 
   // MCP Permission System
   mcpRequestPermission: 'ctg:mcp:requestPermission',
@@ -596,6 +597,7 @@ export const IpcChannels = {
   layersLogError: 'layers:logError',
   layersGetErrors: 'layers:getErrors',
   layersClearErrors: 'layers:clearErrors',
+  layersImportDefinitionsEvent: 'ctg:layers:importDefinitions',
 
   // Style Presets
   layerPresetsGetAll: 'layers:presets:getAll',
@@ -809,6 +811,17 @@ export interface SetPaintPropertiesPayload {
 }
 
 /**
+ * Payload for the 'ctg:map:updateLayerStyle' IPC channel.
+ */
+export interface UpdateLayerStylePayload {
+  sourceId: string
+  paintProperties?: Record<string, unknown>
+  layoutProperties?: Record<string, unknown>
+  filter?: unknown[]
+  layerIdPattern?: string
+}
+
+/**
  * Payload for the 'ctg:map:removeSourceAndLayers' IPC channel.
  */
 export interface RemoveSourceAndLayersPayload {
@@ -834,6 +847,7 @@ export interface SetMapViewPayload {
 export interface ExposedMapApi {
   onAddFeature: (callback: (payload: AddMapFeaturePayload) => void) => () => void // Returns a cleanup function
   onSetPaintProperties: (callback: (payload: SetPaintPropertiesPayload) => void) => () => void // + New listener
+  onUpdateLayerStyle: (callback: (payload: UpdateLayerStylePayload) => void) => () => void
   onRemoveSourceAndLayers: (callback: (payload: RemoveSourceAndLayersPayload) => void) => () => void // + New listener
   onSetView: (callback: (payload: SetMapViewPayload) => void) => () => void // + New listener
   onAddGeoreferencedImageLayer: (
@@ -926,8 +940,20 @@ export interface KnowledgeBaseApi {
 }
 
 // --- Shell API for opening paths or URLs --- (New)
+export interface LocalFileDialogFilter {
+  name: string
+  extensions: string[]
+}
+
+export interface LocalFileDialogOptions {
+  title?: string
+  buttonLabel?: string
+  filters?: LocalFileDialogFilter[]
+}
+
 export interface ExposedShellApi {
   openPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  selectFile: (options?: LocalFileDialogOptions) => Promise<string | null>
 }
 
 // --- MCP Permission API ---
@@ -1109,7 +1135,8 @@ export const SUPPORTED_INTEGRATION_IDS = [
   'wms',
   'wmts',
   's3',
-  'google-earth-engine'
+  'google-earth-engine',
+  'qgis'
 ] as const
 
 export type IntegrationId = (typeof SUPPORTED_INTEGRATION_IDS)[number]
@@ -1165,6 +1192,29 @@ export interface GoogleEarthEngineIntegrationConfig {
   timeoutMs?: number
 }
 
+export type QgisDetectionMode = 'auto' | 'manual'
+export type QgisDiscoverySource = 'manual' | 'env' | 'registry' | 'common-path' | 'path'
+export type QgisDiscoveryStatus = 'found' | 'not-found' | 'invalid' | 'multiple'
+
+export interface QgisDiscoveredInstallation {
+  launcherPath: string
+  installRoot?: string
+  version?: string
+  platform: NodeJS.Platform
+  source: QgisDiscoverySource
+  diagnostics: string[]
+}
+
+export interface QgisIntegrationConfig {
+  detectionMode: QgisDetectionMode
+  launcherPath?: string
+  installRoot?: string
+  version?: string
+  timeoutMs?: number
+  allowPluginAlgorithms?: boolean
+  lastVerifiedAt?: string
+}
+
 export interface IntegrationConfigMap {
   'postgresql-postgis': PostgreSQLConfig
   stac: StacIntegrationConfig
@@ -1174,6 +1224,7 @@ export interface IntegrationConfigMap {
   wmts: WmtsIntegrationConfig
   s3: S3IntegrationConfig
   'google-earth-engine': GoogleEarthEngineIntegrationConfig
+  qgis: QgisIntegrationConfig
 }
 
 export interface S3IntegrationConfigForRenderer {
@@ -1202,6 +1253,7 @@ export interface IntegrationConfigForRendererMap {
   wmts: WmtsIntegrationConfig
   s3: S3IntegrationConfigForRenderer
   'google-earth-engine': GoogleEarthEngineIntegrationConfigForRenderer
+  qgis: QgisIntegrationConfig
 }
 
 export type IntegrationConfig = IntegrationConfigMap[IntegrationId]
@@ -1238,7 +1290,12 @@ export const CONNECTOR_CAPABILITIES = [
   'tiles.inspectArchive',
   'storage.list',
   'sql.query',
-  'gee.listAlgorithms'
+  'gee.listAlgorithms',
+  'desktop.processing.listAlgorithms',
+  'desktop.processing.describeAlgorithm',
+  'desktop.processing.run',
+  'desktop.style.apply',
+  'desktop.layout.export'
 ] as const
 
 export type ConnectorCapability = (typeof CONNECTOR_CAPABILITIES)[number]
@@ -1292,6 +1349,7 @@ export interface ConnectorRunRecord {
   outcome: ConnectorRunOutcome
   message: string
   errorCode?: string
+  details?: Record<string, unknown>
 }
 
 export interface ConnectorApprovalGrantRequest {
@@ -1337,9 +1395,31 @@ export interface ImportGeoPackageResult {
   mergedLayerPropertyName?: string
 }
 
+export type RegisterVectorAssetFormat = 'geojson' | 'shapefile' | 'geopackage'
+
+export interface RegisterVectorAssetRequest {
+  sourcePath: string
+  format: RegisterVectorAssetFormat
+}
+
+export interface RegisterVectorAssetResult {
+  assetId: string
+  dataUrl: string
+  metadata: import('./types/layer-types').LayerMetadata
+  featureCount: number
+}
+
 export interface RegisterGeoTiffAssetRequest {
   sourcePath: string
   jobId?: string
+}
+
+export interface RenderGeoTiffTileRequest {
+  assetId: string
+  z: number
+  x: number
+  y: number
+  rgbBands?: import('./types/layer-types').RasterRgbBandSelection
 }
 
 export type RasterProcessingEngine = 'gdal' | 'geotiff-js'
@@ -1371,7 +1451,7 @@ export interface RegisterGeoTiffAssetResult {
   tilesUrlTemplate: string
   bounds: [number, number, number, number]
   sourceBounds: [number, number, number, number]
-  crs: 'EPSG:4326' | 'EPSG:3857'
+  crs: string
   width: number
   height: number
   bandCount: number
@@ -1379,6 +1459,13 @@ export interface RegisterGeoTiffAssetResult {
   maxZoom: number
   processingEngine: RasterProcessingEngine
   processingWarning?: string
+}
+
+export interface LayerImportDefinitionsPayload {
+  chatId?: string
+  source?: string
+  runId?: string
+  layers: import('./types/layer-types').LayerCreateInput[]
 }
 
 // Layer Management API for preload script
@@ -1439,13 +1526,17 @@ export interface LayerApi {
 
   // GeoTIFF raster asset management
   importGeoPackage: (request: ImportGeoPackageRequest) => Promise<ImportGeoPackageResult>
+  registerVectorAsset: (request: RegisterVectorAssetRequest) => Promise<RegisterVectorAssetResult>
   registerGeoTiffAsset: (
     request: RegisterGeoTiffAssetRequest
   ) => Promise<RegisterGeoTiffAssetResult>
+  renderGeoTiffTile: (request: RenderGeoTiffTileRequest) => Promise<Uint8Array>
   resolveImportFilePath: (descriptor: LocalFileDescriptor) => Promise<string | null>
   getGeoTiffAssetStatus: (jobId: string) => Promise<GeoTiffAssetProcessingStatus | null>
   releaseGeoTiffAsset: (assetId: string) => Promise<boolean>
+  releaseVectorAsset: (assetId: string) => Promise<boolean>
   updateRuntimeSnapshot: (layers: unknown[]) => Promise<boolean>
+  onImportDefinitions: (callback: (payload: LayerImportDefinitionsPayload) => void) => () => void
 }
 
 // PostgreSQL API for preload script

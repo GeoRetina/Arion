@@ -1,6 +1,7 @@
 import type {
   AddMapFeaturePayload,
   SetPaintPropertiesPayload,
+  UpdateLayerStylePayload,
   RemoveSourceAndLayersPayload,
   SetMapViewPayload,
   AddGeoreferencedImageLayerPayload
@@ -15,6 +16,10 @@ function handleAddFeatureToMapCallback(payload: AddMapFeaturePayload): void {
 // + Callback for setting paint properties
 function handleSetPaintPropertiesCallback(payload: SetPaintPropertiesPayload): void {
   useMapStore.getState().setLayerPaintProperties(payload) // + Call new store action
+}
+
+function handleUpdateLayerStyleCallback(payload: UpdateLayerStylePayload): void {
+  useMapStore.getState().updateLayerStyleProperties(payload)
 }
 
 // + Callback for removing source and layers
@@ -36,6 +41,7 @@ function handleAddGeoreferencedImageLayerCallback(
 
 let addFeatureCleanupListener: (() => void) | null = null
 let setPaintCleanupListener: (() => void) | null = null // + Listener for paint properties
+let updateLayerStyleCleanupListener: (() => void) | null = null
 let removeSourceCleanupListener: (() => void) | null = null // + Listener for removing source
 let setViewCleanupListener: (() => void) | null = null // + Listener for set view
 let addGeoreferencedImageLayerCleanupListener: (() => void) | null = null // Listener for the new tool
@@ -48,6 +54,7 @@ export function initializeMapIpcListeners(): void {
   if (
     addFeatureCleanupListener ||
     setPaintCleanupListener ||
+    updateLayerStyleCleanupListener ||
     removeSourceCleanupListener ||
     setViewCleanupListener ||
     addGeoreferencedImageLayerCleanupListener
@@ -66,6 +73,14 @@ export function initializeMapIpcListeners(): void {
   if (window.ctg?.map?.onSetPaintProperties && !setPaintCleanupListener) {
     setPaintCleanupListener = window.ctg.map.onSetPaintProperties(handleSetPaintPropertiesCallback)
   } else if (!window.ctg?.map?.onSetPaintProperties && !setPaintCleanupListener) {
+    void 0
+  }
+
+  if (window.ctg?.map?.onUpdateLayerStyle && !updateLayerStyleCleanupListener) {
+    updateLayerStyleCleanupListener = window.ctg.map.onUpdateLayerStyle(
+      handleUpdateLayerStyleCallback
+    )
+  } else if (!window.ctg?.map?.onUpdateLayerStyle && !updateLayerStyleCleanupListener) {
     void 0
   }
 
@@ -111,6 +126,11 @@ export function cleanupMapIpcListeners(): void {
   if (setPaintCleanupListener) {
     setPaintCleanupListener()
     setPaintCleanupListener = null
+  }
+
+  if (updateLayerStyleCleanupListener) {
+    updateLayerStyleCleanupListener()
+    updateLayerStyleCleanupListener = null
   }
 
   // + Cleanup listener for removeSourceAndLayers

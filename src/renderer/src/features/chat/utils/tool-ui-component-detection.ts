@@ -74,16 +74,18 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
 
   // Agent call detection
   if (toolName === CALL_AGENT_TOOL_NAME) {
-    const { message, agent_id, agent_name } = toolInvocation.args || {}
+    const { message, agent_id, agent_handle, agent_name } = toolInvocation.args || {}
+    const agentReference =
+      (typeof agent_id === 'string' && agent_id) ||
+      (typeof agent_handle === 'string' && agent_handle) ||
+      ''
 
     // Extract agent name with priority: result > args > store lookup > formatted ID
     let agentName =
       (typeof resultRecord?.agent_name === 'string' ? resultRecord.agent_name : undefined) ||
       (typeof agent_name === 'string' ? agent_name : undefined)
-    if (!agentName) {
-      const agentIdForLookup = typeof agent_id === 'string' ? agent_id : String(agent_id ?? '')
-      agentName =
-        useAgentStore.getState().getAgentName(agentIdForLookup) || `Agent ${agentIdForLookup}`
+    if (!agentName && agentReference) {
+      agentName = useAgentStore.getState().getAgentName(agentReference) || agentReference
     }
 
     // Determine status based on tool state
@@ -99,7 +101,7 @@ export function detectToolUIComponent(toolInvocation: ToolInvocation): ToolUICom
       component: AgentCallDisplay,
       props: {
         agentName,
-        agentId: typeof agent_id === 'string' ? agent_id : '',
+        agentId: agentReference,
         message: typeof message === 'string' ? message : 'No message provided',
         status,
         result: state === 'result' ? result : undefined

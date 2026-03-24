@@ -119,7 +119,7 @@ describe('raster-gdal-preprocess-service', () => {
     ).toHaveLength(0)
   })
 
-  it('returns a non-fatal in-place warning for unsupported CRS', async () => {
+  it('builds in-place overviews without reprojection for unsupported CRS sources', async () => {
     const root = mkdtempSync(join(tmpdir(), 'arion-raster-preprocess-test-'))
     cleanupPaths.push(root)
     const rasterPath = join(root, 'source.tif')
@@ -155,9 +155,9 @@ describe('raster-gdal-preprocess-service', () => {
       outputPath: rasterPath
     })
 
-    expect(result.success).toBe(false)
-    expect(result.warning).toContain('requires reprojection')
-    expect(calls.map((call) => call.tool)).toEqual(['gdalinfo'])
+    expect(result.success).toBe(true)
+    expect(result.reprojected).toBe(false)
+    expect(calls.map((call) => call.tool)).toEqual(['gdalinfo', 'gdaladdo'])
   })
 
   it('skips import-time reprojection for EPSG:4326 sources and does not compute stats', async () => {

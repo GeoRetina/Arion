@@ -4,11 +4,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
-  Cloud,
-  Database,
   Key,
-  Layers,
-  Link2,
   Loader2,
   RefreshCw,
   Settings2,
@@ -27,14 +23,16 @@ import {
   type IntegrationConfigMap,
   type IntegrationHealthCheckResult,
   type IntegrationId,
+  type QgisIntegrationConfig,
   type PostgreSQLConfig,
   type PostgreSQLConnectionResult
 } from '../../../../../shared/ipc-types'
-import { integrationRegistry } from '../connectors'
+import { CONNECTOR_LOGOS, CONNECTOR_LOGO_CLASSES, integrationRegistry } from '../connectors'
 import { useConnectorRunLogs } from '../hooks/use-connector-run-logs'
-import type { IntegrationDefinition, IntegrationType } from '../types/connector'
+import type { IntegrationDefinition } from '../types/connector'
 import { IntegrationConfigDialog } from './connector-config-dialog'
 import { PostgreSQLConfigDialog } from './postgresql-config-dialog'
+import { QgisConfigDialog } from './qgis-config-dialog'
 
 const fallbackStatusStyle = 'bg-gray-400 text-gray-400'
 
@@ -54,19 +52,13 @@ const getStatusStyles = (status: string): string => {
   }
 }
 
-const getIntegrationIcon = (type: IntegrationType): React.ReactNode => {
-  switch (type) {
-    case 'api':
-      return <Link2 className="h-5 w-5 text-blue-500" />
-    case 'cloud':
-      return <Cloud className="h-5 w-5 text-cyan-500" />
-    case 'database':
-      return <Database className="h-5 w-5 text-orange-500" />
-    case 'cloud-platform':
-      return <Layers className="h-5 w-5 text-green-500" />
-    default:
-      return <Key className="h-5 w-5 text-gray-500" />
+const getConnectorLogo = (id: IntegrationId): React.ReactNode => {
+  const logo = CONNECTOR_LOGOS[id]
+  const classes = CONNECTOR_LOGO_CLASSES[id] ?? ''
+  if (logo) {
+    return <img src={logo} alt="" className={`max-h-6 max-w-6 object-contain ${classes}`} />
   }
+  return <Key className="h-5 w-5 text-gray-500" />
 }
 
 const toRecord = (value: unknown): Record<string, unknown> => {
@@ -102,6 +94,26 @@ const toPostgreSQLConfig = (value: unknown): PostgreSQLConfig => {
   }
 }
 
+const toQgisConfig = (value: unknown): QgisIntegrationConfig => {
+  const record = toRecord(value)
+  const timeoutMs =
+    typeof record.timeoutMs === 'number' && Number.isFinite(record.timeoutMs)
+      ? Math.max(1000, Math.round(record.timeoutMs))
+      : typeof record.timeoutMs === 'string' && record.timeoutMs.trim().length > 0
+        ? Math.max(1000, Math.round(Number(record.timeoutMs)))
+        : 30000
+
+  return {
+    detectionMode: record.detectionMode === 'manual' ? 'manual' : 'auto',
+    launcherPath: typeof record.launcherPath === 'string' ? record.launcherPath : undefined,
+    installRoot: typeof record.installRoot === 'string' ? record.installRoot : undefined,
+    version: typeof record.version === 'string' ? record.version : undefined,
+    timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 30000,
+    allowPluginAlgorithms: record.allowPluginAlgorithms === true,
+    lastVerifiedAt: typeof record.lastVerifiedAt === 'string' ? record.lastVerifiedAt : undefined
+  }
+}
+
 const ConnectorCard: React.FC<{
   definition: IntegrationDefinition
   isPending: boolean
@@ -116,8 +128,8 @@ const ConnectorCard: React.FC<{
   return (
     <Card className="h-full min-h-44 overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border">
       <div className="flex items-start gap-3 px-4 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60">
-          {getIntegrationIcon(integration.type)}
+        <div className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-muted/60 px-1">
+          {getConnectorLogo(integration.id)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -221,6 +233,8 @@ const ConnectorsPage: React.FC = () => {
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<IntegrationId | null>(null)
   const [isPostgreSQLConfigOpen, setIsPostgreSQLConfigOpen] = useState(false)
   const [postgresInitialConfig, setPostgresInitialConfig] = useState<PostgreSQLConfig | null>(null)
+  const [isQgisConfigOpen, setIsQgisConfigOpen] = useState(false)
+  const [qgisInitialConfig, setQgisInitialConfig] = useState<QgisIntegrationConfig | null>(null)
   const [isGenericConfigOpen, setIsGenericConfigOpen] = useState(false)
   const [genericInitialConfig, setGenericInitialConfig] = useState<Record<string, unknown>>({})
   const [pendingIntegrationId, setPendingIntegrationId] = useState<IntegrationId | null>(null)
@@ -230,7 +244,10 @@ const ConnectorsPage: React.FC = () => {
     limit: 30
   })
 
-  const platformIds = useMemo<Set<IntegrationId>>(() => new Set(['google-earth-engine']), [])
+  const platformIds = useMemo<Set<IntegrationId>>(
+    () => new Set(['google-earth-engine', 'qgis']),
+    []
+  )
 
   const dataSourceConfigs = useMemo(
     () => integrationConfigs.filter((d) => !platformIds.has(d.integration.id)),
@@ -354,6 +371,9 @@ const ConnectorsPage: React.FC = () => {
       if (definition.integration.id === 'postgresql-postgis') {
         setPostgresInitialConfig(toPostgreSQLConfig(initialConfig))
         setIsPostgreSQLConfigOpen(true)
+      } else if (definition.integration.id === 'qgis') {
+        setQgisInitialConfig(toQgisConfig(initialConfig))
+        setIsQgisConfigOpen(true)
       } else {
         setGenericInitialConfig(initialConfig)
         setIsGenericConfigOpen(true)
@@ -453,6 +473,32 @@ const ConnectorsPage: React.FC = () => {
     return result
   }
 
+  const handleQgisTest = async (
+    config: QgisIntegrationConfig
+  ): Promise<IntegrationHealthCheckResult> => {
+    const result = await window.ctg.integrations.testConnection('qgis', config)
+    await refreshRunLogs()
+    return result
+  }
+
+  const handleQgisSaveAndConnect = async (
+    config: QgisIntegrationConfig
+  ): Promise<IntegrationHealthCheckResult> => {
+    const result = await window.ctg.integrations.connect('qgis', config)
+
+    if (result.success) {
+      toast.success('QGIS connected')
+    } else {
+      toast.error('Failed to connect QGIS', {
+        description: result.message
+      })
+    }
+
+    await hydrateIntegrationState()
+    await refreshRunLogs()
+    return result
+  }
+
   return (
     <ScrollArea className="h-full">
       <div className="pt-14 pb-8 px-10 md:px-20">
@@ -485,7 +531,9 @@ const ConnectorsPage: React.FC = () => {
                       {runLogs.length}
                     </span>
                   )}
-                  {isRunLogsLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  {isRunLogsLoading && (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  )}
                 </div>
                 <ChevronDown
                   className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${diagnosticsOpen ? 'rotate-180' : ''}`}
@@ -516,9 +564,7 @@ const ConnectorsPage: React.FC = () => {
                   </div>
 
                   {runLogs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2 text-center">
-                      No events yet.
-                    </p>
+                    <p className="text-xs text-muted-foreground py-2 text-center">No events yet.</p>
                   ) : (
                     <div className="divide-y divide-border/40">
                       {runLogs.slice(0, 8).map((log) => {
@@ -627,8 +673,24 @@ const ConnectorsPage: React.FC = () => {
         />
       )}
 
+      {selectedIntegration && selectedIntegration.integration.id === 'qgis' && (
+        <QgisConfigDialog
+          isOpen={isQgisConfigOpen}
+          onClose={() => {
+            setIsQgisConfigOpen(false)
+            setSelectedIntegrationId(null)
+            setQgisInitialConfig(null)
+          }}
+          initialConfig={
+            qgisInitialConfig || toQgisConfig(selectedIntegration.integration.connectionSettings)
+          }
+          onTest={handleQgisTest}
+          onSaveAndConnect={handleQgisSaveAndConnect}
+        />
+      )}
+
       {selectedIntegration &&
-        selectedIntegration.integration.id !== 'postgresql-postgis' &&
+        !['postgresql-postgis', 'qgis'].includes(selectedIntegration.integration.id) &&
         selectedIntegration.fields && (
           <IntegrationConfigDialog
             isOpen={isGenericConfigOpen}

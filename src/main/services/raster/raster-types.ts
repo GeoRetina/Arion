@@ -2,6 +2,8 @@ import type { RasterRgbBandSelection } from '../../../shared/types/layer-types'
 
 export type SupportedRasterCrs = 'EPSG:4326' | 'EPSG:3857'
 
+export type RasterCrs = string
+
 export type BoundingBox = [number, number, number, number]
 
 export type RasterProcessingEngine = 'gdal' | 'geotiff-js'
@@ -38,7 +40,7 @@ export interface RegisterGeoTiffAssetResult {
   tilesUrlTemplate: string
   bounds: BoundingBox
   sourceBounds: BoundingBox
-  crs: SupportedRasterCrs
+  crs: RasterCrs
   width: number
   height: number
   bandCount: number

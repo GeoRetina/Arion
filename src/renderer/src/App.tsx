@@ -9,6 +9,7 @@ import { useAgentStore } from './stores/agent-store'
 import { ChatHistoryList } from './features/chat/components/chat-history-list'
 import { initTheme } from './stores/theme-store'
 import { resetChatStores } from './lib/chat-store-reset'
+import { useQgisLayerImports } from './hooks/use-qgis-layer-imports'
 
 // Lazy load the ModelsPage for better initial load time
 const ModelsPage = React.lazy(() => import('./features/models/components/modals-page'))
@@ -35,6 +36,8 @@ function App(): React.JSX.Element {
 
   // Get agent store actions
   const loadAgents = useAgentStore((state) => state.loadAgents)
+
+  useQgisLayerImports()
 
   useEffect(() => {
     if (!isLLMStoreInitialized) {

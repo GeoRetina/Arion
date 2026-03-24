@@ -1,12 +1,11 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import {
   CheckCircle,
   Loader2,
   XCircle,
   Terminal,
-  ChevronDown,
   ChevronRight,
   AlertTriangle
 } from 'lucide-react'
@@ -29,7 +28,15 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
   result,
   className
 }) => {
-  const [expanded, setExpanded] = useState(false) // Auto-expand on error
+  const [expanded, setExpanded] = useState(status === 'loading')
+  const hasManuallyToggled = useRef(false)
+
+  // Auto-collapse when status transitions from loading to completed/error
+  useEffect(() => {
+    if (!hasManuallyToggled.current) {
+      setExpanded(status === 'loading')
+    }
+  }, [status])
 
   const formattedArgs = useMemo(() => {
     try {
@@ -99,7 +106,10 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
     >
       <div
         className="flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => {
+          hasManuallyToggled.current = true
+          setExpanded(!expanded)
+        }}
       >
         <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
 
@@ -121,74 +131,82 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
           )}
           {status === 'error' && <XCircle className={cn('h-3.5 w-3.5', currentStyles.icon)} />}
 
-          {expanded ? (
-            <ChevronDown className="h-3 w-3 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-          )}
+          <ChevronRight
+            className={cn(
+              'h-3 w-3 text-muted-foreground transition-transform duration-300',
+              expanded && 'rotate-90'
+            )}
+          />
         </div>
       </div>
 
-      {expanded && (
-        <div className="border-t border-border/20 p-2.5 space-y-2.5 text-xs">
-          {/* Arguments */}
-          <div>
-            <div className="font-medium text-muted-foreground mb-1">Arguments</div>
-            <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
-              <ScrollArea className="h-24 max-h-32 w-full">
-                <div className="p-2">
-                  <pre className="text-foreground font-mono text-xs whitespace-pre">
-                    {formattedArgs}
-                  </pre>
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
-            </div>
-          </div>
-
-          {/* Error Message - show if in error state */}
-          {status === 'error' && errorMessage && (
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows,opacity] duration-500 ease-in-out',
+          expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-border/20 p-2.5 space-y-2.5 text-xs">
+            {/* Arguments */}
             <div>
-              <div className="font-medium mb-1 flex items-center gap-1 text-red-600 dark:text-red-400">
-                <AlertTriangle className="h-3 w-3" />
-                Error
-              </div>
-              <div className="rounded border border-red-200/60 bg-red-50/60 dark:border-red-800/40 dark:bg-red-950/20 p-2">
-                <div className="text-red-700 dark:text-red-300 whitespace-pre-wrap wrap-break-word">
-                  {errorMessage}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Results - only shown when completed with results */}
-          {status === 'completed' && result != null && (
-            <div>
-              <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle className="h-3 w-3" />
-                Result
-              </div>
-              <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
+              <div className="font-medium text-muted-foreground mb-1">Arguments</div>
+              <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
                 <ScrollArea className="h-24 max-h-32 w-full">
                   <div className="p-2">
-                    <div className="whitespace-pre-wrap wrap-break-word text-emerald-800 dark:text-emerald-200">
-                      {formattedResult}
-                    </div>
+                    <pre className="text-foreground font-mono text-xs whitespace-pre">
+                      {formattedArgs}
+                    </pre>
                   </div>
+                  <ScrollBar orientation="horizontal" />
                 </ScrollArea>
               </div>
             </div>
-          )}
 
-          {/* Tool execution in progress */}
-          {status === 'loading' && (
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
-              <Loader2 className="h-3 w-3 animate-spin shrink-0" />
-              <div className="font-medium">Executing tool...</div>
-            </div>
-          )}
+            {/* Error Message - show if in error state */}
+            {status === 'error' && errorMessage && (
+              <div>
+                <div className="font-medium mb-1 flex items-center gap-1 text-red-600 dark:text-red-400">
+                  <AlertTriangle className="h-3 w-3" />
+                  Error
+                </div>
+                <div className="rounded border border-red-200/60 bg-red-50/60 dark:border-red-800/40 dark:bg-red-950/20 p-2">
+                  <div className="text-red-700 dark:text-red-300 whitespace-pre-wrap wrap-break-word">
+                    {errorMessage}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Results - only shown when completed with results */}
+            {status === 'completed' && result != null && (
+              <div>
+                <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle className="h-3 w-3" />
+                  Result
+                </div>
+                <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
+                  <ScrollArea className="h-24 max-h-32 w-full">
+                    <div className="p-2">
+                      <div className="whitespace-pre-wrap wrap-break-word text-emerald-800 dark:text-emerald-200">
+                        {formattedResult}
+                      </div>
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            )}
+
+            {/* Tool execution in progress */}
+            {status === 'loading' && (
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
+                <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+                <div className="font-medium">Executing tool...</div>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

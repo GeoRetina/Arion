@@ -158,7 +158,15 @@ describe('registerMapLayerManagementTools', () => {
 
     const result = (await entries.get('list_map_layers')?.execute()) as {
       status: string
-      layers: Array<{ id: string; localFilePath?: string }>
+      layers: Array<{
+        id: string
+        localFilePath?: string
+        integrationInputs?: {
+          qgis?: {
+            inputPath?: string
+          }
+        }
+      }>
     }
 
     expect(result.status).toBe('success')
@@ -166,11 +174,21 @@ describe('registerMapLayerManagementTools', () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: 'vector-id',
-          localFilePath: 'C:\\data\\roads.geojson'
+          localFilePath: 'C:\\data\\roads.geojson',
+          integrationInputs: {
+            qgis: {
+              inputPath: 'C:\\data\\roads.geojson'
+            }
+          }
         }),
         expect.objectContaining({
           id: 'raster-id',
-          localFilePath: 'C:\\data\\elevation.tif'
+          localFilePath: 'C:\\data\\elevation.tif',
+          integrationInputs: {
+            qgis: {
+              inputPath: 'C:\\data\\elevation.tif'
+            }
+          }
         }),
         expect.objectContaining({
           id: 'image-id',
@@ -209,16 +227,27 @@ describe('registerMapLayerManagementTools', () => {
       args: { source_id: 'imported-source' }
     })) as { status: string; message: string }
     expect(noPaint.status).toBe('success')
-    expect(noPaint.message).toContain('No paint properties provided')
+    expect(noPaint.message).toContain('No style properties provided')
 
     const applied = (await styleTool?.execute({
-      args: { source_id: 'imported-source', paint: { 'fill-color': '#fff' } }
-    })) as { status: string; applied_properties: Record<string, string> }
+      args: {
+        source_id: 'imported-source',
+        paint: { 'fill-color': '#fff' },
+        layout: { 'line-cap': 'round' },
+        filter: ['==', ['geometry-type'], 'Polygon']
+      }
+    })) as { status: string; applied_properties: Record<string, unknown> }
     expect(applied.status).toBe('success')
-    expect(applied.applied_properties).toEqual({ 'fill-color': '#fff' })
-    expect(send).toHaveBeenCalledWith('ctg:map:setPaintProperties', {
+    expect(applied.applied_properties).toEqual({
+      paint: { 'fill-color': '#fff' },
+      layout: { 'line-cap': 'round' },
+      filter: ['==', ['geometry-type'], 'Polygon']
+    })
+    expect(send).toHaveBeenCalledWith('ctg:map:updateLayerStyle', {
       sourceId: 'imported-source',
-      paintProperties: { 'fill-color': '#fff' }
+      paintProperties: { 'fill-color': '#fff' },
+      layoutProperties: { 'line-cap': 'round' },
+      filter: ['==', ['geometry-type'], 'Polygon']
     })
   })
 

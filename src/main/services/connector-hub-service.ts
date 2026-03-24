@@ -169,6 +169,10 @@ export class ConnectorHubService {
 
     const result = await runIntegrationHealthCheck(id, config, 'connect', this.postgresqlService)
     if (result.success) {
+      const resolvedConfig = extractResolvedIntegrationConfig(result.details)
+      if (resolvedConfig) {
+        await this.saveConfig(id, resolvedConfig)
+      }
       this.persistConnectionState(id, 'connected', result.message, new Date().toLocaleString())
       return {
         ...result,
@@ -350,5 +354,18 @@ export class ConnectorHubService {
 
 const hasNonEmptyString = (value: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0
+
+const extractResolvedIntegrationConfig = (
+  details: Record<string, unknown> | undefined
+): Record<string, unknown> | null => {
+  if (!details) {
+    return null
+  }
+
+  const candidate = details['resolvedConfig']
+  return candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+    ? (candidate as Record<string, unknown>)
+    : null
+}
 
 export type { IntegrationConfigRow }

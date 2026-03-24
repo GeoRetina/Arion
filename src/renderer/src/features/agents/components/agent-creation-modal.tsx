@@ -1,12 +1,5 @@
 import React, { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { useAgentStore } from '@/stores/agent-store'
 import { LLMProviderType } from '@/../../shared/ipc-types'
-import { Loader2 } from 'lucide-react'
+import { Bot, Loader2 } from 'lucide-react'
 import { useLLMStore } from '@/stores/llm-store'
 import type { AgentDefinition } from '@/../../shared/types/agent-types'
 import {
@@ -31,8 +24,6 @@ import {
   PROVIDER_BACKGROUNDS,
   PROVIDER_CONFIG_KEYS
 } from '@/constants/llm-providers'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -43,47 +34,42 @@ interface AgentCreationModalProps {
   onClose: () => void
 }
 
+type AgentCapabilityDraft = {
+  id: string
+  name: string
+  description: string
+  tools: string[]
+}
+
+const createDefaultCapability = (): AgentCapabilityDraft => ({
+  id: crypto.randomUUID(),
+  name: 'Default Capability',
+  description: 'Define what this agent can do',
+  tools: []
+})
+
 const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose }) => {
-  // Access LLM store for provider and model information
   const { openaiConfig, googleConfig, anthropicConfig, azureConfig, vertexConfig, ollamaConfig } =
     useLLMStore()
 
-  // Agent creation state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  // Role is automatically set to 'specialist' for all user-created agents
   const [provider, setProvider] = useState<LLMProviderType | ''>('')
   const [model, setModel] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState('general')
 
-  // Agent capability state - simplified to a single capability
-  const [capability, setCapability] = useState<{
-    id: string
-    name: string
-    description: string
-    tools: string[]
-  }>({
-    id: crypto.randomUUID(),
-    name: 'Default Capability',
-    description: 'Define what this agent can do',
-    tools: []
-  })
+  const [capability, setCapability] = useState<AgentCapabilityDraft>(() =>
+    createDefaultCapability()
+  )
 
-  // Agent prompt state
   const [agentPrompt, setAgentPrompt] = useState('')
-
-  // Model parameters
   const [temperature, setTemperature] = useState(0.7)
   const [maxTokens, setMaxTokens] = useState(2048)
 
-  // Access agent store for creation function and existing agents
   const { createAgent, agents, getAgentById } = useAgentStore()
 
-  // State to hold full agent details for tool checking
   const [fullAgents, setFullAgents] = useState<AgentDefinition[]>([])
 
-  // Load full agent details when modal opens
   React.useEffect(() => {
     if (isOpen && agents.length > 0) {
       const loadFullAgentDetails = async (): Promise<void> => {
@@ -98,41 +84,28 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     }
   }, [isOpen, agents, getAgentById])
 
-  // Use the agent tools hook to manage available and assigned tools
   const {
     availableTools,
     isLoading: isLoadingTools,
     error: toolsError
   } = useAgentTools(fullAgents, isOpen)
 
-  // Tool selection state for the capability
   const [selectedTools, setSelectedTools] = useState<string[]>([])
 
-  // Reset form state on close
   const handleClose = (): void => {
     setName('')
     setDescription('')
     setProvider('')
     setModel('')
     setAgentPrompt('')
-    setCapability({
-      id: crypto.randomUUID(),
-      name: 'Default Capability',
-      description: 'Define what this agent can do',
-      tools: []
-    })
+    setCapability(createDefaultCapability())
     setSelectedTools([])
     setTemperature(0.7)
     setMaxTokens(2048)
     setIsSubmitting(false)
-    setActiveTab('general')
     onClose()
   }
 
-  // This function is no longer used since we removed the description field
-  // but keeping it for potential future use
-
-  // Toggle tool selection
   const toggleToolSelection = (toolId: string): void => {
     let updatedTools: string[]
 
@@ -143,8 +116,6 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     }
 
     setSelectedTools(updatedTools)
-
-    // Update the capability's tools array
     setCapability({
       ...capability,
       tools: updatedTools
@@ -157,11 +128,9 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     return typeof modelValue === 'string' && modelValue.length > 0 ? modelValue : null
   }
 
-  // Get available models based on selected provider
   const availableModels = React.useMemo<string[]>(() => {
     if (!provider) return []
 
-    // Map of provider IDs to their config objects
     const configMap: Partial<Record<NonNullable<LLMProviderType>, unknown>> = {
       openai: openaiConfig,
       google: googleConfig,
@@ -185,57 +154,48 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
     ollamaConfig
   ])
 
-  // Handle form submission
   const handleSubmit = async (): Promise<void> => {
-    // Validate all required fields regardless of active tab
-    if (!name.trim()) {
+    const trimmedName = name.trim()
+    const trimmedDescription = description.trim()
+    const trimmedAgentPrompt = agentPrompt.trim()
+
+    if (!trimmedName) {
       toast.error('Agent name is required')
-      setActiveTab('general')
       return
     }
-
-    if (!description.trim()) {
+    if (!trimmedDescription) {
       toast.error('Agent description is required')
-      setActiveTab('general')
       return
     }
-
-    if (!agentPrompt.trim()) {
+    if (!trimmedAgentPrompt) {
       toast.error('Agent prompt is required')
-      setActiveTab('prompts')
       return
     }
-
     if (!provider) {
       toast.error('LLM provider is required')
-      setActiveTab('model')
       return
     }
-
     if (!model) {
       toast.error('Model is required')
-      setActiveTab('model')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      // Create agent definition with all the information from the tabs
       const newAgent = await createAgent({
-        name,
-        description: description || `Agent for ${name}`,
+        name: trimmedName,
+        description: trimmedDescription,
         type: 'user-defined',
-        role: 'specialist', // All user-created agents are specialists
-        capabilities: [capability], // Single capability
+        role: 'specialist',
+        capabilities: [capability],
         promptConfig: {
-          // Create a simple agent module from the user's prompt text
-          coreModules: agentPrompt
+          coreModules: trimmedAgentPrompt
             ? [
                 {
                   moduleId: 'user-defined-prompt',
                   parameters: {
-                    content: agentPrompt
+                    content: trimmedAgentPrompt
                   }
                 }
               ]
@@ -252,7 +212,7 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
             maxOutputTokens: maxTokens
           }
         },
-        toolAccess: capability.tools // Tools from the single capability
+        toolAccess: capability.tools
       })
 
       if (newAgent) {
@@ -273,327 +233,241 @@ const AgentCreationModal: React.FC<AgentCreationModalProps> = ({ isOpen, onClose
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-175 max-h-[80vh]">
-        <form
-          onSubmit={(event) => {
-            // Prevent accidental submits when navigating between tabs
-            event.preventDefault()
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Create New Agent</DialogTitle>
-            <DialogDescription>
-              Configure the agent&apos;s capabilities, prompt, and model settings.
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="max-w-lg max-h-[85vh] grid grid-rows-[auto_1fr_auto] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            New Agent
+          </DialogTitle>
+        </DialogHeader>
 
-          <ScrollArea className="max-h-[calc(80vh-200px)] mt-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full px-1 pr-4">
-              <TabsList className="grid grid-cols-4 mb-4">
-                <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="prompts">Prompts</TabsTrigger>
-                <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
-                <TabsTrigger value="model">Model</TabsTrigger>
-              </TabsList>
+        <ScrollArea className="min-h-0 -mx-6 px-6">
+          <div className="space-y-5 pb-2 pr-4">
+            {/* Identity */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="name" className="text-xs text-muted-foreground">
+                  Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="GeoSpatial Analysis Agent"
+                  className="text-sm"
+                  autoFocus
+                />
+              </div>
 
-              {/* General Settings Tab */}
-              <TabsContent value="general" className="space-y-4">
-                <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name" className="flex items-center gap-1">
-                      Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="GeoSpatial Analysis Agent"
-                      autoFocus
-                      required
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="description" className="flex items-center gap-1">
-                      Description <span className="text-red-500">*</span>
-                    </Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={3}
-                      placeholder="Specialized agent for geospatial data analysis tasks"
-                      required
-                    />
-                  </div>
-
-                  {/* All user-created agents are automatically assigned the 'specialist' role */}
-                </div>
-              </TabsContent>
-
-              {/* Capabilities Tab */}
-              <TabsContent value="capabilities" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Agent Capability</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Define what this agent can do and what tools it can use.
-                    </p>
-                  </CardHeader>
-
-                  <CardContent className="pb-2">
-                    <div>
-                      <Label>Select Tools</Label>
-                      <div className="mt-2 h-48 rounded-md border">
-                        <ScrollArea className="h-full p-2">
-                          <div className="flex flex-wrap gap-2">
-                          {isLoadingTools ? (
-                            <div className="w-full text-center py-4 text-muted-foreground">
-                              <p className="text-sm">Loading available tools...</p>
-                            </div>
-                          ) : toolsError ? (
-                            <div className="w-full text-center py-4 text-muted-foreground">
-                              <p className="text-sm text-red-500">Failed to load tools</p>
-                              <p className="text-xs mt-1">{toolsError}</p>
-                            </div>
-                          ) : availableTools.length === 0 ? (
-                            <div className="w-full text-center py-4 text-muted-foreground">
-                              <p className="text-sm">No tools available for assignment.</p>
-                              <p className="text-xs mt-1">
-                                All tools are currently assigned to other agents.
-                              </p>
-                            </div>
-                          ) : (
-                            availableTools.map((tool) => {
-                              const isSelected = selectedTools.includes(tool)
-                              return (
-                                <Badge
-                                  key={tool}
-                                  variant={isSelected ? 'default' : 'outline'}
-                                  className="cursor-pointer"
-                                  onClick={() => toggleToolSelection(tool)}
-                                >
-                                  {tool}
-                                </Badge>
-                              )
-                            })
-                          )}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Prompts Tab */}
-              <TabsContent value="prompts" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Agent Prompt</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Define the agent&apos;s personality, behavior, and special instructions.
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <Label htmlFor="agentPrompt" className="flex items-center gap-1 mb-2">
-                      Agent Prompt <span className="text-red-500">*</span>
-                    </Label>
-                    <Textarea
-                      id="agentPrompt"
-                      value={agentPrompt}
-                      onChange={(e) => setAgentPrompt(e.target.value)}
-                      rows={10}
-                      placeholder="You are an expert geospatial analyst with knowledge of GIS, remote sensing, and spatial analysis techniques. Help users analyze geospatial data and create visualizations..."
-                      className="font-mono text-sm"
-                      required
-                    />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Model Tab */}
-              <TabsContent value="model" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Model Configuration</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Configure the LLM model settings for this agent.
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* LLM Provider */}
-                    <div className="grid gap-2">
-                      <Label htmlFor="provider">Provider</Label>
-                      <Select
-                        value={provider}
-                        onValueChange={(value: LLMProviderType) => {
-                          setProvider(value)
-                          setModel('') // Reset model when provider changes
-                        }}
-                      >
-                        <SelectTrigger id="provider">
-                          <SelectValue placeholder="Select LLM provider" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SUPPORTED_LLM_PROVIDERS.map((providerId) => (
-                            <SelectItem key={providerId} value={providerId}>
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className={`h-5 w-5 rounded-md ${PROVIDER_BACKGROUNDS[providerId]} flex items-center justify-center p-0.5`}
-                                >
-                                  <img
-                                    src={PROVIDER_LOGOS[providerId]}
-                                    alt={`${providerId} logo`}
-                                    className="h-full w-full object-contain"
-                                  />
-                                </div>
-                                <span>
-                                  {getFormattedProviderName(providerId, undefined, false)}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Model Selection */}
-                    <div className="grid gap-2">
-                      <Label htmlFor="model">Model</Label>
-                      <Select
-                        value={model}
-                        onValueChange={setModel}
-                        disabled={!provider || availableModels.length === 0}
-                      >
-                        <SelectTrigger id="model">
-                          <SelectValue
-                            placeholder={
-                              availableModels.length === 0 ? 'No models available' : 'Select model'
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableModels.map((modelName) => (
-                            <SelectItem key={modelName} value={modelName}>
-                              {modelName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-4 pt-2">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="temperature">Temperature</Label>
-                          <span className="text-sm font-medium">{temperature}</span>
-                        </div>
-                        <Slider
-                          id="temperature"
-                          min={0}
-                          max={1}
-                          step={0.01}
-                          value={[temperature]}
-                          onValueChange={(value) => setTemperature(value[0])}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Controls the randomness of the output. Lower values make the output more
-                          deterministic.
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="maxOutputTokens">Max Tokens</Label>
-                          <span className="text-sm font-medium">{maxTokens}</span>
-                        </div>
-                        <Slider
-                          id="maxOutputTokens"
-                          min={256}
-                          max={8192}
-                          step={256}
-                          value={[maxTokens]}
-                          onValueChange={(value) => setMaxTokens(value[0])}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Maximum number of tokens (words/characters) the model can generate.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </ScrollArea>
-
-          <DialogFooter className="pt-4">
-            <div className="flex justify-between w-full">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
-                Cancel
-              </Button>
-
-              <div className="flex gap-2">
-                {activeTab !== 'general' && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      const tabs = ['general', 'prompts', 'capabilities', 'model']
-                      const currentIndex = tabs.indexOf(activeTab)
-
-                      if (currentIndex > 0) {
-                        setActiveTab(tabs[currentIndex - 1])
-                      }
-                    }}
-                    disabled={isSubmitting}
-                  >
-                    Previous
-                  </Button>
-                )}
-
-                {activeTab !== 'model' ? (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      const tabs = ['general', 'prompts', 'capabilities', 'model']
-                      const currentIndex = tabs.indexOf(activeTab)
-
-                      // Validate current tab before proceeding
-                      if (activeTab === 'general') {
-                        if (!name.trim()) {
-                          toast.error('Agent name is required')
-                          return
-                        }
-                        if (!description.trim()) {
-                          toast.error('Agent description is required')
-                          return
-                        }
-                      } else if (activeTab === 'prompts') {
-                        if (!agentPrompt.trim()) {
-                          toast.error('Agent prompt is required')
-                          return
-                        }
-                      }
-
-                      if (currentIndex < tabs.length - 1) {
-                        setActiveTab(tabs[currentIndex + 1])
-                      }
-                    }}
-                    disabled={isSubmitting}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Agent
-                  </Button>
-                )}
+              <div className="space-y-1.5">
+                <Label htmlFor="description" className="text-xs text-muted-foreground">
+                  Description <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Specialized agent for geospatial data analysis tasks"
+                  className="text-sm"
+                />
               </div>
             </div>
-          </DialogFooter>
-        </form>
+
+            <div className="border-t border-border/40" />
+
+            {/* Prompt */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">System Prompt</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="agentPrompt" className="text-xs text-muted-foreground">
+                  Instructions <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="agentPrompt"
+                  value={agentPrompt}
+                  onChange={(e) => setAgentPrompt(e.target.value)}
+                  rows={6}
+                  placeholder="You are an expert geospatial analyst with knowledge of GIS, remote sensing, and spatial analysis techniques..."
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-border/40" />
+
+            {/* Tools */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Tools</Label>
+                {selectedTools.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedTools.length} selected
+                  </span>
+                )}
+              </div>
+              <div className="rounded-md border border-border/60">
+                <ScrollArea className="h-36 p-2.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {isLoadingTools ? (
+                      <div className="w-full flex items-center justify-center py-6 text-xs text-muted-foreground">
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        Loading tools...
+                      </div>
+                    ) : toolsError ? (
+                      <div className="w-full text-center py-6 text-xs text-red-500">
+                        {toolsError}
+                      </div>
+                    ) : availableTools.length === 0 ? (
+                      <div className="w-full text-center py-6 text-xs text-muted-foreground">
+                        No tools available for assignment.
+                      </div>
+                    ) : (
+                      availableTools.map((tool) => {
+                        const isSelected = selectedTools.includes(tool)
+                        return (
+                          <Badge
+                            key={tool}
+                            variant={isSelected ? 'default' : 'outline'}
+                            className="cursor-pointer text-xs"
+                            onClick={() => toggleToolSelection(tool)}
+                          >
+                            {tool}
+                          </Badge>
+                        )
+                      })
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+
+            <div className="border-t border-border/40" />
+
+            {/* Model */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Model</Label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="provider" className="text-xs text-muted-foreground">
+                    Provider
+                  </Label>
+                  <Select
+                    value={provider}
+                    onValueChange={(value: LLMProviderType) => {
+                      setProvider(value)
+                      setModel('')
+                    }}
+                  >
+                    <SelectTrigger id="provider" className="text-sm">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUPPORTED_LLM_PROVIDERS.map((providerId) => (
+                        <SelectItem key={providerId} value={providerId}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`h-4 w-4 rounded ${PROVIDER_BACKGROUNDS[providerId]} flex items-center justify-center p-0.5`}
+                            >
+                              <img
+                                src={PROVIDER_LOGOS[providerId]}
+                                alt=""
+                                className="h-full w-full object-contain"
+                              />
+                            </div>
+                            <span>{getFormattedProviderName(providerId, undefined, false)}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="model" className="text-xs text-muted-foreground">
+                    Model
+                  </Label>
+                  <Select
+                    value={model}
+                    onValueChange={setModel}
+                    disabled={!provider || availableModels.length === 0}
+                  >
+                    <SelectTrigger id="model" className="text-sm">
+                      <SelectValue
+                        placeholder={
+                          availableModels.length === 0 ? 'No models available' : 'Select model'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableModels.map((modelName) => (
+                        <SelectItem key={modelName} value={modelName}>
+                          {modelName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-1">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="temperature" className="text-xs text-muted-foreground">
+                      Temperature
+                    </Label>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {temperature}
+                    </span>
+                  </div>
+                  <Slider
+                    id="temperature"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={[temperature]}
+                    onValueChange={(value) => setTemperature(value[0])}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="maxOutputTokens" className="text-xs text-muted-foreground">
+                      Max tokens
+                    </Label>
+                    <span className="text-xs tabular-nums text-muted-foreground">{maxTokens}</span>
+                  </div>
+                  <Slider
+                    id="maxOutputTokens"
+                    min={256}
+                    max={8192}
+                    step={256}
+                    value={[maxTokens]}
+                    onValueChange={(value) => setMaxTokens(value[0])}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 pt-2">
+          <Button variant="ghost" size="sm" onClick={handleClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Agent'
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )

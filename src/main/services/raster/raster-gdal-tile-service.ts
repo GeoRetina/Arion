@@ -4,7 +4,7 @@ import { join } from 'path'
 import { app } from 'electron'
 import { serializeRasterRgbBandSelection } from '../../../shared/lib/raster-band-urls'
 import type { RasterRgbBandSelection } from '../../../shared/types/layer-types'
-import type { BoundingBox, SupportedRasterCrs } from './raster-types'
+import type { BoundingBox, RasterCrs } from './raster-types'
 import { lonLatToWebMercator, TILE_SIZE } from './raster-coordinate-utils'
 import { getGdalRunnerService, type GdalRunnerService } from './gdal-runner-service'
 
@@ -24,7 +24,7 @@ export interface RasterGdalTileRenderRequest {
   bandRanges: Array<{ min: number; max: number }>
   paletteIndexed: boolean
   sourceByteLike: boolean
-  crs: SupportedRasterCrs
+  crs: RasterCrs
   mapBounds: BoundingBox
   sourceFilePath: string
   transparentTilePng: Buffer
@@ -51,7 +51,7 @@ export class RasterGdalTileService {
   }
 
   async renderTile(request: RasterGdalTileRenderRequest): Promise<Buffer> {
-    this.assertTileRenderingEnabled(request.assetId, request.crs)
+    this.assertTileRenderingEnabled(request.assetId)
     await this.ensureTileRenderingAvailable()
 
     const cacheKey = this.toCacheKey(request)
@@ -143,12 +143,8 @@ export class RasterGdalTileService {
     }
   }
 
-  private assertTileRenderingEnabled(assetId: string, _crs: SupportedRasterCrs): void {
+  private assertTileRenderingEnabled(assetId: string): void {
     this.assertRuntimeEnabled()
-
-    if (!this.isSupportedCrs(_crs)) {
-      throw new Error(`Unsupported CRS for GDAL tile rendering: ${_crs}`)
-    }
 
     const disabledUntil = this.disabledAssets.get(assetId)
     if (typeof disabledUntil === 'number') {
@@ -159,10 +155,6 @@ export class RasterGdalTileService {
       }
       this.disabledAssets.delete(assetId)
     }
-  }
-
-  private isSupportedCrs(crs: SupportedRasterCrs): boolean {
-    return crs === 'EPSG:4326' || crs === 'EPSG:3857'
   }
 
   private assertRuntimeEnabled(): void {

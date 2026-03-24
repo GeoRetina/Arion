@@ -9,7 +9,7 @@ type SharedIntegrationConfig =
   | IntegrationConfigForRendererMap[IntegrationId]
   | IntegrationConfigMap[IntegrationId]
 
-export type IntegrationType = 'api' | 'cloud' | 'database' | 'cloud-platform'
+export type IntegrationType = 'api' | 'cloud' | 'database' | 'cloud-platform' | 'desktop'
 
 export type IntegrationFieldType = 'text' | 'password' | 'number' | 'url' | 'textarea' | 'boolean'
 

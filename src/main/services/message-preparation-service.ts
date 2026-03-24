@@ -8,6 +8,10 @@ import { createMCPToolDescription, type ToolDescription } from '../constants/too
 import { isOrchestratorAgent } from '../../../src/shared/utils/agent-utils'
 import { resolveRegisteredExternalRuntimeId } from '../../shared/utils/external-runtime-config'
 import { normalizeRendererMessages, sanitizeModelMessages } from './utils/message-normalizer'
+import {
+  formatSpecialistAgentDirectoryForPrompt,
+  loadSpecialistAgentDirectory
+} from './utils/specialist-agent-directory'
 import { ACTIVE_EXTERNAL_RUNTIME_ID_KEY } from './settings/settings-service-config'
 import type { SystemPromptConfig } from '../../shared/ipc-types'
 
@@ -255,34 +259,9 @@ export class MessagePreparationService {
     }
 
     try {
-      // Get all agents from the registry
-      const allAgents = await this.agentRegistryService.getAllAgents()
-      if (!allAgents || allAgents.length === 0) {
-        return ''
-      }
-
-      let availableAgentsInfo = '\n\nAVAILABLE SPECIALIZED AGENTS:\n\n'
-
-      // Process each agent to create a formatted agent info section
-      for (const agentEntry of allAgents) {
-        const agentDef = await this.agentRegistryService.getAgentById(agentEntry.id)
-        if (!agentDef) continue
-
-        // Skip agents that are orchestrators (to avoid recursion)
-        const isOrchestrator = isOrchestratorAgent(agentDef)
-
-        if (!isOrchestrator) {
-          const capabilitiesList = agentDef.capabilities
-            .map((cap) => `- ${cap.name}: ${cap.description}`)
-            .join('\n')
-
-          availableAgentsInfo += `Agent: ${agentDef.name} (ID: ${agentDef.id})\n`
-          availableAgentsInfo += `Description: ${agentDef.description || 'No description'}\n`
-          availableAgentsInfo += `Capabilities:\n${capabilitiesList}\n\n`
-        }
-      }
-
-      return availableAgentsInfo
+      const specialistDirectory = await loadSpecialistAgentDirectory(this.agentRegistryService)
+      const availableAgentsInfo = formatSpecialistAgentDirectoryForPrompt(specialistDirectory)
+      return availableAgentsInfo ? `\n\n${availableAgentsInfo}` : ''
     } catch {
       return ''
     }

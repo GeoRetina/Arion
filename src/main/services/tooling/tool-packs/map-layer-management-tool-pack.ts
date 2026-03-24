@@ -8,7 +8,10 @@ import {
   type SetLayerStyleParams,
   type RemoveMapLayerParams
 } from '../../../llm-tools/map-layer-management-tools'
-import { resolveLocalLayerFilePath } from '../../../../shared/lib/layer-source-paths'
+import {
+  resolveLocalLayerFilePath,
+  resolveQgisLayerInputPath
+} from '../../../../shared/lib/layer-source-paths'
 import type { ToolRegistry } from '../tool-registry'
 import type { MapLayerTracker } from '../map-layer-tracker'
 import { getLayerDbService } from '../../layer-database-service'
@@ -77,6 +80,7 @@ export function registerMapLayerManagementTools(
       const persistedSourceIds = new Set(persistedLayers.map((layer) => layer.sourceId))
       const layers = getAvailableRuntimeLayers().map((layer) => {
         const localFilePath = resolveLocalLayerFilePath(layer)
+        const qgisInputPath = resolveQgisLayerInputPath(layer)
         const persistedInDatabase = Boolean(
           (layer.id && persistedIds.has(layer.id)) ||
           (layer.sourceId && persistedSourceIds.has(layer.sourceId))
@@ -100,6 +104,15 @@ export function registerMapLayerManagementTools(
           bounds: layer.metadata?.bounds,
           featureCount: layer.metadata?.featureCount,
           ...(localFilePath ? { localFilePath } : {}),
+          ...(qgisInputPath
+            ? {
+                integrationInputs: {
+                  qgis: {
+                    inputPath: qgisInputPath
+                  }
+                }
+              }
+            : {}),
           persistedInDatabase,
           managedBy: 'layer_store' as const
         }
@@ -140,10 +153,14 @@ export function registerMapLayerManagementTools(
         }
       }
 
-      if (!params.paint || Object.keys(params.paint).length === 0) {
+      const hasPaint = Boolean(params.paint && Object.keys(params.paint).length > 0)
+      const hasLayout = Boolean(params.layout && Object.keys(params.layout).length > 0)
+      const hasFilter = Array.isArray(params.filter) && params.filter.length > 0
+
+      if (!hasPaint && !hasLayout && !hasFilter) {
         return {
           status: 'success',
-          message: 'No paint properties provided. No style changes applied.',
+          message: 'No style properties provided. No style changes applied.',
           source_id: params.source_id
         }
       }
@@ -157,16 +174,22 @@ export function registerMapLayerManagementTools(
         }
       }
 
-      mainWindow.webContents.send('ctg:map:setPaintProperties', {
+      mainWindow.webContents.send('ctg:map:updateLayerStyle', {
         sourceId: params.source_id,
-        paintProperties: params.paint
+        ...(hasPaint ? { paintProperties: params.paint } : {}),
+        ...(hasLayout ? { layoutProperties: params.layout } : {}),
+        ...(hasFilter ? { filter: params.filter } : {})
       })
 
       return {
         status: 'success',
-        message: `Styling request for layer ${params.source_id} sent. Check renderer console for map update logs.`,
+        message: `Styling request for layer ${params.source_id} sent to the live map.`,
         source_id: params.source_id,
-        applied_properties: params.paint
+        applied_properties: {
+          ...(hasPaint ? { paint: params.paint } : {}),
+          ...(hasLayout ? { layout: params.layout } : {}),
+          ...(hasFilter ? { filter: params.filter } : {})
+        }
       }
     }
   })
