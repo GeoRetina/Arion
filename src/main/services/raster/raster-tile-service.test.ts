@@ -52,4 +52,30 @@ describe('raster-tile-service helpers', () => {
     expect(__testing.computeBandRange([0, 0, 0], 0)).toBeNull()
     expect(__testing.computeBandRange([], null)).toBeNull()
   })
+
+  it('extracts map bounds from GDAL WGS84 extent coordinates', () => {
+    const bounds = __testing.extractBoundingBoxFromGeoJsonCoordinates([
+      [
+        [-123.5, 45.1],
+        [-120.25, 45.1],
+        [-120.25, 47.75],
+        [-123.5, 47.75],
+        [-123.5, 45.1]
+      ]
+    ])
+
+    expect(bounds).toEqual([-123.5, 45.1, -120.25, 47.75])
+  })
+
+  it('computes a stable native zoom from map bounds', () => {
+    const zoom = __testing.inferNativeMaxZoomFromMapBounds([-123.5, 45.1, -120.25, 47.75], 4096)
+    expect(zoom).toBeGreaterThan(0)
+    expect(zoom).toBeLessThanOrEqual(24)
+  })
+
+  it('recognizes manifest-backed raster asset registrations', () => {
+    expect(
+      __testing.parseAssetIdFromRasterAssetFilename('123e4567-e89b-12d3-a456-426614174000.json')
+    ).toBe('123e4567-e89b-12d3-a456-426614174000')
+  })
 })

@@ -15,6 +15,7 @@ import { getVectorAssetService } from '../services/vector/vector-asset-service'
 import type {
   ImportGeoPackageRequest,
   ImportGeoPackageResult,
+  RenderGeoTiffTileRequest,
   RegisterVectorAssetRequest,
   RegisterVectorAssetResult
 } from '../../shared/ipc-types'
@@ -161,6 +162,16 @@ const rasterRgbBandSelectionSchema = z
     red: z.number().int().min(1).max(65_535),
     green: z.number().int().min(1).max(65_535),
     blue: z.number().int().min(1).max(65_535)
+  })
+  .strict()
+
+const renderGeoTiffTileSchema = z
+  .object({
+    assetId: z.string().uuid(),
+    z: z.number().int().min(0).max(30),
+    x: z.number().int().min(0),
+    y: z.number().int().min(0),
+    rgbBands: rasterRgbBandSelectionSchema.optional()
   })
   .strict()
 
@@ -750,6 +761,14 @@ export function registerLayerHandlers(): void {
     async (_event: IpcMainInvokeEvent, request: RegisterGeoTiffAssetRequest) => {
       const parsedRequest = registerGeoTiffAssetSchema.parse(request)
       return await rasterTileService.registerGeoTiffAsset(parsedRequest)
+    }
+  )
+
+  ipcMain.handle(
+    'layers:renderGeoTiffTile',
+    async (_event: IpcMainInvokeEvent, request: RenderGeoTiffTileRequest) => {
+      const parsedRequest = renderGeoTiffTileSchema.parse(request)
+      return await rasterTileService.renderTile(parsedRequest)
     }
   )
 

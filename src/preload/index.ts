@@ -111,6 +111,7 @@ import {
   type ImportGeoPackageResult,
   type RegisterVectorAssetRequest,
   type RegisterVectorAssetResult,
+  type RenderGeoTiffTileRequest,
   type LocalFileDescriptor,
   type LocalFileDialogOptions,
   type LayerImportDefinitionsPayload
@@ -884,6 +885,8 @@ const ctgApi = {
 
     // Register GeoTIFF as a tiled raster asset
     registerGeoTiffAsset: (request) => ipcRenderer.invoke('layers:registerGeoTiffAsset', request),
+    renderGeoTiffTile: (request: RenderGeoTiffTileRequest): Promise<Uint8Array> =>
+      ipcRenderer.invoke('layers:renderGeoTiffTile', request),
     resolveImportFilePath: (descriptor) =>
       Promise.resolve(resolveTrackedLocalImportPath(descriptor)),
     getGeoTiffAssetStatus: (jobId: string) =>

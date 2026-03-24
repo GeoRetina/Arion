@@ -9,20 +9,21 @@ import { encode as encodePng } from 'fast-png'
 import { serializeRasterRgbBandSelection } from '../../../shared/lib/raster-band-urls'
 import type { RasterRgbBandSelection } from '../../../shared/types/layer-types'
 import {
-  inferNativeMaxZoom,
   intersection,
-  mapBoundsToSourceBounds,
+  lonLatToWebMercator,
   sourceBoundsToMapBounds,
   tileToLonLatBounds,
   TILE_SIZE,
   validateBoundingBox
 } from './raster-coordinate-utils'
+import { getGdalRunnerService } from './gdal-runner-service'
 import { getRasterGdalTileService } from './raster-gdal-tile-service'
 import { getRasterGdalPreprocessService } from './raster-gdal-preprocess-service'
 import { ensureLocalFilesystemPath } from '../../security/path-security'
 import type {
   BoundingBox,
   GeoTiffAssetProcessingStatus,
+  RasterCrs,
   RasterTileRequest,
   RegisterGeoTiffAssetRequest,
   RegisterGeoTiffAssetResult,
@@ -30,6 +31,7 @@ import type {
 } from './raster-types'
 
 const RASTER_ASSETS_DIR = 'raster-assets'
+const RASTER_ASSET_MANIFEST_VERSION = 1
 const TILE_CACHE_MAX_ENTRIES = 1024
 const MAX_OPEN_ASSET_CONTEXTS = 12
 const VALID_ASSET_ID_PATTERN = /^[a-f0-9-]{36}$/i
@@ -37,6 +39,7 @@ const VALID_JOB_ID_PATTERN = /^[a-f0-9-]{36}$/i
 const PROCESSING_STATUS_TTL_MS = 5 * 60 * 1000
 const STALE_CONTEXT_CLOSE_DELAY_MS = 30 * 1000
 const MAX_CONCURRENT_TILE_RENDERS = Math.max(1, Math.min(4, cpus().length - 1))
+const GDAL_INFO_TIMEOUT_MS = 30 * 1000
 const BAND_RANGE_PERCENTILE_LOW = 0.02
 const BAND_RANGE_PERCENTILE_HIGH = 0.98
 const BAND_RANGE_MAX_SAMPLE_VALUES = 131_072
@@ -70,7 +73,7 @@ interface RasterAssetContext {
   filePath: string
   tiff: GeoTIFF
   levels: RasterImageLevel[]
-  crs: SupportedRasterCrs
+  crs: RasterCrs
   sourceBounds: BoundingBox
   mapBounds: BoundingBox
   width: number
@@ -89,8 +92,31 @@ interface BandRange {
   max: number
 }
 
+interface RasterAssetManifest {
+  version: typeof RASTER_ASSET_MANIFEST_VERSION
+  sourcePath: string
+}
+
+interface GdalInfoPayload {
+  coordinateSystem?: {
+    wkt?: string
+    projjson?: {
+      id?: {
+        authority?: string
+        code?: number | string
+      }
+    }
+  }
+  stac?: Record<string, unknown>
+  wgs84Extent?: {
+    type?: string
+    coordinates?: unknown
+  }
+}
+
 export class RasterTileService {
   private readonly decoderPool: Pool
+  private readonly gdalRunner = getGdalRunnerService()
   private readonly gdalTileService = getRasterGdalTileService()
   private readonly preprocessService = getRasterGdalPreprocessService()
   private readonly openAssetContexts = new Map<string, RasterAssetContext>()
@@ -119,7 +145,7 @@ export class RasterTileService {
     await this.gdalTileService.ensureTileRenderingAvailable()
 
     const assetId = randomUUID()
-    const destinationPath = this.getAssetPath(assetId)
+    const manifestPath = this.getAssetManifestPath(assetId)
     const jobId = this.resolveJobId(request.jobId)
     const nowIso = new Date().toISOString()
     this.setProcessingStatus({
@@ -149,7 +175,7 @@ export class RasterTileService {
       this.updateProcessingStatus(jobId, {
         stage: 'preparing',
         progress: 20,
-        message: 'Preparing managed raster asset'
+        message: 'Registering raster source'
       })
 
       this.updateProcessingStatus(jobId, {
@@ -162,7 +188,7 @@ export class RasterTileService {
       const preprocessResult = await this.preprocessService.preprocessGeoTiff({
         assetId,
         inputPath: sourcePath,
-        outputPath: destinationPath,
+        outputPath: sourcePath,
         onProgress: (update) => {
           this.updateProcessingStatus(jobId, {
             stage: 'preprocessing',
@@ -179,6 +205,7 @@ export class RasterTileService {
         )
       }
       const processingWarning = preprocessResult.warning
+      await this.writeAssetManifest(assetId, sourcePath)
 
       this.updateProcessingStatus(jobId, {
         stage: 'loading',
@@ -187,7 +214,7 @@ export class RasterTileService {
         processingEngine: 'gdal',
         warning: processingWarning
       })
-      const context = await this.loadAssetContext(assetId, destinationPath)
+      const context = await this.loadAssetContext(assetId, sourcePath)
       this.touchAssetContext(assetId, context)
       await this.enforceOpenAssetContextLimit(assetId)
 
@@ -215,7 +242,7 @@ export class RasterTileService {
         processingWarning
       }
     } catch (error) {
-      await this.safeRemoveAssetArtifacts(destinationPath)
+      await this.safeRemoveAssetFile(manifestPath)
       const message = error instanceof Error ? error.message : 'Failed to register GeoTIFF asset'
       this.updateProcessingStatus(jobId, {
         stage: 'error',
@@ -246,7 +273,7 @@ export class RasterTileService {
       }
     }
 
-    await this.removeAssetArtifactsWithRetry(assetId)
+    await this.removeAssetRegistrationWithRetry(assetId)
     await this.gdalTileService.releaseAsset(assetId)
   }
 
@@ -352,8 +379,7 @@ export class RasterTileService {
     const context = await this.getAssetContext(request.assetId)
     const rgbBands = validateRequestedRgbBands(request.rgbBands, context.bandCount)
     const mapTileBounds = tileToLonLatBounds(request.z, request.x, request.y)
-    const sourceTileBounds = mapBoundsToSourceBounds(mapTileBounds, context.crs)
-    const overlapBounds = intersection(sourceTileBounds, context.sourceBounds)
+    const overlapBounds = intersection(mapTileBounds, context.mapBounds)
 
     if (!overlapBounds) {
       return this.transparentTilePng
@@ -383,7 +409,7 @@ export class RasterTileService {
       return existing
     }
 
-    const filePath = this.getAssetPath(assetId)
+    const filePath = await this.resolveRegisteredAssetPath(assetId)
     const context = await this.loadAssetContext(assetId, filePath)
     this.touchAssetContext(assetId, context)
     await this.enforceOpenAssetContextLimit(assetId)
@@ -394,6 +420,7 @@ export class RasterTileService {
     const tiff = await geoTiffFromFile(filePath)
 
     try {
+      const rasterInfo = await this.readGdalInfo(filePath)
       const imageCount = await tiff.getImageCount()
       if (imageCount <= 0) {
         throw new Error('GeoTIFF has no readable image levels')
@@ -432,9 +459,15 @@ export class RasterTileService {
       }))
 
       const baseLevel = levels[0]
-      const crs = resolveSupportedCrs(baseLevel.image)
+      const crs = resolveRasterCrs(baseLevel.image, rasterInfo)
       const sourceBounds = validateBoundingBox(baseLevel.bounds, 'source')
-      const mapBounds = validateBoundingBox(sourceBoundsToMapBounds(sourceBounds, crs), 'map')
+      const mapTransformCrs = normalizeMapTransformCrs(crs)
+      const mapBounds = validateBoundingBox(
+        mapTransformCrs
+          ? sourceBoundsToMapBounds(sourceBounds, mapTransformCrs)
+          : resolveGdalMapBounds(rasterInfo),
+        'map'
+      )
       const width = baseLevel.width
       const height = baseLevel.height
       const bandCount = baseLevel.image.getSamplesPerPixel()
@@ -445,7 +478,7 @@ export class RasterTileService {
         paletteIndexed || sourceByteLike
           ? []
           : await this.computeBandRanges(baseLevel.image, bandCount, noDataValue)
-      const maxZoom = inferNativeMaxZoom(sourceBounds, width, crs)
+      const maxZoom = inferNativeMaxZoomFromMapBounds(mapBounds, width)
 
       return {
         assetId,
@@ -560,8 +593,28 @@ export class RasterTileService {
     await fs.mkdir(this.getAssetsDirectoryPath(), { recursive: true })
   }
 
+  private async readGdalInfo(filePath: string): Promise<GdalInfoPayload> {
+    const result = await this.gdalRunner.run('gdalinfo', ['-json', filePath], {
+      timeoutMs: GDAL_INFO_TIMEOUT_MS
+    })
+
+    try {
+      return JSON.parse(result.stdout) as GdalInfoPayload
+    } catch {
+      return {}
+    }
+  }
+
   private getAssetsDirectoryPath(): string {
     return join(app.getPath('userData'), RASTER_ASSETS_DIR)
+  }
+
+  private getAssetManifestPath(assetId: string): string {
+    if (!isValidAssetId(assetId)) {
+      throw new Error('Invalid raster asset id')
+    }
+
+    return join(this.getAssetsDirectoryPath(), `${assetId}.json`)
   }
 
   private getAssetPath(assetId: string): string {
@@ -578,6 +631,64 @@ export class RasterTileService {
 
   private getAssetAuxMetadataPath(assetId: string): string {
     return `${this.getAssetPath(assetId)}.aux.xml`
+  }
+
+  private async writeAssetManifest(assetId: string, sourcePath: string): Promise<void> {
+    const manifest: RasterAssetManifest = {
+      version: RASTER_ASSET_MANIFEST_VERSION,
+      sourcePath
+    }
+
+    await fs.writeFile(
+      this.getAssetManifestPath(assetId),
+      JSON.stringify(manifest, null, 2),
+      'utf8'
+    )
+  }
+
+  private async readAssetManifest(assetId: string): Promise<RasterAssetManifest | null> {
+    try {
+      const raw = await fs.readFile(this.getAssetManifestPath(assetId), 'utf8')
+      const parsed = JSON.parse(raw) as Partial<RasterAssetManifest>
+      if (
+        parsed.version !== RASTER_ASSET_MANIFEST_VERSION ||
+        typeof parsed.sourcePath !== 'string' ||
+        parsed.sourcePath.length === 0
+      ) {
+        throw new Error('Raster asset manifest is invalid')
+      }
+
+      return {
+        version: RASTER_ASSET_MANIFEST_VERSION,
+        sourcePath: ensureLocalFilesystemPath(parsed.sourcePath, 'Raster asset source path')
+      }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === 'ENOENT') {
+        return null
+      }
+      throw error
+    }
+  }
+
+  private async resolveRegisteredAssetPath(assetId: string): Promise<string> {
+    const manifest = await this.readAssetManifest(assetId)
+    if (manifest) {
+      const fileStats = await fs.stat(manifest.sourcePath).catch(() => null)
+      if (!fileStats?.isFile()) {
+        throw new Error(`Raster source file is no longer available: ${manifest.sourcePath}`)
+      }
+
+      return manifest.sourcePath
+    }
+
+    const legacyAssetPath = this.getAssetPath(assetId)
+    const legacyStats = await fs.stat(legacyAssetPath).catch(() => null)
+    if (legacyStats?.isFile()) {
+      return legacyAssetPath
+    }
+
+    throw new Error(`Raster asset not found: ${assetId}`)
   }
 
   private createTransparentTile(): Buffer {
@@ -771,16 +882,9 @@ export class RasterTileService {
     }
   }
 
-  private async safeRemoveAssetArtifacts(mainAssetPath: string): Promise<void> {
-    const paths = [mainAssetPath, `${mainAssetPath}.ovr`, `${mainAssetPath}.aux.xml`]
-
-    for (const path of paths) {
-      await this.safeRemoveAssetFile(path)
-    }
-  }
-
-  private async removeAssetArtifactsWithRetry(assetId: string): Promise<void> {
+  private async removeAssetRegistrationWithRetry(assetId: string): Promise<void> {
     const paths = [
+      this.getAssetManifestPath(assetId),
       this.getAssetPath(assetId),
       this.getAssetOverviewPath(assetId),
       this.getAssetAuxMetadataPath(assetId)
@@ -836,7 +940,7 @@ export class RasterTileService {
   }
 }
 
-const RASTER_ASSET_FILENAME_SUFFIXES = new Set(['.tif', '.tif.ovr', '.tif.aux.xml'])
+const RASTER_ASSET_FILENAME_SUFFIXES = new Set(['.json', '.tif', '.tif.ovr', '.tif.aux.xml'])
 
 function parseAssetIdFromRasterAssetFilename(filename: string): string | null {
   const match = /^([a-f0-9-]{36})(\..+)$/i.exec(filename)
@@ -894,31 +998,36 @@ function isMissingAffineTransformationError(error: unknown): boolean {
   return error instanceof Error && /affine transformation/i.test(error.message)
 }
 
-function resolveSupportedCrs(image: GeoTIFFImage): SupportedRasterCrs {
+function resolveRasterCrs(image: GeoTIFFImage, rasterInfo: GdalInfoPayload): RasterCrs {
   const geoKeys = (image.getGeoKeys?.() ?? {}) as Record<string, unknown>
   const projectedCode = normalizeGeoKeyCode(geoKeys['ProjectedCSTypeGeoKey'])
   if (projectedCode !== null) {
-    if ([3857, 3785, 900913].includes(projectedCode)) {
-      return 'EPSG:3857'
-    }
-
-    throw new Error(
-      `Unsupported GeoTIFF projected CRS EPSG:${projectedCode}. Reproject to EPSG:4326 or EPSG:3857.`
-    )
+    return normalizeEpsgCode(projectedCode)
   }
 
   const geographicCode = normalizeGeoKeyCode(geoKeys['GeographicTypeGeoKey'])
   if (geographicCode !== null) {
-    if ([4326, 4979].includes(geographicCode)) {
-      return 'EPSG:4326'
-    }
-
-    throw new Error(
-      `Unsupported GeoTIFF geographic CRS EPSG:${geographicCode}. Reproject to EPSG:4326 or EPSG:3857.`
-    )
+    return normalizeEpsgCode(geographicCode)
   }
 
-  throw new Error('GeoTIFF is missing supported CRS metadata. Reproject to EPSG:4326 or EPSG:3857.')
+  const gdalEpsgCode = extractEpsgCode(rasterInfo)
+  if (gdalEpsgCode !== null) {
+    return normalizeEpsgCode(gdalEpsgCode)
+  }
+
+  throw new Error('GeoTIFF is missing CRS metadata.')
+}
+
+function normalizeMapTransformCrs(crs: RasterCrs): SupportedRasterCrs | null {
+  if (crs === 'EPSG:4326' || crs === 'EPSG:4979') {
+    return 'EPSG:4326'
+  }
+
+  if (crs === 'EPSG:3857' || crs === 'EPSG:3785' || crs === 'EPSG:900913') {
+    return 'EPSG:3857'
+  }
+
+  return null
 }
 
 function normalizeGeoKeyCode(value: unknown): number | null {
@@ -934,6 +1043,139 @@ function normalizeGeoKeyCode(value: unknown): number | null {
   }
 
   return null
+}
+
+function normalizeEpsgCode(code: number): RasterCrs {
+  if (code === 3785 || code === 900913) {
+    return 'EPSG:3857'
+  }
+
+  return `EPSG:${code}`
+}
+
+function extractEpsgCode(info: GdalInfoPayload): number | null {
+  const stacValue = info.stac?.['proj:epsg']
+  if (typeof stacValue === 'number' && Number.isInteger(stacValue) && stacValue > 0) {
+    return stacValue
+  }
+
+  if (typeof stacValue === 'string') {
+    const parsed = Number(stacValue)
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+
+  const authority = info.coordinateSystem?.projjson?.id?.authority
+  const projjsonCode = info.coordinateSystem?.projjson?.id?.code
+  if (authority?.toUpperCase() === 'EPSG') {
+    if (typeof projjsonCode === 'number' && Number.isInteger(projjsonCode) && projjsonCode > 0) {
+      return projjsonCode
+    }
+
+    if (typeof projjsonCode === 'string') {
+      const parsed = Number(projjsonCode)
+      if (Number.isInteger(parsed) && parsed > 0) {
+        return parsed
+      }
+    }
+  }
+
+  const wkt = info.coordinateSystem?.wkt
+  if (typeof wkt === 'string') {
+    const matches = Array.from(wkt.matchAll(/ID\["EPSG",\s*(\d+)\]/gu))
+    const finalMatch = matches[matches.length - 1]?.[1]
+    if (finalMatch) {
+      const parsed = Number(finalMatch)
+      if (Number.isInteger(parsed) && parsed > 0) {
+        return parsed
+      }
+    }
+  }
+
+  return null
+}
+
+function resolveGdalMapBounds(info: GdalInfoPayload): BoundingBox {
+  const bounds = extractBoundingBoxFromGeoJsonCoordinates(info.wgs84Extent?.coordinates)
+  if (bounds) {
+    return bounds
+  }
+
+  throw new Error('GDAL could not determine the raster WGS84 extent.')
+}
+
+function extractBoundingBoxFromGeoJsonCoordinates(coordinates: unknown): BoundingBox | null {
+  const points: Array<[number, number]> = []
+  collectCoordinatePoints(coordinates, points)
+  if (points.length === 0) {
+    return null
+  }
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  for (const [x, y] of points) {
+    minX = Math.min(minX, x)
+    minY = Math.min(minY, y)
+    maxX = Math.max(maxX, x)
+    maxY = Math.max(maxY, y)
+  }
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(maxY)
+  ) {
+    return null
+  }
+
+  return [minX, minY, maxX, maxY]
+}
+
+function collectCoordinatePoints(value: unknown, accumulator: Array<[number, number]>): void {
+  if (!Array.isArray(value)) {
+    return
+  }
+
+  if (
+    value.length >= 2 &&
+    typeof value[0] === 'number' &&
+    Number.isFinite(value[0]) &&
+    typeof value[1] === 'number' &&
+    Number.isFinite(value[1])
+  ) {
+    accumulator.push([value[0], value[1]])
+    return
+  }
+
+  for (const entry of value) {
+    collectCoordinatePoints(entry, accumulator)
+  }
+}
+
+function inferNativeMaxZoomFromMapBounds(mapBounds: BoundingBox, width: number): number {
+  if (!Number.isFinite(width) || width <= 0) {
+    return 22
+  }
+
+  const [minX] = lonLatToWebMercator(mapBounds[0], mapBounds[1])
+  const [maxX] = lonLatToWebMercator(mapBounds[2], mapBounds[3])
+  const spanX = Math.abs(maxX - minX)
+  if (!Number.isFinite(spanX) || spanX <= 0) {
+    return 22
+  }
+
+  const worldSpan = Math.PI * 6378137 * 2
+  const zoom = Math.log2(worldSpan / ((spanX / width) * TILE_SIZE))
+  if (!Number.isFinite(zoom)) {
+    return 22
+  }
+
+  return Math.max(0, Math.min(24, Math.ceil(zoom)))
 }
 
 function normalizeRasterBands(data: ReadRasterResult): ArrayLike<number>[] {
@@ -1143,7 +1385,10 @@ export const __testing = {
   readNumericTagValues,
   computeBandRange,
   computePercentileRange,
-  pickPercentile
+  pickPercentile,
+  extractBoundingBoxFromGeoJsonCoordinates,
+  inferNativeMaxZoomFromMapBounds,
+  parseAssetIdFromRasterAssetFilename
 }
 
 function buildRasterTileCacheKey(request: RasterTileRequest): string {

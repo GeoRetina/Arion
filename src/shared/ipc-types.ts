@@ -1414,6 +1414,14 @@ export interface RegisterGeoTiffAssetRequest {
   jobId?: string
 }
 
+export interface RenderGeoTiffTileRequest {
+  assetId: string
+  z: number
+  x: number
+  y: number
+  rgbBands?: import('./types/layer-types').RasterRgbBandSelection
+}
+
 export type RasterProcessingEngine = 'gdal' | 'geotiff-js'
 
 export type RasterProcessingStage =
@@ -1443,7 +1451,7 @@ export interface RegisterGeoTiffAssetResult {
   tilesUrlTemplate: string
   bounds: [number, number, number, number]
   sourceBounds: [number, number, number, number]
-  crs: 'EPSG:4326' | 'EPSG:3857'
+  crs: string
   width: number
   height: number
   bandCount: number
@@ -1522,6 +1530,7 @@ export interface LayerApi {
   registerGeoTiffAsset: (
     request: RegisterGeoTiffAssetRequest
   ) => Promise<RegisterGeoTiffAssetResult>
+  renderGeoTiffTile: (request: RenderGeoTiffTileRequest) => Promise<Uint8Array>
   resolveImportFilePath: (descriptor: LocalFileDescriptor) => Promise<string | null>
   getGeoTiffAssetStatus: (jobId: string) => Promise<GeoTiffAssetProcessingStatus | null>
   releaseGeoTiffAsset: (assetId: string) => Promise<boolean>
