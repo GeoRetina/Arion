@@ -27,20 +27,6 @@
       "description": "Run quality checks on vector or raster layers before downstream workflows.",
       "repositoryPath": "resources/skills/bundled/layer-qc/SKILL.md",
       "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/layer-qc/SKILL.md"
-    },
-    {
-      "id": "raster-change-detection",
-      "name": "Raster Change Detection",
-      "description": "Compare baseline and current rasters to identify meaningful spatial change.",
-      "repositoryPath": "resources/skills/bundled/raster-change-detection/SKILL.md",
-      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/raster-change-detection/SKILL.md"
-    },
-    {
-      "id": "vector-topology-repair",
-      "name": "Vector Topology Repair",
-      "description": "Detect and repair common topology issues in vector datasets.",
-      "repositoryPath": "resources/skills/bundled/vector-topology-repair/SKILL.md",
-      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/vector-topology-repair/SKILL.md"
     }
   ]
 }
