@@ -15,7 +15,6 @@ export function useLayerSync(): { isInitialized: boolean } {
   const setMapInstance = useLayerStore((state) => state.setMapInstance)
   const saveToPersistence = useLayerStore((state) => state.saveToPersistence)
   const isDirty = useLayerStore((state) => state.isDirty)
-  const layers = useLayerStore((state) => state.layers)
   const syncLayerToMap = useLayerStore((state) => state.syncLayerToMap)
 
   // Track initialization state
@@ -47,15 +46,20 @@ export function useLayerSync(): { isInitialized: boolean } {
     }
   }, [mapInstance, isMapReady, setMapInstance])
 
-  // Ensure all visible layers are synced once the map is ready (catches imports that happened earlier)
+  // Catch up any layers that were added before the map became ready.
+  // We intentionally read from the latest store snapshot here instead of replaying
+  // every historical `layers` render, which can otherwise re-add a layer that was
+  // already removed during a fast chat switch/reset.
   useEffect(() => {
     if (!mapInstance || !isMapReady) return
 
-    const visibleLayers = Array.from(layers.values()).filter((layer) => layer.visibility)
+    const visibleLayers = Array.from(useLayerStore.getState().layers.values()).filter(
+      (layer) => layer.visibility
+    )
     visibleLayers.forEach((layer) => {
       syncLayerToMap(layer).catch(() => {})
     })
-  }, [mapInstance, isMapReady, layers, syncLayerToMap])
+  }, [mapInstance, isMapReady, syncLayerToMap])
 
   // Auto-save when store becomes dirty (debounced)
   useEffect(() => {
