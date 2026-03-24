@@ -27,6 +27,13 @@
       "description": "Run quality checks on vector or raster layers before downstream workflows.",
       "repositoryPath": "resources/skills/bundled/layer-qc/SKILL.md",
       "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/layer-qc/SKILL.md"
+    },
+    {
+      "id": "qgis-processing",
+      "name": "QGIS Processing",
+      "description": "Use Arion's local QGIS integration to discover, describe, and run qgis_process workflows against file-backed layers.",
+      "repositoryPath": "resources/skills/bundled/qgis-processing/SKILL.md",
+      "downloadUrl": "https://raw.githubusercontent.com/ShahabEJ/Arion/main/resources/skills/bundled/qgis-processing/SKILL.md"
     }
   ]
 }
