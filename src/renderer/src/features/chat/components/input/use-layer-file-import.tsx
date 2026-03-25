@@ -3,15 +3,17 @@ import { LayerImportService, LAYER_IMPORT_ACCEPT_ATTRIBUTE } from '@/services/la
 import { resolveLocalImportFilePath } from '@/services/layer-import/processors/local-import-file-path'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { useLayerStore } from '@/stores/layer-store'
+import { waitForNextPaint } from '@/lib/wait-for-next-paint'
 import { toast } from 'sonner'
 import type { LayerDefinition } from '../../../../../../shared/types/layer-types'
 import {
   createGeoPackageImportProgressState,
   createInitialGeoPackageImportProgressState,
   createInitialRasterImportProgressState,
+  createInitialShapefileImportProgressState,
   createRasterImportProgressState,
-  getGeoPackageProgressSignature,
-  getRasterProgressSignature
+  createShapefileImportProgressState,
+  getLayerImportProgressSignature
 } from './layer-import-progress-state'
 import type { LayerImportProgress } from './layer-import-progress-state'
 export type { LayerImportProgress } from './layer-import-progress-state'
@@ -85,6 +87,7 @@ export const useLayerFileImport = ({
       let lastProgressSignature = ''
       let isGeoTiffImport = false
       let isGeoPackageImport = false
+      let isShapefileImport = false
       let geotiffReady = false
       let geotiffLayerAdded = false
       let geotiffSuccessToastShown = false
@@ -115,6 +118,10 @@ export const useLayerFileImport = ({
           isGeoPackageImport = true
           setImportProgress(createInitialGeoPackageImportProgressState(file.name))
           await waitForNextPaint()
+        } else if (validation.format === 'shapefile') {
+          isShapefileImport = true
+          setImportProgress(createInitialShapefileImportProgressState(file.name))
+          await waitForNextPaint()
         }
 
         layerDefinition = await LayerImportService.processFile(file, validation.format, {
@@ -144,7 +151,7 @@ export const useLayerFileImport = ({
               return
             }
 
-            const signature = getRasterProgressSignature(status)
+            const signature = getLayerImportProgressSignature(status)
             if (signature === lastProgressSignature) {
               return
             }
@@ -157,17 +164,30 @@ export const useLayerFileImport = ({
               return
             }
 
-            const signature = getGeoPackageProgressSignature(status)
+            const signature = getLayerImportProgressSignature(status)
             if (signature === lastProgressSignature) {
               return
             }
 
             lastProgressSignature = signature
             setImportProgress(createGeoPackageImportProgressState(status))
+          },
+          onShapefileProgress: (status) => {
+            if (!isShapefileImport) {
+              return
+            }
+
+            const signature = getLayerImportProgressSignature(status)
+            if (signature === lastProgressSignature) {
+              return
+            }
+
+            lastProgressSignature = signature
+            setImportProgress(createShapefileImportProgressState(status))
           }
         })
 
-        if (isGeoPackageImport) {
+        if (isGeoPackageImport || isShapefileImport) {
           setImportProgress({
             title: 'Adding layer',
             message: 'Syncing imported features to the map',
@@ -274,10 +294,4 @@ export const useLayerFileImport = ({
     uploadState,
     importProgress
   }
-}
-
-async function waitForNextPaint(): Promise<void> {
-  await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => resolve())
-  })
 }

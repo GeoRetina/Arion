@@ -296,8 +296,13 @@ describe('QgisProcessService', () => {
 
     expect(result.success).toBe(true)
     if (result.success) {
+      expect(result.workflowId).toEqual(expect.any(String))
+      expect(result.diagnostics.workflowId).toBe(result.workflowId)
       expect(result.artifacts).toHaveLength(1)
       expect(result.artifacts[0]).toMatchObject({
+        workflowId: result.workflowId,
+        artifactId: 'buffer',
+        relativePath: 'buffer.geojson',
         kind: 'vector',
         exists: true,
         selectedForImport: true,
@@ -310,8 +315,11 @@ describe('QgisProcessService', () => {
         }
       ])
       expect(result.outputs).toEqual([
-        {
+        expect.objectContaining({
           path: result.artifacts[0].path,
+          workflowId: result.workflowId,
+          artifactId: 'buffer',
+          relativePath: 'buffer.geojson',
           kind: 'vector',
           exists: true,
           selectedForImport: true,
@@ -329,7 +337,7 @@ describe('QgisProcessService', () => {
               attributeKeys: ['id']
             }
           }
-        }
+        })
       ])
     }
 
@@ -437,8 +445,13 @@ describe('QgisProcessService', () => {
 
     expect(result.success).toBe(true)
     if (result.success) {
+      expect(result.workflowId).toEqual(expect.any(String))
+      expect(result.diagnostics.workflowId).toBe(result.workflowId)
       expect(result.artifacts).toHaveLength(1)
       expect(result.artifacts[0]).toMatchObject({
+        workflowId: result.workflowId,
+        artifactId: 'buffer_default',
+        relativePath: 'buffer-default.geojson',
         kind: 'vector',
         exists: true,
         selectedForImport: true,
@@ -451,8 +464,11 @@ describe('QgisProcessService', () => {
         }
       ])
       expect(result.outputs).toEqual([
-        {
+        expect.objectContaining({
           path: result.artifacts[0].path,
+          workflowId: result.workflowId,
+          artifactId: 'buffer_default',
+          relativePath: 'buffer-default.geojson',
           kind: 'vector',
           exists: true,
           selectedForImport: true,
@@ -468,7 +484,7 @@ describe('QgisProcessService', () => {
               geometryType: 'Polygon'
             }
           }
-        }
+        })
       ])
     }
 
@@ -562,10 +578,15 @@ describe('QgisProcessService', () => {
 
     expect(result.success).toBe(true)
     if (result.success) {
+      expect(result.workflowId).toEqual(expect.any(String))
+      expect(result.diagnostics.workflowId).toBe(result.workflowId)
       expect(result.importedLayers).toEqual([])
       expect(result.outputs).toEqual([
-        {
+        expect.objectContaining({
           path: result.artifacts[0].path,
+          workflowId: result.workflowId,
+          artifactId: 'suggest_output',
+          relativePath: 'suggest-output.geojson',
           kind: 'vector',
           exists: true,
           selectedForImport: false,
@@ -584,7 +605,7 @@ describe('QgisProcessService', () => {
               attributeKeys: ['id', 'name']
             }
           }
-        }
+        })
       ])
     }
 
@@ -735,6 +756,8 @@ describe('QgisProcessService', () => {
 
     expect(result.success).toBe(true)
     if (result.success) {
+      expect(result.workflowId).toEqual(expect.any(String))
+      expect(result.diagnostics.workflowId).toBe(result.workflowId)
       expectedTop10Path = path.join(
         result.diagnostics.outputDirectory,
         'top_10_longest_features.geojson'
@@ -749,6 +772,9 @@ describe('QgisProcessService', () => {
         expect.arrayContaining([
           expect.objectContaining({
             path: expectedTop10Path,
+            workflowId: result.workflowId,
+            artifactId: 'top_10_longest_features',
+            relativePath: 'top_10_longest_features.geojson',
             kind: 'vector',
             exists: true,
             selectedForImport: true,
@@ -756,6 +782,9 @@ describe('QgisProcessService', () => {
           }),
           expect.objectContaining({
             path: expectedRemainderPath,
+            workflowId: result.workflowId,
+            artifactId: 'non_top10_features',
+            relativePath: 'non_top10_features.geojson',
             kind: 'vector',
             exists: true,
             selectedForImport: false
@@ -772,6 +801,9 @@ describe('QgisProcessService', () => {
         expect.arrayContaining([
           expect.objectContaining({
             path: expectedTop10Path,
+            workflowId: result.workflowId,
+            artifactId: 'top_10_longest_features',
+            relativePath: 'top_10_longest_features.geojson',
             selectedForImport: true,
             imported: true,
             layer: expect.objectContaining({
@@ -785,6 +817,9 @@ describe('QgisProcessService', () => {
           }),
           expect.objectContaining({
             path: expectedRemainderPath,
+            workflowId: result.workflowId,
+            artifactId: 'non_top10_features',
+            relativePath: 'non_top10_features.geojson',
             selectedForImport: false,
             imported: false,
             layer: expect.objectContaining({
@@ -808,6 +843,137 @@ describe('QgisProcessService', () => {
       runId: expect.any(String),
       layers: [importedLayerByPath.get(expectedTop10Path as string) as LayerCreateInput]
     })
+  })
+
+  it('reuses workflow workspaces and artifact handles across QGIS runs', async () => {
+    const inputPath = path.join(tempRoot, 'input.geojson')
+    await fs.writeFile(
+      inputPath,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: []
+      }),
+      'utf8'
+    )
+
+    let invocationCount = 0
+    let firstCwd: string | undefined
+    let sortedOutputPath: string | undefined
+
+    runQgisLauncherCommand.mockImplementation(
+      async ({ stdin, cwd }: { stdin?: string; cwd?: string }) => {
+        invocationCount += 1
+        const payload = JSON.parse(stdin || '{}') as {
+          inputs?: { INPUT?: string; OUTPUT?: string }
+        }
+        const outputPath = payload.inputs?.OUTPUT
+        if (!outputPath) {
+          throw new Error('Missing output path in mocked QGIS request')
+        }
+
+        await fs.writeFile(
+          outputPath,
+          JSON.stringify({
+            type: 'FeatureCollection',
+            features: []
+          }),
+          'utf8'
+        )
+
+        if (invocationCount === 1) {
+          firstCwd = cwd
+          sortedOutputPath = outputPath
+          expect(payload.inputs?.INPUT).toBe(inputPath)
+        } else if (invocationCount === 2) {
+          expect(cwd).toBe(firstCwd)
+          expect(payload.inputs?.INPUT).toBe(sortedOutputPath)
+          expect(outputPath).toContain(path.join(firstCwd || '', 'outputs'))
+        } else {
+          throw new Error(`Unexpected invocation count: ${invocationCount}`)
+        }
+
+        return {
+          stdout: JSON.stringify({
+            results: {
+              OUTPUT: outputPath
+            }
+          }),
+          stderr: '',
+          exitCode: 0,
+          durationMs: 16
+        }
+      }
+    )
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const firstResult = await service.runAlgorithm({
+      algorithmId: 'native:orderbyexpression',
+      parameters: {
+        INPUT: inputPath,
+        OUTPUT: 'sorted_lines.geojson'
+      },
+      importPreference: 'suggest',
+      chatId: 'chat-qgis'
+    })
+
+    expect(firstResult.success).toBe(true)
+    if (!firstResult.success) {
+      return
+    }
+
+    expect(firstResult.workflowId).toEqual(expect.any(String))
+    expect(firstResult.artifacts).toEqual([
+      expect.objectContaining({
+        workflowId: firstResult.workflowId,
+        artifactId: 'sorted_lines',
+        relativePath: 'sorted_lines.geojson'
+      })
+    ])
+
+    const secondResult = await service.runAlgorithm({
+      algorithmId: 'native:extractbyexpression',
+      workflowId: firstResult.workflowId,
+      parameters: {
+        INPUT: `artifact:${firstResult.artifacts[0]?.artifactId}`,
+        OUTPUT: 'top_10_longest_features.geojson'
+      },
+      importPreference: 'suggest',
+      chatId: 'chat-qgis'
+    })
+
+    expect(secondResult.success).toBe(true)
+    if (secondResult.success) {
+      expect(secondResult.workflowId).toBe(firstResult.workflowId)
+      expect(secondResult.diagnostics.workflowId).toBe(firstResult.workflowId)
+      expect(secondResult.diagnostics.outputDirectory).toBe(firstResult.diagnostics.outputDirectory)
+      expect(secondResult.artifacts).toEqual([
+        expect.objectContaining({
+          workflowId: firstResult.workflowId,
+          artifactId: 'top_10_longest_features',
+          relativePath: 'top_10_longest_features.geojson'
+        })
+      ])
+      expect(secondResult.outputs).toEqual([
+        expect.objectContaining({
+          workflowId: firstResult.workflowId,
+          artifactId: 'top_10_longest_features',
+          relativePath: 'top_10_longest_features.geojson'
+        })
+      ])
+    }
+
+    expect(invocationCount).toBe(2)
   })
 
   it('rejects outputsToImport paths outside the managed workspace', async () => {
@@ -845,5 +1011,179 @@ describe('QgisProcessService', () => {
       expect(result.message).toContain('managed QGIS output workspace')
     }
     expect(runQgisLauncherCommand).not.toHaveBeenCalled()
+  })
+
+  it('accepts artifact references with a single leading slash', async () => {
+    const inputPath = path.join(tempRoot, 'input.geojson')
+    await fs.writeFile(
+      inputPath,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: []
+      }),
+      'utf8'
+    )
+
+    let firstOutputPath: string | null = null
+    let invocationCount = 0
+    runQgisLauncherCommand.mockImplementation(async ({ stdin, cwd }) => {
+      invocationCount += 1
+      const payload = JSON.parse(stdin || '{}')
+      const outputPath = payload.inputs?.OUTPUT as string
+
+      await fs.writeFile(
+        outputPath,
+        JSON.stringify({
+          type: 'FeatureCollection',
+          features: []
+        }),
+        'utf8'
+      )
+
+      if (invocationCount === 1) {
+        firstOutputPath = outputPath
+      } else if (invocationCount === 2) {
+        expect(payload.inputs?.INPUT).toBe(firstOutputPath)
+        expect(cwd).toContain(path.join('chat-qgis'))
+      }
+
+      return {
+        stdout: JSON.stringify({
+          results: {
+            OUTPUT: outputPath
+          }
+        }),
+        stderr: '',
+        exitCode: 0,
+        durationMs: 12
+      }
+    })
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const firstResult = await service.runAlgorithm({
+      algorithmId: 'native:orderbyexpression',
+      parameters: {
+        INPUT: inputPath,
+        OUTPUT: 'sorted_lines.geojson'
+      },
+      importPreference: 'suggest',
+      chatId: 'chat-qgis'
+    })
+
+    expect(firstResult.success).toBe(true)
+    if (!firstResult.success) {
+      return
+    }
+
+    const artifactId = firstResult.artifacts[0]?.artifactId
+    expect(artifactId).toBe('sorted_lines')
+
+    const secondResult = await service.runAlgorithm({
+      algorithmId: 'native:extractbyexpression',
+      workflowId: firstResult.workflowId,
+      parameters: {
+        INPUT: `artifact:/${artifactId}`,
+        OUTPUT: 'single-slash-reference.geojson'
+      },
+      importPreference: 'suggest',
+      chatId: 'chat-qgis'
+    })
+
+    expect(secondResult.success).toBe(true)
+    expect(invocationCount).toBe(2)
+  })
+
+  it('clears QGIS workflows when a chat is deleted', async () => {
+    const inputPath = path.join(tempRoot, 'input.geojson')
+    await fs.writeFile(
+      inputPath,
+      JSON.stringify({
+        type: 'FeatureCollection',
+        features: []
+      }),
+      'utf8'
+    )
+
+    runQgisLauncherCommand.mockImplementation(async ({ stdin }) => {
+      const payload = JSON.parse(stdin || '{}')
+      const outputPath = payload.inputs?.OUTPUT as string
+
+      await fs.writeFile(
+        outputPath,
+        JSON.stringify({
+          type: 'FeatureCollection',
+          features: []
+        }),
+        'utf8'
+      )
+
+      return {
+        stdout: JSON.stringify({
+          results: {
+            OUTPUT: outputPath
+          }
+        }),
+        stderr: '',
+        exitCode: 0,
+        durationMs: 8
+      }
+    })
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const firstResult = await service.runAlgorithm({
+      algorithmId: 'native:buffer',
+      parameters: {
+        INPUT: inputPath,
+        OUTPUT: 'buffer.geojson'
+      },
+      importPreference: 'none',
+      chatId: 'chat-cleanup'
+    })
+
+    expect(firstResult.success).toBe(true)
+    if (!firstResult.success || !firstResult.workflowId) {
+      return
+    }
+
+    service.clearWorkflowsForChat('chat-cleanup')
+
+    const secondResult = await service.runAlgorithm({
+      algorithmId: 'native:buffer',
+      workflowId: firstResult.workflowId,
+      parameters: {
+        INPUT: inputPath,
+        OUTPUT: 'buffer-again.geojson'
+      },
+      importPreference: 'none',
+      chatId: 'chat-cleanup'
+    })
+
+    expect(secondResult.success).toBe(false)
+    if (!secondResult.success) {
+      expect(secondResult.errorCode).toBe('VALIDATION_FAILED')
+      expect(secondResult.message).toContain('Unknown QGIS workflowId')
+    }
   })
 })

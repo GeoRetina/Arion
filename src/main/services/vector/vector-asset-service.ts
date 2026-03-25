@@ -20,11 +20,12 @@ import {
   type GeoPackageImportService
 } from './geopackage-import-service'
 import { buildGeoPackageLayerMetadata } from '../layers/local-layer-metadata-utils'
+import { loadShapefileReaderInput, type ShapefileReaderInput } from './shapefile-source-loader'
 
 const VECTOR_ASSETS_DIR = 'vector-assets'
 const VALID_ASSET_ID_PATTERN = /^[a-f0-9-]{36}$/i
 
-type ShapefileReader = (buffer: ArrayBuffer | ArrayBufferView) => Promise<unknown>
+type ShapefileReader = (input: ShapefileReaderInput) => Promise<unknown>
 
 let shapefileReaderPromise: Promise<ShapefileReader> | null = null
 
@@ -101,19 +102,15 @@ export class VectorAssetService {
   }
 
   private async registerShapefileAsset(sourcePath: string): Promise<RegisterVectorAssetResult> {
-    const archiveBuffer = await fs.readFile(sourcePath)
-    const archiveArrayBuffer = archiveBuffer.buffer.slice(
-      archiveBuffer.byteOffset,
-      archiveBuffer.byteOffset + archiveBuffer.byteLength
-    )
+    const shapefileInput = await loadShapefileReaderInput(sourcePath)
 
     let shpjsOutput: unknown
     try {
       const readShapefile = await getShapefileReader()
-      shpjsOutput = await readShapefile(archiveArrayBuffer)
+      shpjsOutput = await readShapefile(shapefileInput)
     } catch (error) {
       throw new Error(
-        `Failed to parse shapefile archive "${sourcePath}": ${error instanceof Error ? error.message : String(error)}`
+        `Failed to parse shapefile dataset "${sourcePath}": ${error instanceof Error ? error.message : String(error)}`
       )
     }
 

@@ -26,10 +26,8 @@ import { Badge } from '@/components/ui/badge'
 interface LayerGroupProps {
   group: LayerGroupType
   layers: LayerDefinition[]
-  selectedLayerId?: string | null
   level?: number
   onToggleGroup: (groupId: string) => void
-  onSelectLayer: (layerId: string) => void
   onToggleLayerVisibility: (layerId: string, visible: boolean) => void
   onDeleteLayer: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
@@ -42,10 +40,8 @@ interface LayerGroupProps {
 export const LayerGroup: React.FC<LayerGroupProps> = ({
   group,
   layers,
-  selectedLayerId,
   level = 0,
   onToggleGroup,
-  onSelectLayer,
   onToggleLayerVisibility,
   onDeleteLayer,
   onShowStyleEditor,
@@ -241,9 +237,7 @@ export const LayerGroup: React.FC<LayerGroupProps> = ({
                 <LayerItem
                   key={layer.id}
                   layer={layer}
-                  isSelected={selectedLayerId === layer.id}
                   onToggleVisibility={onToggleLayerVisibility}
-                  onSelect={onSelectLayer}
                   onDelete={onDeleteLayer}
                   onShowStyleEditor={onShowStyleEditor}
                   onZoomToLayer={onZoomToLayer}

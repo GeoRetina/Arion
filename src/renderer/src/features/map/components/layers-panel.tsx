@@ -27,8 +27,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
   // Map and Layer Store
   const mapInstance = useMapStore((state) => state.mapInstance)
   const layers = useLayerStore((state) => state.layers)
-  const selectedLayerId = useLayerStore((state) => state.selectedLayerId)
-  const selectLayer = useLayerStore((state) => state.selectLayer)
   const setLayerVisibility = useLayerStore((state) => state.setLayerVisibility)
   const removeLayer = useLayerStore((state) => state.removeLayer)
   const updateLayerStyle = useLayerStore((state) => state.updateLayerStyle)
@@ -96,10 +94,6 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
     } catch {
       void 0
     }
-  }
-
-  const handleSelectLayer = (layerId: string): void => {
-    selectLayer(layerId === selectedLayerId ? null : layerId)
   }
 
   const handleDeleteLayer = async (layerId: string): Promise<void> => {
@@ -215,9 +209,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
                         <div key={layer.id}>
                           <LayerItem
                             layer={layer}
-                            isSelected={selectedLayerId === layer.id}
                             onToggleVisibility={handleToggleLayerVisibility}
-                            onSelect={handleSelectLayer}
                             onDelete={handleDeleteLayer}
                             onShowStyleEditor={handleShowStyleEditor}
                             onZoomToLayer={handleZoomToLayer}

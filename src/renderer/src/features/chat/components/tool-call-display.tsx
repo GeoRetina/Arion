@@ -12,6 +12,8 @@ import {
 import { cn } from '@/lib/utils'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { useState } from 'react'
+import { getToolCallBranding } from '../lib/tool-call-branding'
+import { applyNeutralStatusChrome } from '../lib/status-chrome'
 
 interface ToolCallDisplayProps {
   toolName: string
@@ -93,7 +95,15 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
     }
   }
 
-  const currentStyles = statusStyles[status]
+  const branding = getToolCallBranding(toolName)
+  const useNeutralChrome = status !== 'error'
+  const currentStyles = applyNeutralStatusChrome(statusStyles[status], useNeutralChrome)
+  const completedResultStyles = {
+    accent: 'text-muted-foreground',
+    border: 'border-border/40',
+    bg: 'bg-muted/20',
+    text: 'text-foreground'
+  }
 
   return (
     <div
@@ -105,13 +115,27 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
       )}
     >
       <div
-        className="flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+        className={cn(
+          'flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+          expanded ? 'rounded-t-lg' : 'rounded-lg'
+        )}
         onClick={() => {
           hasManuallyToggled.current = true
           setExpanded(!expanded)
         }}
       >
-        <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-visible">
+          {branding ? (
+            <img
+              src={branding.iconSrc}
+              alt=""
+              aria-hidden="true"
+              className={cn('h-4 w-4 scale-125 object-contain', branding.iconClassName)}
+            />
+          ) : (
+            <Terminal className={cn('h-4 w-4', currentStyles.icon)} />
+          )}
+        </span>
 
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-xs text-foreground truncate">
@@ -181,14 +205,30 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
             {/* Results - only shown when completed with results */}
             {status === 'completed' && result != null && (
               <div>
-                <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <div
+                  className={cn(
+                    'font-medium mb-1 flex items-center gap-1',
+                    completedResultStyles.accent
+                  )}
+                >
                   <CheckCircle className="h-3 w-3" />
                   Result
                 </div>
-                <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
+                <div
+                  className={cn(
+                    'rounded border overflow-hidden',
+                    completedResultStyles.border,
+                    completedResultStyles.bg
+                  )}
+                >
                   <ScrollArea className="h-24 max-h-32 w-full">
                     <div className="p-2">
-                      <div className="whitespace-pre-wrap wrap-break-word text-emerald-800 dark:text-emerald-200">
+                      <div
+                        className={cn(
+                          'whitespace-pre-wrap wrap-break-word',
+                          completedResultStyles.text
+                        )}
+                      >
                         {formattedResult}
                       </div>
                     </div>
@@ -199,7 +239,14 @@ const ToolCallDisplay: React.FC<ToolCallDisplayProps> = ({
 
             {/* Tool execution in progress */}
             {status === 'loading' && (
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
+              <div
+                className={cn(
+                  'flex items-center gap-2 rounded p-2',
+                  useNeutralChrome
+                    ? 'bg-muted/20 text-muted-foreground'
+                    : 'text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20'
+                )}
+              >
                 <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                 <div className="font-medium">Executing tool...</div>
               </div>

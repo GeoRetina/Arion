@@ -25,6 +25,7 @@ import {
   isExternalRuntimeInProgressStatus,
   isExternalRuntimeRunStatus
 } from '../../../../../shared/utils/external-runtime-status'
+import { applyNeutralStatusChrome } from '../lib/status-chrome'
 import type {
   ExternalRuntimeDescriptor,
   ExternalRuntimeRunArtifact,
@@ -511,7 +512,7 @@ export default function ExternalRuntimeRunCard({
   }
 
   const category = categorizeStatus(displayRun.status)
-  const styles = statusStyles[category]
+  const styles = applyNeutralStatusChrome(statusStyles[category], category !== 'failed')
   const stagedCount = displayRun.stagedInputs.filter((input) => input.status === 'staged').length
   const provider = getRuntimeProvider(displayRun.runtimeId, descriptors)
 

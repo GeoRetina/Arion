@@ -26,6 +26,18 @@ describe('layer-import-validator', () => {
     })
   })
 
+  it('detects standalone shapefiles by extension when the browser does not provide a MIME type', () => {
+    const file = new File(['dummy'], 'roads.shp', {
+      type: '',
+      lastModified: Date.now()
+    })
+
+    expect(LayerImportValidator.validateFile(file)).toEqual({
+      valid: true,
+      format: 'shapefile'
+    })
+  })
+
   it('includes GeoPackage in the unsupported format error message', () => {
     const file = new File(['dummy'], 'sample.txt', {
       type: 'text/plain',

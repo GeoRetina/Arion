@@ -13,7 +13,10 @@ import {
   GeopackageProcessor,
   type GeoPackageImportProgressStatus
 } from './processors/geopackage-processor'
-import { ShapefileProcessor } from './processors/shapefile-processor'
+import {
+  ShapefileProcessor,
+  type ShapefileImportProgressStatus
+} from './processors/shapefile-processor'
 import { RasterProcessor } from './processors/raster-processor'
 
 export interface ImportResult {
@@ -26,6 +29,7 @@ export interface ImportResult {
 export interface LayerProcessOptions {
   onRasterProgress?: (status: GeoTiffAssetProcessingStatus) => void
   onGeoPackageProgress?: (status: GeoPackageImportProgressStatus) => void
+  onShapefileProgress?: (status: ShapefileImportProgressStatus) => void
 }
 
 export class LayerImportService {
@@ -52,7 +56,7 @@ export class LayerImportService {
           return await GeoJSONProcessor.processFile(file, fileName)
 
         case 'shapefile':
-          return await ShapefileProcessor.processFile(file, fileName)
+          return await ShapefileProcessor.processFile(file, fileName, options?.onShapefileProgress)
 
         case 'geopackage':
           return await GeopackageProcessor.processFile(

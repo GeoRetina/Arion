@@ -30,9 +30,7 @@ import { Badge } from '@/components/ui/badge'
 
 interface LayerItemProps {
   layer: LayerDefinition
-  isSelected?: boolean
   onToggleVisibility: (layerId: string, visible: boolean) => void
-  onSelect: (layerId: string) => void
   onDelete: (layerId: string) => void
   onShowStyleEditor: (layerId: string) => void
   onZoomToLayer: (layerId: string) => void
@@ -42,9 +40,7 @@ interface LayerItemProps {
 
 export const LayerItem: React.FC<LayerItemProps> = ({
   layer,
-  isSelected,
   onToggleVisibility,
-  onSelect,
   onDelete,
   onShowStyleEditor,
   onZoomToLayer,
@@ -109,12 +105,10 @@ export const LayerItem: React.FC<LayerItemProps> = ({
   return (
     <div
       className={cn(
-        'group grid grid-cols-[auto_1fr_auto] gap-2 p-2 rounded-lg border transition-all cursor-pointer items-center',
+        'group grid grid-cols-[auto_1fr_auto] gap-2 p-2 rounded-lg border transition-all items-center',
         'hover:bg-muted/50 hover:border-border',
-        isSelected && 'bg-primary/10 border-primary/50',
         !layer.visibility && 'opacity-60'
       )}
-      onClick={() => onSelect(layer.id)}
       onContextMenu={handleContextMenu}
     >
       {/* Visibility Toggle */}

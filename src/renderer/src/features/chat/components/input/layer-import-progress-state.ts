@@ -3,6 +3,10 @@ import type {
   GeoPackageImportProgressStatus,
   GeoPackageImportStage
 } from '@/services/layer-import/processors/geopackage-processor'
+import type {
+  ShapefileImportProgressStatus,
+  ShapefileImportStage
+} from '@/services/layer-import/processors/shapefile-processor'
 
 export interface LayerImportProgress {
   title: string
@@ -46,12 +50,30 @@ export function createGeoPackageImportProgressState(
   }
 }
 
-export function getRasterProgressSignature(status: GeoTiffAssetProcessingStatus): string {
-  return `${status.stage}|${Math.round(status.progress)}|${status.message?.trim() ?? ''}`
+export function createInitialShapefileImportProgressState(fileName: string): LayerImportProgress {
+  return {
+    title: 'Preparing Shapefile',
+    message: `Opening ${fileName}`,
+    progress: 5
+  }
 }
 
-export function getGeoPackageProgressSignature(status: GeoPackageImportProgressStatus): string {
-  return `${status.stage}|${Math.round(status.progress)}|${status.message.trim()}`
+export function createShapefileImportProgressState(
+  status: ShapefileImportProgressStatus
+): LayerImportProgress {
+  return {
+    title: SHAPEFILE_STAGE_LABELS[status.stage] ?? 'Importing Shapefile',
+    message: status.message.trim() || 'Importing Shapefile',
+    progress: Math.round(status.progress)
+  }
+}
+
+export function getLayerImportProgressSignature(status: {
+  stage: string
+  progress: number
+  message?: string | null
+}): string {
+  return `${status.stage}|${Math.round(status.progress)}|${status.message?.trim() ?? ''}`
 }
 
 const RASTER_STAGE_LABELS: Record<GeoTiffAssetProcessingStatus['stage'], string> = {
@@ -67,5 +89,12 @@ const RASTER_STAGE_LABELS: Record<GeoTiffAssetProcessingStatus['stage'], string>
 const GEO_PACKAGE_STAGE_LABELS: Record<GeoPackageImportStage, string> = {
   resolving: 'Preparing GeoPackage',
   importing: 'Reading GeoPackage',
+  finalizing: 'Creating layer'
+}
+
+const SHAPEFILE_STAGE_LABELS: Record<ShapefileImportStage, string> = {
+  resolving: 'Preparing Shapefile',
+  importing: 'Reading Shapefile',
+  parsing: 'Parsing features',
   finalizing: 'Creating layer'
 }

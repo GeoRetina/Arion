@@ -22,6 +22,7 @@ export interface ConnectorExecutionRuntime {
   executionService: ConnectorExecutionService
   policyService: ConnectorPolicyService
   runLogger: ConnectorRunLogger
+  qgisProcessService: QgisProcessService
 }
 
 interface ConnectorRouteTemplate {
@@ -169,6 +170,7 @@ export const createConnectorExecutionRuntime = (
   return {
     executionService,
     policyService,
-    runLogger
+    runLogger,
+    qgisProcessService
   }
 }

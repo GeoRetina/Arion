@@ -31,6 +31,9 @@ export interface QgisDiscoveryResult {
 
 export interface QgisArtifactRecord {
   path: string
+  workflowId?: string
+  artifactId?: string
+  relativePath?: string
   kind: 'vector' | 'raster' | 'style' | 'layout' | 'table' | 'other'
   exists: boolean
   selectedForImport?: boolean
@@ -84,6 +87,7 @@ export interface QgisExecutionDiagnostics {
   launcherPath: string
   installRoot?: string
   version?: string
+  workflowId?: string
   workspacePath: string
   outputDirectory: string
   discoveryDiagnostics: string[]
@@ -94,6 +98,7 @@ export interface QgisExecutionDiagnostics {
 export interface QgisProcessSuccessResult {
   success: true
   operation: QgisProcessOperation
+  workflowId?: string
   stdout: string
   stderr: string
   exitCode: number
@@ -130,6 +135,7 @@ export interface QgisListAlgorithmsRequest {
 export interface QgisRunAlgorithmRequest {
   algorithmId: string
   parameters?: Record<string, unknown>
+  workflowId?: string
   projectPath?: string
   timeoutMs?: number
   importPreference?: QgisImportPreference
