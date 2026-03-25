@@ -12,6 +12,7 @@ import {
   type IntegrationStateRecord,
   type IntegrationStatus,
   type PostgreSQLConfigForRenderer,
+  type QgisIntegrationConfig,
   type S3IntegrationConfigForRenderer,
   type GoogleEarthEngineIntegrationConfigForRenderer
 } from '../../shared/ipc-types'
@@ -27,13 +28,18 @@ import { IntegrationStateStore, type IntegrationConfigRow } from './connectors/s
 import { runIntegrationHealthCheck } from './connectors/health-checks/runner'
 import { createHealthCheckResult } from './connectors/health-checks/result'
 import { hasMeaningfulConfig, parseJsonRecord } from './connectors/utils'
+import { QgisAlgorithmCatalogService } from './qgis/qgis-algorithm-catalog-service'
 
 export class ConnectorHubService {
   private readonly stateStore: IntegrationStateStore
   private readonly secretStore: IntegrationSecretStore
   private readonly postgresqlService: PostgreSQLService
+  private readonly qgisAlgorithmCatalogService: Pick<QgisAlgorithmCatalogService, 'warmCatalog'>
 
-  constructor(postgresqlService: PostgreSQLService) {
+  constructor(
+    postgresqlService: PostgreSQLService,
+    qgisAlgorithmCatalogService?: Pick<QgisAlgorithmCatalogService, 'warmCatalog'>
+  ) {
     const userDataPath = app.getPath('userData')
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true })
@@ -43,6 +49,8 @@ export class ConnectorHubService {
     this.stateStore = new IntegrationStateStore(dbPath)
     this.secretStore = new IntegrationSecretStore()
     this.postgresqlService = postgresqlService
+    this.qgisAlgorithmCatalogService =
+      qgisAlgorithmCatalogService ?? new QgisAlgorithmCatalogService()
   }
 
   public validateIntegrationId(rawId: string): IntegrationId {
@@ -135,7 +143,11 @@ export class ConnectorHubService {
     if (!config) {
       return createHealthCheckResult(false, 'not-configured', 'Integration is not configured')
     }
-    return runIntegrationHealthCheck(id, config, 'test', this.postgresqlService)
+    const result = await runIntegrationHealthCheck(id, config, 'test', this.postgresqlService)
+    if (result.success) {
+      this.warmQgisCatalog(id, extractResolvedIntegrationConfig(result.details) ?? config)
+    }
+    return result
   }
 
   public async connect(
@@ -173,6 +185,7 @@ export class ConnectorHubService {
       if (resolvedConfig) {
         await this.saveConfig(id, resolvedConfig)
       }
+      this.warmQgisCatalog(id, resolvedConfig ?? config)
       this.persistConnectionState(id, 'connected', result.message, new Date().toLocaleString())
       return {
         ...result,
@@ -223,6 +236,18 @@ export class ConnectorHubService {
       hasConfig: existing?.has_config === 1,
       publicConfig: existing ? parseJsonRecord(existing.public_config) : {}
     })
+  }
+
+  private warmQgisCatalog(id: IntegrationId, config: unknown): void {
+    if (id !== 'qgis') {
+      return
+    }
+
+    void this.qgisAlgorithmCatalogService
+      .warmCatalog(config as QgisIntegrationConfig)
+      .catch((error) => {
+        console.warn('[IntegrationHub] Failed to warm QGIS algorithm catalog:', error)
+      })
   }
 
   private async resolveConfigForCheck(

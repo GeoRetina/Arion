@@ -1,12 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
-import maplibregl, {
-  Map,
-  NavigationControl,
-  ScaleControl,
-  StyleSpecification
-} from 'maplibre-gl'
+import maplibregl, { Map, NavigationControl, ScaleControl, StyleSpecification } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './map-canvas.css'
+import { switchMapStyle } from '../lib/switch-map-style'
+import { useLayerStore } from '../../../stores/layer-store'
 import { useMapStore } from '../../../stores/map-store'
 
 interface MapCanvasProps {
@@ -20,6 +17,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible }) => {
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const setMapInstance = useMapStore((state) => state.setMapInstance)
   const setMapReadyForOperations = useMapStore((state) => state.setMapReadyForOperations)
+  const setLayerStoreMapInstance = useLayerStore((state) => state.setMapInstance)
 
   // Track the initial style to skip the first run of the style-change effect
   const initialStyleRef = useRef(style)
@@ -30,7 +28,7 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible }) => {
 
     const mapInstance = new maplibregl.Map({
       container: containerRef.current,
-      style,
+      style: initialStyleRef.current,
       center: [0, 0],
       zoom: 1,
       renderWorldCopies: true,
@@ -82,18 +80,27 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible }) => {
 
     // Mark map as not ready so useLayerSync pauses, then re-syncs after the new style loads
     setMapReadyForOperations(false)
+    void setLayerStoreMapInstance(null).catch(() => {})
 
-    map.setStyle(style)
+    let isCancelled = false
 
-    const onStyleLoad = (): void => {
-      setMapReadyForOperations(true)
-    }
-    map.once('style.load', onStyleLoad)
+    const cleanupStyleSwitch = switchMapStyle(map, style, {
+      onReady: () => {
+        void setLayerStoreMapInstance(map)
+          .catch(() => {})
+          .finally(() => {
+            if (!isCancelled) {
+              setMapReadyForOperations(true)
+            }
+          })
+      }
+    })
 
     return () => {
-      map.off('style.load', onStyleLoad)
+      isCancelled = true
+      cleanupStyleSwitch()
     }
-  }, [style, isMapLoaded, setMapReadyForOperations])
+  }, [style, isMapLoaded, setLayerStoreMapInstance, setMapReadyForOperations])
 
   // Handle visibility changes and resizing
   useEffect(() => {

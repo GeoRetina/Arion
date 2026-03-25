@@ -127,7 +127,7 @@ export const BUILTIN_TOOL_CATEGORIES: ToolCategory[] = [
       {
         name: 'qgis_list_algorithms',
         description:
-          'Discover available QGIS Processing algorithms from the configured local QGIS installation'
+          'Discover and rank QGIS Processing algorithms from the configured local QGIS installation using a cached structured catalog built from QGIS metadata'
       },
       {
         name: 'run_external_analysis',

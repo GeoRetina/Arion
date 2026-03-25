@@ -1,4 +1,3 @@
-import { promises as fs } from 'fs'
 import type { RegisterGeoTiffAssetResult } from '../../../shared/ipc-types'
 import type {
   BoundingBox,
@@ -9,8 +8,7 @@ import type {
 import {
   basenameWithoutExtension,
   buildGeoJsonLayerMetadata,
-  buildGeoPackageLayerMetadata,
-  normalizeGeoJson
+  buildGeoPackageLayerMetadata
 } from '../layers/local-layer-metadata-utils'
 import { omitUndefined } from '../../lib/omit-undefined'
 import { getRasterTileService, type RasterTileService } from '../raster/raster-tile-service'
@@ -18,6 +16,8 @@ import {
   getGeoPackageImportService,
   type GeoPackageImportService
 } from '../vector/geopackage-import-service'
+import { applyGeoJsonImportContext, GeoJsonImportService } from '../vector/geojson-import-service'
+import { asRecord } from '../../../shared/lib/as-record'
 import type {
   QgisArtifactRecord,
   QgisImportedLayerRecord,
@@ -29,6 +29,7 @@ import type {
 interface QgisOutputInspectorDeps {
   geoPackageImportService?: Pick<GeoPackageImportService, 'importFile'>
   rasterTileService?: Pick<RasterTileService, 'registerGeoTiffAsset' | 'releaseGeoTiffAsset'>
+  geoJsonImportService?: Pick<GeoJsonImportService, 'importFile'>
 }
 
 export class QgisOutputInspector {
@@ -37,10 +38,12 @@ export class QgisOutputInspector {
     RasterTileService,
     'registerGeoTiffAsset' | 'releaseGeoTiffAsset'
   >
+  private readonly geoJsonImportService: Pick<GeoJsonImportService, 'importFile'>
 
   constructor(deps: QgisOutputInspectorDeps = {}) {
     this.geoPackageImportService = deps.geoPackageImportService ?? getGeoPackageImportService()
     this.rasterTileService = deps.rasterTileService ?? getRasterTileService()
+    this.geoJsonImportService = deps.geoJsonImportService ?? new GeoJsonImportService()
   }
 
   public async summarizeArtifacts(
@@ -108,18 +111,11 @@ export class QgisOutputInspector {
       })
     }
 
-    const rawContents = await fs.readFile(artifactPath, 'utf8')
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(rawContents)
-    } catch (error) {
-      throw new Error(
-        `Failed to parse GeoJSON output "${artifactPath}": ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
-
-    const normalizedGeoJson = normalizeGeoJson(parsed)
-    const metadata = buildGeoJsonLayerMetadata(normalizedGeoJson, artifactPath)
+    const geoJsonImportResult = await this.geoJsonImportService.importFile(artifactPath)
+    const metadata = applyGeoJsonImportContext(
+      buildGeoJsonLayerMetadata(geoJsonImportResult.geojson, artifactPath),
+      geoJsonImportResult
+    )
     return buildVectorLayerSummary({
       name: basenameWithoutExtension(artifactPath),
       metadata,
@@ -341,12 +337,6 @@ function readString(value: unknown): string | undefined {
 
 function readRasterProcessingEngine(value: unknown): 'gdal' | 'geotiff-js' | undefined {
   return value === 'gdal' || value === 'geotiff-js' ? value : undefined
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
 }
 
 function toPathLookupKey(filePath: string): string {

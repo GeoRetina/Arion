@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react'
+import { sortLayersForMapSync } from '../../../shared/lib/layer-order'
 import { useLayerStore } from '../stores/layer-store'
 import { useMapStore } from '../stores/map-store'
 
@@ -53,7 +54,7 @@ export function useLayerSync(): { isInitialized: boolean } {
   useEffect(() => {
     if (!mapInstance || !isMapReady) return
 
-    const visibleLayers = Array.from(useLayerStore.getState().layers.values()).filter(
+    const visibleLayers = sortLayersForMapSync(useLayerStore.getState().layers.values()).filter(
       (layer) => layer.visibility
     )
     visibleLayers.forEach((layer) => {
@@ -98,16 +99,5 @@ export function useLayerSync(): { isInitialized: boolean } {
 
   return {
     isInitialized: isInitializedRef.current
-  }
-}
-
-/**
- * Hook for accessing layer management utilities
- */
-export function useLayerSyncStats(): { isInitialized: boolean } {
-  const { isInitialized } = useLayerSync()
-
-  return {
-    isInitialized
   }
 }

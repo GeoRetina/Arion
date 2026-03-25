@@ -30,6 +30,11 @@ import {
 import type { ConnectorExecutionService } from '../../connectors/connector-execution-service'
 import type { ToolRegistry } from '../tool-registry'
 import type { RegisteredToolDefinition } from '../tool-types'
+import {
+  buildDefaultIntegrationToolSuccessResult,
+  buildQgisListAlgorithmsSuccessResult,
+  type IntegrationToolSuccessResultTransformer
+} from './integration-tool-result-shapers'
 
 export interface IntegrationToolDependencies {
   getConnectorExecutionService: () => ConnectorExecutionService | null
@@ -40,6 +45,7 @@ interface IntegrationToolRegistration {
   definition: RegisteredToolDefinition
   integrationId: IntegrationId
   capability: ConnectorCapability
+  mapSuccessResult?: IntegrationToolSuccessResultTransformer
 }
 
 const INTEGRATION_TOOL_REGISTRATIONS: IntegrationToolRegistration[] = [
@@ -95,7 +101,8 @@ const INTEGRATION_TOOL_REGISTRATIONS: IntegrationToolRegistration[] = [
     name: qgisListAlgorithmsToolName,
     definition: qgisListAlgorithmsToolDefinition,
     integrationId: 'qgis',
-    capability: 'desktop.processing.listAlgorithms'
+    capability: 'desktop.processing.listAlgorithms',
+    mapSuccessResult: buildQgisListAlgorithmsSuccessResult
   },
   {
     name: qgisDescribeAlgorithmToolName,
@@ -131,11 +138,7 @@ const toRecord = (value: unknown): Record<string, unknown> => {
 }
 
 const createExecutor =
-  (
-    deps: IntegrationToolDependencies,
-    integrationId: IntegrationId,
-    capability: ConnectorCapability
-  ) =>
+  (deps: IntegrationToolDependencies, tool: IntegrationToolRegistration) =>
   async ({ args, chatId }: { args: unknown; chatId?: string }): Promise<unknown> => {
     const connectorExecutionService = deps.getConnectorExecutionService()
     if (!connectorExecutionService) {
@@ -148,22 +151,21 @@ const createExecutor =
 
     const normalizedArgs = toRecord(args)
     const result = await connectorExecutionService.execute({
-      integrationId,
-      capability,
+      integrationId: tool.integrationId,
+      capability: tool.capability,
       chatId,
       input: normalizedArgs,
       timeoutMs: typeof normalizedArgs.timeoutMs === 'number' ? normalizedArgs.timeoutMs : undefined
     })
 
     if (result.success) {
-      return {
-        status: 'success',
-        run_id: result.runId,
+      return (tool.mapSuccessResult ?? buildDefaultIntegrationToolSuccessResult)({
+        runId: result.runId,
         backend: result.backend,
-        duration_ms: result.durationMs,
+        durationMs: result.durationMs,
         data: result.data,
         details: result.details
-      }
+      })
     }
 
     return {
@@ -186,7 +188,7 @@ export function registerIntegrationTools(
       name: tool.name,
       definition: tool.definition,
       category: 'integrations',
-      execute: createExecutor(deps, tool.integrationId, tool.capability)
+      execute: createExecutor(deps, tool)
     })
   }
 }

@@ -10,7 +10,6 @@ import {
   assertFeatureCollectionHasFeatures,
   buildGeoJsonMetadata,
   buildShapefileMetadata,
-  normalizeGeoJson,
   normalizeShapefileOutput,
   type GeoJsonFeatureCollection
 } from '../../../shared/lib/vector-import-utils'
@@ -19,6 +18,7 @@ import {
   getGeoPackageImportService,
   type GeoPackageImportService
 } from './geopackage-import-service'
+import { applyGeoJsonImportContext, GeoJsonImportService } from './geojson-import-service'
 import { buildGeoPackageLayerMetadata } from '../layers/local-layer-metadata-utils'
 import { loadShapefileReaderInput, type ShapefileReaderInput } from './shapefile-source-loader'
 
@@ -31,7 +31,8 @@ let shapefileReaderPromise: Promise<ShapefileReader> | null = null
 
 export class VectorAssetService {
   constructor(
-    private readonly geoPackageImportService: GeoPackageImportService = getGeoPackageImportService()
+    private readonly geoPackageImportService: GeoPackageImportService = getGeoPackageImportService(),
+    private readonly geoJsonImportService: GeoJsonImportService = new GeoJsonImportService()
   ) {}
 
   getAssetUrl(assetId: string): string {
@@ -85,19 +86,12 @@ export class VectorAssetService {
   }
 
   private async registerGeoJsonAsset(sourcePath: string): Promise<RegisterVectorAssetResult> {
-    const fileContents = await fs.readFile(sourcePath, 'utf8')
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(fileContents)
-    } catch (error) {
-      throw new Error(
-        `Failed to parse GeoJSON output "${sourcePath}": ${error instanceof Error ? error.message : String(error)}`
-      )
-    }
-
-    const normalizedGeoJson = normalizeGeoJson(parsed)
-    const metadata = buildGeoJsonMetadata(normalizedGeoJson, sourcePath)
+    const importResult = await this.geoJsonImportService.importFile(sourcePath)
+    const normalizedGeoJson = importResult.geojson
+    const metadata = applyGeoJsonImportContext(
+      buildGeoJsonMetadata(normalizedGeoJson, sourcePath),
+      importResult
+    )
     return await this.writeManagedAsset(normalizedGeoJson, metadata)
   }
 

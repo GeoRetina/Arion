@@ -109,6 +109,7 @@ import {
   type CodexRuntimeEvent,
   type ImportGeoPackageRequest,
   type ImportGeoPackageResult,
+  type ImportLocalLayerRequest,
   type RegisterVectorAssetRequest,
   type RegisterVectorAssetResult,
   type RenderGeoTiffTileRequest,
@@ -878,6 +879,8 @@ const ctgApi = {
 
     importGeoPackage: (request: ImportGeoPackageRequest): Promise<ImportGeoPackageResult> =>
       ipcRenderer.invoke('layers:importGeoPackage', request),
+    importLocalLayer: (request: ImportLocalLayerRequest): Promise<LayerCreateInput> =>
+      ipcRenderer.invoke('layers:importLocalLayer', request),
     registerVectorAsset: (
       request: RegisterVectorAssetRequest
     ): Promise<RegisterVectorAssetResult> =>
