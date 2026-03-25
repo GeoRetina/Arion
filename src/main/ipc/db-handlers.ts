@@ -39,8 +39,13 @@ const addMessageSchema = z
   })
   .strict()
 
+interface DbIpcHandlerOptions {
+  onDeleteChat?: (chatId: string) => void
+}
+
 export function registerDbIpcHandlers(
-  ipcMain: IpcMain
+  ipcMain: IpcMain,
+  options: DbIpcHandlerOptions = {}
   // knowledgeBaseService: KnowledgeBaseService // Removed parameter
 ): void {
   ipcMain.handle(
@@ -115,6 +120,13 @@ export function registerDbIpcHandlers(
     try {
       const parsedId = idSchema.parse(id)
       const deleted = dbService.deleteChat(parsedId)
+      if (deleted) {
+        try {
+          options.onDeleteChat?.(parsedId)
+        } catch (error) {
+          console.warn('[IPC dbDeleteChat] Failed to run chat cleanup hook:', error)
+        }
+      }
       return { success: deleted }
     } catch (error) {
       return { success: false, error: (error as Error).message }

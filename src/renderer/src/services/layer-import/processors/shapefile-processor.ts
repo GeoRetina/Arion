@@ -1,8 +1,8 @@
 /**
  * Shapefile Processor
  *
- * Handles processing of Shapefile (ZIP) archives for layer import.
- * Uses shpjs library to parse shapefiles and convert to GeoJSON.
+ * Handles processing of Shapefile datasets for layer import.
+ * Uses managed local-file imports for `.shp` datasets and shpjs for ZIP archives.
  */
 
 import shp from 'shpjs'
@@ -15,18 +15,52 @@ import {
   type GeoJsonFeatureCollection
 } from '../../../../../shared/lib/vector-import-utils'
 import type { LayerDefinition } from '../../../../../shared/types/layer-types'
+import { waitForNextPaint } from '@/lib/wait-for-next-paint'
 import {
   buildLayerFromManagedVectorAsset,
   registerManagedVectorAssetFromFile
 } from './managed-vector-asset'
 
+export type ShapefileImportStage = 'resolving' | 'importing' | 'parsing' | 'finalizing'
+
+export interface ShapefileImportProgressStatus {
+  stage: ShapefileImportStage
+  progress: number
+  message: string
+}
+
 export class ShapefileProcessor {
   /**
-   * Process Shapefile (ZIP archive) and create layer definition
+   * Process a shapefile dataset and create a layer definition.
    */
-  static async processFile(file: File, fileName: string): Promise<LayerDefinition> {
-    const registeredAsset = await registerManagedVectorAssetFromFile(file, 'shapefile')
+  static async processFile(
+    file: File,
+    fileName: string,
+    onProgress?: (status: ShapefileImportProgressStatus) => void
+  ): Promise<LayerDefinition> {
+    const registeredAsset = await registerManagedVectorAssetFromFile(file, 'shapefile', {
+      onResolveStart: () =>
+        onProgress?.({
+          stage: 'resolving',
+          progress: 12,
+          message: 'Resolving local shapefile path'
+        }),
+      onRegisterStart: (sourcePath) =>
+        onProgress?.({
+          stage: 'importing',
+          progress: 45,
+          message: sourcePath.toLowerCase().endsWith('.shp')
+            ? 'Loading shapefile dataset from disk'
+            : 'Loading shapefile archive from disk'
+        })
+    })
     if (registeredAsset) {
+      onProgress?.({
+        stage: 'finalizing',
+        progress: 88,
+        message: `Preparing ${registeredAsset.asset.featureCount.toLocaleString()} imported features`
+      })
+
       return buildLayerFromManagedVectorAsset(
         registeredAsset.asset,
         fileName,
@@ -34,11 +68,36 @@ export class ShapefileProcessor {
       )
     }
 
+    if (file.name.toLowerCase().endsWith('.shp')) {
+      throw new Error(
+        'Standalone .shp imports require access to the local companion shapefile files. Try importing the local file again or use a ZIP archive.'
+      )
+    }
+
+    onProgress?.({
+      stage: 'importing',
+      progress: 28,
+      message: 'Reading shapefile archive'
+    })
+    await waitForNextPaint()
+
     const arrayBuffer = await file.arrayBuffer()
     try {
+      onProgress?.({
+        stage: 'parsing',
+        progress: 62,
+        message: 'Parsing shapefile geometry and attributes'
+      })
+      await waitForNextPaint()
+
       const geoJsonData = await shp(arrayBuffer)
       const normalizedData = normalizeShapefileOutput(geoJsonData)
       assertFeatureCollectionHasFeatures(normalizedData, 'Shapefile contains no features')
+      onProgress?.({
+        stage: 'finalizing',
+        progress: 88,
+        message: `Preparing ${normalizedData.features.length.toLocaleString()} imported features`
+      })
       const metadata = buildShapefileMetadata(normalizedData)
 
       return buildInlineVectorLayerDefinition(normalizedData, metadata, fileName)

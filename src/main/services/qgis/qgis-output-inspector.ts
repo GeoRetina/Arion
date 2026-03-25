@@ -12,6 +12,7 @@ import {
   buildGeoPackageLayerMetadata,
   normalizeGeoJson
 } from '../layers/local-layer-metadata-utils'
+import { omitUndefined } from '../../lib/omit-undefined'
 import { getRasterTileService, type RasterTileService } from '../raster/raster-tile-service'
 import {
   getGeoPackageImportService,
@@ -144,14 +145,17 @@ export class QgisOutputInspector {
 }
 
 function copyArtifactRecord(artifact: QgisArtifactRecord): QgisOutputRecord {
-  return {
+  return omitUndefined({
     path: artifact.path,
+    workflowId: artifact.workflowId,
+    artifactId: artifact.artifactId,
+    relativePath: artifact.relativePath,
     kind: artifact.kind,
     exists: artifact.exists,
     selectedForImport: artifact.selectedForImport === true,
     imported: artifact.imported === true,
     importError: artifact.importError
-  }
+  })
 }
 
 function summarizeImportedLayer(layer: LayerCreateInput): QgisOutputLayerSummary {
@@ -237,7 +241,7 @@ function summarizeLayerMetadata(metadata: LayerMetadata): QgisOutputLayerMetadat
     warnings: toStringArray(context?.importWarnings)
   }
 
-  return stripUndefined(summary)
+  return omitUndefined(summary)
 }
 
 function summarizeRasterMetadata(
@@ -246,7 +250,7 @@ function summarizeRasterMetadata(
   asset: RegisterGeoTiffAssetResult | undefined
 ): NonNullable<QgisOutputLayerMetadataSummary['raster']> | undefined {
   const context = asRecord(metadata?.context)
-  const rasterSummary = stripUndefined({
+  const rasterSummary = omitUndefined({
     bandCount:
       readInteger(sourceOptions?.rasterBandCount) ??
       readInteger(context?.bandCount) ??
@@ -291,7 +295,7 @@ function toSourceLayers(
         return null
       }
 
-      return stripUndefined({
+      return omitUndefined({
         name,
         featureCount: readInteger(record?.featureCount) ?? 0,
         geometryType: readString(record?.geometryType),
@@ -343,14 +347,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null
-}
-
-function stripUndefined<T extends object>(value: T): T {
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).filter(
-      ([, entryValue]) => entryValue !== undefined
-    )
-  ) as T
 }
 
 function toPathLookupKey(filePath: string): string {

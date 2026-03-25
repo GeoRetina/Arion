@@ -249,12 +249,13 @@ async function initializeApplication(): Promise<void> {
   mcpPermissionServiceInstance = new McpPermissionService()
   postgresqlServiceInstance = new PostgreSQLService()
   connectorHubServiceInstance = new ConnectorHubService(postgresqlServiceInstance)
-  connectorExecutionServiceInstance = createConnectorExecutionRuntime({
+  const connectorExecutionRuntime = createConnectorExecutionRuntime({
     settingsService: settingsServiceInstance,
     connectorHubService: connectorHubServiceInstance,
     postgresqlService: postgresqlServiceInstance,
     mcpClientService: mcpClientServiceInstance
-  }).executionService
+  })
+  connectorExecutionServiceInstance = connectorExecutionRuntime.executionService
   codexRuntimeServiceInstance = new CodexRuntimeService(settingsServiceInstance, {
     workspaceService: new ExternalRuntimeWorkspaceService(
       () => getRuntimeLayerSnapshot(),
@@ -366,7 +367,9 @@ async function initializeApplication(): Promise<void> {
     getLayerDbManager(),
     externalRuntimeRegistryInstance
   ) // Pass routing service, knowledge base, and layer db manager
-  registerDbIpcHandlers(ipcMain)
+  registerDbIpcHandlers(ipcMain, {
+    onDeleteChat: (chatId) => connectorExecutionRuntime.qgisProcessService.clearWorkflowsForChat(chatId)
+  })
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)
   registerShellHandlers(ipcMain)
   registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
@@ -414,6 +417,7 @@ async function initializeApplication(): Promise<void> {
     if (connectorHubServiceInstance) {
       connectorHubServiceInstance.cleanup()
     }
+    connectorExecutionRuntime.qgisProcessService.clearAllWorkflows()
     if (codexRuntimeServiceInstance) {
       codexRuntimeServiceInstance.shutdown()
     }

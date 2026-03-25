@@ -717,6 +717,7 @@ export class NativeConnectorAdapter implements ConnectorAdapter {
     const result = await this.qgisProcessService.runAlgorithm({
       algorithmId,
       parameters,
+      workflowId: readString(input.workflowId) ?? undefined,
       projectPath: readString(input.projectPath) ?? undefined,
       timeoutMs,
       importPreference: normalizeImportPreference(input.importPreference),
@@ -820,6 +821,12 @@ function toQgisConnectorAdapterResult(
     success: true,
     data: {
       operation: result.operation,
+      ...(result.operation === 'runAlgorithm'
+        ? {
+            workflowId: result.workflowId,
+            outputDirectory: result.diagnostics.outputDirectory
+          }
+        : {}),
       exitCode: result.exitCode,
       version: result.version,
       artifacts: result.artifacts,

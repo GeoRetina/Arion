@@ -279,6 +279,7 @@ describe('NativeConnectorAdapter', () => {
     expect(qgisProcessService.runAlgorithm).toHaveBeenCalledWith({
       algorithmId: 'saga:buffer',
       parameters: {},
+      workflowId: undefined,
       projectPath: undefined,
       timeoutMs: 5000,
       importPreference: undefined,
@@ -417,6 +418,7 @@ describe('NativeConnectorAdapter', () => {
       runAlgorithm: vi.fn(async () => ({
         success: true,
         operation: 'runAlgorithm',
+        workflowId: 'workflow-1',
         stdout: '{}',
         stderr: '',
         exitCode: 0,
@@ -425,6 +427,9 @@ describe('NativeConnectorAdapter', () => {
         artifacts: [
           {
             path: 'E:\\outputs\\buffer.geojson',
+            workflowId: 'workflow-1',
+            artifactId: 'buffer',
+            relativePath: 'buffer.geojson',
             kind: 'vector',
             exists: true,
             selectedForImport: true,
@@ -434,6 +439,9 @@ describe('NativeConnectorAdapter', () => {
         outputs: [
           {
             path: 'E:\\outputs\\buffer.geojson',
+            workflowId: 'workflow-1',
+            artifactId: 'buffer',
+            relativePath: 'buffer.geojson',
             kind: 'vector',
             exists: true,
             selectedForImport: true,
@@ -524,11 +532,16 @@ describe('NativeConnectorAdapter', () => {
     if (result.success) {
       expect(result.data).toEqual({
         operation: 'runAlgorithm',
+        workflowId: 'workflow-1',
+        outputDirectory: 'C:\\workspace\\outputs',
         exitCode: 0,
         version: '3.40.1',
         artifacts: [
           {
             path: 'E:\\outputs\\buffer.geojson',
+            workflowId: 'workflow-1',
+            artifactId: 'buffer',
+            relativePath: 'buffer.geojson',
             kind: 'vector',
             exists: true,
             selectedForImport: true,
@@ -538,6 +551,9 @@ describe('NativeConnectorAdapter', () => {
         outputs: [
           {
             path: 'E:\\outputs\\buffer.geojson',
+            workflowId: 'workflow-1',
+            artifactId: 'buffer',
+            relativePath: 'buffer.geojson',
             kind: 'vector',
             exists: true,
             selectedForImport: true,
@@ -622,6 +638,7 @@ describe('NativeConnectorAdapter', () => {
         chatId: 'chat-qgis',
         input: {
           algorithmId: 'native:extractbyexpression',
+          workflowId: 'workflow-42',
           parameters: {
             INPUT: 'E:\\data\\network.geojson',
             OUTPUT: 'E:\\outputs\\top_10.geojson'
@@ -643,6 +660,7 @@ describe('NativeConnectorAdapter', () => {
         INPUT: 'E:\\data\\network.geojson',
         OUTPUT: 'E:\\outputs\\top_10.geojson'
       },
+      workflowId: 'workflow-42',
       projectPath: undefined,
       timeoutMs: 5000,
       importPreference: 'auto',

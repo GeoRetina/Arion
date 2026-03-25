@@ -31,6 +31,7 @@ export class LocalLayerImportService {
       case '.geojson':
       case '.json':
         return await this.importManagedVectorPath(safeSourcePath, 'geojson', options.layerName)
+      case '.shp':
       case '.zip':
         return await this.importManagedVectorPath(safeSourcePath, 'shapefile', options.layerName)
       case '.gpkg':

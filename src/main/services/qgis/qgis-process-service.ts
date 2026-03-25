@@ -13,6 +13,7 @@ import {
   isPathInsideDirectory,
   looksLikeFilesystemPath
 } from '../../security/path-security'
+import { omitUndefined } from '../../lib/omit-undefined'
 import type { ConnectorHubService } from '../connector-hub-service'
 import { LocalLayerImportService } from '../layers/local-layer-import-service'
 import { evaluateQgisAlgorithmApproval, isQgisAlgorithmApproved } from './qgis-algorithm-policy'
@@ -36,11 +37,28 @@ import type {
 
 const DEFAULT_QGIS_TIMEOUT_MS = 60_000
 const MAX_STDIO_PREVIEW_LENGTH = 4_000
+const MAX_ACTIVE_WORKFLOWS = 64
 const OUTPUT_KEY_PATTERN = /(output|destination|dest|file)$/i
+const ARTIFACT_REFERENCE_PREFIX = 'artifact:'
 
 interface PreparedWorkspace {
+  workflowId?: string
   workspacePath: string
   outputDirectory: string
+}
+
+interface QgisWorkflowState extends PreparedWorkspace {
+  workflowId: string
+  chatId?: string
+  artifactIdToPath: Map<string, string>
+  artifactPathToId: Map<string, string>
+  nextArtifactOrdinal: number
+  lastAccessedAt: number
+}
+
+interface QgisPathResolutionContext {
+  outputDirectory: string
+  workflow?: QgisWorkflowState
 }
 
 interface QgisProcessServiceDeps {
@@ -58,6 +76,7 @@ export class QgisProcessService {
   private readonly outputInspector: QgisOutputInspector
   private readonly getUserDataPath: () => string
   private readonly broadcastLayerImports: (payload: LayerImportDefinitionsPayload) => void
+  private readonly workflows = new Map<string, QgisWorkflowState>()
 
   constructor(private readonly deps: QgisProcessServiceDeps) {
     this.discoveryService = deps.discoveryService ?? new QgisDiscoveryService()
@@ -169,7 +188,7 @@ export class QgisProcessService {
     }
 
     const algorithmId = format === 'pdf' ? 'native:printlayouttopdf' : 'native:printlayouttoimage'
-    const parameters: Record<string, unknown> = compactObject({
+    const parameters: Record<string, unknown> = omitUndefined({
       LAYOUT: request.layoutName,
       OUTPUT: outputPath,
       DPI: request.dpi,
@@ -219,7 +238,20 @@ export class QgisProcessService {
       )
     }
 
-    const preparedWorkspace = workspace ?? (await this.createWorkspace('run', request.chatId))
+    let preparedWorkspace: PreparedWorkspace
+    try {
+      preparedWorkspace =
+        workspace ?? (await this.getOrCreateRunWorkspace(request.workflowId, request.chatId))
+    } catch (error) {
+      return buildQgisFailureResult('runAlgorithm', 'VALIDATION_FAILED', {
+        message: error instanceof Error ? error.message : 'Invalid QGIS workflow state'
+      })
+    }
+
+    const pathResolutionContext: QgisPathResolutionContext = {
+      outputDirectory: preparedWorkspace.outputDirectory,
+      workflow: isWorkflowState(preparedWorkspace) ? preparedWorkspace : undefined
+    }
     const normalizedProjectPath = normalizeOptionalExistingLocalPath(
       request.projectPath,
       'QGIS project'
@@ -231,15 +263,20 @@ export class QgisProcessService {
     }
 
     let normalizedParameters: Record<string, unknown>
+    let normalizedExpectedOutputs: string[] | undefined
     let normalizedOutputsToImport: string[] | undefined
     try {
       normalizedParameters = await normalizeAlgorithmParameters(
         request.parameters || {},
-        preparedWorkspace.outputDirectory
+        pathResolutionContext
+      )
+      normalizedExpectedOutputs = normalizeExpectedOutputPaths(
+        request.expectedOutputs,
+        pathResolutionContext
       )
       normalizedOutputsToImport = normalizeRequestedImportPaths(
         request.outputsToImport,
-        preparedWorkspace.outputDirectory
+        pathResolutionContext
       )
     } catch (error) {
       return buildQgisFailureResult('runAlgorithm', 'VALIDATION_FAILED', {
@@ -252,7 +289,7 @@ export class QgisProcessService {
       args: ['--json', ...this.buildPluginFlags(config), 'run', request.algorithmId, '-'],
       timeoutMs: request.timeoutMs ?? config?.timeoutMs,
       stdin: JSON.stringify(
-        compactObject({
+        omitUndefined({
           project_path: normalizedProjectPath,
           inputs: normalizedParameters
         })
@@ -260,7 +297,7 @@ export class QgisProcessService {
       workspace: preparedWorkspace,
       algorithmId: request.algorithmId,
       importPreference: request.importPreference ?? 'auto',
-      expectedOutputs: request.expectedOutputs,
+      expectedOutputs: normalizedExpectedOutputs,
       outputsToImport: normalizedOutputsToImport,
       chatId: request.chatId,
       parameterSnapshot: normalizedParameters
@@ -314,6 +351,7 @@ export class QgisProcessService {
         launcherPath: installation.launcherPath,
         installRoot: installation.installRoot,
         version: installation.version,
+        workflowId: workspace.workflowId,
         workspacePath: workspace.workspacePath,
         outputDirectory: workspace.outputDirectory,
         discoveryDiagnostics: [...discovery.diagnostics, ...installation.diagnostics],
@@ -342,7 +380,10 @@ export class QgisProcessService {
         parameterSnapshot: input.parameterSnapshot || {}
       })
 
-      const resolvedArtifacts = await resolveArtifacts(artifactPaths)
+      const resolvedArtifacts = await resolveArtifacts({
+        paths: artifactPaths,
+        workspace
+      })
       const { artifacts, artifactsToImport } = selectQgisArtifactsForImport({
         artifacts: resolvedArtifacts,
         importPreference: input.importPreference,
@@ -373,6 +414,7 @@ export class QgisProcessService {
       return {
         success: true,
         operation: input.operation,
+        workflowId: workspace.workflowId,
         stdout: execution.stdout,
         stderr: execution.stderr,
         exitCode: execution.exitCode,
@@ -437,6 +479,79 @@ export class QgisProcessService {
     return (await this.deps.connectorHubService.getConfig('qgis')) as QgisIntegrationConfig | null
   }
 
+  private async getOrCreateRunWorkspace(
+    workflowId: string | undefined,
+    chatId?: string
+  ): Promise<QgisWorkflowState> {
+    if (workflowId) {
+      const workflow = this.workflows.get(workflowId)
+      if (!workflow) {
+        throw new Error(
+          `Unknown QGIS workflowId "${workflowId}". Start a new workflow by omitting workflowId, then reuse the returned workflowId.`
+        )
+      }
+      return this.touchWorkflow(workflow)
+    }
+
+    const workflow = await this.createWorkflowWorkspace('run', chatId)
+    this.workflows.set(workflow.workflowId, workflow)
+    this.pruneWorkflowCache(workflow.workflowId)
+    return workflow
+  }
+
+  private async createWorkflowWorkspace(
+    operation: string,
+    chatId?: string
+  ): Promise<QgisWorkflowState> {
+    const workspace = await this.createWorkspace(operation, chatId)
+    return {
+      ...workspace,
+      workflowId: randomUUID(),
+      chatId,
+      artifactIdToPath: new Map<string, string>(),
+      artifactPathToId: new Map<string, string>(),
+      nextArtifactOrdinal: 1,
+      lastAccessedAt: Date.now()
+    }
+  }
+
+  public clearWorkflowsForChat(chatId: string): void {
+    const normalizedChatId = chatId.trim()
+    if (!normalizedChatId) {
+      return
+    }
+
+    for (const [workflowId, workflow] of this.workflows.entries()) {
+      if (workflow.chatId === normalizedChatId) {
+        this.workflows.delete(workflowId)
+      }
+    }
+  }
+
+  public clearAllWorkflows(): void {
+    this.workflows.clear()
+  }
+
+  private touchWorkflow(workflow: QgisWorkflowState): QgisWorkflowState {
+    workflow.lastAccessedAt = Date.now()
+    return workflow
+  }
+
+  private pruneWorkflowCache(excludedWorkflowId?: string): void {
+    if (this.workflows.size <= MAX_ACTIVE_WORKFLOWS) {
+      return
+    }
+
+    const overflowCount = this.workflows.size - MAX_ACTIVE_WORKFLOWS
+    const evictionCandidates = Array.from(this.workflows.values())
+      .filter((workflow) => workflow.workflowId !== excludedWorkflowId)
+      .sort((left, right) => left.lastAccessedAt - right.lastAccessedAt)
+
+    for (const workflow of evictionCandidates.slice(0, overflowCount)) {
+      this.workflows.delete(workflow.workflowId)
+    }
+  }
+
   private async createWorkspace(operation: string, chatId?: string): Promise<PreparedWorkspace> {
     const safeChatId = sanitizeFileName(chatId || 'global')
     const safeOperation = sanitizeFileName(operation)
@@ -461,22 +576,24 @@ function buildDiagnostics(input: {
   launcherPath: string
   installRoot?: string
   version?: string
+  workflowId?: string
   workspacePath: string
   outputDirectory: string
   discoveryDiagnostics: string[]
   stdout: string
   stderr: string
 }): QgisExecutionDiagnostics {
-  return {
+  return omitUndefined({
     launcherPath: input.launcherPath,
     installRoot: input.installRoot,
     version: input.version,
+    workflowId: input.workflowId,
     workspacePath: input.workspacePath,
     outputDirectory: input.outputDirectory,
     discoveryDiagnostics: input.discoveryDiagnostics,
     stdoutPreview: limitText(input.stdout),
     stderrPreview: limitText(input.stderr)
-  }
+  })
 }
 
 function buildQgisFailureResult(
@@ -500,21 +617,37 @@ function buildQgisFailureResult(
 
 async function normalizeAlgorithmParameters(
   value: Record<string, unknown>,
-  outputDirectory: string
+  context: QgisPathResolutionContext
 ): Promise<Record<string, unknown>> {
   const entries = await Promise.all(
     Object.entries(value).map(async ([key, entryValue]) => [
       key,
-      await normalizeParameterValue(key, entryValue, outputDirectory)
+      await normalizeParameterValue(key, entryValue, context)
     ])
   )
 
   return Object.fromEntries(entries)
 }
 
+function normalizeExpectedOutputPaths(
+  values: string[] | undefined,
+  context: QgisPathResolutionContext
+): string[] | undefined {
+  return normalizeRequestedPaths(values, context, 'Expected output path', false)
+}
+
 function normalizeRequestedImportPaths(
   values: string[] | undefined,
-  outputDirectory: string
+  context: QgisPathResolutionContext
+): string[] | undefined {
+  return normalizeRequestedPaths(values, context, 'Output import path', true)
+}
+
+function normalizeRequestedPaths(
+  values: string[] | undefined,
+  context: QgisPathResolutionContext,
+  label: string,
+  allowArtifactReference: boolean
 ): string[] | undefined {
   if (!Array.isArray(values) || values.length === 0) {
     return undefined
@@ -525,23 +658,39 @@ function normalizeRequestedImportPaths(
       values
         .map((value) => value.trim())
         .filter((value) => value.length > 0)
-        .map((value) => resolveOutputPath(value, outputDirectory, 'Output import path'))
+        .map((value) => normalizeRequestedPathValue(value, context, label, allowArtifactReference))
     )
   )
 
   return normalizedPaths.length > 0 ? normalizedPaths : undefined
 }
 
+function normalizeRequestedPathValue(
+  value: string,
+  context: QgisPathResolutionContext,
+  label: string,
+  allowArtifactReference: boolean
+): string {
+  const artifactPath = resolveArtifactReference(value, context.workflow)
+  if (artifactPath) {
+    if (!allowArtifactReference) {
+      throw new Error(`${label} must not use an artifact reference`)
+    }
+    return artifactPath
+  }
+
+  return resolveOutputPath(value, context.outputDirectory, label)
+}
+
 async function normalizeParameterValue(
   key: string,
   value: unknown,
-  outputDirectory: string
+  context: QgisPathResolutionContext
 ): Promise<unknown> {
   if (Array.isArray(value)) {
     return await Promise.all(
       value.map(
-        async (entry, index) =>
-          await normalizeParameterValue(`${key}_${index}`, entry, outputDirectory)
+        async (entry, index) => await normalizeParameterValue(`${key}_${index}`, entry, context)
       )
     )
   }
@@ -550,7 +699,7 @@ async function normalizeParameterValue(
     const entries = await Promise.all(
       Object.entries(value as Record<string, unknown>).map(async ([childKey, childValue]) => [
         childKey,
-        await normalizeParameterValue(childKey, childValue, outputDirectory)
+        await normalizeParameterValue(childKey, childValue, context)
       ])
     )
     return Object.fromEntries(entries)
@@ -566,6 +715,16 @@ async function normalizeParameterValue(
   }
 
   const isOutputKey = OUTPUT_KEY_PATTERN.test(key)
+  const artifactPath = resolveArtifactReference(trimmedValue, context.workflow)
+  if (artifactPath) {
+    if (isOutputKey) {
+      throw new Error(
+        `${key} must use a managed output path or relative output name, not an artifact reference`
+      )
+    }
+    return artifactPath
+  }
+
   if (looksLikeFilesystemPath(trimmedValue)) {
     const normalizedLocalPath = ensureLocalFilesystemPath(trimmedValue, `${key} path`)
     const exists = await fs
@@ -581,14 +740,14 @@ async function normalizeParameterValue(
     }
 
     if (isOutputKey) {
-      return resolveOutputPath(normalizedLocalPath, outputDirectory, key)
+      return resolveOutputPath(normalizedLocalPath, context.outputDirectory, key)
     }
 
     throw new Error(`${key} must point to an existing local file`)
   }
 
   if (isOutputKey) {
-    return resolveOutputPath(trimmedValue, outputDirectory, key)
+    return resolveOutputPath(trimmedValue, context.outputDirectory, key)
   }
 
   return trimmedValue
@@ -626,6 +785,41 @@ function normalizeOptionalExistingLocalPath(
   }
 }
 
+function resolveArtifactReference(
+  value: string,
+  workflow: QgisWorkflowState | undefined
+): string | null {
+  const artifactId = parseArtifactReference(value)
+  if (!artifactId) {
+    return null
+  }
+
+  if (!workflow) {
+    throw new Error(
+      `Artifact reference "${artifactId}" requires a workflowId from a previous qgis_run_processing step`
+    )
+  }
+
+  const artifactPath = workflow.artifactIdToPath.get(artifactId)
+  if (!artifactPath) {
+    throw new Error(
+      `Unknown QGIS artifact "${artifactId}" for workflow "${workflow.workflowId}". Reuse an artifactId returned by an earlier step in the same workflow.`
+    )
+  }
+
+  return artifactPath
+}
+
+function parseArtifactReference(value: string): string | null {
+  const trimmedValue = value.trim()
+  if (!trimmedValue.toLowerCase().startsWith(ARTIFACT_REFERENCE_PREFIX)) {
+    return null
+  }
+
+  const artifactId = trimmedValue.slice(ARTIFACT_REFERENCE_PREFIX.length).replace(/^\/+/u, '')
+  return artifactId.trim().length > 0 ? artifactId.trim() : null
+}
+
 function collectArtifactPaths(input: {
   parsedResult: unknown
   expectedOutputs: string[]
@@ -644,23 +838,37 @@ function collectArtifactPaths(input: {
   return Array.from(candidates.values())
 }
 
-async function resolveArtifacts(paths: string[]): Promise<QgisArtifactRecord[]> {
+async function resolveArtifacts(input: {
+  paths: string[]
+  workspace: PreparedWorkspace
+}): Promise<QgisArtifactRecord[]> {
   const artifacts: QgisArtifactRecord[] = []
-  for (const candidatePath of paths) {
+  for (const candidatePath of input.paths) {
     const normalizedPath = normalizeArtifactPath(candidatePath)
     if (!normalizedPath) {
       continue
     }
 
+    const workflow = isWorkflowState(input.workspace) ? input.workspace : undefined
     const exists = await fs
       .stat(normalizedPath)
       .then((stats) => stats.isFile())
       .catch(() => false)
-    artifacts.push({
-      path: normalizedPath,
-      kind: classifyArtifactKind(normalizedPath),
-      exists
-    })
+    const relativePath = toRelativeOutputPath(normalizedPath, input.workspace.outputDirectory)
+    const artifactId = workflow
+      ? registerWorkflowArtifact(workflow, normalizedPath, relativePath)
+      : undefined
+
+    artifacts.push(
+      omitUndefined({
+        path: normalizedPath,
+        workflowId: input.workspace.workflowId,
+        artifactId,
+        relativePath,
+        kind: classifyArtifactKind(normalizedPath),
+        exists
+      })
+    )
   }
 
   return artifacts
@@ -681,6 +889,82 @@ function normalizeArtifactPath(value: string): string | null {
   } catch {
     return null
   }
+}
+
+function toRelativeOutputPath(artifactPath: string, outputDirectory: string): string | undefined {
+  if (!isPathInsideDirectory(path.dirname(artifactPath), outputDirectory)) {
+    return undefined
+  }
+
+  const relativePath = path.relative(outputDirectory, artifactPath)
+  if (!relativePath || relativePath.startsWith('..')) {
+    return undefined
+  }
+
+  return relativePath.replace(/[\\/]+/g, '/')
+}
+
+function registerWorkflowArtifact(
+  workflow: QgisWorkflowState,
+  artifactPath: string,
+  relativePath?: string
+): string {
+  const existingArtifactId = workflow.artifactPathToId.get(toPathLookupKey(artifactPath))
+  if (existingArtifactId) {
+    return existingArtifactId
+  }
+
+  const artifactId = createWorkflowArtifactId(workflow, artifactPath, relativePath)
+  workflow.artifactIdToPath.set(artifactId, artifactPath)
+  workflow.artifactPathToId.set(toPathLookupKey(artifactPath), artifactId)
+  return artifactId
+}
+
+function createWorkflowArtifactId(
+  workflow: QgisWorkflowState,
+  artifactPath: string,
+  relativePath?: string
+): string {
+  const baseCandidate =
+    sanitizeArtifactIdCandidate(relativePath || path.basename(artifactPath)) || 'artifact'
+
+  if (baseCandidate === 'artifact') {
+    return takeNextWorkflowArtifactOrdinal(workflow)
+  }
+
+  let candidate = baseCandidate
+  let suffix = 2
+
+  while (workflow.artifactIdToPath.has(candidate)) {
+    candidate = `${baseCandidate}_${suffix}`
+    suffix += 1
+  }
+
+  return candidate
+}
+
+function takeNextWorkflowArtifactOrdinal(workflow: QgisWorkflowState): string {
+  let ordinal = workflow.nextArtifactOrdinal
+  let candidate = `artifact_${ordinal}`
+
+  while (workflow.artifactIdToPath.has(candidate)) {
+    ordinal += 1
+    candidate = `artifact_${ordinal}`
+  }
+
+  workflow.nextArtifactOrdinal = ordinal + 1
+  return candidate
+}
+
+function sanitizeArtifactIdCandidate(value: string): string {
+  const withoutExtension = value.replace(/\.[A-Za-z0-9]+$/u, '')
+  return withoutExtension
+    .trim()
+    .replace(/[\\/]+/g, '_')
+    .replace(/[^A-Za-z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase()
 }
 
 function collectOutputPathsFromNamedObject(value: unknown, candidates: Set<string>): void {
@@ -792,7 +1076,7 @@ function normalizeProcessResult(
     return input.parsedResult ?? { stdout: input.stdout }
   }
 
-  return compactObject({
+  return omitUndefined({
     algorithmId: input.algorithmId,
     artifacts: input.artifacts,
     raw: input.parsedResult ?? input.stdout
@@ -914,7 +1198,7 @@ function filterAlgorithmList(
 
   const returnedAlgorithms =
     typeof limit === 'number' ? matchedAlgorithms.slice(0, limit) : matchedAlgorithms
-  const filters = compactObject({
+  const filters = omitUndefined({
     query: normalizedQuery,
     provider: normalizedProvider,
     limit
@@ -1029,10 +1313,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function compactObject<T extends Record<string, unknown>>(value: T): T {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
-  ) as T
+function isWorkflowState(workspace: PreparedWorkspace): workspace is QgisWorkflowState {
+  return typeof workspace.workflowId === 'string' && workspace.workflowId.trim().length > 0
 }
 
 function isQgisAlgorithmIdentifier(value: string): boolean {
@@ -1081,6 +1363,11 @@ function normalizeLayoutFormat(
   }
 
   return outputPath ? null : 'pdf'
+}
+
+function toPathLookupKey(filePath: string): string {
+  const normalizedPath = filePath.replace(/[\\/]+/g, '/')
+  return process.platform === 'win32' ? normalizedPath.toLowerCase() : normalizedPath
 }
 
 function defaultBroadcastLayerImports(payload: LayerImportDefinitionsPayload): void {

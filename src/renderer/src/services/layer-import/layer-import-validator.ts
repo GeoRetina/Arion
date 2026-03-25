@@ -15,7 +15,7 @@ export const SUPPORTED_FORMATS = {
   'text/json': 'geojson',
   'application/geopackage+sqlite3': 'geopackage',
 
-  // Shapefile (as ZIP archive)
+  // Shapefile (ZIP archives are detectable by MIME type)
   'application/zip': 'shapefile',
   'application/x-zip-compressed': 'shapefile',
 
@@ -24,11 +24,19 @@ export const SUPPORTED_FORMATS = {
   'image/tif': 'geotiff'
 } as const
 
-const SUPPORTED_FILE_EXTENSIONS = ['.json', '.geojson', '.gpkg', '.zip', '.tif', '.tiff'] as const
+const SUPPORTED_FILE_EXTENSIONS = [
+  '.json',
+  '.geojson',
+  '.gpkg',
+  '.shp',
+  '.zip',
+  '.tif',
+  '.tiff'
+] as const
 
 const SUPPORTED_LAYER_IMPORT_LABELS = [
   'GeoJSON',
-  'zipped Shapefiles',
+  'Shapefiles (.shp, .zip)',
   'GeoPackage',
   'GeoTIFF'
 ] as const
@@ -54,6 +62,7 @@ export class LayerImportValidator {
     geojson: 'geojson',
     gpkg: 'geopackage',
     geopackage: 'geopackage',
+    shp: 'shapefile',
     zip: 'shapefile',
     tif: 'geotiff',
     tiff: 'geotiff'

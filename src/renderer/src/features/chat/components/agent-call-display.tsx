@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useState } from 'react'
+import { applyNeutralStatusChrome } from '../lib/status-chrome'
 
 interface AgentCallDisplayProps {
   agentName?: string
@@ -90,7 +91,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
     }
   }
 
-  const currentStyles = statusStyles[status]
+  const currentStyles = applyNeutralStatusChrome(statusStyles[status], status !== 'error')
 
   // For loading state without agent name, format the ID nicely
   // For completed state, we should have the agent name from the result
@@ -106,7 +107,10 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
       )}
     >
       <div
-        className="flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+        className={cn(
+          'flex items-center gap-2.5 cursor-pointer p-2.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5',
+          expanded ? 'rounded-t-lg' : 'rounded-lg'
+        )}
         onClick={() => {
           hasManuallyToggled.current = true
           setExpanded(!expanded)
@@ -187,14 +191,14 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
             {/* Results - only shown when completed with results */}
             {status === 'completed' && result != null && (
               <div>
-                <div className="font-medium mb-1 flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                <div className="font-medium mb-1 flex items-center gap-1 text-muted-foreground">
                   <CheckCircle className="h-3 w-3" />
                   Response
                 </div>
-                <div className="rounded border border-emerald-200/60 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 overflow-hidden">
+                <div className="rounded border border-border/40 bg-muted/20 overflow-hidden">
                   <ScrollArea className="h-24 max-h-32 w-full">
                     <div className="p-2">
-                      <div className="whitespace-pre-wrap wrap-break-word text-emerald-800 dark:text-emerald-200">
+                      <div className="whitespace-pre-wrap wrap-break-word text-foreground">
                         {formattedResult}
                       </div>
                     </div>
@@ -205,7 +209,7 @@ const AgentCallDisplay: React.FC<AgentCallDisplayProps> = ({
 
             {/* Agent execution in progress */}
             {status === 'loading' && (
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20 rounded p-2">
+              <div className="flex items-center gap-2 rounded bg-muted/20 p-2 text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin shrink-0" />
                 <div className="font-medium">Processing request...</div>
               </div>
