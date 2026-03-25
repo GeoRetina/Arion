@@ -192,6 +192,89 @@ describe('QgisProcessService', () => {
     }
   })
 
+  it('parses provider-scoped QGIS list output from QGIS 3.36+', async () => {
+    runQgisLauncherCommand.mockResolvedValue({
+      stdout: JSON.stringify({
+        providers: {
+          native: {
+            algorithms: {
+              'native:extractbyexpression': {
+                name: 'Extract by expression'
+              },
+              'native:extractbyattribute': {
+                name: 'Extract by attribute'
+              },
+              'native:buffer': {
+                name: 'Buffer'
+              }
+            }
+          },
+          gdal: {
+            algorithms: {
+              'gdal:translate': {
+                name: 'Convert format'
+              }
+            }
+          }
+        }
+      }),
+      stderr: '',
+      exitCode: 0,
+      durationMs: 12
+    })
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto'
+        }))
+      } as never,
+      algorithmCatalogService: {
+        rankAlgorithms: vi.fn(async () => null),
+        warmCatalog: vi.fn()
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const result = await service.listAlgorithms({
+      query: 'extract',
+      provider: 'native',
+      limit: 2
+    })
+
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.parsedResult).toEqual({
+        algorithms: [
+          {
+            id: 'native:extractbyattribute',
+            name: 'Extract by attribute',
+            provider: 'native',
+            supportedForExecution: true
+          },
+          {
+            id: 'native:extractbyexpression',
+            name: 'Extract by expression',
+            provider: 'native',
+            supportedForExecution: true
+          }
+        ],
+        totalAlgorithms: 4,
+        matchedAlgorithms: 2,
+        returnedAlgorithms: 2,
+        truncated: false,
+        filters: {
+          query: 'extract',
+          provider: 'native',
+          limit: 2
+        }
+      })
+    }
+  })
+
   it('uses the algorithm catalog to rank listed algorithms when available', async () => {
     runQgisLauncherCommand.mockResolvedValue({
       stdout: JSON.stringify({
@@ -221,7 +304,6 @@ describe('QgisProcessService', () => {
           provider: 'native',
           supportedForExecution: true,
           summary: 'Sorts features by an expression.',
-          categoryHints: ['sorting'],
           parameterNames: ['INPUT', 'EXPRESSION', 'ASCENDING', 'OUTPUT']
         }
       ],
@@ -273,7 +355,6 @@ describe('QgisProcessService', () => {
             provider: 'native',
             supportedForExecution: true,
             summary: 'Sorts features by an expression.',
-            categoryHints: ['sorting'],
             parameterNames: ['INPUT', 'EXPRESSION', 'ASCENDING', 'OUTPUT']
           }
         ],

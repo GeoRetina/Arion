@@ -16,12 +16,14 @@ import {
 import { omitUndefined } from '../../lib/omit-undefined'
 import type { ConnectorHubService } from '../connector-hub-service'
 import { LocalLayerImportService } from '../layers/local-layer-import-service'
-import { evaluateQgisAlgorithmApproval, isQgisAlgorithmApproved } from './qgis-algorithm-policy'
+import { normalizeQgisAlgorithmList } from './qgis-algorithm-list'
+import { evaluateQgisAlgorithmApproval } from './qgis-algorithm-policy'
 import { runQgisLauncherCommand } from './qgis-command-runner'
 import { QgisAlgorithmCatalogService } from './qgis-algorithm-catalog-service'
 import { QgisDiscoveryService } from './qgis-discovery-service'
 import { selectQgisArtifactsForImport } from './qgis-import-selection'
 import { QgisOutputInspector } from './qgis-output-inspector'
+import { normalizeQgisSearchText, tokenizeQgisSearchText } from './qgis-search-text'
 import type {
   QgisApplyLayerStyleRequest,
   QgisArtifactRecord,
@@ -94,9 +96,10 @@ export class QgisProcessService {
   }
 
   public async listAlgorithms(options: QgisListAlgorithmsRequest = {}): Promise<QgisProcessResult> {
+    const config = await this.getConfig()
     const result = await this.executeLauncherCommand({
       operation: 'listAlgorithms',
-      args: ['--json', ...this.buildPluginFlags(await this.getConfig()), 'list'],
+      args: ['--json', ...this.buildPluginFlags(config), 'list'],
       timeoutMs: options.timeoutMs
     })
 
@@ -104,8 +107,9 @@ export class QgisProcessService {
       return result
     }
 
-    const rawAlgorithms = normalizeAlgorithmList(result.parsedResult, result.stdout)
-    const config = await this.getConfig()
+    const rawAlgorithms = normalizeQgisAlgorithmList(result.parsedResult, result.stdout, {
+      allowPluginAlgorithms: config?.allowPluginAlgorithms === true
+    })
     const catalogResult = await this.algorithmCatalogService
       .rankAlgorithms({
         algorithms: rawAlgorithms.algorithms,
@@ -1091,7 +1095,7 @@ function normalizeProcessResult(
   }
 ): unknown {
   if (operation === 'listAlgorithms') {
-    return normalizeAlgorithmList(input.parsedResult, input.stdout)
+    return normalizeQgisAlgorithmList(input.parsedResult, input.stdout)
   }
 
   if (operation === 'describeAlgorithm') {
@@ -1105,82 +1109,23 @@ function normalizeProcessResult(
   })
 }
 
-function normalizeAlgorithmList(
-  parsedResult: unknown,
-  stdout: string
-): {
-  algorithms: Array<{
-    id: string
-    name?: string
-    provider?: string
-    supportedForExecution: boolean
-  }>
-} {
-  const algorithms = new Map<
-    string,
-    { id: string; name?: string; provider?: string; supportedForExecution: boolean }
-  >()
+interface FilterableAlgorithmEntry {
+  id: string
+  name?: string
+  provider?: string
+  supportedForExecution: boolean
+}
 
-  const pushAlgorithm = (entry: { id: string; name?: string; provider?: string }): void => {
-    const normalizedId = entry.id.trim()
-    if (!normalizedId) {
-      return
-    }
-    const provider = readString(entry.provider, normalizedId.split(':')[0])
-
-    algorithms.set(normalizedId, {
-      id: normalizedId,
-      name: entry.name,
-      provider,
-      supportedForExecution: isQgisAlgorithmApproved(normalizedId)
-    })
-  }
-
-  const records = extractObjects(parsedResult)
-  for (const record of records) {
-    const algorithmId = readString(record.algorithmId, record.id, record.name)
-    if (!algorithmId || !isQgisAlgorithmIdentifier(algorithmId)) {
-      continue
-    }
-
-    pushAlgorithm({
-      id: algorithmId,
-      name: readString(record.display_name, record.name, record.label),
-      provider: readString(record.provider, record.providerId)
-    })
-  }
-
-  if (algorithms.size === 0) {
-    for (const line of stdout.split(/\r?\n/u)) {
-      const match = line.trim().match(/^([A-Za-z0-9_]+:[A-Za-z0-9_]+)(?:\s+-\s+(.+))?$/)
-      if (!match?.[1]) {
-        continue
-      }
-
-      pushAlgorithm({
-        id: match[1],
-        name: match[2]
-      })
-    }
-  }
-
-  return {
-    algorithms: Array.from(algorithms.values()).sort((left, right) =>
-      left.id.localeCompare(right.id)
-    )
-  }
+interface RankedFallbackAlgorithmEntry {
+  algorithm: FilterableAlgorithmEntry
+  matchedTerms: number
 }
 
 function filterAlgorithmList(
   value: unknown,
   options: Pick<QgisListAlgorithmsRequest, 'query' | 'provider' | 'limit'>
 ): {
-  algorithms: Array<{
-    id: string
-    name?: string
-    provider?: string
-    supportedForExecution: boolean
-  }>
+  algorithms: FilterableAlgorithmEntry[]
   totalAlgorithms: number
   matchedAlgorithms: number
   returnedAlgorithms: number
@@ -1194,29 +1139,19 @@ function filterAlgorithmList(
   const algorithms = extractAlgorithmEntries(value)
   const normalizedQuery = normalizeOptionalText(options.query)
   const normalizedProvider = normalizeOptionalText(options.provider)?.toLowerCase()
-  const queryTerms = normalizedQuery ? normalizedQuery.toLowerCase().split(/\s+/u) : []
   const limit =
     typeof options.limit === 'number' && Number.isFinite(options.limit)
       ? Math.max(1, Math.min(Math.floor(options.limit), 200))
       : undefined
 
-  const matchedAlgorithms = algorithms.filter((algorithm) => {
+  const providerFilteredAlgorithms = algorithms.filter((algorithm) => {
     const algorithmProvider = (algorithm.provider || algorithm.id.split(':')[0] || '').toLowerCase()
-    if (normalizedProvider && algorithmProvider !== normalizedProvider) {
-      return false
-    }
-
-    if (queryTerms.length === 0) {
-      return true
-    }
-
-    const searchableText = [algorithm.id, algorithm.name, algorithm.provider]
-      .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-      .join(' ')
-      .toLowerCase()
-
-    return queryTerms.every((term) => searchableText.includes(term))
+    return !normalizedProvider || algorithmProvider === normalizedProvider
   })
+
+  const matchedAlgorithms = normalizedQuery
+    ? searchFallbackAlgorithmEntries(providerFilteredAlgorithms, normalizedQuery)
+    : providerFilteredAlgorithms
 
   const returnedAlgorithms =
     typeof limit === 'number' ? matchedAlgorithms.slice(0, limit) : matchedAlgorithms
@@ -1246,12 +1181,7 @@ function extractAlgorithmEntries(value: unknown): Array<{
     return []
   }
 
-  const algorithms: Array<{
-    id: string
-    name?: string
-    provider?: string
-    supportedForExecution: boolean
-  }> = []
+  const algorithms: FilterableAlgorithmEntry[] = []
 
   for (const entry of value.algorithms) {
     if (!isRecord(entry)) {
@@ -1274,24 +1204,65 @@ function extractAlgorithmEntries(value: unknown): Array<{
   return algorithms
 }
 
-function extractObjects(value: unknown): Array<Record<string, unknown>> {
-  if (Array.isArray(value)) {
-    return value.filter(isRecord)
-  }
-
-  if (!isRecord(value)) {
+function searchFallbackAlgorithmEntries(
+  algorithms: FilterableAlgorithmEntry[],
+  query: string
+): FilterableAlgorithmEntry[] {
+  const queryTerms = tokenizeQgisSearchText(query)
+  if (queryTerms.length === 0) {
     return []
   }
 
-  const nestedArrays = Object.values(value).filter(Array.isArray)
-  for (const nestedArray of nestedArrays) {
-    const recordArray = (nestedArray as unknown[]).filter(isRecord)
-    if (recordArray.length > 0) {
-      return recordArray
-    }
+  return algorithms
+    .map((algorithm) => {
+      const searchableText = buildFallbackSearchText(algorithm)
+      let matchedTerms = 0
+
+      for (const term of queryTerms) {
+        if (searchableText.includes(term)) {
+          matchedTerms += 1
+        }
+      }
+
+      if (matchedTerms === 0) {
+        return null
+      }
+
+      return {
+        algorithm,
+        matchedTerms
+      }
+    })
+    .filter((result): result is RankedFallbackAlgorithmEntry => result !== null)
+    .sort(compareFallbackAlgorithmEntries)
+    .map(({ algorithm }) => algorithm)
+}
+
+function buildFallbackSearchText(algorithm: FilterableAlgorithmEntry): string {
+  return normalizeQgisSearchText(
+    [algorithm.id, algorithm.name, algorithm.provider]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .join(' ')
+  )
+}
+
+function compareFallbackAlgorithmEntries(
+  left: RankedFallbackAlgorithmEntry,
+  right: RankedFallbackAlgorithmEntry
+): number {
+  if (left.matchedTerms !== right.matchedTerms) {
+    return right.matchedTerms - left.matchedTerms
   }
 
-  return [value]
+  if (left.algorithm.supportedForExecution !== right.algorithm.supportedForExecution) {
+    return left.algorithm.supportedForExecution ? -1 : 1
+  }
+
+  return buildFallbackSortName(left.algorithm).localeCompare(buildFallbackSortName(right.algorithm))
+}
+
+function buildFallbackSortName(algorithm: FilterableAlgorithmEntry): string {
+  return normalizeQgisSearchText(algorithm.name || algorithm.id)
 }
 
 function safeParseJson(value: string): unknown {

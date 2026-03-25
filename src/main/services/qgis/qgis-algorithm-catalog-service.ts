@@ -1,49 +1,24 @@
 import { createHash } from 'crypto'
-import { promises as fs } from 'fs'
 import path from 'path'
 import { app } from 'electron'
 import type { QgisDiscoveredInstallation, QgisIntegrationConfig } from '../../../shared/ipc-types'
-import { isQgisAlgorithmApproved } from './qgis-algorithm-policy'
+import {
+  QgisAlgorithmCatalogStore,
+  type StoredQgisAlgorithmCatalog,
+  type StoredQgisAlgorithmCatalogEntry
+} from './qgis-algorithm-catalog-store'
+import { normalizeQgisAlgorithmList } from './qgis-algorithm-list'
 import { runQgisLauncherCommand } from './qgis-command-runner'
 import { QgisDiscoveryService } from './qgis-discovery-service'
 
-const CATALOG_SCHEMA_VERSION = 1
+const CATALOG_SCHEMA_VERSION = 2
 const CATALOG_DIRECTORY_NAME = 'qgis-algorithm-catalogs'
+const CATALOG_DATABASE_FILENAME = 'qgis-algorithm-catalogs.sqlite'
 const MAX_ENRICH_PER_QUERY = 10
 const MAX_CONCURRENT_HELP_REQUESTS = 3
 const DEFAULT_HELP_TIMEOUT_MS = 8_000
 const MAX_HELP_PREVIEW_LENGTH = 2_000
 const OUTPUT_KEY_PATTERN = /(output|destination|dest|sink|file)$/i
-const STOPWORDS = new Set([
-  'a',
-  'an',
-  'and',
-  'are',
-  'as',
-  'at',
-  'be',
-  'by',
-  'for',
-  'from',
-  'how',
-  'if',
-  'in',
-  'into',
-  'is',
-  'it',
-  'of',
-  'on',
-  'or',
-  'that',
-  'the',
-  'their',
-  'then',
-  'this',
-  'to',
-  'use',
-  'using',
-  'with'
-])
 
 interface QgisAlgorithmListEntry {
   id: string
@@ -62,15 +37,13 @@ interface QgisAlgorithmParameterRecord {
 
 export interface QgisAlgorithmCatalogEntry extends QgisAlgorithmListEntry {
   summary?: string
-  categoryHints?: string[]
-  geometryHints?: string[]
-  layerTypeHints?: string[]
   parameterNames: string[]
+  parameterTypes: string[]
+  parameterDescriptions: string[]
   requiredParameterNames: string[]
   outputParameterNames: string[]
   helpFetchedAt?: string
   rawHelpPreview?: string
-  searchTerms: string[]
 }
 
 interface QgisAlgorithmCatalogFile {
@@ -86,7 +59,7 @@ interface QgisAlgorithmCatalogFile {
 
 interface QgisAlgorithmCatalogContext {
   cacheKey: string
-  cachePath: string
+  databasePath: string
   installation: QgisDiscoveredInstallation
   allowPluginAlgorithms: boolean
 }
@@ -106,9 +79,6 @@ export type RankAlgorithmsResult = {
   algorithms: Array<
     QgisAlgorithmListEntry & {
       summary?: string
-      categoryHints?: string[]
-      geometryHints?: string[]
-      layerTypeHints?: string[]
       parameterNames?: string[]
       requiredParameterNames?: string[]
       outputParameterNames?: string[]
@@ -180,34 +150,36 @@ export class QgisAlgorithmCatalogService {
     )
 
     if (query) {
-      const candidatesToEnrich = preliminaryRecords
-        .map((entry) => ({
-          entry,
-          score: scoreAlgorithmEntry(entry, query)
-        }))
-        .sort(compareScoredEntries)
-        .filter(({ entry }) => !entry.helpFetchedAt)
+      const candidatesToEnrich = this.getCatalogStore(context.databasePath)
+        .searchCatalogEntries(context.cacheKey, query, {
+          provider,
+          limit: MAX_ENRICH_PER_QUERY * 4
+        })
+        .map(({ entry }) => entry)
+        .filter((entry) => !entry.helpFetchedAt)
         .slice(0, MAX_ENRICH_PER_QUERY)
-        .map(({ entry }) => entry.id)
+        .map((entry) => entry.id)
 
       if (candidatesToEnrich.length > 0) {
         await this.enrichCatalogEntries(context, candidatesToEnrich, input.timeoutMs)
-        catalog = (await this.readCatalog(context.cachePath)) ?? catalog
+        catalog = (await this.readCatalog(context)) ?? catalog
       }
     }
 
-    const rankedRecords = catalog.entries
-      .filter((entry) =>
-        provider
-          ? (entry.provider || entry.id.split(':')[0] || '').toLowerCase() === provider
-          : true
-      )
-      .map((entry) => ({
-        entry,
-        score: query ? scoreAlgorithmEntry(entry, query) : 0
-      }))
-      .filter(({ score }) => !query || score > 0)
-      .sort(compareScoredEntries)
+    const rankedRecords = query
+      ? this.getCatalogStore(context.databasePath)
+          .searchCatalogEntries(context.cacheKey, query, {
+            provider,
+            limit: Math.max(preliminaryRecords.length, limit)
+          })
+          .map(({ entry, relevance }) => ({
+            entry: entry as QgisAlgorithmCatalogEntry,
+            score: relevance
+          }))
+      : preliminaryRecords.map((entry) => ({
+          entry,
+          score: 0
+        }))
 
     const limitedRecords = rankedRecords.slice(0, limit)
     const resultAlgorithms = limitedRecords.map(({ entry, score }) => ({
@@ -216,9 +188,6 @@ export class QgisAlgorithmCatalogService {
       provider: entry.provider,
       supportedForExecution: entry.supportedForExecution,
       summary: entry.summary,
-      categoryHints: entry.categoryHints,
-      geometryHints: entry.geometryHints,
-      layerTypeHints: entry.layerTypeHints,
       parameterNames: entry.parameterNames,
       requiredParameterNames: entry.requiredParameterNames,
       outputParameterNames: entry.outputParameterNames,
@@ -250,8 +219,8 @@ export class QgisAlgorithmCatalogService {
     context: QgisAlgorithmCatalogContext,
     seedAlgorithms?: QgisAlgorithmListEntry[]
   ): Promise<QgisAlgorithmCatalogFile | null> {
-    const existingCatalog = await this.readCatalog(context.cachePath)
-    if (existingCatalog) {
+    const existingCatalog = await this.readCatalog(context)
+    if (existingCatalog && existingCatalog.entries.length > 0) {
       return seedAlgorithms
         ? await this.mergeSeedAlgorithms(context, existingCatalog, seedAlgorithms)
         : existingCatalog
@@ -272,7 +241,7 @@ export class QgisAlgorithmCatalogService {
         return null
       }
 
-      await this.writeCatalog(context.cachePath, catalog)
+      await this.writeCatalog(context, catalog)
       return catalog
     })().finally(() => {
       this.baseCatalogTasks.delete(context.cacheKey)
@@ -310,7 +279,6 @@ export class QgisAlgorithmCatalogService {
         existingEntry.name = algorithm.name
         existingEntry.provider = algorithm.provider
         existingEntry.supportedForExecution = algorithm.supportedForExecution
-        existingEntry.searchTerms = buildSearchTerms(existingEntry)
         hasChanges = true
       }
     }
@@ -324,7 +292,7 @@ export class QgisAlgorithmCatalogService {
       updatedAt: new Date().toISOString(),
       entries: Array.from(entryById.values()).sort(compareCatalogEntries)
     }
-    await this.writeCatalog(context.cachePath, nextCatalog)
+    await this.writeCatalog(context, nextCatalog)
     return nextCatalog
   }
 
@@ -346,11 +314,9 @@ export class QgisAlgorithmCatalogService {
     }
 
     const parsedResult = safeParseJson(result.stdout)
-    const algorithms = normalizeAlgorithmList(
-      parsedResult,
-      result.stdout,
-      context.allowPluginAlgorithms
-    )
+    const algorithms = normalizeQgisAlgorithmList(parsedResult, result.stdout, {
+      allowPluginAlgorithms: context.allowPluginAlgorithms
+    }).algorithms
     return createCatalogFile(context, algorithms)
   }
 
@@ -373,7 +339,7 @@ export class QgisAlgorithmCatalogService {
     }
 
     const task = (async () => {
-      const catalog = await this.readCatalog(context.cachePath)
+      const catalog = await this.readCatalog(context)
       if (!catalog) {
         return
       }
@@ -421,7 +387,7 @@ export class QgisAlgorithmCatalogService {
         updatedAt: new Date().toISOString(),
         entries: Array.from(entryById.values()).sort(compareCatalogEntries)
       }
-      await this.writeCatalog(context.cachePath, nextCatalog)
+      await this.writeCatalog(context, nextCatalog)
     })().finally(() => {
       this.enrichmentTasks.delete(context.cacheKey)
     })
@@ -482,53 +448,36 @@ export class QgisAlgorithmCatalogService {
 
     return {
       cacheKey,
-      cachePath: path.join(this.getUserDataPath(), CATALOG_DIRECTORY_NAME, `${cacheKey}.json`),
+      databasePath: path.join(
+        this.getUserDataPath(),
+        CATALOG_DIRECTORY_NAME,
+        CATALOG_DATABASE_FILENAME
+      ),
       installation,
       allowPluginAlgorithms
     }
   }
 
-  private async readCatalog(catalogPath: string): Promise<QgisAlgorithmCatalogFile | null> {
-    try {
-      const raw = await fs.readFile(catalogPath, 'utf8')
-      const parsed = JSON.parse(raw) as QgisAlgorithmCatalogFile
-      if (
-        parsed.schemaVersion !== CATALOG_SCHEMA_VERSION ||
-        !Array.isArray(parsed.entries) ||
-        typeof parsed.cacheKey !== 'string'
-      ) {
-        return null
-      }
-
-      return {
-        ...parsed,
-        entries: parsed.entries
-          .filter((entry): entry is QgisAlgorithmCatalogEntry => isCatalogEntry(entry))
-          .map((entry) => ({
-            ...entry,
-            parameterNames: Array.isArray(entry.parameterNames) ? entry.parameterNames : [],
-            requiredParameterNames: Array.isArray(entry.requiredParameterNames)
-              ? entry.requiredParameterNames
-              : [],
-            outputParameterNames: Array.isArray(entry.outputParameterNames)
-              ? entry.outputParameterNames
-              : [],
-            searchTerms: Array.isArray(entry.searchTerms)
-              ? entry.searchTerms
-              : buildSearchTerms(entry)
-          }))
-      }
-    } catch {
+  private async readCatalog(
+    context: QgisAlgorithmCatalogContext
+  ): Promise<QgisAlgorithmCatalogFile | null> {
+    const storedCatalog = this.getCatalogStore(context.databasePath).readCatalog(context.cacheKey)
+    if (!storedCatalog) {
       return null
     }
+
+    return mapStoredCatalogToCatalogFile(storedCatalog)
   }
 
   private async writeCatalog(
-    catalogPath: string,
+    context: QgisAlgorithmCatalogContext,
     catalog: QgisAlgorithmCatalogFile
   ): Promise<void> {
-    await fs.mkdir(path.dirname(catalogPath), { recursive: true })
-    await fs.writeFile(catalogPath, JSON.stringify(catalog, null, 2), 'utf8')
+    this.getCatalogStore(context.databasePath).writeCatalog(mapCatalogFileToStoredCatalog(catalog))
+  }
+
+  private getCatalogStore(databasePath: string): QgisAlgorithmCatalogStore {
+    return new QgisAlgorithmCatalogStore(databasePath)
   }
 }
 
@@ -551,19 +500,79 @@ function createCatalogFile(
   }
 }
 
+function mapStoredCatalogToCatalogFile(
+  storedCatalog: StoredQgisAlgorithmCatalog
+): QgisAlgorithmCatalogFile {
+  return {
+    schemaVersion: CATALOG_SCHEMA_VERSION,
+    cacheKey: storedCatalog.cacheKey,
+    launcherPath: storedCatalog.launcherPath,
+    version: storedCatalog.version,
+    allowPluginAlgorithms: storedCatalog.allowPluginAlgorithms,
+    builtAt: storedCatalog.builtAt,
+    updatedAt: storedCatalog.updatedAt,
+    entries: storedCatalog.entries.map(mapStoredEntryToCatalogEntry)
+  }
+}
+
+function mapStoredEntryToCatalogEntry(
+  entry: StoredQgisAlgorithmCatalogEntry
+): QgisAlgorithmCatalogEntry {
+  return {
+    id: entry.id,
+    name: entry.name,
+    provider: entry.provider,
+    supportedForExecution: entry.supportedForExecution,
+    summary: entry.summary,
+    parameterNames: entry.parameterNames,
+    parameterTypes: entry.parameterTypes,
+    parameterDescriptions: entry.parameterDescriptions,
+    requiredParameterNames: entry.requiredParameterNames,
+    outputParameterNames: entry.outputParameterNames,
+    helpFetchedAt: entry.helpFetchedAt,
+    rawHelpPreview: entry.rawHelpPreview
+  }
+}
+
+function mapCatalogFileToStoredCatalog(
+  catalog: QgisAlgorithmCatalogFile
+): StoredQgisAlgorithmCatalog {
+  return {
+    cacheKey: catalog.cacheKey,
+    launcherPath: catalog.launcherPath,
+    version: catalog.version,
+    allowPluginAlgorithms: catalog.allowPluginAlgorithms,
+    builtAt: catalog.builtAt,
+    updatedAt: catalog.updatedAt,
+    entries: catalog.entries.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      provider: entry.provider,
+      supportedForExecution: entry.supportedForExecution,
+      summary: entry.summary,
+      parameterNames: entry.parameterNames,
+      parameterTypes: entry.parameterTypes,
+      parameterDescriptions: entry.parameterDescriptions,
+      requiredParameterNames: entry.requiredParameterNames,
+      outputParameterNames: entry.outputParameterNames,
+      helpFetchedAt: entry.helpFetchedAt,
+      rawHelpPreview: entry.rawHelpPreview
+    }))
+  }
+}
+
 function createCatalogEntry(algorithm: QgisAlgorithmListEntry): QgisAlgorithmCatalogEntry {
-  const entry: QgisAlgorithmCatalogEntry = {
+  return {
     id: algorithm.id,
     name: algorithm.name,
     provider: algorithm.provider,
     supportedForExecution: algorithm.supportedForExecution,
     parameterNames: [],
+    parameterTypes: [],
+    parameterDescriptions: [],
     requiredParameterNames: [],
-    outputParameterNames: [],
-    searchTerms: []
+    outputParameterNames: []
   }
-  entry.searchTerms = buildSearchTerms(entry)
-  return entry
 }
 
 function applyHelpMetadata(
@@ -572,25 +581,32 @@ function applyHelpMetadata(
   rawStdout: string
 ): void {
   const parameterDefinitions = extractParameterDefinitions(parsedHelp)
-  const summary = extractHelpSummary(parsedHelp, rawStdout, entry)
-  const categoryHints = inferCategoryHints(entry, summary, parameterDefinitions)
-  const geometryHints = inferGeometryHints(summary, parameterDefinitions)
-  const layerTypeHints = inferLayerTypeHints(entry, summary, parameterDefinitions)
-
-  entry.summary = summary
+  entry.summary = extractHelpSummary(parsedHelp, rawStdout, entry)
   entry.parameterNames = parameterDefinitions.map((definition) => definition.name)
+  entry.parameterTypes = uniqueNormalizedValues(
+    parameterDefinitions.map((definition) => definition.type)
+  )
+  entry.parameterDescriptions = uniqueNormalizedValues(
+    parameterDefinitions.map((definition) => definition.description)
+  )
   entry.requiredParameterNames = parameterDefinitions
     .filter((definition) => definition.required && !definition.isOutput)
     .map((definition) => definition.name)
   entry.outputParameterNames = parameterDefinitions
     .filter((definition) => definition.isOutput)
     .map((definition) => definition.name)
-  entry.categoryHints = categoryHints
-  entry.geometryHints = geometryHints
-  entry.layerTypeHints = layerTypeHints
   entry.helpFetchedAt = new Date().toISOString()
   entry.rawHelpPreview = limitText(rawStdout)
-  entry.searchTerms = buildSearchTerms(entry)
+}
+
+function uniqueNormalizedValues(values: Array<string | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => normalizeOptionalText(value))
+        .filter((value): value is string => typeof value === 'string')
+    )
+  ).sort()
 }
 
 function extractHelpSummary(
@@ -746,268 +762,8 @@ function inferSectionHint(pathParts: string[]): 'input' | 'output' | undefined {
   return undefined
 }
 
-function inferCategoryHints(
-  entry: Pick<QgisAlgorithmCatalogEntry, 'id' | 'name' | 'provider'>,
-  summary: string | undefined,
-  parameterDefinitions: QgisAlgorithmParameterRecord[]
-): string[] {
-  const searchText = [entry.id, entry.name, entry.provider, summary]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .join(' ')
-    .toLowerCase()
-  const parameterNames = parameterDefinitions.map((definition) => definition.name.toLowerCase())
-  const hints = new Set<string>()
-
-  if (
-    /(sort|order|ascending|descending|rank)/.test(searchText) ||
-    parameterNames.includes('ascending')
-  ) {
-    hints.add('sorting')
-  }
-  if (/(extract|select|filter|subset)/.test(searchText)) {
-    hints.add('selection')
-  }
-  if (/(join|relate|lookup)/.test(searchText)) {
-    hints.add('join')
-  }
-  if (/(clip|intersection|intersect|overlay|union)/.test(searchText)) {
-    hints.add('overlay')
-  }
-  if (/(buffer|distance|nearest|proximity)/.test(searchText)) {
-    hints.add('proximity')
-  }
-  if (/(field|attribute|column|table)/.test(searchText)) {
-    hints.add('attributes')
-  }
-  if (/(geometry|vertices|line|polygon|point)/.test(searchText)) {
-    hints.add('geometry')
-  }
-  if (/(raster|pixel|band|tif|tiff|grid)/.test(searchText)) {
-    hints.add('raster')
-  }
-  if (/(layout|print|map export|atlas)/.test(searchText)) {
-    hints.add('layout')
-  }
-  if (/(style|symbology|qml|sld)/.test(searchText)) {
-    hints.add('style')
-  }
-  if (/(convert|translate|reproject|transform)/.test(searchText)) {
-    hints.add('conversion')
-  }
-
-  return Array.from(hints.values()).sort()
-}
-
-function inferGeometryHints(
-  summary: string | undefined,
-  parameterDefinitions: QgisAlgorithmParameterRecord[]
-): string[] {
-  const searchText = [
-    summary,
-    ...parameterDefinitions.map((definition) => definition.description || ''),
-    ...parameterDefinitions.map((definition) => definition.type || '')
-  ]
-    .join(' ')
-    .toLowerCase()
-  const hints = new Set<string>()
-
-  if (/(point|multipoint)/.test(searchText)) {
-    hints.add('Point')
-  }
-  if (/(line|string|multiline)/.test(searchText)) {
-    hints.add('LineString')
-  }
-  if (/(polygon|multipolygon)/.test(searchText)) {
-    hints.add('Polygon')
-  }
-
-  return Array.from(hints.values()).sort()
-}
-
-function inferLayerTypeHints(
-  entry: Pick<QgisAlgorithmCatalogEntry, 'provider' | 'id'>,
-  summary: string | undefined,
-  parameterDefinitions: QgisAlgorithmParameterRecord[]
-): string[] {
-  const searchText = [
-    entry.provider,
-    entry.id,
-    summary,
-    ...parameterDefinitions.map((definition) => definition.type || ''),
-    ...parameterDefinitions.map((definition) => definition.description || '')
-  ]
-    .join(' ')
-    .toLowerCase()
-  const hints = new Set<string>()
-
-  if (/(vector|feature source|feature sink|geometry)/.test(searchText)) {
-    hints.add('vector')
-  }
-  if (/(raster|band|pixel|grid)/.test(searchText)) {
-    hints.add('raster')
-  }
-  if (/(table|attribute table|csv)/.test(searchText)) {
-    hints.add('table')
-  }
-  if (/(layout|print layout)/.test(searchText)) {
-    hints.add('layout')
-  }
-
-  return Array.from(hints.values()).sort()
-}
-
-function scoreAlgorithmEntry(entry: QgisAlgorithmCatalogEntry, query: string): number {
-  const normalizedQuery = query.trim().toLowerCase()
-  const queryTerms = tokenizeText(normalizedQuery)
-  if (queryTerms.length === 0) {
-    return 0
-  }
-
-  const name = (entry.name || '').toLowerCase()
-  const id = entry.id.toLowerCase()
-  const summary = (entry.summary || '').toLowerCase()
-  const provider = (entry.provider || '').toLowerCase()
-  const searchTerms = new Set(entry.searchTerms)
-
-  let score = entry.supportedForExecution ? 8 : 0
-
-  if (name.includes(normalizedQuery)) {
-    score += 120
-  }
-  if (id.includes(normalizedQuery)) {
-    score += 96
-  }
-  if (summary.includes(normalizedQuery)) {
-    score += 72
-  }
-
-  for (const term of queryTerms) {
-    if (name.includes(term)) {
-      score += 40
-    }
-    if (id.includes(term)) {
-      score += 32
-    }
-    if (summary.includes(term)) {
-      score += 22
-    }
-    if (provider.includes(term)) {
-      score += 10
-    }
-    if (searchTerms.has(term)) {
-      score += 18
-    }
-  }
-
-  if (
-    entry.categoryHints?.includes('sorting') &&
-    /(sort|order|rank|top|longest|shortest|largest|smallest)/.test(normalizedQuery)
-  ) {
-    score += 28
-  }
-  if (
-    entry.categoryHints?.includes('selection') &&
-    /(extract|select|filter|subset|keep)/.test(normalizedQuery)
-  ) {
-    score += 24
-  }
-
-  return score
-}
-
-function buildSearchTerms(entry: Partial<QgisAlgorithmCatalogEntry>): string[] {
-  const values: string[] = [
-    entry.id || '',
-    entry.name || '',
-    entry.provider || '',
-    entry.summary || '',
-    ...(entry.categoryHints || []),
-    ...(entry.geometryHints || []),
-    ...(entry.layerTypeHints || []),
-    ...(entry.parameterNames || []),
-    ...(entry.requiredParameterNames || []),
-    ...(entry.outputParameterNames || [])
-  ]
-
-  return Array.from(new Set(values.flatMap((value) => tokenizeText(value)))).sort()
-}
-
-function tokenizeText(value: string): string[] {
-  return normalizeWhitespace(value)
-    .toLowerCase()
-    .split(/[^a-z0-9]+/u)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 2 && !STOPWORDS.has(token))
-}
-
-function normalizeAlgorithmList(
-  parsedResult: unknown,
-  stdout: string,
-  allowPluginAlgorithms: boolean
-): QgisAlgorithmListEntry[] {
-  const algorithms = new Map<string, QgisAlgorithmListEntry>()
-
-  const pushAlgorithm = (entry: { id: string; name?: string; provider?: string }): void => {
-    const id = entry.id.trim()
-    if (!id) {
-      return
-    }
-
-    algorithms.set(id, {
-      id,
-      name: normalizeOptionalText(entry.name),
-      provider: normalizeOptionalText(entry.provider) || id.split(':')[0],
-      supportedForExecution: isQgisAlgorithmApproved(id, { allowPluginAlgorithms })
-    })
-  }
-
-  for (const record of extractObjects(parsedResult)) {
-    const algorithmId = readString(record['algorithmId'], record['id'], record['name'])
-    if (!algorithmId || !isQgisAlgorithmIdentifier(algorithmId)) {
-      continue
-    }
-
-    pushAlgorithm({
-      id: algorithmId,
-      name: readString(record['display_name'], record['name'], record['label']),
-      provider: readString(record['provider'], record['providerId'])
-    })
-  }
-
-  if (algorithms.size === 0) {
-    for (const line of stdout.split(/\r?\n/u)) {
-      const match = line.trim().match(/^([A-Za-z0-9_]+:[A-Za-z0-9_]+)(?:\s+-\s+(.+))?$/)
-      if (!match?.[1]) {
-        continue
-      }
-
-      pushAlgorithm({
-        id: match[1],
-        name: match[2]
-      })
-    }
-  }
-
-  return Array.from(algorithms.values()).sort((left, right) => left.id.localeCompare(right.id))
-}
-
 function buildPluginFlags(allowPluginAlgorithms: boolean): string[] {
   return allowPluginAlgorithms ? [] : ['--skip-loading-plugins']
-}
-
-function compareScoredEntries(
-  left: { entry: QgisAlgorithmCatalogEntry; score: number },
-  right: { entry: QgisAlgorithmCatalogEntry; score: number }
-): number {
-  if (left.score !== right.score) {
-    return right.score - left.score
-  }
-
-  if (left.entry.supportedForExecution !== right.entry.supportedForExecution) {
-    return left.entry.supportedForExecution ? -1 : 1
-  }
-
-  return compareCatalogEntries(left.entry, right.entry)
 }
 
 function compareCatalogEntries(
@@ -1132,26 +888,6 @@ async function mapWithConcurrency<T>(
   await Promise.all(workers)
 }
 
-function extractObjects(value: unknown): Array<Record<string, unknown>> {
-  if (Array.isArray(value)) {
-    return value.filter(isRecord)
-  }
-
-  if (!isRecord(value)) {
-    return []
-  }
-
-  const nestedArrays = Object.values(value).filter(Array.isArray)
-  for (const nestedArray of nestedArrays) {
-    const records = (nestedArray as unknown[]).filter(isRecord)
-    if (records.length > 0) {
-      return records
-    }
-  }
-
-  return [value]
-}
-
 function safeParseJson(value: string): unknown {
   try {
     return JSON.parse(value)
@@ -1177,10 +913,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isQgisAlgorithmIdentifier(value: string): boolean {
-  return /^[A-Za-z0-9_]+:[A-Za-z0-9_]+$/.test(value.trim())
-}
-
 function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, ' ').trim()
 }
@@ -1194,12 +926,4 @@ function limitText(value: string): string | undefined {
   return normalized.length > MAX_HELP_PREVIEW_LENGTH
     ? `${normalized.slice(0, MAX_HELP_PREVIEW_LENGTH)}...`
     : normalized
-}
-
-function isCatalogEntry(value: unknown): value is QgisAlgorithmCatalogEntry {
-  return (
-    isRecord(value) &&
-    typeof value['id'] === 'string' &&
-    typeof value['supportedForExecution'] === 'boolean'
-  )
 }

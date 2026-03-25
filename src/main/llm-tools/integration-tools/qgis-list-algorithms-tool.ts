@@ -11,7 +11,7 @@ export const QgisListAlgorithmsParamsSchema = z.object({
     .max(200)
     .optional()
     .describe(
-      'Optional natural-language task phrase used to rank QGIS algorithms by relevance. Prefer describing the next atomic step, such as "sort line features by length descending", "extract features matching an expression", "clip parcels to a boundary", or "join polygons by attribute", instead of sending only a vague keyword. For multi-step tasks like "top 10 longest lines", search the ranking step first, then search the extraction step if needed.'
+      'Optional natural-language search phrase for the next atomic QGIS step. Start with a concise task description such as "sort line features by length descending", "extract features matching an expression", "clip parcels to a boundary", or "join polygons by attribute". If the shortlist is weak or ambiguous, retry with alternate phrasings or exact words from candidate algorithm names before choosing an algorithm id.'
     ),
   provider: z
     .string()
@@ -38,6 +38,6 @@ export type QgisListAlgorithmsParams = z.infer<typeof QgisListAlgorithmsParamsSc
 
 export const qgisListAlgorithmsToolDefinition = {
   description:
-    'Lists QGIS Processing algorithms available through the configured local QGIS installation and ranks them using a cached structured catalog built from QGIS metadata. Use this to discover likely algorithm candidates before qgis_describe_algorithm or qgis_run_processing. Prefer using `query`, `provider`, and `limit` to get a relevant shortlist instead of requesting the full catalog. For compound workflows, search the immediate step you are about to run, not the whole workflow at once.',
+    'Searches QGIS Processing algorithms available through the configured local QGIS installation using cached factual metadata from QGIS itself, including ids, names, help summaries, and parameter details when available. Use this iteratively to discover plausible algorithm ids before qgis_describe_algorithm or qgis_run_processing. Prefer searching the immediate step you are about to run, keep the shortlist small with `limit`, and if the first search is ambiguous, refine the query and search again instead of guessing.',
   inputSchema: QgisListAlgorithmsParamsSchema
 }
