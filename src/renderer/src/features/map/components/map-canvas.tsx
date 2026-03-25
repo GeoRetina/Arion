@@ -21,6 +21,9 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible }) => {
   const setMapInstance = useMapStore((state) => state.setMapInstance)
   const setMapReadyForOperations = useMapStore((state) => state.setMapReadyForOperations)
 
+  // Track the initial style to skip the first run of the style-change effect
+  const initialStyleRef = useRef(style)
+
   // Initialize map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
@@ -66,7 +69,31 @@ export const MapCanvas: React.FC<MapCanvasProps> = ({ style, isVisible }) => {
       mapRef.current = null
       mapInstance.remove()
     }
-  }, [style, setMapInstance, setMapReadyForOperations])
+  }, [setMapInstance, setMapReadyForOperations])
+
+  // Handle basemap style changes on an existing map
+  useEffect(() => {
+    // Skip on initial mount — the map was already created with this style
+    if (style === initialStyleRef.current) return
+    initialStyleRef.current = style
+
+    const map = mapRef.current
+    if (!map || !isMapLoaded) return
+
+    // Mark map as not ready so useLayerSync pauses, then re-syncs after the new style loads
+    setMapReadyForOperations(false)
+
+    map.setStyle(style)
+
+    const onStyleLoad = (): void => {
+      setMapReadyForOperations(true)
+    }
+    map.once('style.load', onStyleLoad)
+
+    return () => {
+      map.off('style.load', onStyleLoad)
+    }
+  }, [style, isMapLoaded, setMapReadyForOperations])
 
   // Handle visibility changes and resizing
   useEffect(() => {

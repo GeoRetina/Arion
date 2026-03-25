@@ -1,11 +1,13 @@
 import React, { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { PanelLeftOpen, Layers, Search } from 'lucide-react'
+import { PanelLeftOpen, LayoutList, Search } from 'lucide-react'
 import { MapDisplay } from './map-display'
 import { LayersPanel } from './layers-panel'
+import { BasemapSwitcher } from './basemap-switcher'
 import { MapToolbar } from './map-toolbar'
 import { MapSearchBox } from './map-search-box'
 import { useMapNavigation } from '../hooks/use-map-navigation'
+import { basemaps, DEFAULT_BASEMAP_ID } from '../config/map-styles'
 import type { MapToolbarItem } from './map-toolbar'
 
 interface MapSidebarProps {
@@ -23,8 +25,12 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
   const [isLayersPanelExpanded, setIsLayersPanelExpanded] = useState(false)
   // State for search box visibility
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+  // Active basemap
+  const [activeBasemapId, setActiveBasemapId] = useState(DEFAULT_BASEMAP_ID)
 
   const { navigateToResult } = useMapNavigation()
+
+  const activeBasemap = basemaps.find((b) => b.id === activeBasemapId) ?? basemaps[0]
 
   const handleToggleLayersPanel = (): void => {
     setIsLayersPanelExpanded(!isLayersPanelExpanded)
@@ -34,14 +40,21 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
     setIsSearchOpen(!isSearchOpen)
   }
 
-  const toolbarItems: MapToolbarItem[] = [
+  const handleBasemapSelect = (basemapId: string): void => {
+    setActiveBasemapId(basemapId)
+  }
+
+  const leftItems: MapToolbarItem[] = [
     {
       id: 'layers',
-      icon: <Layers className="h-4 w-4" />,
+      icon: <LayoutList className="h-4 w-4" />,
       label: 'Toggle layers',
       onClick: handleToggleLayersPanel,
       isActive: isLayersPanelExpanded
-    },
+    }
+  ]
+
+  const rightItems: MapToolbarItem[] = [
     {
       id: 'search',
       icon: <Search className="h-4 w-4" />,
@@ -72,8 +85,16 @@ export const MapSidebar: React.FC<MapSidebarProps> = ({
       {/* Map container */}
       <div className="grow h-[calc(100%-48px)] w-full p-3 pt-0">
         <div className="h-full w-full rounded-md overflow-hidden relative">
-          <MapDisplay isVisible={isMapSidebarExpanded} />
-          <MapToolbar items={toolbarItems} />
+          <MapDisplay style={activeBasemap.style} isVisible={isMapSidebarExpanded} />
+
+          {/* Center toolbar: layers (left) | basemap switcher | search */}
+          <MapToolbar leftItems={leftItems} rightItems={rightItems} basemapSwitcher={
+            <BasemapSwitcher
+              activeBasemapId={activeBasemapId}
+              onSelect={handleBasemapSelect}
+            />
+          } />
+
           <LayersPanel isExpanded={isLayersPanelExpanded} onClose={handleToggleLayersPanel} />
           {isMapSidebarExpanded && isSearchOpen && (
             <MapSearchBox
