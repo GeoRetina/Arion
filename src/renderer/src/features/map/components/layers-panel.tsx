@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Layers, ChevronLeft } from 'lucide-react'
+import { LayoutList, ChevronLeft, Layers } from 'lucide-react'
 import { useMapStore } from '@/stores/map-store'
 import { useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
@@ -168,7 +168,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
           {/* Header */}
           <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-muted-foreground" />
+              <LayoutList className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Layers</span>
               <div className="flex-1"></div>
               {onClose && (
