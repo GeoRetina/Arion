@@ -16,7 +16,7 @@ description: Use Arion's local QGIS integration to discover, describe, and run q
 
 1. List map layers first when the user refers to a layer already on the map.
 2. Use `integrationInputs.qgis.inputPath` from the layer listing when available. Fall back to `localFilePath` only for file-backed layers.
-3. Search algorithms with `qgis_list_algorithms` using a focused `query`, an optional `provider`, and a small `limit`. Prefer `provider: native` first.
+3. Search algorithms with `qgis_list_algorithms` using a focused `query`, an optional `provider`, and a small `limit`. Prefer `provider: native` first. For compound tasks, search the immediate step you need next instead of the whole workflow at once.
 4. Describe the shortlisted algorithm with `qgis_describe_algorithm` before building parameters.
 5. Run the algorithm with `qgis_run_processing` using the exact parameter names from the description.
 6. For final outputs, use a simple named file such as `buffer.geojson`, `result.gpkg`, or `warped.tif` and let Arion manage the output workspace.
@@ -35,3 +35,4 @@ description: Use Arion's local QGIS integration to discover, describe, and run q
 
 - Search `buffer`, `clip`, `dissolve`, `reproject`, `extract`, `field`, `order`, `sort`, `geometry`, `layout`, `translate`, or `warp` instead of requesting the full algorithm catalog.
 - If the first search is too broad, narrow by provider or add a second keyword such as `extract expression` or `field calculator`.
+- For requests like `top 10 longest lines`, search `sort line features by length` or `order by expression` first, then search the extraction or retention step separately.

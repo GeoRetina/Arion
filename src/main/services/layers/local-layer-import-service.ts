@@ -18,7 +18,7 @@ type ManagedVectorImportFormat = 'geojson' | 'shapefile' | 'geopackage'
 export class LocalLayerImportService {
   public async importPath(
     sourcePath: string,
-    options: { layerName?: string } = {}
+    options: { layerName?: string; geotiffJobId?: string } = {}
   ): Promise<LayerCreateInput> {
     const safeSourcePath = ensureLocalFilesystemPath(sourcePath, 'Layer source path')
     const fileStats = await fs.stat(safeSourcePath).catch(() => null)
@@ -38,7 +38,7 @@ export class LocalLayerImportService {
         return await this.importManagedVectorPath(safeSourcePath, 'geopackage', options.layerName)
       case '.tif':
       case '.tiff':
-        return await this.importGeoTiffPath(safeSourcePath, options.layerName)
+        return await this.importGeoTiffPath(safeSourcePath, options.layerName, options.geotiffJobId)
       default:
         throw new Error(
           `Automatic layer import for "${extension || 'unknown'}" outputs is not supported yet. Prefer GeoJSON, GeoPackage, or GeoTIFF outputs for live import.`
@@ -60,9 +60,13 @@ export class LocalLayerImportService {
 
   private async importGeoTiffPath(
     sourcePath: string,
-    layerName?: string
+    layerName?: string,
+    geotiffJobId?: string
   ): Promise<LayerCreateInput> {
-    const asset = await getRasterTileService().registerGeoTiffAsset({ sourcePath })
+    const asset = await getRasterTileService().registerGeoTiffAsset({
+      sourcePath,
+      ...(geotiffJobId ? { jobId: geotiffJobId } : {})
+    })
     return buildRasterLayerFromAsset(asset, sourcePath, layerName)
   }
 }

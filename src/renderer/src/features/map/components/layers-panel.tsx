@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { LayoutList, ChevronLeft, Layers } from 'lucide-react'
 import { useMapStore } from '@/stores/map-store'
-import { useLayerStore } from '@/stores/layer-store'
+import { selectSessionImportedLayers, useLayerStore } from '@/stores/layer-store'
 import { useChatHistoryStore } from '@/stores/chat-history-store'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
@@ -20,71 +20,34 @@ interface LayersPanelProps {
 }
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded, onClose }) => {
-  const [currentChatSession, setCurrentChatSession] = useState<string | null>(null)
   const [styleEditorLayerId, setStyleEditorLayerId] = useState<string | null>(null)
   const [bandConfigLayerId, setBandConfigLayerId] = useState<string | null>(null)
 
   // Map and Layer Store
   const mapInstance = useMapStore((state) => state.mapInstance)
+  const currentChatId = useChatHistoryStore((state) => state.currentChatId)
   const layers = useLayerStore((state) => state.layers)
   const setLayerVisibility = useLayerStore((state) => state.setLayerVisibility)
   const removeLayer = useLayerStore((state) => state.removeLayer)
   const updateLayerStyle = useLayerStore((state) => state.updateLayerStyle)
   const updateLayer = useLayerStore((state) => state.updateLayer)
-
-  // Chat session tracking
-  const currentChatId = useChatHistoryStore((state) => state.currentChatId)
-
-  // Track session change but don't reset (let persistence system handle it)
-  useEffect(() => {
-    if (currentChatId !== currentChatSession) {
-      setCurrentChatSession(currentChatId)
-    }
-  }, [currentChatId, currentChatSession])
+  const tagImportedLayersForChat = useLayerStore((state) => state.tagImportedLayersForChat)
+  const sessionLayers = useMemo(
+    () => selectSessionImportedLayers(layers.values(), currentChatId),
+    [currentChatId, layers]
+  )
 
   // If a chat ID becomes available after importing, tag any unassigned imported layers with it
   useEffect(() => {
-    if (!currentChatId) return
-
-    const importedLayersNeedingTag = Array.from(layers.values()).filter(
-      (layer) => layer.createdBy === 'import' && !layer.metadata.tags?.includes(currentChatId)
-    )
-
-    if (importedLayersNeedingTag.length === 0) return
-
-    const tagLayerToChat = async (): Promise<void> => {
-      for (const layer of importedLayersNeedingTag) {
-        const tags = Array.from(
-          new Set([...(layer.metadata.tags || []), 'session-import', currentChatId])
-        )
-
-        try {
-          await updateLayer(layer.id, {
-            metadata: {
-              ...layer.metadata,
-              tags
-            }
-          })
-        } catch {
-          // Silent fail to avoid interrupting UI; errors are already handled elsewhere
-        }
-      }
+    if (!currentChatId) {
+      return
     }
 
-    tagLayerToChat()
-  }, [currentChatId, layers, updateLayer])
+    void tagImportedLayersForChat(currentChatId)
+  }, [currentChatId, tagImportedLayersForChat])
 
-  // Get only session layers (imported layers for current chat)
-  const sessionLayers = Array.from(layers.values()).filter((layer) => {
-    if (layer.createdBy !== 'import') return false
-    // When no chat session exists yet, show all imported layers so the user can see them immediately
-    if (!currentChatId) return true
-    // Otherwise, show only layers tagged for this chat
-    return layer.metadata.tags?.includes(currentChatId)
-  })
-  const displayLayers = sessionLayers
   const bandConfigLayer = bandConfigLayerId
-    ? displayLayers.find((layer) => layer.id === bandConfigLayerId) || null
+    ? sessionLayers.find((layer) => layer.id === bandConfigLayerId) || null
     : null
 
   // Event handlers
@@ -189,7 +152,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
           <div className="flex-1 mt-2">
             <ScrollArea className="h-full">
               <div className="p-3 space-y-2">
-                {displayLayers.length === 0 ? (
+                {sessionLayers.length === 0 ? (
                   <div className="text-center py-8">
                     <Layers className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                     <div className="text-sm text-muted-foreground">
@@ -201,36 +164,31 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({ className, isExpanded,
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {displayLayers
-                      .sort(
-                        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                      )
-                      .map((layer) => (
-                        <div key={layer.id}>
-                          <LayerItem
-                            layer={layer}
-                            onToggleVisibility={handleToggleLayerVisibility}
-                            onDelete={handleDeleteLayer}
-                            onShowStyleEditor={handleShowStyleEditor}
-                            onZoomToLayer={handleZoomToLayer}
-                            onShowBandConfig={handleShowBandConfig}
-                            isBandConfigOpen={bandConfigLayerId === layer.id}
+                    {sessionLayers.map((layer) => (
+                      <div key={layer.id}>
+                        <LayerItem
+                          layer={layer}
+                          onToggleVisibility={handleToggleLayerVisibility}
+                          onDelete={handleDeleteLayer}
+                          onShowStyleEditor={handleShowStyleEditor}
+                          onZoomToLayer={handleZoomToLayer}
+                          onShowBandConfig={handleShowBandConfig}
+                          isBandConfigOpen={bandConfigLayerId === layer.id}
+                        />
+                        {bandConfigLayerId === layer.id && bandConfigLayer && (
+                          <RasterRgbBandControls
+                            layer={bandConfigLayer}
+                            onSourceConfigChange={handleRasterSourceConfigChange}
+                            onClose={() => setBandConfigLayerId(null)}
                           />
-                          {bandConfigLayerId === layer.id && bandConfigLayer && (
-                            <RasterRgbBandControls
-                              layer={bandConfigLayer}
-                              onSourceConfigChange={handleRasterSourceConfigChange}
-                              onClose={() => setBandConfigLayerId(null)}
-                            />
-                          )}
-                        </div>
-                      ))}
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             </ScrollArea>
           </div>
-
         </div>
       </div>
 

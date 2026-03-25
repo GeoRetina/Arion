@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  qgisListAlgorithmsToolName,
   qgisRunProcessingToolName,
   stacSearchCatalogToolName
 } from '../../../llm-tools/integration-tools'
@@ -148,6 +149,148 @@ describe('registerIntegrationTools', () => {
       backend: 'native',
       duration_ms: 84,
       data: { operation: 'runAlgorithm' },
+      details: { launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat' }
+    })
+  })
+
+  it('flattens the QGIS algorithm shortlist into a model-friendly top-level shape', async () => {
+    const { registry, entries } = createRegistry()
+    const execute = vi.fn(async () => ({
+      success: true,
+      runId: 'run_qgis_list',
+      integrationId: 'qgis',
+      capability: 'desktop.processing.listAlgorithms',
+      backend: 'native',
+      durationMs: 24,
+      data: {
+        operation: 'listAlgorithms',
+        exitCode: 0,
+        version: '3.40.1',
+        artifacts: [],
+        outputs: [],
+        importedLayers: [],
+        result: {
+          algorithms: [
+            {
+              id: 'native:orderbyexpression',
+              name: 'Order by expression',
+              provider: 'native',
+              supportedForExecution: true
+            },
+            {
+              id: 'native:extractbyexpression',
+              name: 'Extract by expression',
+              provider: 'native',
+              supportedForExecution: true
+            }
+          ],
+          totalAlgorithms: 180,
+          matchedAlgorithms: 2,
+          returnedAlgorithms: 2,
+          truncated: false,
+          filters: {
+            query: 'extract the 10 longest line features',
+            provider: 'native',
+            limit: 10
+          }
+        }
+      },
+      details: { launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat' }
+    }))
+
+    registerIntegrationTools(registry, {
+      getConnectorExecutionService: () =>
+        ({
+          execute
+        }) as never
+    })
+
+    const tool = entries.get(qgisListAlgorithmsToolName)
+    const result = (await tool?.execute({
+      args: {
+        query: 'extract the 10 longest line features',
+        provider: 'native',
+        limit: 10
+      },
+      chatId: 'chat-qgis'
+    })) as Record<string, unknown>
+
+    expect(result).toEqual({
+      status: 'success',
+      run_id: 'run_qgis_list',
+      backend: 'native',
+      duration_ms: 24,
+      operation: 'listAlgorithms',
+      algorithms: [
+        {
+          id: 'native:orderbyexpression',
+          name: 'Order by expression',
+          provider: 'native',
+          supportedForExecution: true
+        },
+        {
+          id: 'native:extractbyexpression',
+          name: 'Extract by expression',
+          provider: 'native',
+          supportedForExecution: true
+        }
+      ],
+      shortlist: [
+        {
+          id: 'native:orderbyexpression',
+          name: 'Order by expression',
+          provider: 'native',
+          supportedForExecution: true
+        },
+        {
+          id: 'native:extractbyexpression',
+          name: 'Extract by expression',
+          provider: 'native',
+          supportedForExecution: true
+        }
+      ],
+      total_algorithms: 180,
+      matched_algorithms: 2,
+      returned_algorithms: 2,
+      truncated: false,
+      filters: {
+        query: 'extract the 10 longest line features',
+        provider: 'native',
+        limit: 10
+      },
+      data: {
+        operation: 'listAlgorithms',
+        exitCode: 0,
+        version: '3.40.1',
+        artifacts: [],
+        outputs: [],
+        importedLayers: [],
+        result: {
+          algorithms: [
+            {
+              id: 'native:orderbyexpression',
+              name: 'Order by expression',
+              provider: 'native',
+              supportedForExecution: true
+            },
+            {
+              id: 'native:extractbyexpression',
+              name: 'Extract by expression',
+              provider: 'native',
+              supportedForExecution: true
+            }
+          ],
+          totalAlgorithms: 180,
+          matchedAlgorithms: 2,
+          returnedAlgorithms: 2,
+          truncated: false,
+          filters: {
+            query: 'extract the 10 longest line features',
+            provider: 'native',
+            limit: 10
+          }
+        }
+      },
       details: { launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat' }
     })
   })

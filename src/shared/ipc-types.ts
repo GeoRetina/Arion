@@ -1409,6 +1409,12 @@ export interface RegisterVectorAssetResult {
   featureCount: number
 }
 
+export interface ImportLocalLayerRequest {
+  sourcePath: string
+  layerName?: string
+  geotiffJobId?: string
+}
+
 export interface RegisterGeoTiffAssetRequest {
   sourcePath: string
   jobId?: string
@@ -1526,6 +1532,9 @@ export interface LayerApi {
 
   // GeoTIFF raster asset management
   importGeoPackage: (request: ImportGeoPackageRequest) => Promise<ImportGeoPackageResult>
+  importLocalLayer: (
+    request: ImportLocalLayerRequest
+  ) => Promise<import('./types/layer-types').LayerCreateInput>
   registerVectorAsset: (request: RegisterVectorAssetRequest) => Promise<RegisterVectorAssetResult>
   registerGeoTiffAsset: (
     request: RegisterGeoTiffAssetRequest

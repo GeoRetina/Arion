@@ -5,6 +5,7 @@
  * Serves as the single source of truth for layer management.
  */
 
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import { v4 as uuidv4 } from 'uuid'
@@ -25,6 +26,9 @@ import type {
   LayerMetadata,
   LayerOrigin
 } from '../../../shared/types/layer-types'
+import { getRasterAssetId, getVectorAssetId } from '../../../shared/lib/layer-asset-ids'
+import { sortLayersByDisplayOrder, sortLayersForMapSync } from '../../../shared/lib/layer-order'
+import { LayerStyleFactory } from '../../../shared/lib/layer-style-factory'
 import { MapLibreIntegration } from '../utils/maplibre-integration'
 
 interface LayerStore {
@@ -58,6 +62,8 @@ interface LayerStore {
   getLayer: (id: string) => LayerDefinition | undefined
   getLayers: (groupId?: string) => LayerDefinition[]
   getLayersByType: (type: LayerType) => LayerDefinition[]
+  getSessionImportedLayers: (chatId?: string | null) => LayerDefinition[]
+  tagImportedLayersForChat: (chatId: string) => Promise<void>
   layerExists: (id: string) => boolean
 
   // Layer Styling
@@ -155,16 +161,6 @@ interface SessionLayerCleanupResult {
 
 type LayerAssetIdGetter = (layer: LayerDefinition) => string | null
 
-const getRasterAssetId = (layer: LayerDefinition): string | null => {
-  const assetId = layer.sourceConfig.options?.rasterAssetId
-  return typeof assetId === 'string' && assetId.length > 0 ? assetId : null
-}
-
-const getVectorAssetId = (layer: LayerDefinition): string | null => {
-  const assetId = layer.sourceConfig.options?.vectorAssetId
-  return typeof assetId === 'string' && assetId.length > 0 ? assetId : null
-}
-
 const buildSessionLayerCleanupResult = (
   state: Pick<LayerStore, 'layers' | 'selectedLayerId' | 'operations' | 'errors'>,
   predicate: (layer: LayerDefinition) => boolean
@@ -238,6 +234,48 @@ const isImportedLayerForChat = (layer: LayerDefinition, chatId: string): boolean
   layer.createdBy === 'import' &&
   layer.metadata.tags?.includes('session-import') &&
   layer.metadata.tags?.includes(chatId)
+
+export const selectSessionImportedLayers = (
+  layers: Iterable<LayerDefinition>,
+  chatId?: string | null
+): LayerDefinition[] =>
+  sortLayersByDisplayOrder(
+    Array.from(layers).filter((layer) => {
+      if (layer.createdBy !== 'import') {
+        return false
+      }
+
+      if (!chatId) {
+        return true
+      }
+
+      return layer.metadata.tags?.includes(chatId)
+    })
+  )
+
+export const selectVisibleLayers = (layers: Iterable<LayerDefinition>): LayerDefinition[] =>
+  sortLayersByDisplayOrder(Array.from(layers).filter((layer) => layer.visibility))
+
+export const selectLayerErrors = (errors: LayerError[], layerId?: string): LayerError[] =>
+  layerId ? errors.filter((error) => error.layerId === layerId) : errors
+
+const getVectorBaseColor = (style?: LayerStyle): string | undefined => {
+  const color = style?.pointColor || style?.lineColor || style?.fillOutlineColor
+  return typeof color === 'string' && color.trim().length > 0 ? color.trim() : undefined
+}
+
+const getDefaultLayerStyle = (
+  layer: Pick<LayerDefinition, 'type' | 'metadata'> & { style?: LayerStyle },
+  options: {
+    preserveVectorColor?: boolean
+  } = {}
+): LayerStyle =>
+  LayerStyleFactory.createLayerStyle(
+    layer.type,
+    layer.metadata.geometryType,
+    options.preserveVectorColor ? getVectorBaseColor(layer.style) : undefined
+  )
+
 const cleanupRemovedSessionLayers = (
   removedLayers: LayerDefinition[],
   retainedLayers: Iterable<LayerDefinition>,
@@ -279,41 +317,6 @@ const cleanupRemovedSessionLayers = (
   for (const assetId of releasableVectorAssetIds) {
     void window.ctg.layers.releaseVectorAsset(assetId).catch(() => {})
   }
-}
-
-// Default layer style
-const DEFAULT_LAYER_STYLE: LayerStyle = {
-  // Vector defaults
-  pointRadius: 6,
-  pointColor: '#3b82f6',
-  pointOpacity: 0.8,
-  pointStrokeColor: '#ffffff',
-  pointStrokeWidth: 2,
-  pointStrokeOpacity: 1,
-
-  lineColor: '#3b82f6',
-  lineWidth: 2,
-  lineOpacity: 0.8,
-  lineCap: 'round',
-  lineJoin: 'round',
-
-  fillColor: '#3b82f6',
-  fillOpacity: 0.3,
-  fillOutlineColor: '#1e40af',
-
-  // Raster defaults
-  rasterOpacity: 1,
-  rasterBrightnessMin: 0,
-  rasterBrightnessMax: 1,
-  rasterSaturation: 0,
-  rasterContrast: 0,
-  rasterFadeDuration: 300,
-
-  // Text defaults
-  textSize: 12,
-  textColor: '#000000',
-  textHaloColor: '#ffffff',
-  textHaloWidth: 1
 }
 
 // Validation helpers
@@ -477,6 +480,18 @@ const isPersistableLayer = (layer: LayerDefinition): boolean => {
   return sourceData.length > 0
 }
 
+const getNextTopZIndex = (layers: Iterable<LayerDefinition>): number => {
+  let maxZIndex = -1
+
+  for (const layer of layers) {
+    if (Number.isFinite(layer.zIndex)) {
+      maxZIndex = Math.max(maxZIndex, layer.zIndex)
+    }
+  }
+
+  return maxZIndex + 1
+}
+
 // Create the store
 export const useLayerStore = create<LayerStore>()(
   subscribeWithSelector((set, get) => ({
@@ -501,8 +516,9 @@ export const useLayerStore = create<LayerStore>()(
 
       // Sync all existing visible layers to the new map instance
       if (integration) {
-        const layers = Array.from(get().layers.values())
-        const visibleLayers = layers.filter((layer) => layer.visibility)
+        const visibleLayers = sortLayersForMapSync(get().layers.values()).filter(
+          (layer) => layer.visibility
+        )
 
         for (const layer of visibleLayers) {
           try {
@@ -521,27 +537,21 @@ export const useLayerStore = create<LayerStore>()(
         return
       }
 
-      {
-        await state.mapLibreIntegration.syncLayerToMap(layer)
-      }
+      await state.mapLibreIntegration.syncLayerToMap(layer)
     },
 
     removeLayerFromMap: async (layerId: string) => {
       const state = get()
       if (!state.mapLibreIntegration) return
 
-      {
-        await state.mapLibreIntegration.removeLayerFromMap(layerId)
-      }
+      await state.mapLibreIntegration.removeLayerFromMap(layerId)
     },
 
     syncLayerProperties: async (layer: LayerDefinition) => {
       const state = get()
       if (!state.mapLibreIntegration) return
 
-      {
-        await state.mapLibreIntegration.syncLayerProperties(layer)
-      }
+      await state.mapLibreIntegration.syncLayerProperties(layer)
     },
 
     // Layer CRUD Operations
@@ -579,12 +589,15 @@ export const useLayerStore = create<LayerStore>()(
         tags = [...tags, `source:${context.source}`]
       }
 
+      const nextTopZIndex = getNextTopZIndex(get().layers.values())
+
       const layer: LayerDefinition = {
         ...definition,
         id,
         createdAt: now,
         updatedAt: now,
-        style: { ...DEFAULT_LAYER_STYLE, ...definition.style },
+        zIndex: Math.max(definition.zIndex, nextTopZIndex),
+        style: { ...getDefaultLayerStyle(definition), ...definition.style },
         metadata: {
           ...metadata,
           tags: Array.from(new Set(tags)),
@@ -596,10 +609,8 @@ export const useLayerStore = create<LayerStore>()(
       const shouldPersist = isPersistableLayer(layer)
       let effectiveLayer = layer
       if (shouldPersist) {
-        {
-          effectiveLayer =
-            (await window.ctg.layers.create(buildLayerCreateInput(layer))) ?? effectiveLayer
-        }
+        effectiveLayer =
+          (await window.ctg.layers.create(buildLayerCreateInput(layer))) ?? effectiveLayer
       }
 
       // Update local state
@@ -768,17 +779,40 @@ export const useLayerStore = create<LayerStore>()(
     },
 
     getLayers: (groupId) => {
-      const layers = Array.from(get().layers.values())
+      const layers = sortLayersByDisplayOrder(get().layers.values())
       if (groupId === undefined) {
-        return layers.sort((a, b) => b.zIndex - a.zIndex)
+        return layers
       }
-      return layers.filter((layer) => layer.groupId === groupId).sort((a, b) => b.zIndex - a.zIndex)
+      return layers.filter((layer) => layer.groupId === groupId)
     },
 
     getLayersByType: (type) => {
-      return Array.from(get().layers.values())
-        .filter((layer) => layer.type === type)
-        .sort((a, b) => b.zIndex - a.zIndex)
+      return sortLayersByDisplayOrder(get().layers.values()).filter((layer) => layer.type === type)
+    },
+
+    getSessionImportedLayers: (chatId) => {
+      return selectSessionImportedLayers(get().layers.values(), chatId)
+    },
+
+    tagImportedLayersForChat: async (chatId) => {
+      const layersNeedingTag = Array.from(get().layers.values()).filter(
+        (layer) => layer.createdBy === 'import' && !layer.metadata.tags?.includes('session-import')
+      )
+
+      for (const layer of layersNeedingTag) {
+        const tags = Array.from(new Set([...(layer.metadata.tags || []), 'session-import', chatId]))
+
+        try {
+          await get().updateLayer(layer.id, {
+            metadata: {
+              ...layer.metadata,
+              tags
+            }
+          })
+        } catch (error) {
+          console.warn(`Failed to tag imported layer ${layer.id} for chat ${chatId}:`, error)
+        }
+      }
     },
 
     layerExists: (id) => {
@@ -813,7 +847,9 @@ export const useLayerStore = create<LayerStore>()(
         throw new Error(`Layer not found: ${id}`)
       }
 
-      await get().updateLayer(id, { style: { ...DEFAULT_LAYER_STYLE } })
+      await get().updateLayer(id, {
+        style: getDefaultLayerStyle(layer, { preserveVectorColor: true })
+      })
     },
 
     // Layer Organization
@@ -889,10 +925,8 @@ export const useLayerStore = create<LayerStore>()(
       }
 
       // Persist to database first
-      {
-        const groupData = omitKeys(group, ['id', 'createdAt', 'updatedAt', 'layerIds'])
-        await window.ctg.layers.groups.create(groupData)
-      }
+      const groupData = omitKeys(group, ['id', 'createdAt', 'updatedAt', 'layerIds'])
+      await window.ctg.layers.groups.create(groupData)
 
       // Update local state
       set((state) => ({
@@ -1051,9 +1085,7 @@ export const useLayerStore = create<LayerStore>()(
             await window.ctg.layers.update(layer.id, layer)
           } catch {
             // If update fails, try to create the layer
-            {
-              await window.ctg.layers.create(buildLayerCreateInput(layer))
-            }
+            await window.ctg.layers.create(buildLayerCreateInput(layer))
           }
         }
 
@@ -1063,10 +1095,8 @@ export const useLayerStore = create<LayerStore>()(
             await window.ctg.layers.groups.update(group.id, group)
           } catch {
             // If update fails, try to create the group
-            {
-              const groupData = omitKeys(group, ['id', 'createdAt', 'updatedAt', 'layerIds'])
-              await window.ctg.layers.groups.create(groupData)
-            }
+            const groupData = omitKeys(group, ['id', 'createdAt', 'updatedAt', 'layerIds'])
+            await window.ctg.layers.groups.create(groupData)
           }
         }
 
@@ -1362,10 +1392,21 @@ export const useSelectedLayer = (): LayerDefinition | null =>
   useLayerStore((state) => state.getSelectedLayer())
 export const useLayerById = (id: string): LayerDefinition | undefined =>
   useLayerStore((state) => state.getLayer(id))
-export const useVisibleLayers = (): LayerDefinition[] =>
-  useLayerStore((state) => Array.from(state.layers.values()).filter((l) => l.visibility))
+export const useVisibleLayers = (): LayerDefinition[] => {
+  const layers = useLayerStore((state) => state.layers)
+  return useMemo(() => selectVisibleLayers(layers.values()), [layers])
+}
 export const useLayerCount = (): number => useLayerStore((state) => state.layers.size)
-export const useLayerErrors = (layerId?: string): LayerError[] =>
-  useLayerStore((state) => state.getErrors(layerId))
-export const useLayersByGroup = (groupId?: string): LayerDefinition[] =>
-  useLayerStore((state) => state.getLayers(groupId))
+export const useLayerErrors = (layerId?: string): LayerError[] => {
+  const errors = useLayerStore((state) => state.errors)
+  return useMemo(() => selectLayerErrors(errors, layerId), [errors, layerId])
+}
+export const useLayersByGroup = (groupId?: string): LayerDefinition[] => {
+  const layers = useLayerStore((state) => state.layers)
+  return useMemo(() => {
+    const orderedLayers = sortLayersByDisplayOrder(layers.values())
+    return groupId === undefined
+      ? orderedLayers
+      : orderedLayers.filter((layer) => layer.groupId === groupId)
+  }, [groupId, layers])
+}

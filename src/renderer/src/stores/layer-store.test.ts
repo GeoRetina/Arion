@@ -140,6 +140,217 @@ describe('layer-store', () => {
     })
   })
 
+  it('assigns newly added layers the next top z-index when imports default to zero', async () => {
+    const firstLayerId = await useLayerStore.getState().addLayer({
+      name: 'First import',
+      type: 'vector',
+      sourceId: 'source-first',
+      sourceConfig: {
+        type: 'geojson',
+        data: 'arion-vector://assets/first.geojson',
+        options: {
+          vectorAssetId: 'asset-first'
+        }
+      },
+      style: {
+        lineColor: '#22c55e'
+      },
+      visibility: true,
+      opacity: 1,
+      zIndex: 0,
+      metadata: {
+        tags: ['imported']
+      },
+      isLocked: false,
+      createdBy: 'import'
+    })
+
+    const secondLayerId = await useLayerStore.getState().addLayer({
+      name: 'Second import',
+      type: 'vector',
+      sourceId: 'source-second',
+      sourceConfig: {
+        type: 'geojson',
+        data: 'arion-vector://assets/second.geojson',
+        options: {
+          vectorAssetId: 'asset-second'
+        }
+      },
+      style: {
+        lineColor: '#2563eb'
+      },
+      visibility: true,
+      opacity: 1,
+      zIndex: 0,
+      metadata: {
+        tags: ['imported']
+      },
+      isLocked: false,
+      createdBy: 'import'
+    })
+
+    expect(layerApiMocks.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        id: firstLayerId,
+        zIndex: 0
+      })
+    )
+    expect(layerApiMocks.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        id: secondLayerId,
+        zIndex: 1
+      })
+    )
+
+    const layers = useLayerStore.getState().getLayers()
+    expect(layers.map((layer) => layer.id)).toEqual([secondLayerId, firstLayerId])
+    expect(useLayerStore.getState().getLayer(firstLayerId)?.zIndex).toBe(0)
+    expect(useLayerStore.getState().getLayer(secondLayerId)?.zIndex).toBe(1)
+  })
+
+  it('filters and sorts session-imported layers through the store selector', () => {
+    const earlier = new Date('2026-03-21T00:00:00.000Z')
+    const later = new Date('2026-03-21T00:05:00.000Z')
+    const chatALow = createLayer({
+      id: 'chat-a-low',
+      zIndex: 1,
+      createdAt: earlier,
+      updatedAt: earlier,
+      metadata: {
+        tags: ['session-import', 'chat-a']
+      }
+    })
+    const chatAHigh = createLayer({
+      id: 'chat-a-high',
+      zIndex: 3,
+      createdAt: later,
+      updatedAt: later,
+      metadata: {
+        tags: ['session-import', 'chat-a']
+      }
+    })
+    const chatBLayer = createLayer({
+      id: 'chat-b-layer',
+      zIndex: 2,
+      metadata: {
+        tags: ['session-import', 'chat-b']
+      }
+    })
+    const persistentLayer = createLayer({
+      id: 'persistent-layer',
+      createdBy: 'user',
+      metadata: {
+        tags: ['persistent']
+      }
+    })
+
+    useLayerStore.setState({
+      layers: new Map([
+        [chatALow.id, chatALow],
+        [chatAHigh.id, chatAHigh],
+        [chatBLayer.id, chatBLayer],
+        [persistentLayer.id, persistentLayer]
+      ])
+    })
+
+    expect(
+      useLayerStore
+        .getState()
+        .getSessionImportedLayers('chat-a')
+        .map((layer) => layer.id)
+    ).toEqual(['chat-a-high', 'chat-a-low'])
+    expect(
+      useLayerStore
+        .getState()
+        .getSessionImportedLayers()
+        .map((layer) => layer.id)
+    ).toEqual(['chat-a-high', 'chat-b-layer', 'chat-a-low'])
+  })
+
+  it('tags only previously unassigned imported layers for the active chat', async () => {
+    const untaggedImport = createLayer({
+      id: 'untagged-import',
+      metadata: {
+        tags: ['imported']
+      }
+    })
+    const alreadyTagged = createLayer({
+      id: 'already-tagged',
+      metadata: {
+        tags: ['imported', 'session-import', 'chat-a']
+      }
+    })
+    const otherSession = createLayer({
+      id: 'other-session',
+      metadata: {
+        tags: ['imported', 'session-import', 'chat-b']
+      }
+    })
+
+    useLayerStore.setState({
+      layers: new Map([
+        [untaggedImport.id, untaggedImport],
+        [alreadyTagged.id, alreadyTagged],
+        [otherSession.id, otherSession]
+      ])
+    })
+
+    await useLayerStore.getState().tagImportedLayersForChat('chat-a')
+
+    expect(useLayerStore.getState().getLayer('untagged-import')?.metadata.tags).toEqual([
+      'imported',
+      'session-import',
+      'chat-a'
+    ])
+    expect(useLayerStore.getState().getLayer('already-tagged')?.metadata.tags).toEqual([
+      'imported',
+      'session-import',
+      'chat-a'
+    ])
+    expect(useLayerStore.getState().getLayer('other-session')?.metadata.tags).toEqual([
+      'imported',
+      'session-import',
+      'chat-b'
+    ])
+  })
+
+  it('resets vector styles through LayerStyleFactory defaults without reintroducing polygon fill props on line layers', async () => {
+    const lineLayer = createLayer({
+      id: 'line-layer',
+      metadata: {
+        tags: ['imported'],
+        geometryType: 'LineString'
+      },
+      style: {
+        lineColor: '#22c55e',
+        lineWidth: 7,
+        lineOpacity: 0.2,
+        fillColor: '#ef4444',
+        fillOpacity: 0.9
+      }
+    })
+
+    useLayerStore.setState({
+      layers: new Map([[lineLayer.id, lineLayer]])
+    })
+
+    await useLayerStore.getState().resetLayerStyle(lineLayer.id)
+
+    expect(useLayerStore.getState().getLayer(lineLayer.id)?.style).toEqual({
+      textSize: 12,
+      textColor: '#000000',
+      textHaloColor: '#ffffff',
+      textHaloWidth: 1,
+      lineColor: '#22c55e',
+      lineWidth: 2,
+      lineOpacity: 0.8,
+      lineCap: 'round',
+      lineJoin: 'round'
+    })
+  })
+
   it('rebuilds the map source when a layer source config changes', async () => {
     const layerId = await useLayerStore.getState().addLayer({
       name: 'Multiband raster',
