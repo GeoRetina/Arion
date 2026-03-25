@@ -146,6 +146,10 @@ describe('QgisProcessService', () => {
           detectionMode: 'auto'
         }))
       } as never,
+      algorithmCatalogService: {
+        rankAlgorithms: vi.fn(async () => null),
+        warmCatalog: vi.fn()
+      } as never,
       discoveryService: {
         discover: vi.fn(async () => createDiscoveredInstallation())
       } as never,
@@ -184,6 +188,99 @@ describe('QgisProcessService', () => {
           provider: 'native',
           limit: 1
         }
+      })
+    }
+  })
+
+  it('uses the algorithm catalog to rank listed algorithms when available', async () => {
+    runQgisLauncherCommand.mockResolvedValue({
+      stdout: JSON.stringify({
+        algorithms: [
+          {
+            id: 'native:orderbyexpression',
+            display_name: 'Order by expression',
+            provider: 'native'
+          },
+          {
+            id: 'native:extractbyexpression',
+            display_name: 'Extract by expression',
+            provider: 'native'
+          }
+        ]
+      }),
+      stderr: '',
+      exitCode: 0,
+      durationMs: 11
+    })
+
+    const rankAlgorithms = vi.fn(async () => ({
+      algorithms: [
+        {
+          id: 'native:orderbyexpression',
+          name: 'Order by expression',
+          provider: 'native',
+          supportedForExecution: true,
+          summary: 'Sorts features by an expression.',
+          categoryHints: ['sorting'],
+          parameterNames: ['INPUT', 'EXPRESSION', 'ASCENDING', 'OUTPUT']
+        }
+      ],
+      totalAlgorithms: 2,
+      matchedAlgorithms: 1,
+      returnedAlgorithms: 1,
+      truncated: false
+    }))
+
+    const service = new QgisProcessService({
+      connectorHubService: {
+        getConfig: vi.fn(async () => ({
+          detectionMode: 'auto',
+          allowPluginAlgorithms: false
+        }))
+      } as never,
+      algorithmCatalogService: {
+        rankAlgorithms,
+        warmCatalog: vi.fn()
+      } as never,
+      discoveryService: {
+        discover: vi.fn(async () => createDiscoveredInstallation())
+      } as never,
+      getUserDataPath: () => tempRoot
+    })
+
+    const result = await service.listAlgorithms({
+      query: 'sort line features by length descending',
+      provider: 'native',
+      limit: 5
+    })
+
+    expect(rankAlgorithms).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'sort line features by length descending',
+        provider: 'native',
+        limit: 5,
+        launcherPath: 'C:\\QGIS\\bin\\qgis_process-qgis.bat',
+        allowPluginAlgorithms: false
+      })
+    )
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.parsedResult).toEqual({
+        algorithms: [
+          {
+            id: 'native:orderbyexpression',
+            name: 'Order by expression',
+            provider: 'native',
+            supportedForExecution: true,
+            summary: 'Sorts features by an expression.',
+            categoryHints: ['sorting'],
+            parameterNames: ['INPUT', 'EXPRESSION', 'ASCENDING', 'OUTPUT']
+          }
+        ],
+        totalAlgorithms: 2,
+        matchedAlgorithms: 1,
+        returnedAlgorithms: 1,
+        truncated: false
       })
     }
   })

@@ -18,6 +18,7 @@ import type { ConnectorHubService } from '../connector-hub-service'
 import { LocalLayerImportService } from '../layers/local-layer-import-service'
 import { evaluateQgisAlgorithmApproval, isQgisAlgorithmApproved } from './qgis-algorithm-policy'
 import { runQgisLauncherCommand } from './qgis-command-runner'
+import { QgisAlgorithmCatalogService } from './qgis-algorithm-catalog-service'
 import { QgisDiscoveryService } from './qgis-discovery-service'
 import { selectQgisArtifactsForImport } from './qgis-import-selection'
 import { QgisOutputInspector } from './qgis-output-inspector'
@@ -63,6 +64,7 @@ interface QgisPathResolutionContext {
 
 interface QgisProcessServiceDeps {
   connectorHubService: Pick<ConnectorHubService, 'getConfig'>
+  algorithmCatalogService?: Pick<QgisAlgorithmCatalogService, 'rankAlgorithms' | 'warmCatalog'>
   discoveryService?: QgisDiscoveryService
   localLayerImportService?: LocalLayerImportService
   outputInspector?: QgisOutputInspector
@@ -71,6 +73,10 @@ interface QgisProcessServiceDeps {
 }
 
 export class QgisProcessService {
+  private readonly algorithmCatalogService: Pick<
+    QgisAlgorithmCatalogService,
+    'rankAlgorithms' | 'warmCatalog'
+  >
   private readonly discoveryService: QgisDiscoveryService
   private readonly localLayerImportService: LocalLayerImportService
   private readonly outputInspector: QgisOutputInspector
@@ -79,6 +85,7 @@ export class QgisProcessService {
   private readonly workflows = new Map<string, QgisWorkflowState>()
 
   constructor(private readonly deps: QgisProcessServiceDeps) {
+    this.algorithmCatalogService = deps.algorithmCatalogService ?? new QgisAlgorithmCatalogService()
     this.discoveryService = deps.discoveryService ?? new QgisDiscoveryService()
     this.localLayerImportService = deps.localLayerImportService ?? new LocalLayerImportService()
     this.outputInspector = deps.outputInspector ?? new QgisOutputInspector()
@@ -97,9 +104,24 @@ export class QgisProcessService {
       return result
     }
 
+    const rawAlgorithms = normalizeAlgorithmList(result.parsedResult, result.stdout)
+    const config = await this.getConfig()
+    const catalogResult = await this.algorithmCatalogService
+      .rankAlgorithms({
+        algorithms: rawAlgorithms.algorithms,
+        query: options.query,
+        provider: options.provider,
+        limit: options.limit,
+        timeoutMs: options.timeoutMs,
+        launcherPath: result.diagnostics.launcherPath,
+        version: result.version,
+        allowPluginAlgorithms: config?.allowPluginAlgorithms
+      })
+      .catch(() => null)
+
     return {
       ...result,
-      parsedResult: filterAlgorithmList(result.parsedResult, options)
+      parsedResult: catalogResult ?? filterAlgorithmList(rawAlgorithms, options)
     }
   }
 

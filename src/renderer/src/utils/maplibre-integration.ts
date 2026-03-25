@@ -47,10 +47,36 @@ export class MapLibreIntegration {
   }
 
   /**
-   * Check if map is ready for operations
+   * Check if the map has a mutable style object.
+   * `isStyleLoaded()` becomes false again while newly-added custom sources are loading,
+   * but we can still add more sources/layers at that point.
    */
-  private isMapReady(): boolean {
-    return this.mapInstance !== null && (this.mapInstance.isStyleLoaded() || false)
+  private hasMutableStyle(): boolean {
+    if (!this.mapInstance) {
+      return false
+    }
+
+    try {
+      const style = this.mapInstance.getStyle()
+      return Array.isArray(style.layers) && style.sources !== undefined
+    } catch {
+      return false
+    }
+  }
+
+  private deferLayerSync(layer: LayerDefinition): void {
+    if (!this.mapInstance) {
+      return
+    }
+
+    const retryOnce = (): void => {
+      this.mapInstance?.off('style.load', retryOnce)
+      this.mapInstance?.off('idle', retryOnce)
+      this.syncLayerToMap(layer).catch(() => {})
+    }
+
+    this.mapInstance.on('style.load', retryOnce)
+    this.mapInstance.on('idle', retryOnce)
   }
 
   /**
@@ -188,43 +214,34 @@ export class MapLibreIntegration {
    * Synchronize a layer definition to the map
    */
   async syncLayerToMap(layer: LayerDefinition): Promise<void> {
-    if (!this.isMapReady()) {
-      // Defer sync until the map style is ready
-      if (this.mapInstance) {
-        const retryOnce = (): void => {
-          this.mapInstance?.off('load', retryOnce)
-          this.mapInstance?.off('styledata', retryOnce)
-          // Retry without awaiting to avoid blocking listener thread
-          this.syncLayerToMap(layer).catch(() => {})
-        }
-
-        this.mapInstance.on('load', retryOnce)
-        this.mapInstance.on('styledata', retryOnce)
-      }
+    if (!this.mapInstance) {
       return
     }
 
-    {
-      // Add source if it doesn't exist
-      if (!this.mapInstance!.getSource(layer.sourceId)) {
-        const sourceSpec = this.createSourceSpecification(layer)
-        this.mapInstance!.addSource(layer.sourceId, sourceSpec)
-        this.managedSources.add(layer.sourceId)
-      }
-
-      // Create layer specifications based on layer type and geometry
-      const layerSpecs = this.createLayerSpecifications(layer)
-
-      for (const layerSpec of layerSpecs) {
-        if (!this.mapInstance!.getLayer(layerSpec.id)) {
-          this.mapInstance!.addLayer(layerSpec)
-          this.managedLayers.add(layerSpec.id)
-        }
-      }
-
-      // Apply initial styling and properties
-      await this.syncLayerProperties(layer)
+    if (!this.hasMutableStyle()) {
+      this.deferLayerSync(layer)
+      return
     }
+
+    // Add source if it doesn't exist
+    if (!this.mapInstance!.getSource(layer.sourceId)) {
+      const sourceSpec = this.createSourceSpecification(layer)
+      this.mapInstance!.addSource(layer.sourceId, sourceSpec)
+      this.managedSources.add(layer.sourceId)
+    }
+
+    // Create layer specifications based on layer type and geometry
+    const layerSpecs = this.createLayerSpecifications(layer)
+
+    for (const layerSpec of layerSpecs) {
+      if (!this.mapInstance!.getLayer(layerSpec.id)) {
+        this.mapInstance!.addLayer(layerSpec)
+        this.managedLayers.add(layerSpec.id)
+      }
+    }
+
+    // Apply initial styling and properties
+    await this.syncLayerProperties(layer)
   }
 
   /**

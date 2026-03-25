@@ -11,7 +11,7 @@ export const QgisListAlgorithmsParamsSchema = z.object({
     .max(200)
     .optional()
     .describe(
-      'Optional keyword search applied to QGIS algorithm ids, display names, and providers. Use this to narrow discovery to terms like "buffer", "field calculator", "extract", or "order by".'
+      'Optional natural-language task phrase used to rank QGIS algorithms by relevance. Prefer describing the intent, such as "sort line features by length descending", "clip parcels to a boundary", or "join polygons by attribute", instead of sending only a vague keyword.'
     ),
   provider: z
     .string()
@@ -38,6 +38,6 @@ export type QgisListAlgorithmsParams = z.infer<typeof QgisListAlgorithmsParamsSc
 
 export const qgisListAlgorithmsToolDefinition = {
   description:
-    'Lists QGIS Processing algorithms available through the configured local QGIS installation so you can discover an algorithm id to pass into qgis_describe_algorithm or qgis_run_processing. Prefer using `query`, `provider`, and `limit` to narrow the result set instead of requesting the full algorithm catalog.',
+    'Lists QGIS Processing algorithms available through the configured local QGIS installation and ranks them using a cached structured catalog built from QGIS metadata. Use this to discover likely algorithm candidates before qgis_describe_algorithm or qgis_run_processing. Prefer using `query`, `provider`, and `limit` to get a relevant shortlist instead of requesting the full catalog.',
   inputSchema: QgisListAlgorithmsParamsSchema
 }
