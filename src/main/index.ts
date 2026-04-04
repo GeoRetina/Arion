@@ -11,6 +11,7 @@ import { AgentRunnerService } from './services/agent-runner-service'
 import { LlmToolService } from './services/llm-tool-service'
 import { KnowledgeBaseService } from './services/knowledge-base-service'
 import { McpPermissionService } from './services/mcp-permission-service'
+import { SecurityApprovalService } from './services/security-approval-service'
 import { PostgreSQLService } from './services/postgresql-service'
 import { ConnectorHubService } from './services/connector-hub-service'
 import { PromptModuleService } from './services/prompt-module-service'
@@ -44,6 +45,7 @@ import { registerSettingsIpcHandlers } from './ipc/settings-handlers'
 import { registerKnowledgeBaseIpcHandlers } from './ipc/knowledge-base-handlers'
 import { registerShellHandlers } from './ipc/shell-handlers'
 import { registerMcpPermissionHandlers } from './ipc/mcp-permission-handlers'
+import { registerSecurityApprovalHandlers } from './ipc/security-approval-handlers'
 import { registerPostgreSQLIpcHandlers } from './ipc/postgresql-handlers'
 import { registerConnectorIpcHandlers } from './ipc/connector-handlers'
 import {
@@ -63,6 +65,7 @@ let agentRunnerServiceInstance: AgentRunnerService
 let llmToolServiceInstance: LlmToolService
 let knowledgeBaseServiceInstance: KnowledgeBaseService
 let mcpPermissionServiceInstance: McpPermissionService
+let securityApprovalServiceInstance: SecurityApprovalService
 let postgresqlServiceInstance: PostgreSQLService
 let connectorHubServiceInstance: ConnectorHubService
 let promptModuleServiceInstance: PromptModuleService
@@ -182,6 +185,10 @@ function createWindow(): void {
     console.warn('LlmToolService not initialized when creating window')
   }
 
+  if (securityApprovalServiceInstance) {
+    securityApprovalServiceInstance.setMainWindow(mainWindow)
+  }
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     const safeExternalUrl = parseHttpsUrl(details.url)
     if (safeExternalUrl) {
@@ -247,6 +254,7 @@ async function initializeApplication(): Promise<void> {
   mcpClientServiceInstance = new MCPClientService(settingsServiceInstance)
   knowledgeBaseServiceInstance = new KnowledgeBaseService(settingsServiceInstance)
   mcpPermissionServiceInstance = new McpPermissionService()
+  securityApprovalServiceInstance = new SecurityApprovalService()
   postgresqlServiceInstance = new PostgreSQLService()
   connectorHubServiceInstance = new ConnectorHubService(postgresqlServiceInstance)
   const connectorExecutionRuntime = createConnectorExecutionRuntime({
@@ -356,7 +364,8 @@ async function initializeApplication(): Promise<void> {
     mcpClientServiceInstance,
     skillPackServiceInstance,
     pluginLoaderServiceInstance,
-    llmToolServiceInstance
+    llmToolServiceInstance,
+    securityApprovalServiceInstance
   )
   registerExternalRuntimeIpcHandlers(ipcMain, externalRuntimeRegistryInstance)
   registerChatIpcHandlers(
@@ -368,11 +377,13 @@ async function initializeApplication(): Promise<void> {
     externalRuntimeRegistryInstance
   ) // Pass routing service, knowledge base, and layer db manager
   registerDbIpcHandlers(ipcMain, {
-    onDeleteChat: (chatId) => connectorExecutionRuntime.qgisProcessService.clearWorkflowsForChat(chatId)
+    onDeleteChat: (chatId) =>
+      connectorExecutionRuntime.qgisProcessService.clearWorkflowsForChat(chatId)
   })
   registerKnowledgeBaseIpcHandlers(ipcMain, knowledgeBaseServiceInstance)
   registerShellHandlers(ipcMain)
   registerMcpPermissionHandlers(ipcMain, mcpPermissionServiceInstance)
+  registerSecurityApprovalHandlers(ipcMain, securityApprovalServiceInstance)
   registerPostgreSQLIpcHandlers(ipcMain, postgresqlServiceInstance)
   registerConnectorIpcHandlers(
     ipcMain,
@@ -410,6 +421,9 @@ async function initializeApplication(): Promise<void> {
     }
     if (mcpPermissionServiceInstance) {
       mcpPermissionServiceInstance.cleanup()
+    }
+    if (securityApprovalServiceInstance) {
+      securityApprovalServiceInstance.cleanup()
     }
     if (postgresqlServiceInstance) {
       await postgresqlServiceInstance.cleanup()

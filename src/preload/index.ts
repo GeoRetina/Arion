@@ -59,6 +59,8 @@ import {
   type ExposedShellApi,
   type McpPermissionApi,
   type McpPermissionRequest,
+  type SecurityApprovalApi,
+  type SecurityApprovalRequest,
   type PostgreSQLApi,
   type PostgreSQLConfig,
   type PostgreSQLConnectionResult,
@@ -707,6 +709,18 @@ const ctgApi = {
       }
     }
   } as McpPermissionApi,
+  securityApprovals: {
+    respond: (requestId: string, approved: boolean): Promise<void> =>
+      ipcRenderer.invoke(IpcChannels.securityApprovalResponse, requestId, approved),
+    onApprovalRequest: (callback: (payload: SecurityApprovalRequest) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: SecurityApprovalRequest): void =>
+        callback(payload)
+      ipcRenderer.on(IpcChannels.securityApprovalRequestEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.securityApprovalRequestEvent, handler)
+      }
+    }
+  } as SecurityApprovalApi,
   map: {
     onAddFeature: (callback: (payload: AddMapFeaturePayload) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: AddMapFeaturePayload): void =>

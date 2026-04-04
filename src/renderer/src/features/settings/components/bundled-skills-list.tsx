@@ -181,14 +181,6 @@ const BundledCard: React.FC<{
           <p className="text-xs font-mono text-muted-foreground">{`$${bundled.id}`}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {isInstalled && installed && (
-            <Switch
-              checked={!disabled}
-              onCheckedChange={() => onToggleSkillDisabled(installed)}
-              disabled={skillDisableTogglingId === installed.id || actionDisabled}
-              aria-label={disabled ? 'Enable skill' : 'Disable skill'}
-            />
-          )}
           {isInstalled ? (
             <Badge
               variant="outline"
@@ -249,6 +241,16 @@ const BundledCard: React.FC<{
             </>
           )}
         </Button>
+        {isInstalled && installed && (
+          <div className="ml-auto flex items-center">
+            <Switch
+              checked={!disabled}
+              onCheckedChange={() => onToggleSkillDisabled(installed)}
+              disabled={skillDisableTogglingId === installed.id || actionDisabled}
+              aria-label={disabled ? 'Enable skill' : 'Disable skill'}
+            />
+          </div>
+        )}
       </div>
     </Card>
   )
@@ -293,16 +295,7 @@ const InstalledOnlyCard: React.FC<{
           <p className="text-xs font-mono text-muted-foreground">{`$${skill.id}`}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Switch
-            checked={!disabled}
-            onCheckedChange={() => onToggleSkillDisabled(skill)}
-            disabled={skillDisableTogglingId === skill.id || busy}
-            aria-label={disabled ? 'Enable skill' : 'Disable skill'}
-          />
-          <Badge
-            variant="outline"
-            className={`text-xs ${sourceColorMap[skill.source] || ''}`}
-          >
+          <Badge variant="outline" className={`text-xs ${sourceColorMap[skill.source] || ''}`}>
             {skill.source}
           </Badge>
         </div>
@@ -335,6 +328,14 @@ const InstalledOnlyCard: React.FC<{
           <Trash2 className="h-3 w-3" />
           {deleteLabel}
         </Button>
+        <div className="ml-auto flex items-center">
+          <Switch
+            checked={!disabled}
+            onCheckedChange={() => onToggleSkillDisabled(skill)}
+            disabled={skillDisableTogglingId === skill.id || busy}
+            aria-label={disabled ? 'Enable skill' : 'Disable skill'}
+          />
+        </div>
       </div>
     </Card>
   )

@@ -547,6 +547,8 @@ export const IpcChannels = {
   mcpRequestPermission: 'ctg:mcp:requestPermission',
   mcpShowPermissionDialog: 'ctg:mcp:showPermissionDialog',
   mcpPermissionResponse: 'ctg:mcp:permissionResponse',
+  securityApprovalRequestEvent: 'ctg:security:approval-request',
+  securityApprovalResponse: 'ctg:security:approval-response',
 
   // PostgreSQL Integration IPC Channels
   postgresqlTestConnection: 'ctg:postgresql:testConnection',
@@ -640,6 +642,15 @@ export interface McpPermissionRequest {
   toolName: string
   serverId: string
   requestId?: string // Added by main process
+}
+
+export interface SecurityApprovalRequest {
+  requestId: string
+  title: string
+  message: string
+  detail?: string
+  confirmLabel?: string
+  cancelLabel?: string
 }
 
 // Type for the API exposed by preload script
@@ -964,6 +975,11 @@ export interface McpPermissionApi {
   onShowPermissionDialog: (callback: (payload: McpPermissionRequest) => void) => () => void
 }
 
+export interface SecurityApprovalApi {
+  respond: (requestId: string, approved: boolean) => Promise<void>
+  onApprovalRequest: (callback: (payload: SecurityApprovalRequest) => void) => () => void
+}
+
 // This will be used in preload to type contextBridge
 declare global {
   interface Window {
@@ -984,6 +1000,7 @@ declare global {
       knowledgeBase: KnowledgeBaseApi
       shell: ExposedShellApi // Added shell API
       mcp: McpPermissionApi // Added MCP permission API
+      securityApprovals: SecurityApprovalApi
       postgresql: PostgreSQLApi // Added PostgreSQL API
       integrations: IntegrationsApi // Integration Hub API
       externalRuntimes: ExternalRuntimeApi

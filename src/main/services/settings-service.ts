@@ -55,12 +55,25 @@ import {
   type StoredLLMConfig
 } from './settings/settings-service-types'
 import { normalizeReasoningCapabilityOverride } from '../../shared/utils/model-capabilities'
+import {
+  BUNDLED_MCP_SERVER_IDS_KEY,
+  discoverBundledMcpServers,
+  shouldRefreshBundledMcpCommand,
+  shouldRefreshBundledMcpServerName,
+  type BundledMcpServerEnvironment
+} from './settings/bundled-mcp-server-discovery'
+
+interface SettingsServiceEnvironment extends BundledMcpServerEnvironment {
+  getUserDataPath?: () => string
+}
 
 export class SettingsService {
   private db: Database.Database
+  private readonly environment: SettingsServiceEnvironment
 
-  constructor() {
-    const userDataPath = app.getPath('userData')
+  constructor(environment: SettingsServiceEnvironment = {}) {
+    this.environment = environment
+    const userDataPath = this.environment.getUserDataPath?.() ?? app.getPath('userData')
     const dbPath = path.join(userDataPath, DB_FILENAME)
 
     if (!fs.existsSync(userDataPath)) {
@@ -69,10 +82,115 @@ export class SettingsService {
 
     this.db = new Database(dbPath)
     this.initializeDatabase()
+    this.seedBundledMcpServers()
   }
 
   private initializeDatabase(): void {
     initializeSettingsDatabase(this.db)
+  }
+
+  private getBundledMcpEnvironment(): BundledMcpServerEnvironment {
+    return {
+      getAppPath: this.environment.getAppPath ?? (() => app.getAppPath()),
+      getResourcesPath: this.environment.getResourcesPath ?? (() => process.resourcesPath || ''),
+      getCwd: this.environment.getCwd ?? (() => process.cwd()),
+      platform: this.environment.platform,
+      commandExists: this.environment.commandExists,
+      resolvePythonExecutable: this.environment.resolvePythonExecutable
+    }
+  }
+
+  private getSeededBundledMcpServerIds(): Set<string> {
+    const row = this.db
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get(BUNDLED_MCP_SERVER_IDS_KEY) as { value: string } | undefined
+
+    if (!row) {
+      return new Set()
+    }
+
+    try {
+      const parsed = JSON.parse(row.value)
+      if (!Array.isArray(parsed)) {
+        return new Set()
+      }
+
+      return new Set(
+        parsed.filter(
+          (value): value is string => typeof value === 'string' && value.trim().length > 0
+        )
+      )
+    } catch {
+      return new Set()
+    }
+  }
+
+  private persistSeededBundledMcpServerIds(ids: Set<string>): void {
+    const serializedIds = JSON.stringify(
+      Array.from(ids.values()).sort((left, right) => left.localeCompare(right))
+    )
+
+    this.db
+      .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
+      .run(BUNDLED_MCP_SERVER_IDS_KEY, serializedIds)
+  }
+
+  private seedBundledMcpServers(): void {
+    const bundledServers = discoverBundledMcpServers(this.getBundledMcpEnvironment())
+    if (bundledServers.length === 0) {
+      return
+    }
+
+    const seededIds = this.getSeededBundledMcpServerIds()
+    const bundledServerIds = new Set(bundledServers.map((server) => server.id))
+    const selectExistingSeed = this.db.prepare(
+      'SELECT id, name, command FROM mcp_server_configs WHERE id = ?'
+    ) as Database.Statement<[string], { id: string; name: string; command: string | null }>
+    const insertSeed = this.db.prepare(
+      'INSERT OR IGNORE INTO mcp_server_configs (id, name, url, command, args, enabled) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+    const updateSeedName = this.db.prepare('UPDATE mcp_server_configs SET name = ? WHERE id = ?')
+    const updateSeedCommand = this.db.prepare(
+      'UPDATE mcp_server_configs SET command = ? WHERE id = ?'
+    )
+    const deleteSeed = this.db.prepare('DELETE FROM mcp_server_configs WHERE id = ?')
+    const bundledMcpEnvironment = this.getBundledMcpEnvironment()
+
+    const seedTransaction = this.db.transaction((servers: typeof bundledServers) => {
+      for (const seededId of Array.from(seededIds)) {
+        if (!bundledServerIds.has(seededId)) {
+          deleteSeed.run(seededId)
+          seededIds.delete(seededId)
+        }
+      }
+
+      for (const server of servers) {
+        const existingServer = selectExistingSeed.get(server.id)
+
+        if (existingServer) {
+          if (shouldRefreshBundledMcpServerName(existingServer.name, server)) {
+            updateSeedName.run(server.name, server.id)
+          }
+          if (shouldRefreshBundledMcpCommand(existingServer.command, bundledMcpEnvironment)) {
+            updateSeedCommand.run(server.command, server.id)
+          }
+        } else {
+          insertSeed.run(
+            server.id,
+            server.name,
+            null,
+            server.command ?? null,
+            server.args ? JSON.stringify(server.args) : null,
+            server.enabled ? 1 : 0
+          )
+        }
+
+        seededIds.add(server.id)
+      }
+    })
+
+    seedTransaction(bundledServers)
+    this.persistSeededBundledMcpServerIds(seededIds)
   }
 
   // --- Generic Keytar Helper --- (can be moved to a secure key storage utility later)
