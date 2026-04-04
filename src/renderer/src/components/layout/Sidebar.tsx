@@ -121,7 +121,7 @@ export default function Sidebar({ isExpanded, onToggle }: SidebarProps): React.J
         <Button
           variant="ghost"
           className={cn(
-            'w-full flex items-center rounded-lg text-foreground/80 font-medium hover:text-foreground transition-all duration-200',
+            'w-full flex items-center rounded-lg text-foreground/80 font-medium hover:bg-muted hover:text-foreground transition-all duration-200',
             isExpanded ? 'justify-start px-3 py-2.5' : 'justify-center p-2.5'
           )}
           title="New Chat"

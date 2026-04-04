@@ -14,17 +14,19 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { HelpTooltip } from '@/components/ui/help-tooltip'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface McpServerFormProps {
   editingConfig: McpServerConfig | Omit<McpServerConfig, 'id'>
   inputMode: 'form' | 'json'
   connectionType: 'stdio' | 'http'
   jsonString: string
+  layout?: 'inline' | 'dialog'
   isEditingExistingServer: boolean
   isLoading: boolean
   isTesting: boolean
   testResult: McpServerTestResult | null
-  onToggleInputMode: () => void
+  onInputModeChange: (value: 'form' | 'json') => void
   onConnectionTypeChange: (value: 'stdio' | 'http') => void
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
   onJsonInputChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
@@ -39,11 +41,12 @@ export function McpServerForm({
   inputMode,
   connectionType,
   jsonString,
+  layout = 'inline',
   isEditingExistingServer,
   isLoading,
   isTesting,
   testResult,
-  onToggleInputMode,
+  onInputModeChange,
   onConnectionTypeChange,
   onInputChange,
   onJsonInputChange,
@@ -55,13 +58,26 @@ export function McpServerForm({
   const currentArgsString = Array.isArray(editingConfig.args) ? editingConfig.args.join(', ') : ''
 
   return (
-    <div className="p-4 rounded-md mt-4 space-y-4 surface-elevated">
-      <h3 className="text-lg font-semibold">
-        {isEditingExistingServer ? 'Edit' : 'Add New'} MCP Server Configuration
-      </h3>
-      <Button onClick={onToggleInputMode} variant="outline" className="mb-4">
-        Switch to {inputMode === 'form' ? 'JSON' : 'Form'} Input
-      </Button>
+    <div
+      className={
+        layout === 'dialog' ? 'space-y-4' : 'mt-4 space-y-4 rounded-md p-4 surface-elevated'
+      }
+    >
+      {layout === 'inline' && (
+        <h3 className="text-lg font-semibold">
+          {isEditingExistingServer ? 'Edit' : 'Add'} MCP Server Configuration
+        </h3>
+      )}
+      <Tabs
+        value={inputMode}
+        onValueChange={(value) => onInputModeChange(value as 'form' | 'json')}
+        className="gap-4"
+      >
+        <TabsList className="grid w-full grid-cols-2 sm:w-56">
+          <TabsTrigger value="form">Form</TabsTrigger>
+          <TabsTrigger value="json">JSON</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {inputMode === 'form' ? (
         <>

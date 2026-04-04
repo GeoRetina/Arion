@@ -1,4 +1,4 @@
-import { dialog, type IpcMain } from 'electron'
+import { type IpcMain } from 'electron'
 import {
   IpcChannels,
   OpenAIConfig,
@@ -35,6 +35,7 @@ import { type MCPClientService } from '../services/mcp-client-service'
 import { type SkillPackService } from '../services/skill-pack-service'
 import { type PluginLoaderService } from '../services/plugin/plugin-loader-service'
 import { type LlmToolService } from '../services/llm-tool-service'
+import { type SecurityApprovalService } from '../services/security-approval-service'
 import { z } from 'zod'
 import {
   DEFAULT_EMBEDDING_MODEL_BY_PROVIDER,
@@ -333,21 +334,18 @@ const needsMcpExecutionApproval = (
 }
 
 const requestSecurityApproval = async (
+  securityApprovalService: SecurityApprovalService,
   title: string,
   message: string,
   detail: string
 ): Promise<boolean> => {
-  const result = await dialog.showMessageBox({
-    type: 'warning',
-    buttons: ['Allow', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1,
-    noLink: true,
+  return await securityApprovalService.requestApproval({
     title,
     message,
-    detail
+    detail,
+    confirmLabel: 'Allow',
+    cancelLabel: 'Cancel'
   })
-  return result.response === 0
 }
 
 const isPluginPathChange = (
@@ -375,7 +373,8 @@ export function registerSettingsIpcHandlers(
   mcpClientService: MCPClientService,
   skillPackService: SkillPackService,
   pluginLoaderService: PluginLoaderService,
-  llmToolService: LlmToolService
+  llmToolService: LlmToolService,
+  securityApprovalService: SecurityApprovalService
 ): void {
   const genericSettingsService = settingsService as SettingsServiceWithGenericOps
 
@@ -610,6 +609,7 @@ export function registerSettingsIpcHandlers(
         const safeConfig = normalizeMcpConfig(config)
         if (needsMcpExecutionApproval(safeConfig)) {
           const approved = await requestSecurityApproval(
+            securityApprovalService,
             'MCP Command Approval',
             'Allow saving an MCP server that can execute a local command?',
             `Command: ${safeConfig.command}\n\nOnly allow this if you trust the executable and arguments.`
@@ -636,12 +636,38 @@ export function registerSettingsIpcHandlers(
       try {
         const normalizedConfigId = z.string().trim().min(1).parse(configId)
         const safeUpdates = normalizeMcpUpdate(updates)
+        const existingConfig = (await settingsService.getMcpServerConfigurations()).find(
+          (config) => config.id === normalizedConfigId
+        )
+
+        if (!existingConfig) {
+          return null
+        }
+
+        const isEnablingExistingLocalCommand =
+          safeUpdates.enabled === true &&
+          existingConfig.enabled === false &&
+          typeof existingConfig.command === 'string' &&
+          existingConfig.command.trim().length > 0
 
         if (needsMcpExecutionApproval(safeUpdates)) {
           const approved = await requestSecurityApproval(
+            securityApprovalService,
             'MCP Command Approval',
             'Allow updating an MCP server command?',
             `Updated command: ${safeUpdates.command}\n\nOnly allow this change for trusted executables.`
+          )
+          if (!approved) {
+            throw new Error('User denied MCP command approval')
+          }
+        }
+
+        if (isEnablingExistingLocalCommand) {
+          const approved = await requestSecurityApproval(
+            securityApprovalService,
+            'MCP Command Approval',
+            'Allow enabling an MCP server that can execute a local command?',
+            `Command: ${existingConfig.command}\n\nOnly allow this if you trust the executable and arguments.`
           )
           if (!approved) {
             throw new Error('User denied MCP command approval')
@@ -678,6 +704,7 @@ export function registerSettingsIpcHandlers(
         const safeConfig = normalizeMcpConfig(config)
         if (needsMcpExecutionApproval(safeConfig)) {
           const approved = await requestSecurityApproval(
+            securityApprovalService,
             'MCP Test Execution Approval',
             'Allow running a local MCP command for this connection test?',
             `Command: ${safeConfig.command}\n\nTesting will execute this command on your machine.`
@@ -1011,6 +1038,7 @@ export function registerSettingsIpcHandlers(
 
     if (isPluginPathChange(previousConfig, safeConfig)) {
       const approved = await requestSecurityApproval(
+        securityApprovalService,
         'Plugin Path Approval',
         'Allow updating plugin runtime paths?',
         `Workspace root: ${safeConfig.workspaceRoot || '(none)'}\nConfigured plugin paths: ${
@@ -1035,6 +1063,7 @@ export function registerSettingsIpcHandlers(
 
   ipcMain.handle(IpcChannels.reloadPluginRuntime, async (): Promise<PluginDiagnosticsSnapshot> => {
     const approved = await requestSecurityApproval(
+      securityApprovalService,
       'Plugin Runtime Reload',
       'Allow reloading runtime plugins now?',
       'Reloading can execute plugin code from configured directories.'

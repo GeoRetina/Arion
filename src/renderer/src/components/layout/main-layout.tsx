@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import Sidebar from './Sidebar'
+import { SecurityApprovalDialogHost } from '@/components/security-approval-dialog-host'
 import { Toaster } from '@/components/ui/sonner'
 
 interface MainLayoutProps {
@@ -30,6 +31,7 @@ export default function MainLayout({ children }: MainLayoutProps): React.JSX.Ele
 
       {/* Toast notifications */}
       <Toaster richColors position="bottom-right" />
+      <SecurityApprovalDialogHost />
     </div>
   )
 }
