@@ -11,6 +11,7 @@ const POSTGRESQL_CREDENTIAL_SERVICE_NAME = 'ArionPostgreSQLCredentials'
 
 export class PostgreSQLService {
   private pools: Map<string, Pool> = new Map()
+  private restorePromises: Map<string, Promise<PostgreSQLConnectionResult>> = new Map()
   private readonly maxConnections = 10
   private readonly connectionTimeout = 30000
   private readonly idleTimeout = 30000
@@ -20,53 +21,19 @@ export class PostgreSQLService {
   }
 
   async testConnection(config: PostgreSQLConfig): Promise<PostgreSQLConnectionResult> {
-    let client: PoolClient | null = null
+    const tempPool = this.createPool(config, 1)
 
     try {
-      // Create a temporary pool for testing
-      const tempPool = new Pool({
-        host: config.host,
-        port: config.port,
-        database: config.database,
-        user: config.username,
-        password: config.password,
-        ssl: config.ssl ? { rejectUnauthorized: false } : false,
-        max: 1,
-        connectionTimeoutMillis: this.connectionTimeout,
-        idleTimeoutMillis: this.idleTimeout
-      })
-
-      client = await tempPool.connect()
-
-      // Test basic connection
-      const result = await client.query('SELECT version()')
-      const version = result.rows[0]?.version || 'Unknown'
-
-      // Test PostGIS availability
-      let postgisVersion: string | null = null
-      try {
-        const postgisResult = await client.query('SELECT PostGIS_Version()')
-        postgisVersion = postgisResult.rows[0]?.postgis_version || null
-      } catch {
-        void 0
-      }
-
-      client.release()
-      client = null
-
-      await tempPool.end()
-
-      return {
-        success: true,
-        version,
-        postgisVersion,
-        message: 'Connection successful'
-      }
+      return await this.probePool(tempPool, 'Connection successful')
     } catch (error) {
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown connection error'
       }
+    } finally {
+      await tempPool.end().catch(() => {
+        void 0
+      })
     }
   }
 
@@ -74,57 +41,37 @@ export class PostgreSQLService {
     id: string,
     config: PostgreSQLConfig
   ): Promise<PostgreSQLConnectionResult> {
+    let candidatePool: Pool | null = null
+
     try {
-      // Close existing connection if it exists
-      await this.closeConnection(id)
-
-      // Store credentials securely
-      await this.storeCredentials(id, config)
-
-      // Create new connection pool
-      const pool = new Pool({
-        host: config.host,
-        port: config.port,
-        database: config.database,
-        user: config.username,
-        password: config.password,
-        ssl: config.ssl ? { rejectUnauthorized: false } : false,
-        max: this.maxConnections,
-        connectionTimeoutMillis: this.connectionTimeout,
-        idleTimeoutMillis: this.idleTimeout
-      })
-
-      // Test the connection
-      const testResult = await this.testConnection(config)
+      candidatePool = this.createPool(config, this.maxConnections)
+      const testResult = await this.probePool(candidatePool, 'Connection pool created successfully')
       if (!testResult.success) {
-        await pool.end()
         return testResult
       }
 
-      this.pools.set(id, pool)
+      await this.storeCredentials(id, config)
+      await this.closePool(id)
+      this.pools.set(id, candidatePool)
+      candidatePool = null
 
-      return {
-        success: true,
-        version: testResult.version,
-        postgisVersion: testResult.postgisVersion,
-        message: 'Connection pool created successfully'
-      }
+      return testResult
     } catch (error) {
       return {
         success: false,
         message: error instanceof Error ? error.message : 'Unknown error creating connection'
       }
+    } finally {
+      if (candidatePool) {
+        await candidatePool.end().catch(() => {
+          void 0
+        })
+      }
     }
   }
 
   async closeConnection(id: string): Promise<void> {
-    const pool = this.pools.get(id)
-    if (pool) {
-      await pool.end()
-      this.pools.delete(id)
-    }
-
-    // Remove stored credentials
+    await this.closePool(id)
     await this.removeCredentials(id)
   }
 
@@ -133,7 +80,7 @@ export class PostgreSQLService {
     query: string,
     params?: unknown[]
   ): Promise<PostgreSQLQueryResult> {
-    const pool = this.pools.get(id)
+    const pool = await this.ensureConnection(id)
     if (!pool) {
       return {
         success: false,
@@ -178,7 +125,7 @@ export class PostgreSQLService {
   }
 
   async executeTransaction(id: string, queries: string[]): Promise<PostgreSQLQueryResult> {
-    const pool = this.pools.get(id)
+    const pool = await this.ensureConnection(id)
     if (!pool) {
       return {
         success: false,
@@ -236,7 +183,7 @@ export class PostgreSQLService {
   }
 
   async getConnectionInfo(id: string): Promise<{ connected: boolean; config?: PostgreSQLConfig }> {
-    const pool = this.pools.get(id)
+    const pool = await this.ensureConnection(id)
     if (!pool) {
       return { connected: false }
     }
@@ -279,6 +226,28 @@ export class PostgreSQLService {
     return this.readStoredCredentials(id)
   }
 
+  async restoreConnection(id: string): Promise<PostgreSQLConnectionResult> {
+    const activePool = this.pools.get(id)
+    if (activePool) {
+      return {
+        success: true,
+        message: `Connection for ${id} is already active`
+      }
+    }
+
+    const pendingRestore = this.restorePromises.get(id)
+    if (pendingRestore) {
+      return pendingRestore
+    }
+
+    const restorePromise = this.restoreConnectionInternal(id).finally(() => {
+      this.restorePromises.delete(id)
+    })
+
+    this.restorePromises.set(id, restorePromise)
+    return restorePromise
+  }
+
   private async storeCredentials(id: string, config: PostgreSQLConfig): Promise<void> {
     {
       const credentialsKey = `${POSTGRESQL_CREDENTIAL_SERVICE_NAME}_${id}`
@@ -317,6 +286,120 @@ export class PostgreSQLService {
     try {
       const credentialsKey = `${POSTGRESQL_CREDENTIAL_SERVICE_NAME}_${id}`
       await keytar.deletePassword(POSTGRESQL_CREDENTIAL_SERVICE_NAME, credentialsKey)
+    } catch {
+      void 0
+    }
+  }
+
+  private createPool(config: PostgreSQLConfig, max: number): Pool {
+    return new Pool({
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.username,
+      password: config.password,
+      ssl: config.ssl ? { rejectUnauthorized: false } : false,
+      max,
+      connectionTimeoutMillis: this.connectionTimeout,
+      idleTimeoutMillis: this.idleTimeout
+    })
+  }
+
+  private async probePool(pool: Pool, successMessage: string): Promise<PostgreSQLConnectionResult> {
+    let client: PoolClient | null = null
+
+    try {
+      client = await pool.connect()
+
+      const result = await client.query('SELECT version()')
+      const version = result.rows[0]?.version || 'Unknown'
+
+      let postgisVersion: string | null = null
+      try {
+        const postgisResult = await client.query('SELECT PostGIS_Version()')
+        postgisVersion = postgisResult.rows[0]?.postgis_version || null
+      } catch {
+        void 0
+      }
+
+      return {
+        success: true,
+        version,
+        postgisVersion,
+        message: successMessage
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown connection error'
+      }
+    } finally {
+      if (client) {
+        client.release()
+      }
+    }
+  }
+
+  private async restoreConnectionInternal(id: string): Promise<PostgreSQLConnectionResult> {
+    const config = await this.readStoredCredentials(id)
+    if (!config) {
+      return {
+        success: false,
+        message: `No saved credentials found for ${id}`
+      }
+    }
+
+    let candidatePool: Pool | null = null
+
+    try {
+      candidatePool = this.createPool(config, this.maxConnections)
+      const restoreResult = await this.probePool(candidatePool, 'Connection restored successfully')
+      if (!restoreResult.success) {
+        return restoreResult
+      }
+
+      await this.closePool(id)
+      this.pools.set(id, candidatePool)
+      candidatePool = null
+      return restoreResult
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Unknown error restoring connection'
+      }
+    } finally {
+      if (candidatePool) {
+        await candidatePool.end().catch(() => {
+          void 0
+        })
+      }
+    }
+  }
+
+  private async ensureConnection(id: string): Promise<Pool | null> {
+    const activePool = this.pools.get(id)
+    if (activePool) {
+      return activePool
+    }
+
+    const restoreResult = await this.restoreConnection(id)
+    if (!restoreResult.success) {
+      return null
+    }
+
+    return this.pools.get(id) || null
+  }
+
+  private async closePool(id: string): Promise<void> {
+    const pool = this.pools.get(id)
+    if (!pool) {
+      return
+    }
+
+    this.pools.delete(id)
+
+    try {
+      await pool.end()
     } catch {
       void 0
     }

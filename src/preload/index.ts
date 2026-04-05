@@ -17,6 +17,7 @@ import {
   type LLMProviderType,
   type AllLLMConfigurationsForRenderer,
   type McpServerConfig,
+  type McpServerRuntimeStatus,
   type McpServerTestResult,
   type SettingsApi,
   type ChatApi,
@@ -300,6 +301,8 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.getAllLLMConfigs),
     getMcpServerConfigs: (): Promise<McpServerConfig[]> =>
       ipcRenderer.invoke(IpcChannels.getMcpServerConfigs),
+    getMcpServerRuntimeStatuses: (): Promise<McpServerRuntimeStatus[]> =>
+      ipcRenderer.invoke(IpcChannels.getMcpServerRuntimeStatuses),
     addMcpServerConfig: (config: Omit<McpServerConfig, 'id'>): Promise<McpServerConfig | null> =>
       ipcRenderer.invoke(IpcChannels.addMcpServerConfig, config),
     updateMcpServerConfig: (
@@ -311,6 +314,14 @@ const ctgApi = {
       ipcRenderer.invoke(IpcChannels.deleteMcpServerConfig, configId),
     testMcpServerConfig: (config: Omit<McpServerConfig, 'id'>): Promise<McpServerTestResult> =>
       ipcRenderer.invoke(IpcChannels.testMcpServerConfig, config),
+    onMcpServerRuntimeStatusUpdated: (callback: (status: McpServerRuntimeStatus) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: McpServerRuntimeStatus): void =>
+        callback(payload)
+      ipcRenderer.on(IpcChannels.mcpServerRuntimeStatusUpdatedEvent, handler)
+      return () => {
+        ipcRenderer.removeListener(IpcChannels.mcpServerRuntimeStatusUpdatedEvent, handler)
+      }
+    },
     getSystemPromptConfig: (): Promise<SystemPromptConfig> =>
       ipcRenderer.invoke(IpcChannels.getSystemPromptConfig),
     setSystemPromptConfig: (config: SystemPromptConfig): Promise<void> =>
