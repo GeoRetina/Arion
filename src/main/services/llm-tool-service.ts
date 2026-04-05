@@ -70,6 +70,12 @@ export class LlmToolService {
     this.externalRuntimeRegistry = externalRuntimeRegistry || null
     this.credentialInjector.setPostgresqlService(this.postgresqlService)
 
+    if (this.mcpClientService) {
+      this.mcpClientService.on('tools-updated', () => {
+        void this.refreshMcpToolsFromService()
+      })
+    }
+
     registerBuiltInTools({
       registry: this.toolRegistry,
       mapLayerTracker: this.mapLayerTracker,
@@ -148,6 +154,18 @@ export class LlmToolService {
     }
     await this.mcpClientService.ensureInitialized()
     await this.assimilateAndRegisterMcpTools()
+  }
+
+  private async refreshMcpToolsFromService(): Promise<void> {
+    if (!this.mcpClientService) {
+      return
+    }
+
+    try {
+      await this.assimilateAndRegisterMcpTools()
+    } catch {
+      void 0
+    }
   }
 
   private async getBlockedMcpToolNameSet(): Promise<Set<string>> {

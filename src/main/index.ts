@@ -257,6 +257,7 @@ async function initializeApplication(): Promise<void> {
   securityApprovalServiceInstance = new SecurityApprovalService()
   postgresqlServiceInstance = new PostgreSQLService()
   connectorHubServiceInstance = new ConnectorHubService(postgresqlServiceInstance)
+  void connectorHubServiceInstance.restoreRuntimeConnections()
   const connectorExecutionRuntime = createConnectorExecutionRuntime({
     settingsService: settingsServiceInstance,
     connectorHubService: connectorHubServiceInstance,

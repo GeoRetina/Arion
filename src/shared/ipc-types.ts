@@ -210,9 +210,25 @@ export interface McpToolPreview {
   description?: string
 }
 
+export type McpServerRuntimeState = 'disabled' | 'connecting' | 'connected' | 'error'
+export type McpServerTransportKind = 'stdio' | 'http'
+
+export interface McpServerRuntimeStatus {
+  serverId: string
+  transport: McpServerTransportKind
+  state: McpServerRuntimeState
+  updatedAt: string
+  serverName?: string
+  serverVersion?: string
+  toolCount?: number
+  error?: string
+  detail?: string
+}
+
 export interface McpServerTestResult {
   success: boolean
   error?: string
+  details?: string
   serverName?: string
   serverVersion?: string
   tools?: McpToolPreview[]
@@ -519,10 +535,12 @@ export const IpcChannels = {
 
   // MCP Server Configuration IPC Channels
   getMcpServerConfigs: 'settings:get-mcp-server-configs',
+  getMcpServerRuntimeStatuses: 'settings:get-mcp-server-runtime-statuses',
   addMcpServerConfig: 'settings:add-mcp-server-config',
   updateMcpServerConfig: 'settings:update-mcp-server-config',
   deleteMcpServerConfig: 'settings:delete-mcp-server-config',
   testMcpServerConfig: 'settings:test-mcp-server-config',
+  mcpServerRuntimeStatusUpdatedEvent: 'ctg:mcp:runtime-status-updated',
 
   // Knowledge Base IPC Channels
   kbAddDocument: 'ctg:kb:addDocument',
@@ -677,6 +695,7 @@ export interface SettingsApi {
 
   // MCP Server Config methods
   getMcpServerConfigs: () => Promise<McpServerConfig[]>
+  getMcpServerRuntimeStatuses: () => Promise<McpServerRuntimeStatus[]>
   addMcpServerConfig: (config: Omit<McpServerConfig, 'id'>) => Promise<McpServerConfig | null>
   updateMcpServerConfig: (
     configId: string,
@@ -684,6 +703,9 @@ export interface SettingsApi {
   ) => Promise<McpServerConfig | null>
   deleteMcpServerConfig: (configId: string) => Promise<boolean>
   testMcpServerConfig: (config: Omit<McpServerConfig, 'id'>) => Promise<McpServerTestResult>
+  onMcpServerRuntimeStatusUpdated: (
+    callback: (status: McpServerRuntimeStatus) => void
+  ) => () => void
 
   // System Prompt methods
   getSystemPromptConfig: () => Promise<SystemPromptConfig>

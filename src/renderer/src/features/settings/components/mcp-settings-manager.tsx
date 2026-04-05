@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { McpServerConfig, McpServerTestResult } from '../../../../../shared/ipc-types'
+import {
+  McpServerConfig,
+  McpServerRuntimeStatus,
+  McpServerTestResult
+} from '../../../../../shared/ipc-types'
 import { Button } from '@/components/ui/button'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +18,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { McpServerForm } from './mcp-server-form'
 import { buildNormalizedConfig } from './mcp-config-utils'
-import { Boxes, Edit, Loader2, Trash2 } from 'lucide-react'
+import { AlertCircle, Boxes, CheckCircle2, ChevronDown, Edit, Loader2, PlugZap, Trash2 } from 'lucide-react'
 
 // Default empty state for a new/editing config
 const initialFormState: Omit<McpServerConfig, 'id'> = {
@@ -36,10 +40,20 @@ interface McpSettingsManagerProps {
   onControlsChange?: (controls: McpSettingsManagerControls) => void
 }
 
+function indexRuntimeStatuses(
+  statuses: McpServerRuntimeStatus[]
+): Record<string, McpServerRuntimeStatus> {
+  return statuses.reduce<Record<string, McpServerRuntimeStatus>>((result, status) => {
+    result[status.serverId] = status
+    return result
+  }, {})
+}
+
 export function McpSettingsManager({
   onControlsChange
 }: McpSettingsManagerProps = {}): React.JSX.Element {
   const [configs, setConfigs] = useState<McpServerConfig[]>([])
+  const [runtimeStatuses, setRuntimeStatuses] = useState<Record<string, McpServerRuntimeStatus>>({})
   const [editingConfig, setEditingConfig] = useState<
     McpServerConfig | Omit<McpServerConfig, 'id'> | null
   >(null)
@@ -60,17 +74,31 @@ export function McpSettingsManager({
     setIsLoading(true)
     setError(null)
     try {
-      const fetchedConfigs = await window.ctg.settings.getMcpServerConfigs()
+      const [fetchedConfigs, fetchedStatuses] = await Promise.all([
+        window.ctg.settings.getMcpServerConfigs(),
+        window.ctg.settings.getMcpServerRuntimeStatuses()
+      ])
       setConfigs(fetchedConfigs || [])
+      setRuntimeStatuses(indexRuntimeStatuses(fetchedStatuses || []))
     } catch {
       setError('Failed to load configurations.')
-      setConfigs([]) // Ensure configs is an array on error
+      setConfigs([])
+      setRuntimeStatuses({})
     }
     setIsLoading(false)
   }
 
   useEffect(() => {
     loadConfigs()
+  }, [])
+
+  useEffect(() => {
+    return window.ctg.settings.onMcpServerRuntimeStatusUpdated((status) => {
+      setRuntimeStatuses((previousStatuses) => ({
+        ...previousStatuses,
+        [status.serverId]: status
+      }))
+    })
   }, [])
 
   const handleInputChange = (
@@ -401,6 +429,10 @@ export function McpSettingsManager({
   const editorDescription = isEditingExistingServer
     ? 'Update this MCP server configuration and save your changes.'
     : 'Create a new MCP server configuration for your agents.'
+  const editingRuntimeStatus =
+    isEditingExistingServer && editingConfig && 'id' in editingConfig
+      ? runtimeStatuses[editingConfig.id] || null
+      : null
 
   const handleEditorOpenChange = useCallback(
     (open: boolean): void => {
@@ -446,6 +478,7 @@ export function McpSettingsManager({
             <McpServerCard
               key={config.id}
               config={config}
+              runtimeStatus={runtimeStatuses[config.id]}
               isBusy={togglingServerId === config.id}
               disableActions={isLoading || hasPendingNewServer}
               onEdit={() => handleEdit(config)}
@@ -472,6 +505,7 @@ export function McpSettingsManager({
               isEditingExistingServer={isEditingExistingServer}
               isLoading={isLoading}
               isTesting={isTesting}
+              runtimeStatus={editingRuntimeStatus}
               testResult={testResult}
               onInputModeChange={handleInputModeChange}
               onConnectionTypeChange={handleConnectionTypeChange}
@@ -503,6 +537,7 @@ export function McpSettingsManager({
 
 interface McpServerCardProps {
   config: McpServerConfig
+  runtimeStatus?: McpServerRuntimeStatus
   isBusy: boolean
   disableActions: boolean
   onEdit: () => void
@@ -512,12 +547,14 @@ interface McpServerCardProps {
 
 function McpServerCard({
   config,
+  runtimeStatus,
   isBusy,
   disableActions,
   onEdit,
   onDelete,
   onToggleEnabled
 }: McpServerCardProps): React.JSX.Element {
+  const [errorDetailsOpen, setErrorDetailsOpen] = useState(false)
   const isRemote = Boolean(config.url)
   const connectionLabel = isRemote ? 'HTTP' : 'STDIO'
   const connectionDescription = isRemote ? 'Remote MCP server' : 'Local MCP process'
@@ -527,10 +564,44 @@ function McpServerCard({
     !isRemote && Array.isArray(config.args) && config.args.length > 1
       ? config.args.slice(1).join(' ')
       : null
+  const runtimeStatusLabel = runtimeStatus
+    ? {
+        connected: 'Connected',
+        connecting: 'Connecting',
+        disabled: 'Disabled',
+        error: 'Error'
+      }[runtimeStatus.state]
+    : null
+  const runtimeStatusClasses = runtimeStatus
+    ? {
+        connected: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+        connecting: 'border-sky-500/20 bg-sky-500/10 text-sky-400',
+        disabled: 'border-border/60 bg-muted/40 text-muted-foreground',
+        error: 'border-destructive/20 bg-destructive/10 text-destructive'
+      }[runtimeStatus.state]
+    : null
+  const runtimeStatusIcon = runtimeStatus
+    ? {
+        connected: <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />,
+        connecting: <Loader2 className="h-3.5 w-3.5 shrink-0 text-sky-400 animate-spin" />,
+        disabled: <PlugZap className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />,
+        error: <AlertCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />
+      }[runtimeStatus.state]
+    : null
+  const runtimeStatusSummary =
+    runtimeStatus?.state === 'connected'
+      ? runtimeStatus.toolCount === 1
+        ? '1 tool discovered.'
+        : `${runtimeStatus.toolCount ?? 0} tools discovered.`
+      : runtimeStatus?.state === 'connecting'
+        ? 'Starting the server and discovering tools.'
+        : runtimeStatus?.state === 'disabled'
+          ? 'This server is saved but currently disabled.'
+          : null
 
   return (
     <Card
-      className={`overflow-hidden transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
+      className={`overflow-visible transition-all surface-elevated gap-0 py-0 border-border/60 hover:border-border ${
         !config.enabled ? 'opacity-60' : ''
       }`}
     >
@@ -594,6 +665,50 @@ function McpServerCard({
             {config.url}
           </p>
         )}
+
+        {runtimeStatus && runtimeStatus.state !== 'disabled' && (
+          <div className="relative mt-3">
+            <div className={`rounded-md border text-xs ${runtimeStatusClasses}`}>
+              {runtimeStatus.state === 'error' && (runtimeStatus.error || runtimeStatus.detail) ? (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer select-none"
+                  onClick={() => setErrorDetailsOpen((v) => !v)}
+                >
+                  {runtimeStatusIcon}
+                  <span className="font-medium shrink-0">{runtimeStatusLabel}</span>
+                  <span className="truncate opacity-90">{runtimeStatus.error}</span>
+                  <ChevronDown className={`ml-auto h-3 w-3 shrink-0 transition-transform ${errorDetailsOpen ? 'rotate-180' : ''}`} />
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 px-3 py-1.5">
+                  {runtimeStatusIcon}
+                  <span className="font-medium">{runtimeStatusLabel}</span>
+                  {runtimeStatus.serverName && (
+                    <span className="text-muted-foreground truncate">
+                      &middot; {runtimeStatus.serverName}
+                      {runtimeStatus.serverVersion ? ` v${runtimeStatus.serverVersion}` : ''}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {errorDetailsOpen && runtimeStatus.state === 'error' && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-md border border-border/60 bg-card p-3 shadow-lg text-xs space-y-2">
+                {runtimeStatus.error && (
+                  <p className="text-destructive wrap-break-word text-[11px] leading-relaxed">
+                    {runtimeStatus.error}
+                  </p>
+                )}
+                {runtimeStatus.detail && (
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded bg-muted/50 p-2 font-mono text-[11px] leading-4 text-foreground/70 border border-border/40">
+                    {runtimeStatus.detail}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="border-t border-border/40 px-4 py-2 flex items-center gap-1">
@@ -626,6 +741,7 @@ function McpServerCard({
           />
         </div>
       </div>
+
     </Card>
   )
 }

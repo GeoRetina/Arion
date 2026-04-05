@@ -1,4 +1,4 @@
-import { type IpcMain } from 'electron'
+import { BrowserWindow, type IpcMain } from 'electron'
 import {
   IpcChannels,
   OpenAIConfig,
@@ -28,7 +28,8 @@ import {
   SkillPackUploadResult,
   PluginPlatformConfig,
   PluginDiagnosticsSnapshot,
-  ConnectorPolicyConfig
+  ConnectorPolicyConfig,
+  McpServerRuntimeStatus
 } from '../../shared/ipc-types' // Adjusted path
 import { type SettingsService } from '../services/settings-service'
 import { type MCPClientService } from '../services/mcp-client-service'
@@ -377,6 +378,13 @@ export function registerSettingsIpcHandlers(
   securityApprovalService: SecurityApprovalService
 ): void {
   const genericSettingsService = settingsService as SettingsServiceWithGenericOps
+  const broadcastMcpRuntimeStatus = (status: McpServerRuntimeStatus): void => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(IpcChannels.mcpServerRuntimeStatusUpdatedEvent, status)
+    }
+  }
+
+  mcpClientService.on('runtime-status', broadcastMcpRuntimeStatus)
 
   // --- Generic SettingsService IPC Handlers (if still needed) ---
   ipcMain.handle('ctg:settings:get', async (_event, key: string) => {
@@ -602,6 +610,10 @@ export function registerSettingsIpcHandlers(
     }
   })
 
+  ipcMain.handle(IpcChannels.getMcpServerRuntimeStatuses, async () => {
+    return mcpClientService.getRuntimeStatuses()
+  })
+
   ipcMain.handle(
     IpcChannels.addMcpServerConfig,
     async (_event, config: Omit<McpServerConfig, 'id'>) => {
@@ -620,6 +632,7 @@ export function registerSettingsIpcHandlers(
         }
 
         const newConfig = await settingsService.addMcpServerConfiguration(safeConfig)
+        await mcpClientService.upsertServerConfiguration(newConfig)
         return newConfig
       } catch (error) {
         if (error instanceof Error && error.message === 'User denied MCP command approval') {
@@ -678,6 +691,9 @@ export function registerSettingsIpcHandlers(
           normalizedConfigId,
           safeUpdates
         )
+        if (updatedConfig) {
+          await mcpClientService.upsertServerConfiguration(updatedConfig)
+        }
         return updatedConfig
       } catch (error) {
         if (error instanceof Error && error.message === 'User denied MCP command approval') {
@@ -691,6 +707,9 @@ export function registerSettingsIpcHandlers(
   ipcMain.handle(IpcChannels.deleteMcpServerConfig, async (_event, configId: string) => {
     try {
       const success = await settingsService.deleteMcpServerConfiguration(configId)
+      if (success) {
+        await mcpClientService.removeServerConfiguration(configId)
+      }
       return success
     } catch {
       return false

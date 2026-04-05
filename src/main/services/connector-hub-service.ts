@@ -35,6 +35,8 @@ export class ConnectorHubService {
   private readonly secretStore: IntegrationSecretStore
   private readonly postgresqlService: PostgreSQLService
   private readonly qgisAlgorithmCatalogService: Pick<QgisAlgorithmCatalogService, 'warmCatalog'>
+  private runtimeConnectionRestorePromise: Promise<void> | null = null
+  private runtimeConnectionRestoreAttempted = false
 
   constructor(
     postgresqlService: PostgreSQLService,
@@ -58,6 +60,8 @@ export class ConnectorHubService {
   }
 
   public async getStates(): Promise<IntegrationStateRecord[]> {
+    await this.restoreRuntimeConnections()
+
     const rows = this.stateStore.getAllRows()
     const rowById = new Map(rows.map((row) => [row.id, row]))
 
@@ -220,6 +224,23 @@ export class ConnectorHubService {
     this.stateStore.close()
   }
 
+  public async restoreRuntimeConnections(): Promise<void> {
+    if (this.runtimeConnectionRestoreAttempted) {
+      return
+    }
+
+    if (this.runtimeConnectionRestorePromise) {
+      return this.runtimeConnectionRestorePromise
+    }
+
+    this.runtimeConnectionRestorePromise = this.restoreRuntimeConnectionsInternal().finally(() => {
+      this.runtimeConnectionRestoreAttempted = true
+      this.runtimeConnectionRestorePromise = null
+    })
+
+    return this.runtimeConnectionRestorePromise
+  }
+
   private persistConnectionState(
     id: IntegrationId,
     status: IntegrationStatus,
@@ -236,6 +257,21 @@ export class ConnectorHubService {
       hasConfig: existing?.has_config === 1,
       publicConfig: existing ? parseJsonRecord(existing.public_config) : {}
     })
+  }
+
+  private async restoreRuntimeConnectionsInternal(): Promise<void> {
+    const postgresRow = this.stateStore.getRowById('postgresql-postgis')
+    if (!postgresRow || postgresRow.has_config !== 1 || postgresRow.status !== 'connected') {
+      return
+    }
+
+    const restoreResult = await this.postgresqlService.restoreConnection('postgresql-postgis')
+    this.persistConnectionState(
+      'postgresql-postgis',
+      restoreResult.success ? 'connected' : 'error',
+      restoreResult.message,
+      postgresRow.last_used
+    )
   }
 
   private warmQgisCatalog(id: IntegrationId, config: unknown): void {
